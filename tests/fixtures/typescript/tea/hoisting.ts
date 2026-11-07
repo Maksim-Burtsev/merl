@@ -123,3 +123,47 @@ export function innerDestructureHidesTheOuterVar() {
   var u = new Flask();
   return inner;
 }
+
+export function varOfAOneLineMethod() {
+  const o = { m() { var u = new Flask(); return u; } };
+  function inner() {
+    return u.siphon();
+    //       ^ d: tea/urn.ts:2
+  }
+  return [o, inner];
+}
+
+export function varOfAOneLineClass() {
+  class K { m() { var u = new Flask(); return u; } }
+  function inner() {
+    return u.siphon();
+    //       ^ d: tea/urn.ts:2
+  }
+  return [K, inner];
+}
+
+export function varOfAnAllmanSibling() {
+  function sib()
+  {
+    var u = new Flask();
+    return u;
+  }
+  function inner() {
+    return u.siphon();
+    //       ^ d: tea/urn.ts:2
+  }
+  return [sib, inner];
+}
+
+export function blockConstBetweenTheVarAndAnArrow(on: boolean) {
+  var u = new Flask();
+  if (on) {
+    const u = new Urn();
+    const f = () => {
+      return u.siphon();
+      //       ^ d: tea/urn.ts:2
+    };
+    return f;
+  }
+  return u;
+}

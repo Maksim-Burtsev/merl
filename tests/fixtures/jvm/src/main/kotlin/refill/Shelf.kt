@@ -15,4 +15,10 @@ class Shelf {
         run { val z = Phial() }; z.tipple()
         //                         ^ d: src/main/kotlin/refill/Cruet.kt:4
     }
+
+    fun quotedHeader() {
+        val z = Cruet()
+        println("for (z in all)"); z.tipple()
+        //                           ^ d: src/main/kotlin/refill/Cruet.kt:4
+    }
 }

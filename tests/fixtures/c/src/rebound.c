@@ -39,3 +39,13 @@ void ladle_late(void) { Ladle *g = 0; typedef struct terrine Ladle; g->slosh = 1
 //                                                                     ^ d: src/rebound.c:1
 void ladle_ptr(void) { typedef struct terrine *Scoop; Scoop g = 0; g->slosh = 1; }
 //                                                                    ^ d: src/rebound.c:2
+#define CLOCK(m) lock(&m)
+#define CCLEAR(x) memset(&x, 0, sizeof x)
+#define CPEEK(p) peek(*p)
+#define CMAX(a, b) if (b > a) a = b
+void cread(struct gourd *g, struct gourd *h) { { CLOCK(g); g->slosh = 1; CCLEAR(g); g->slosh = 1; } }
+//                                                            ^ d: src/rebound.c:1
+//                                                                                     ^ d: src/rebound.c:1
+void cpeek(struct gourd *g, struct gourd *h) { { CPEEK(g); g->slosh = 1; CMAX(g, h); g->slosh = 1; } }
+//                                                            ^ d: src/rebound.c:1
+//                                                                                      ^ d: src/rebound.c:1
