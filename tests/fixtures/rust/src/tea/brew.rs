@@ -134,6 +134,82 @@ impl Infuser {
     }
 }
 
+pub fn shadowed_by_later_item() -> u32 {
+    let n = steep(2);
+//          ^ d: picker src/tea/brew.rs:144, …
+    if n > 1 {
+        return steep(n);
+//             ^ d: picker src/tea/brew.rs:144, …
+    }
+    fn steep(m: u32) -> u32 {
+        m * 4
+    }
+    n
+}
+
+pub fn later_item_in_inner_block() -> u32 {
+    let n = steep(2);
+//          ^ d: src/tea/kettle.rs:50
+    {
+        fn steep(m: u32) -> u32 {
+            m * 5
+        }
+        steep(n)
+    }
+}
+
+pub struct Ewer;
+
+impl Ewer {
+    pub fn drip(&self) -> u32 {
+        steep(3)
+//      ^ d: src/tea/kettle.rs:50
+    }
+
+    pub const fn steep() -> u32 {
+        0
+    }
+}
+
+pub fn body_item_not_in_signature(
+    s: Strainer,
+//     ^ d: src/tea/cups.rs:16
+) -> u32 {
+    struct Strainer;
+    let _ = s;
+    0
+}
+
+pub fn later_let() -> u32 {
+    let n = decant();
+//          ^ d: src/tea/cups.rs:18
+    let decant = 4;
+    n + decant
+}
+
+pub fn later_sibling_item() -> u32 {
+    fn inner() -> u32 {
+        decant()
+//      ^ d: picker src/tea/brew.rs:195, …
+    }
+    fn decant() -> u32 {
+        7
+    }
+    inner()
+}
+
+pub fn later_item_in_closure() -> u32 {
+    let n = decant();
+//          ^ d: src/tea/cups.rs:18
+    let f = || {
+        fn decant() -> u32 {
+            8
+        }
+        decant()
+    };
+    n + f()
+}
+
 pub struct Steeper;
 
 impl Steeper {

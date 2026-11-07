@@ -61,17 +61,28 @@ impl App {
                 })
                 .is_some_and(|j| !OPENS_ITEMS.is_match(lines[j].trim_start()))
         };
+        let encloses_cursor = |k: usize| {
+            if k < self.line {
+                return reaches(k, true);
+            }
+            (self.line..k).all(|j| {
+                lines[j].trim().is_empty()
+                    || indent(lines[j]) >= indent(lines[k])
+                    || literal.get(j) == Some(&true)
+                    || comment(j)
+            })
+        };
         if let [(_, depth)] = bound.as_slice()
             && chain.is_empty()
             && (glob.find_iter(text).any(|m| {
                 reaches(line_of(m.start()), false) && indent(lines[line_of(m.start())]) > *depth
-            }) || lines.iter().enumerate().take(self.line + 1).any(|(k, l)| {
+            }) || lines.iter().enumerate().any(|(k, l)| {
                 literal.get(k) != Some(&true)
                     && item.find(l).is_some_and(|m| {
                         if k == self.line {
                             m.range().contains(&self.col)
                         } else {
-                            indent(l) > *depth && reaches(k, true) && in_body(k)
+                            indent(l) > *depth && encloses_cursor(k) && in_body(k)
                         }
                     })
             }))

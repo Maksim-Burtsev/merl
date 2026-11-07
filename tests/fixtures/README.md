@@ -222,7 +222,9 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+declaring what the corner declares. `php/src/Tea/Grouped.php` holds grouped `use
+Shop\Tea\Stale\{Kettle}` and `use function` lines inside a block comment, which import nothing.
+`php/src/Tea/Rebound.php` binds a `Kettle $pot` again
 before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
 `??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
 `use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
@@ -445,6 +447,9 @@ master's picker.
 switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
 whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
 `Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
+`csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
+`Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
+there, so `Ignite()` lands on the `Burners` the live `using static` opens.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -763,7 +768,13 @@ nested in `create` keep their answer of today in `rules/loud.js`.
 `typescript/winnow/` is a name the file imports hidden by a local one (#1406): `hidden.ts` imports
 the `Winnow` of `barn.ts` (`mill.ts` declares its namesake), and a method through `new Winnow()`
 lands on a `class Winnow` declared in the function, and offers a picker under a `const Winnow =
-class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing.
+class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing. A local
+`function Winnow` hides it too, for `new Winnow()`: its `this.sieveChaff =` (`hidden.ts`,
+`threshed.js`) or `Winnow.prototype.sieveChaff =` (`sifted.js`) is the method, while `r: Winnow`
+still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` to the local
+`Winnow` of another function, so the one without a method offers a picker. `patched.js` and
+`repatched.js` patch the imported `Winnow.prototype` at the top level: that keeps the local
+function's `this.sieveChaff`, and is no method of a local `function Winnow` that has none.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -878,7 +889,11 @@ named like a field; an inherent `impl` in another module; and a doc comment and 
 declaring what `cups.rs` declares.
 `shadowed_by_item` declares a `fn steep` inside its body, hiding the imported `steep`, so the call
 keeps the picker with the local one, and `Infuser::steep` is a method named like it, whose own
-body's `steep(1)` still jumps to the import (#1410).
+body's `steep(1)` still jumps to the import (#1410). `shadowed_by_later_item` and
+`later_sibling_item` declare the item below its use, which Rust's whole-block scope still hides
+the import from; `later_item_in_inner_block` and `later_item_in_closure` declare it in a block the
+use is not in, `later_let` binds a `let` below, `body_item_not_in_signature` declares a type the
+signature does not see, and `Ewer::steep` is a later method: those keep the import.
 `rust/src/infusion.rs` (+ `infusion/leaves.rs`, `infusion/pantry.rs`) is the third corner (#1126),
 its answers rust-analyzer's: std methods (`len`, `push`, `trim`) on `String`, `Vec` and `str`
 values beside a project `Leaf` that declares them, a builder chain over lines, calls on a call's
@@ -1107,6 +1122,15 @@ generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` 
 the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
 ends it and `x` is the field again (#1398).
 
+`jvm/src/main/scala/tureens/` (#1415) declares a `Tureen` with a `ladle` in two packages, `north`
+and `south`, and imports one of them inside a block or an object body: `d` follows the import of
+the cursor's own block, not the file's first, and after a block's `import tureens.north._`,
+which it does not read as a wildcard, it does not jump. In `Quoted` an `import` line inside a
+multi-line string binds nothing.
+`Outside.scala` types a field, a parameter and a base class under the file's `import
+tureens.south.Tureen` and calls `ladle` on them inside a block that imports the `north` one: the
+type keeps the import of the line it is written on.
+
 `Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
 `object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
@@ -1143,6 +1167,12 @@ unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` 
 (#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
 module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
 `def self.new`) and `Jug` (a base outside the project) answer nothing.
+
+`ruby/app/percolator_uses.rb` follows Ruby's constant lookup over three `Percolator`s (#1414),
+and a class opened earlier on the cursor's line and still open there gives the picker.
+`grinder_uses.rb` holds what that must not reach: an opener closed again before the cursor, and
+a class the project declares once (`Grinder`, `Moka::Mill`). Inside `class Moka::Hopper` Ruby
+does not see `Moka::Mill`; `d` keeps master's jump there, the owner's call.
 
 ### Adding a kind
 

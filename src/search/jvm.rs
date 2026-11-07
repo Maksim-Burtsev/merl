@@ -622,44 +622,6 @@ fn scala_bases(text: &str, decl_line1: usize) -> Vec<String> {
         .collect()
 }
 
-pub struct JvmImport {
-    pub bound_name: String,
-    pub path: Vec<String>,
-}
-pub fn jvm_imports(text: &str) -> Vec<JvmImport> {
-    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").expect("the regex is a literal")
-    });
-    text.lines()
-        .filter_map(|l| IMPORT.captures(l))
-        .map(|c| {
-            let mut path: Vec<String> = c[1].split('.').map(str::to_owned).collect();
-            let name = match (c.get(2), c.get(3)) {
-                (Some(_), _) => "*".to_owned(),
-                (None, Some(alias)) => alias.as_str().to_owned(),
-                (None, None) => path.last().cloned().unwrap_or_default(),
-            };
-            if name == "*" {
-                path.push(name.clone());
-            }
-            JvmImport {
-                bound_name: name,
-                path,
-            }
-        })
-        .collect()
-}
-
-pub fn jvm_package(text: &str) -> Option<String> {
-    static PACKAGE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^[ \t]*package\s+([\w.]*\w)").expect("the regex is a literal")
-    });
-    PACKAGE
-        .captures_iter(text)
-        .map(|c| c[1].to_owned())
-        .find(|p| p != "object")
-}
-
 const CAST_OPERAND: &str = r"(?:[\w.!?]|\([^()]*\))+";
 const GENERIC: &str = r"(?:<(?:[^<>]|<(?:[^<>]|<[^<>]*>)*>)*>)?";
 

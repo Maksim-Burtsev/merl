@@ -205,10 +205,60 @@ impl App {
     }
 
     pub(super) fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
-        let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
+        let text = self.text_of(here)?;
+        let from = search::ruby_class_path(&text, self.line + 1);
         let own = from == name || from.ends_with(&format!("::{name}"));
-        self.ruby_resolve(here, &from, name)
+        let last = name.rsplit("::").next().unwrap_or(name);
+        let paths: HashSet<String> = self
+            .ruby_named_declarations(here, last)
+            .into_iter()
+            .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
+            .collect();
+        let suffix = format!("::{name}");
+        let namesakes = paths
+            .iter()
+            .filter(|p| *p == name || p.ends_with(&suffix))
+            .count();
+        let found = match name.strip_prefix("::") {
+            Some(top) => paths.contains(top).then(|| top.to_owned()),
+            None if self.ruby_nesting_known() => {
+                self.ruby_lexical(here, &text, name, |p| paths.contains(p))
+            }
+            None if namesakes > 1 => return None,
+            None => None,
+        };
+        found
+            .or_else(|| self.ruby_resolve(here, &from, name))
             .or_else(|| own.then_some(from))
+    }
+
+    fn ruby_nesting_known(&self) -> bool {
+        self.line_str()
+            .get(..self.col)
+            .is_some_and(|before| !search::ruby_opens_inline(before))
+    }
+
+    fn ruby_lexical(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        has: impl Fn(&str) -> bool,
+    ) -> Option<String> {
+        let within = |scope: &str| {
+            let want = format!("{scope}::{name}");
+            has(&want).then_some(want)
+        };
+        let nesting = search::ruby_nesting_innermost_first(text, self.line + 1);
+        nesting
+            .iter()
+            .find_map(|n| within(n))
+            .or_else(|| {
+                nesting
+                    .first()
+                    .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| within(&a)))
+            })
+            .or_else(|| has(name).then(|| name.to_owned()))
     }
 
     pub(super) fn ruby_methods_from(
@@ -293,29 +343,12 @@ impl App {
             .iter()
             .map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();
-        let declares = |scope: &str| {
-            let want = format!("{scope}::{word}");
-            declared
-                .iter()
-                .any(|d| d.as_deref() == Some(&want))
-                .then_some(want)
-        };
-        let nesting = search::ruby_nesting_innermost_first(text, self.line + 1);
-        let wanted = nesting
-            .iter()
-            .find_map(|n| declares(n))
-            .or_else(|| {
-                nesting
-                    .first()
-                    .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| declares(&a)))
-            })
-            .or_else(|| {
-                declared
-                    .iter()
-                    .any(|d| d.as_deref() == Some(word))
-                    .then(|| word.to_owned())
-            });
-        let Some(wanted) = wanted else {
+        if !self.ruby_nesting_known() {
+            return;
+        }
+        let Some(wanted) = self.ruby_lexical(here, text, word, |p| {
+            declared.iter().any(|d| d.as_deref() == Some(p))
+        }) else {
             return;
         };
         let mut kept = declared.iter();
