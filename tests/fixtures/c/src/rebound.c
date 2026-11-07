@@ -19,3 +19,10 @@ void paren(struct gourd *g) { { struct terrine (*g) = 0; g->slosh = 1; } }
 int deref(struct gourd *g);
 void called(struct gourd *g) { deref(g); g->slosh = 1; }
 //                                          ^ d: src/rebound.c:1
+#define CDECLARE(T, n) T n = 0
+#define CSHOW(n) (void)(n)
+void cdeclared(struct gourd *g) { { CDECLARE(struct terrine *, g); g->slosh = 1; } g->slosh = 1; }
+//                                                                    ^ d: picker src/rebound.c:1, src/rebound.c:2
+//                                                                                    ^ d: src/rebound.c:1
+void cshown(struct gourd *g) { { CSHOW(g); g->slosh = 1; } }
+//                                            ^ d: src/rebound.c:1
