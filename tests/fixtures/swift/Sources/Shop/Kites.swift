@@ -62,7 +62,7 @@ func flights(kite: Kite, pier: Pier, buoy maybe: Buoy?, mooring: Mooring) {
     switch mooring {
     case let .held(kite):
         kite.fly(.squall)
-        //        ^ d: picker Sources/Shop/Kites.swift:4, Sources/Shop/Kites.swift:8; want Sources/Shop/Kites.swift:8 (#1341)
+        //        ^ d: Sources/Shop/Kites.swift:8
     }
     for kite in pier.buoys {
         kite.fly(.squall)
@@ -110,7 +110,7 @@ func flights(kite: Kite, pier: Pier, buoy maybe: Buoy?, mooring: Mooring) {
     if case let .held(kite) = mooring { kite.fly(.squall) }
     //                                            ^ d: Sources/Shop/Kites.swift:8
     switch mooring { case let .held(kite): kite.fly(.squall) }
-    //                                               ^ d: picker Sources/Shop/Kites.swift:4, Sources/Shop/Kites.swift:8; want Sources/Shop/Kites.swift:8 (#1341)
+    //                                               ^ d: Sources/Shop/Kites.swift:8
     if let kite = pier.reserve, true { kite.fly(.squall) }
     //                                           ^ d: picker Sources/Shop/Kites.swift:4, Sources/Shop/Kites.swift:8; want Sources/Shop/Kites.swift:8 (#1341)
     _ = pier.buoys.map { (kite) in kite.fly(.squall) }

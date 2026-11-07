@@ -1414,16 +1414,7 @@ pub fn swift_expected(
     let switch = |t: &str| t.starts_with("switch ") || t.starts_with("return switch ");
     let mut i = line1.checked_sub(1)?;
     if ARM.is_match(&lead) {
-        let depth = indent(lines[i]);
-        i = (0..i).rev().find(|&j| {
-            swift_code(lines, literal, j) && indent(lines[j]) <= depth && {
-                let t = swift_text(lines, j);
-                !(indent(lines[j]) == depth && (t.starts_with("case ") || t.starts_with("default")))
-            }
-        })?;
-        if !switch(&swift_text(lines, i)) {
-            return None;
-        }
+        i = swift_switch_of_arm(lines, literal, line1)? - 1;
     } else if !RETURN.is_match(&lead) {
         return None;
     }
@@ -1456,4 +1447,16 @@ pub fn swift_expected(
             })
             .map(|r| r.trim_end_matches(['?', '!']).to_owned());
     }
+}
+pub fn swift_switch_of_arm(lines: &[&str], literal: &[bool], line1: usize) -> Option<usize> {
+    let at = line1.checked_sub(1)?;
+    let depth = indent(lines.get(at)?);
+    let i = (0..at).rev().find(|&j| {
+        swift_code(lines, literal, j) && indent(lines[j]) <= depth && {
+            let t = swift_text(lines, j);
+            !(indent(lines[j]) == depth && (t.starts_with("case ") || t.starts_with("default")))
+        }
+    })?;
+    let t = swift_text(lines, i);
+    (t.starts_with("switch ") || t.starts_with("return switch ")).then_some(i + 1)
 }
