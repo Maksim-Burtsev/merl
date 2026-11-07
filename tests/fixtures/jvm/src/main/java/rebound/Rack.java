@@ -82,6 +82,33 @@ public class Rack {
     void catchInsideRecord(Object o) { if (o instanceof Box(int y)) { try { } catch (Ewer x) { } x.decant(); } }
     //                                                                                             ^ d: src/main/java/rebound/Flask.java:4
 
+    void commentAfterBlock(List<Ewer> es) { for (Ewer x : es) { } /* } */ x.decant(); }
+    //                                                                      ^ d: src/main/java/rebound/Flask.java:4
+
+    void declaredPattern(Object o) { boolean b = o instanceof Ewer x; x.decant(); }
+    //                                                                  ^ d: src/main/java/rebound/Flask.java:4
+
+    void argumentPattern(Object o) { use(o instanceof Ewer x ? "" : ""); x.decant(); }
+    //                                                                     ^ d: src/main/java/rebound/Flask.java:4
+
+    void whilePattern(Object o) { while (!(o instanceof Ewer x)) { o = null; } x.decant(); }
+    //                                                                           ^ d: src/main/java/rebound/Ewer.java:4
+
+    void elseFinishes(Object o) { if (o instanceof Ewer x) { } else { use("return"); } x.decant(); }
+    //                                                                                   ^ d: src/main/java/rebound/Flask.java:4
+
+    void elseLoops(Object o) { if (o instanceof Ewer x) { } else { while (true) { } } x.decant(); }
+    //                                                                                  ^ d: src/main/java/rebound/Ewer.java:4
+
+    void caseArrow(Object o) { switch (o) { case Ewer x -> { } default -> { } } x.decant(); }
+    //                                                                            ^ d: src/main/java/rebound/Flask.java:4
+
+    void caseColon(Object o) { switch (o) { case Ewer x: break; default: x.decant(); } }
+    //                                                                     ^ d: src/main/java/rebound/Flask.java:4
+
+    void quotedFor() { use("for (x : es)"); x.decant(); }
+    //                                        ^ d: src/main/java/rebound/Flask.java:4
+
     void use(String s) {
     }
 }

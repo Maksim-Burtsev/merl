@@ -65,7 +65,12 @@ pub fn ruby_tapped<'a>(prefix: &'a str, name: &str) -> Option<&'a str> {
     (&c[2] == name).then(|| c.get(1).map_or("", |m| m.as_str()))
 }
 
-pub fn ruby_assigned_once(text: &str, line1: usize, name: &str) -> Option<(usize, String)> {
+pub fn ruby_assigned_once(
+    text: &str,
+    line1: usize,
+    before: &str,
+    name: &str,
+) -> Option<(usize, String)> {
     let earlier: Vec<usize> = ruby_locals(text, line1, name)
         .into_iter()
         .filter(|&l| l < line1)
@@ -89,7 +94,7 @@ pub fn ruby_assigned_once(text: &str, line1: usize, name: &str) -> Option<(usize
         }
         value.push_str(next.trim());
     }
-    (!ruby_rebound(text, &value, at, line1, name)).then_some((at, value))
+    (!ruby_rebound(text, &value, at, line1, before, name)).then_some((at, value))
 }
 
 pub fn ruby_constant_alias(name: &str) -> String {
@@ -294,7 +299,22 @@ fn opens_a_def(lines: &[&str], at: usize, until: usize) -> bool {
             .any(|l| indent(l) == indent(lines[at]) && END.is_match(l))
 }
 
-pub fn ruby_rebound(text: &str, value: &str, after1: usize, line1: usize, name: &str) -> bool {
+fn closed_before(line: &str, before: &str, name: &str) -> Option<String> {
+    let rest = line.strip_prefix(before)?.strip_prefix(name)?;
+    (!before.is_empty()
+        && code_only(before) == before
+        && !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+    .then(|| CLOSED_BLOCK.replace_all(before, "$open$body").into_owned())
+}
+
+pub fn ruby_rebound(
+    text: &str,
+    value: &str,
+    after1: usize,
+    line1: usize,
+    before: &str,
+    name: &str,
+) -> bool {
     let Some(re) = RubyRebinding::local(name) else {
         return true;
     };
@@ -305,14 +325,18 @@ pub fn ruby_rebound(text: &str, value: &str, after1: usize, line1: usize, name: 
         .zip(line(line1))
         .is_some_and(|(a, c)| indent(a) > indent(c));
     let assigned = Regex::new(&ruby_assignment(name)).ok();
-    let cursor_value = line(line1).map_or("", |l| {
-        assigned
-            .as_ref()
-            .and_then(|a| a.find(l))
-            .and_then(|m| l.get(m.end()..))
-            .filter(|tail| !tail.contains(';'))
-            .unwrap_or(l)
-    });
+    let cut = line(line1).and_then(|l| closed_before(l, before, name));
+    let cursor_value = cut
+        .as_deref()
+        .or_else(|| line(line1).copied())
+        .map_or("", |l| {
+            assigned
+                .as_ref()
+                .and_then(|a| a.find(l))
+                .and_then(|m| l.get(m.end()..))
+                .filter(|tail| !tail.contains(';'))
+                .unwrap_or(l)
+        });
     let until = line1.saturating_sub(1).min(lines.len());
     re.count(value) > 0
         || re.count(cursor_value) > 0
@@ -359,7 +383,7 @@ pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
             .get(def.line1 - 1..line1)?
             .iter()
             .any(|l| piped.is_match(l))
-        || ruby_rebound(text, "", def.line1, end, name)
+        || ruby_rebound(text, "", def.line1, end, "", name)
     {
         return None;
     }

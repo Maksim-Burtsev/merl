@@ -468,6 +468,14 @@ cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and 
 the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
 a comment and a string. A `for` and an `if` init without a value, and a lambda capture `[g = Terrine()]`
 with no parameter list, bind `g` too; a copy capture `[g]` and a `for` init that only calls `g.slosh()` keep `Gourd`.
+A statement that calls a macro of the file whose body declares its argument (`DECLARE(Terrine, g);`, in C
+`CDECLARE(struct terrine *, g);`, one over two lines) binds `g` to a type `d` does not read, so it offers a
+picker; a macro that only reads its argument (`SHOW(g)`, `POKE(g, n)`, `RETURN(g.slosh())`, and through
+`&x`, `*p`, `>> x` or `b > a`: `ZERO(g)`, `SHOWP(g)`, `READ(g)`, in C `CLOCK(g)`, `CMAX(g, h)`) keeps `Gourd`.
+`rebound.c` also declares `g` through a `typedef` local to the function (#1400): `Tureen`, a
+`Ladle` that hides the file's `Ladle` of `struct gourd`, and a pointer `Scoop` naming `struct
+terrine`; the file's `Ladle` answers where the local one does not reach the declaration (another
+function, a block closed earlier, a `typedef` after it).
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -734,6 +742,10 @@ jump where the rebinding does not reach the use (#1384's review): a block closed
 line, a block or a callback opened after the use, the name in a comment or a string, `==`, an
 object key, `box.u = …` and a `for` body closed before the use; in `coffee/rebound.js` a `var`
 below the use of a parameter, or of a `var` already assigned above, keeps the jump too.
+`hoisting.ts` (and the end of `coffee/rebound.js`) hoists that `var` from an outer function into
+an inner function or arrow that reads `u`, one or two levels up, above or below it; an inner
+parameter, `let`, destructuring or `catch`, a sibling function's or method's `var` and one in a
+string keep `Urn`'s answer or no jump, and an untyped `var u = x` gives a picker.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
@@ -747,6 +759,11 @@ the namesakes. `rules/keyed.js` holds the rule's own keys (#1288): `create`, the
 listener `onCodePathStart` of the object `create` returns (its declared `RuleListener`); a key of
 an untyped object, a key under a member typed by no interface, and a `return {` of a function
 nested in `create` keep their answer of today in `rules/loud.js`.
+
+`typescript/winnow/` is a name the file imports hidden by a local one (#1406): `hidden.ts` imports
+the `Winnow` of `barn.ts` (`mill.ts` declares its namesake), and a method through `new Winnow()`
+lands on a `class Winnow` declared in the function, and offers a picker under a `const Winnow =
+class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -859,6 +876,9 @@ the picker.
 local and a parameter; a struct and its method declared by a `macro_rules!`; a closure parameter
 named like a field; an inherent `impl` in another module; and a doc comment and a raw string
 declaring what `cups.rs` declares.
+`shadowed_by_item` declares a `fn steep` inside its body, hiding the imported `steep`, so the call
+keeps the picker with the local one, and `Infuser::steep` is a method named like it, whose own
+body's `steep(1)` still jumps to the import (#1410).
 `rust/src/infusion.rs` (+ `infusion/leaves.rs`, `infusion/pantry.rs`) is the third corner (#1126),
 its answers rust-analyzer's: std methods (`len`, `push`, `trim`) on `String`, `Vec` and `str`
 values beside a project `Leaf` that declares them, a builder chain over lines, calls on a call's
@@ -1067,7 +1087,7 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 `instanceof` whose `if` returns. The one-line shapes keep a picker holding `Ewer.decant` /
 `Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
-name's member.
+name's member. So does a `for` header written inside a string on the cursor's line.
 
 `jvm/src/main/groovy/rebound/Workbench.groovy` (#1398) binds a `Gimlet c` field and a `def x`
 field again where `d` is pressed on the name: a local ended by `;` earlier on the cursor's line
@@ -1091,6 +1111,15 @@ ends it and `x` is the field again (#1398).
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
 `object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
 `this.` after the anonymous class is closed keeps the class's own member.
+
+`jvm/src/main/java/namesake/` and `jvm/src/main/kotlin/namesake/` (#1408) import a `Decanter`
+from one package into a file whose `Cellar` declares a nested `Decanter` of its own: `aerate`
+through a parameter, a field and a local typed `Decanter` inside `Cellar` lands on the nested
+class's, and through a parameter of the `Rack` beside it, which the nested class does not reach,
+on the imported one's. So does a type written outside the nested class's scope and read from a
+class that has a nested `Decanter` too: `Sommelier` (`Tastevin` in Kotlin) reads a field and a
+return type of `Magnum` (`Bung`) and, in Java, a `Jeroboam extends Decanter`; `Cooper.Inner`
+(`Corkscrew.Inner`) reads its outer class's field.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

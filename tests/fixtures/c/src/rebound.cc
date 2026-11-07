@@ -58,3 +58,34 @@ void captured(Gourd g) {
 void stepped(Gourd g, int i) { for (g.slosh(); i; ) g.slosh(); }
 //                                    ^ d: src/rebound.cc:2
 //                                                    ^ d: src/rebound.cc:2
+#define DECLARE(T, n) T n
+#define SHOW(n) (void)n
+#define POKE(o, n) o.slosh(n)
+#define RETURN(n) return n
+void declared(Gourd g) { { DECLARE(Terrine, g); g.slosh(); } g.slosh(); }
+//                                                ^ d: picker src/rebound.cc:2, src/rebound.cc:5
+//                                                             ^ d: src/rebound.cc:2
+void shown(Gourd g) { { SHOW(g); g.slosh(); } }
+//                                 ^ d: src/rebound.cc:2
+void poked(Gourd g, int n) { { POKE(g, n); g.slosh(); } }
+//                                           ^ d: src/rebound.cc:2
+int returned(Gourd g) { { RETURN(g.slosh()); } }
+//                                 ^ d: src/rebound.cc:2
+void spread(Gourd g) {
+  {
+    DECLARE(Terrine,
+            g);
+    g.slosh();
+//    ^ d: picker src/rebound.cc:2, src/rebound.cc:5
+  }
+  g.slosh();
+//  ^ d: src/rebound.cc:2
+}
+#define ZERO(x) memset(&x, 0, sizeof x)
+#define SHOWP(p) show(*p)
+#define READ(x) std::cin >> x
+void zeroed(Gourd g) { { ZERO(g); g.slosh(); READ(g); g.slosh(); } }
+//                                  ^ d: src/rebound.cc:2
+//                                                      ^ d: src/rebound.cc:2
+void peeked(Gourd *g) { { SHOWP(g); g->slosh(); } }
+//                                     ^ d: src/rebound.cc:2

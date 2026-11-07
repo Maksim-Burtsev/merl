@@ -114,3 +114,45 @@ pub fn convert(c: Celsius) -> Fahrenheit {
     From::from(c)
 //        ^ d: picker src/tea/brew.rs:102, src/tea/brew.rs:108
 }
+
+pub fn shadowed_by_item() -> u32 {
+    fn steep(m: u32) -> u32 {
+//     ^ d: !jump
+        m * 3
+    }
+    steep(2)
+//  ^ d: picker src/tea/brew.rs:119, …
+}
+
+pub struct Infuser;
+
+impl Infuser {
+    pub fn steep(&self) -> u32 {
+//         ^ d: !jump
+        steep(1)
+//      ^ d: src/tea/kettle.rs:50
+    }
+}
+
+pub struct Steeper;
+
+impl Steeper {
+    pub fn steep(&self) -> u32 { steep(2) }
+//                               ^ d: src/tea/kettle.rs:50
+}
+
+pub struct Brewer<T>(T);
+
+impl<T> Brewer<T>
+where
+    T: Clone,
+{
+    pub fn steep(&self) -> u32 {
+        0
+    }
+
+    pub fn pour(&self) -> u32 {
+        steep(3)
+//      ^ d: src/tea/kettle.rs:50
+    }
+}

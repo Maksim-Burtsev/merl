@@ -158,3 +158,7 @@ int supered(List<int> xs, String name) {
   //                  ^ d: lib/brew/chawan.dart:68
   //                                        ^ d: none
 }
+
+int ladled() => barrel.ladle() + barrel.sluice();
+//                     ^ d: lib/brew/ladle.dart:1
+//                                      ^ d: picker lib/brew/ladle.dart:2, lib/brew/spare_ladle.dart:2

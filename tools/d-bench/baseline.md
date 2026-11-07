@@ -141,6 +141,7 @@ The racket row with those five rows judged from the code (racket0041, racket0097
 The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `list[T]`, `Sequence[T]` or a declared return of one reads `T`, a slice and a dict do not: python0020 `nodes[0].metadata` with `build_document_node(..) -> list["BaseNode"]`): over `468e68bcb`, 2026-11-07, release build, `vm.loadavg` { 4.17 4.64 4.86 } before the run, { 3.02 4.17 4.66 } after.
 The swift row with #1341's eleventh pass (an enum payload bound by `if`/`guard`/`while case let .c(x) = subject`, typed from the enum's case: swift0203 `reason.isBodyPartInputStreamCreationFailed` jumps to `AFError+AlamofireTests.swift:237`): over `f7620fd07` with this change, 2026-11-07, release build, `vm.loadavg` { 3.24 4.28 4.55 } before the run.
 The elisp, racket and scheme rows with #1401's third pass (Racket `match`, `match-lambda` and `match-define` patterns, Emacs Lisp `pcase-let` and its backquote patterns): over `c6f38f26e`, 2026-11-07, release build, `vm.loadavg` { 3.22 3.33 3.66 } before the run, { 4.44 3.70 3.78 } after.
+The dart row with the fourth pass of #1338 (a prefixed import's name looked up through the library's exports, `web_adapter.compute`; a local set to `entry.value` / `.key` of a `MapEntry<K, V>` takes that type argument): over `7c5e6e93e`, 2026-11-07, release build, `vm.loadavg` { 17.26 18.09 18.53 } before the run (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -175,5 +176,5 @@ The elisp, racket and scheme rows with #1401's third pass (Racket `match`, `matc
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 93 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 17 | 0 | 48.7 | 141.9 |
+| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 57.0 | 148.2 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

@@ -38,3 +38,12 @@ export function hoistedBelowAnAssignment() {
     var u = new Flask();
   }
 }
+
+export function hoistedIntoAnInnerFunction() {
+  function inner() {
+    return u.siphon();
+    //       ^ d: tea/urn.ts:8
+  }
+  var u = new Flask();
+  return inner;
+}
