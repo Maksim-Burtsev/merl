@@ -1,18 +1,22 @@
 use regex::Regex;
 
-use super::{Kind, indent, literal_lines, steps_over};
+use super::{Kind, indent, path_literal_lines, steps_over};
+use std::path::Path;
 
 pub struct JvmImport {
     pub bound_name: String,
     pub path: Vec<String>,
 }
-pub fn jvm_imports(text: &str) -> Vec<JvmImport> {
-    imports_by_line(text).into_iter().map(|(_, i)| i).collect()
+pub fn jvm_imports(path: &Path, text: &str) -> Vec<JvmImport> {
+    imports_by_line(path, text)
+        .into_iter()
+        .map(|(_, i)| i)
+        .collect()
 }
 
-pub fn jvm_imports_at(text: &str, line1: usize) -> Vec<JvmImport> {
+pub fn jvm_imports_at(path: &Path, text: &str, line1: usize) -> Vec<JvmImport> {
     let lines: Vec<&str> = text.lines().collect();
-    let literal = literal_lines(Kind::Jvm, text);
+    let literal = path_literal_lines(Kind::Jvm, path, text);
     let at = line1.saturating_sub(1);
     let in_block = |i: usize| {
         let depth = indent(lines[i]);
@@ -25,7 +29,7 @@ pub fn jvm_imports_at(text: &str, line1: usize) -> Vec<JvmImport> {
                 })
             })
     };
-    let (mut inner, outer): (Vec<_>, Vec<_>) = imports_by_line(text)
+    let (mut inner, outer): (Vec<_>, Vec<_>) = imports_by_line(path, text)
         .into_iter()
         .partition(|&(i, _)| indent(lines[i]) > 0);
     inner.retain(|&(i, _)| in_block(i));
@@ -33,11 +37,11 @@ pub fn jvm_imports_at(text: &str, line1: usize) -> Vec<JvmImport> {
     inner.into_iter().chain(outer).map(|(_, i)| i).collect()
 }
 
-fn imports_by_line(text: &str) -> Vec<(usize, JvmImport)> {
+fn imports_by_line(path: &Path, text: &str) -> Vec<(usize, JvmImport)> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").expect("the regex is a literal")
     });
-    let literal = literal_lines(Kind::Jvm, text);
+    let literal = path_literal_lines(Kind::Jvm, path, text);
     text.lines()
         .enumerate()
         .filter(|&(i, _)| !literal.get(i).copied().unwrap_or_default())
