@@ -4,6 +4,7 @@ mod defaults;
 mod generic;
 mod key_path;
 mod overload;
+mod payload;
 
 struct SwiftChain {
     written: String,
@@ -279,9 +280,8 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
         let around = search::swift_enclosing_type(&lines, &literal, line1);
-        if name == "self" {
-            let own = search::swift_type_header(lines[around? - 1])?.name;
-            return Some(WrittenVia::plain(own));
+        if name == "self" || name == "super" {
+            return self.swift_own_value(here, lines[around? - 1], name);
         }
         let lead = (file == here && line1 == self.line + 1)
             .then(|| lines[line1 - 1].get(..self.col))
@@ -302,12 +302,8 @@ impl App {
         if lead.is_some_and(|l| search::swift_projected(l, name)) {
             return None;
         }
-        if name == "super" {
-            let own = search::swift_type_header(lines[around? - 1])?.name;
-            let ty = self.swift_type(here, &own)?;
-            let base = ty.base.filter(|_| ty.keyword.as_deref() == Some("class"))?;
-            let up = self.swift_type(here, &base)?;
-            return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
+        if let Some(payload) = lead.and_then(|l| search::swift_case_payload(l, name)) {
+            return self.swift_payload_value(here, file, text, line1, &payload, hops);
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
@@ -321,6 +317,9 @@ impl App {
             }
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
+                if let Some(payload) = search::swift_case_payload(line, name) {
+                    return self.swift_payload_value(here, file, text, b.line1, &payload, hops);
+                }
                 match search::swift_given(line, name) {
                     Some(given) => {
                         let given = self.swift_nested_given(here, text, b.line1, given);
@@ -375,6 +374,17 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn swift_own_value(&self, here: &Path, header: &str, name: &str) -> Option<WrittenVia> {
+        let own = search::swift_type_header(header)?.name;
+        if name == "self" {
+            return Some(WrittenVia::plain(own));
+        }
+        let ty = self.swift_type(here, &own)?;
+        let base = ty.base.filter(|_| ty.keyword.as_deref() == Some("class"))?;
+        let up = self.swift_type(here, &base)?;
+        (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name))
     }
 
     fn swift_closure_value(

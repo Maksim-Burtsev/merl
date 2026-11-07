@@ -217,6 +217,75 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>
     })
 }
 
+pub struct SwiftPayload {
+    pub subject: String,
+    pub case: String,
+    pub at: usize,
+    pub arity: usize,
+}
+
+pub fn swift_case_payload(line: &str, name: &str) -> Option<SwiftPayload> {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:\}\s*else\s+)?(?:if|guard|while)\s+case\s+(let\s+|var\s+)?\.([A-Za-z_]\w*)\(([^()]*)\)\s*=\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:,|\{|else\b|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_]\w*\s*:\s*").expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let t = t.trim();
+    let c = PATTERN.captures(t)?;
+    let rest = t.get(c.get_match().end()..)?;
+    if rest.contains("case ") || super::swift_may_bind(rest, name) {
+        return None;
+    }
+    let outer = c.get(1).is_some();
+    let items: Vec<&str> = c[3].split(',').map(str::trim).collect();
+    let at = items.iter().position(|item| {
+        let item = LABEL
+            .find(item)
+            .map_or(*item, |m| item.get(m.end()..).unwrap_or(""));
+        let bound = if outer {
+            Some(item)
+        } else {
+            item.strip_prefix("let ")
+                .or_else(|| item.strip_prefix("var "))
+                .map(str::trim_start)
+        };
+        bound.is_some_and(|b| b.trim_matches('`') == name)
+    })?;
+    Some(SwiftPayload {
+        subject: c[4].to_owned(),
+        case: c[2].to_owned(),
+        at,
+        arity: items.len(),
+    })
+}
+
+pub fn swift_case_payload_type(row: &str, case: &str, at: usize, arity: usize) -> Option<String> {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_]\w*\s*:\s*").expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, row);
+    let open = Regex::new(&format!(r"\b{}\(", regex::escape(case)))
+        .expect("an escaped name keeps the pattern valid")
+        .find(&t)?
+        .end()
+        - 1;
+    let end = close_of(Kind::Swift, &t, open)?;
+    let items = split_top(Kind::Swift, t.get(open + 1..end - 1)?, b',');
+    if items.len() != arity {
+        return None;
+    }
+    let item = items.get(at)?.trim();
+    let ty = LABEL
+        .find(item)
+        .map_or(item, |m| item.get(m.end()..).unwrap_or(""));
+    (!ty.is_empty() && !ty.contains('=')).then(|| ty.trim().to_owned())
+}
+
 pub fn swift_projected(lead: &str, name: &str) -> bool {
     Regex::new(&format!(r"\${}\b[\w.?!]*$", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid")
