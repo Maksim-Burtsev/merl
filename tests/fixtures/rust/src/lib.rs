@@ -20,3 +20,4 @@ pub mod heddles;
 pub mod bales;
 pub mod infusion;
 pub mod sieves;
+pub mod husks;

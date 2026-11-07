@@ -279,7 +279,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
-        nested_comments: (matches!(kind, Kind::Dart | Kind::Swift)
+        nested_comments: (matches!(kind, Kind::Dart | Kind::Rust | Kind::Swift)
             || (kind == Kind::Sql && super::sql::sql_nests(text)))
         .then_some(0),
         heredoc: None,
