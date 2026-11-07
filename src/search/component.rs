@@ -7,85 +7,85 @@ pub fn component(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro")
 }
+#[derive(PartialEq, Clone, Copy)]
+enum At {
+    Outside,
+    InWrappedScriptTag,
+    InScript,
+    InFrontmatter,
+    InTag(Option<u8>),
+    InHtmlComment,
+}
+fn braced_end(b: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, &c) in b.iter().enumerate().skip(open) {
+        match c {
+            b'{' => depth += 1,
+            b'}' if depth == 1 => return Some(i),
+            b'}' => depth -= 1,
+            _ => {}
+        }
+    }
+    None
+}
+fn markup(mut at: At, t: &str) -> At {
+    let b = t.as_bytes();
+    let mut i = 0;
+    while let Some(&c) = b.get(i) {
+        let rest = &b[i..];
+        match at {
+            At::InHtmlComment => {
+                return (rest.windows(3).position(|w| w == b"-->"))
+                    .and_then(|close| t.get(i + close + 3..))
+                    .map_or(at, |after| outside(At::Outside, after.trim_start()));
+            }
+            At::InTag(Some(q)) if c == q => at = At::InTag(None),
+            At::InTag(Some(_)) => {}
+            At::InTag(None) if c == b'"' || c == b'\'' => at = At::InTag(Some(c)),
+            At::InTag(None) if c == b'>' => at = At::Outside,
+            _ if c == b'{' => match braced_end(b, i) {
+                Some(close) => i = close,
+                None => return at,
+            },
+            At::Outside if rest.starts_with(b"<!-->") => i += 4,
+            At::Outside if rest.starts_with(b"<!--->") => i += 5,
+            At::Outside if rest.starts_with(b"<!--") => {
+                at = At::InHtmlComment;
+                i += 3;
+            }
+            At::Outside
+                if c == b'<'
+                    && rest
+                        .get(1)
+                        .is_some_and(|n| n.is_ascii_alphabetic() || *n == b'/') =>
+            {
+                at = At::InTag(None);
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    at
+}
+fn outside(at: At, t: &str) -> At {
+    if t.strip_prefix("<script")
+        .is_some_and(|r| r.starts_with([' ', '>', '\t']))
+    {
+        script_open(t)
+    } else if t == "<script" {
+        At::InWrappedScriptTag
+    } else {
+        markup(at, t)
+    }
+}
+fn script_open(t: &str) -> At {
+    match (t.contains("</script"), t.contains('>')) {
+        (true, _) => At::Outside,
+        (false, true) => At::InScript,
+        (false, false) => At::InWrappedScriptTag,
+    }
+}
 pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
-    #[derive(PartialEq, Clone, Copy)]
-    enum At {
-        Outside,
-        InWrappedScriptTag,
-        InScript,
-        InFrontmatter,
-        InTag(Option<u8>),
-        InHtmlComment,
-    }
-    fn braced_end(b: &[u8], open: usize) -> Option<usize> {
-        let mut depth = 0usize;
-        for (i, &c) in b.iter().enumerate().skip(open) {
-            match c {
-                b'{' => depth += 1,
-                b'}' if depth == 1 => return Some(i),
-                b'}' => depth -= 1,
-                _ => {}
-            }
-        }
-        None
-    }
-    fn markup(mut at: At, t: &str) -> At {
-        let b = t.as_bytes();
-        let mut i = 0;
-        while let Some(&c) = b.get(i) {
-            let rest = &b[i..];
-            match at {
-                At::InHtmlComment => {
-                    return t[i..].find("-->").map_or(at, |close| {
-                        outside(At::Outside, t[i + close + 3..].trim_start())
-                    });
-                }
-                At::InTag(Some(q)) if c == q => at = At::InTag(None),
-                At::InTag(Some(_)) => {}
-                At::InTag(None) if c == b'"' || c == b'\'' => at = At::InTag(Some(c)),
-                At::InTag(None) if c == b'>' => at = At::Outside,
-                _ if c == b'{' => match braced_end(b, i) {
-                    Some(close) => i = close,
-                    None => return at,
-                },
-                At::Outside if rest.starts_with(b"<!-->") => i += 4,
-                At::Outside if rest.starts_with(b"<!--->") => i += 5,
-                At::Outside if rest.starts_with(b"<!--") => {
-                    at = At::InHtmlComment;
-                    i += 3;
-                }
-                At::Outside
-                    if c == b'<'
-                        && rest
-                            .get(1)
-                            .is_some_and(|n| n.is_ascii_alphabetic() || *n == b'/') =>
-                {
-                    at = At::InTag(None);
-                }
-                _ => {}
-            }
-            i += 1;
-        }
-        at
-    }
-    fn outside(at: At, t: &str) -> At {
-        if t.strip_prefix("<script")
-            .is_some_and(|r| r.starts_with([' ', '>', '\t']))
-        {
-            script_open(t)
-        } else if t == "<script" {
-            At::InWrappedScriptTag
-        } else {
-            markup(at, t)
-        }
-    }
-    fn script_open(t: &str) -> At {
-        match (t.contains("</script"), t.contains('>')) {
-            (true, _) => At::Outside,
-            (false, true) => At::InScript,
-            (false, false) => At::InWrappedScriptTag,
-        }
-    }
     if !component(path) {
         return None;
     }
