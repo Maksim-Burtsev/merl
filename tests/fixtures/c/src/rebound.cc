@@ -81,3 +81,11 @@ void spread(Gourd g) {
   g.slosh();
 //  ^ d: src/rebound.cc:2
 }
+#define ZERO(x) memset(&x, 0, sizeof x)
+#define SHOWP(p) show(*p)
+#define READ(x) std::cin >> x
+void zeroed(Gourd g) { { ZERO(g); g.slosh(); READ(g); g.slosh(); } }
+//                                  ^ d: src/rebound.cc:2
+//                                                      ^ d: src/rebound.cc:2
+void peeked(Gourd *g) { { SHOWP(g); g->slosh(); } }
+//                                     ^ d: src/rebound.cc:2
