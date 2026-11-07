@@ -734,6 +734,10 @@ jump where the rebinding does not reach the use (#1384's review): a block closed
 line, a block or a callback opened after the use, the name in a comment or a string, `==`, an
 object key, `box.u = …` and a `for` body closed before the use; in `coffee/rebound.js` a `var`
 below the use of a parameter, or of a `var` already assigned above, keeps the jump too.
+`hoisting.ts` (and the end of `coffee/rebound.js`) hoists that `var` from an outer function into
+an inner function or arrow that reads `u`, one or two levels up, above or below it; an inner
+parameter, `let`, destructuring or `catch`, a sibling function's or method's `var` and one in a
+string keep `Urn`'s answer or no jump, and an untyped `var u = x` gives a picker.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
