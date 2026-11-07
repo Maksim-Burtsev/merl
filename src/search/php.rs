@@ -415,7 +415,7 @@ fn php_uses<'t>(re: &'static Regex, text: &'t str) -> impl Iterator<Item = regex
     re.captures_iter(text).filter(move |c| {
         let at = c.get(0).map_or(0, |m| m.start());
         let lines = literal.get_or_insert_with(|| literal_lines(Kind::Php, text));
-        lines.get(text[..at].matches('\n').count()) != Some(&true)
+        lines.get(text.bytes().take(at).filter(|&b| b == b'\n').count()) != Some(&true)
     })
 }
 
