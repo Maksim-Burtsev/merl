@@ -345,46 +345,6 @@ impl App {
         rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
     }
 
-    fn rust_bound(
-        &self,
-        text: &str,
-        first: &str,
-        chain: &[String],
-    ) -> Option<Vec<(Vec<String>, usize)>> {
-        let lines: Vec<&str> = text.lines().collect();
-        let literal = search::literal_lines(Kind::Rust, text);
-        let indent = |l: &str| l.len() - l.trim_start().len();
-        let use_reaches_cursor = |at: usize| {
-            let from = text.bytes().take(at).filter(|&b| b == b'\n').count();
-            let depth = indent(lines[from]);
-            depth == 0
-                || (from < self.line
-                    && (from + 1..=self.line).all(|k| {
-                        lines[k].trim().is_empty()
-                            || indent(lines[k]) >= depth
-                            || literal.get(k) == Some(&true)
-                    }))
-        };
-        let depth_at =
-            |at: usize| indent(lines[text.bytes().take(at).filter(|&b| b == b'\n').count()]);
-        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses(text)
-            .into_iter()
-            .filter(|u| u.name == first && use_reaches_cursor(u.start_byte))
-            .map(|u| (u.path, depth_at(u.start_byte)))
-            .collect();
-        bound.dedup();
-        let glob = Regex::new(r"(?m)^[ \t]+use\s[^;]*\*\s*;").expect("a valid pattern");
-        if let [(_, depth)] = bound.as_slice()
-            && chain.is_empty()
-            && glob
-                .find_iter(text)
-                .any(|m| use_reaches_cursor(m.start()) && depth_at(m.start()) > *depth)
-        {
-            return None;
-        }
-        Some(bound)
-    }
-
     fn rust_crate_of(&self, p: &Path) -> Option<PathBuf> {
         p.ancestors()
             .skip(1)
