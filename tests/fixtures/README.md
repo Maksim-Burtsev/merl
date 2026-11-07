@@ -772,7 +772,9 @@ class` or a parameter `Winnow`; a destructured `await import("./barn")` hides no
 `function Winnow` hides it too, for `new Winnow()`: its `this.sieveChaff =` (`hidden.ts`,
 `threshed.js`) or `Winnow.prototype.sieveChaff =` (`sifted.js`) is the method, while `r: Winnow`
 still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` to the local
-`Winnow` of another function, so the one without a method offers a picker.
+`Winnow` of another function, so the one without a method offers a picker. `patched.js` and
+`repatched.js` patch the imported `Winnow.prototype` at the top level: that keeps the local
+function's `this.sieveChaff`, and is no method of a local `function Winnow` that has none.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -1165,6 +1167,12 @@ unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` 
 (#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
 module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
 `def self.new`) and `Jug` (a base outside the project) answer nothing.
+
+`ruby/app/percolator_uses.rb` follows Ruby's constant lookup over three `Percolator`s (#1414),
+and a class opened earlier on the cursor's line and still open there gives the picker.
+`grinder_uses.rb` holds what that must not reach: an opener closed again before the cursor, and
+a class the project declares once (`Grinder`, `Moka::Mill`). Inside `class Moka::Hopper` Ruby
+does not see `Moka::Mill`; `d` keeps master's jump there, the owner's call.
 
 ### Adding a kind
 
