@@ -762,7 +762,11 @@ nested in `create` keep their answer of today in `rules/loud.js`.
 `typescript/winnow/` is a name the file imports hidden by a local one (#1406): `hidden.ts` imports
 the `Winnow` of `barn.ts` (`mill.ts` declares its namesake), and a method through `new Winnow()`
 lands on a `class Winnow` declared in the function, and offers a picker under a `const Winnow =
-class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing.
+class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing. A local
+`function Winnow` hides it too, for `new Winnow()`: its `this.sieveChaff =` (`hidden.ts`,
+`threshed.js`) or `Winnow.prototype.sieveChaff =` (`sifted.js`) is the method, while `r: Winnow`
+still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` to the local
+`Winnow` of another function, so the one without a method offers a picker.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
