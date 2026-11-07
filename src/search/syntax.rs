@@ -687,23 +687,6 @@ impl<'a> Scanner<'a> {
         self.i == 0 || self.b[self.i - 1] == b'\n'
     }
 
-    fn shell_quote_leads_line(&self) -> bool {
-        let (b, i) = (self.b, self.i);
-        let from = b[..i]
-            .iter()
-            .rposition(|&c| c == b'\n')
-            .map_or(0, |n| n + 1);
-        let lead = b[from..i].trim_ascii_start();
-        let name = lead
-            .strip_suffix(b"=")
-            .map(|n| n.strip_suffix(b"+").unwrap_or(n));
-        name.is_some_and(|n| {
-            n.first().is_some_and(|c| !c.is_ascii_digit()) && n.iter().all(|&c| ident(c))
-        }) || lead.strip_prefix(b":").is_some_and(|s| {
-            s.first().is_some_and(|&c| c == b' ' || c == b'\t') && s.trim_ascii().is_empty()
-        })
-    }
-
     fn ruby_data_end(&mut self) -> bool {
         let (b, i) = (self.b, self.i);
         let ends = self.kind == Kind::Ruby
@@ -758,8 +741,14 @@ impl<'a> Scanner<'a> {
             self.out
                 .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
             self.i = end - 1;
-        } else if kind == Kind::Shell && c == b'\'' && self.shell_quote_leads_line() {
-            self.literal_closer = Some(b"'".into());
+        } else if let Some(end) = (kind == Kind::Shell && (c == b'\'' || c == b'"'))
+            .then(|| shell_string_end(b, i))
+            .flatten()
+        {
+            let text = !shell_evals(&b[..i]);
+            self.out
+                .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| text));
+            self.i = end - 1;
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
@@ -875,6 +864,64 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             _ => Some((i, c)),
         }
     })
+}
+fn shell_evals(before: &[u8]) -> bool {
+    let word = before.trim_ascii_end();
+    word.len() < before.len()
+        && word
+            .strip_suffix(b"eval")
+            .is_some_and(|w| w.last().is_none_or(|&c| !ident(c)))
+}
+fn shell_string_end(b: &[u8], open: usize) -> Option<usize> {
+    let before = b.get(..open)?;
+    if before.iter().rev().take_while(|&&c| c == b'\\').count() % 2 == 1 {
+        return Some(open + 1);
+    }
+    let q = *b.get(open)?;
+    if q == b'\'' && before.last() != Some(&b'$') {
+        let rest = b.get(open + 1..)?;
+        return rest.iter().position(|&c| c == q).map(|n| open + n + 2);
+    }
+    let mut i = open + 1;
+    while let Some(&c) = b.get(i) {
+        i = match c {
+            b'\\' => i + 2,
+            c if c == q => return Some(i + 1),
+            b'$' if q == b'"' && matches!(b.get(i + 1), Some(b'(' | b'{')) => {
+                shell_group_end(b, i + 1)?
+            }
+            b'`' if q == b'"' => i + 2 + b.get(i + 1..)?.iter().position(|&c| c == b'`')?,
+            _ => i + 1,
+        };
+    }
+    None
+}
+fn shell_group_end(b: &[u8], open: usize) -> Option<usize> {
+    let o = *b.get(open)?;
+    let close = if o == b'(' { b')' } else { b'}' };
+    let (mut depth, mut i) = (0usize, open);
+    while let Some(&c) = b.get(i) {
+        i = match c {
+            b'\\' => i + 2,
+            b'\'' | b'"' => shell_string_end(b, i)?,
+            b'#' if i > 0 && b" \t\n".contains(&b[i - 1]) => {
+                i + b.get(i..)?.iter().position(|&c| c == b'\n')?
+            }
+            c if c == o => {
+                depth += 1;
+                i + 1
+            }
+            c if c == close => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(i + 1);
+                }
+                i + 1
+            }
+            _ => i + 1,
+        };
+    }
+    None
 }
 fn ruby_percent_literal(b: &[u8], i: usize) -> Option<(u8, usize)> {
     if !ruby_literal_may_start(&b[..i]) {
