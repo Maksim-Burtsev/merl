@@ -106,6 +106,9 @@ public class Rack {
     void caseColon(Object o) { switch (o) { case Ewer x: break; default: x.decant(); } }
     //                                                                     ^ d: src/main/java/rebound/Flask.java:4
 
+    void quotedFor() { use("for (x : es)"); x.decant(); }
+    //                                        ^ d: src/main/java/rebound/Flask.java:4
+
     void use(String s) {
     }
 }

@@ -133,7 +133,7 @@ impl App {
                 None => self.jvm_field_type(&decl, field)?,
             };
             let t = self.text_of(&hit.path)?;
-            ty = self.jvm_type_at(&hit.path, &t, &written);
+            ty = self.jvm_type_on(&hit.path, &t, &written, Some(hit.line1));
             links.push(match (i, first) {
                 (0, "this") => format!("this.{field}: {written}"),
                 _ => format!("{field}: {written}"),
@@ -538,7 +538,7 @@ impl App {
                     written: t.to_owned(),
                 },
                 (Some(t), _) => WrittenType {
-                    resolved: self.jvm_type_at(file, text, &t),
+                    resolved: self.jvm_type_on(file, text, &t, Some(l)),
                     written: t,
                 },
                 (None, None) if hops > 0 => match search::jvm_assigned_call(at, name) {
@@ -810,6 +810,10 @@ impl App {
     }
 
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
+        self.jvm_type_on(file, text, written, None)
+    }
+
+    fn jvm_type_on(&self, file: &Path, text: &str, written: &str, on: Option<usize>) -> JvmType {
         if written.starts_with(|c: char| c.is_ascii_lowercase())
             && written.contains('.')
             && let Some(packages) = self.jvm_packages()
@@ -820,7 +824,7 @@ impl App {
             }
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
-            return match self.jvm_type_at(file, text, outer) {
+            return match self.jvm_type_on(file, text, outer, on) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
                 JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
                 JvmType::Unknown => JvmType::Unknown,
@@ -847,8 +851,10 @@ impl App {
         if let Some(search::JvmImport { path, .. }) =
             imports.iter().find(|i| i.bound_name == written)
         {
-            if self.rel_current().as_deref() == Some(file) {
-                let nested = self.jvm_nested_in_scope(file, text, written);
+            if let Some(line1) = on
+                && self.rel_current().as_deref() == Some(file)
+            {
+                let nested = Self::jvm_nested_in_scope(file, text, written, line1);
                 if !nested.is_empty() {
                     return one_type(nested);
                 }
@@ -899,9 +905,9 @@ impl App {
         one_type(same)
     }
 
-    fn jvm_nested_in_scope(&self, file: &Path, text: &str, written: &str) -> Vec<Hit> {
+    fn jvm_nested_in_scope(file: &Path, text: &str, written: &str, line1: usize) -> Vec<Hit> {
         let lines: Vec<&str> = text.lines().collect();
-        search::jvm_enclosing_types(text, self.line + 1)
+        search::jvm_enclosing_types(text, line1)
             .into_iter()
             .map(|decl| {
                 search::jvm_members_of(text, decl, written)
