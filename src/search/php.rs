@@ -410,6 +410,15 @@ pub struct PhpResolved {
     pub imported: bool,
 }
 
+fn php_uses<'t>(re: &'static Regex, text: &'t str) -> impl Iterator<Item = regex::Captures<'t>> {
+    let mut literal = None;
+    re.captures_iter(text).filter(move |c| {
+        let at = c.get(0).map_or(0, |m| m.start());
+        let lines = literal.get_or_insert_with(|| literal_lines(Kind::Php, text));
+        lines.get(text[..at].matches('\n').count()) != Some(&true)
+    })
+}
+
 pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").expect("the regex is a literal")
@@ -427,8 +436,7 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
         Some((first, rest)) => (first, Some(rest)),
         None => (written, None),
     };
-    let used = USE
-        .captures_iter(text)
+    let used = php_uses(&USE, text)
         .flat_map(|c| {
             c[1].split(',')
                 .map(|item| item.trim().to_owned())
@@ -443,7 +451,7 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
             (alias == first).then(|| path.trim_start_matches('\\').to_owned())
         });
     let grouped = || {
-        GROUP.captures_iter(text).find_map(|c| {
+        php_uses(&GROUP, text).find_map(|c| {
             let head = c[1].trim().trim_start_matches('\\');
             c[2].split(',').find_map(|item| {
                 let item = item.trim();
@@ -540,8 +548,7 @@ pub fn php_function_names(text: &str, written: &str) -> Vec<PhpResolved> {
     if written.contains('\\') {
         return php_resolve(text, written).into_iter().collect();
     }
-    let used = USE
-        .captures_iter(text)
+    let used = php_uses(&USE, text)
         .flat_map(|c| {
             c[1].split(',')
                 .map(|item| item.trim().to_owned())
@@ -560,7 +567,7 @@ pub fn php_function_names(text: &str, written: &str) -> Vec<PhpResolved> {
             imported: true,
         }];
     }
-    let grouped = GROUP.captures_iter(text).any(|c| {
+    let grouped = php_uses(&GROUP, text).any(|c| {
         c[1].split(',')
             .any(|item| item.trim().rsplit([' ', '\\']).next() == Some(written))
     });
