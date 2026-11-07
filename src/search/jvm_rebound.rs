@@ -201,10 +201,6 @@ pub fn jvm_anonymous_open(before: &str) -> bool {
 }
 
 pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
-    static STATEMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:if|for|while|do|try|switch|synchronized|else)\b")
-            .expect("the regex is a literal")
-    });
     let b = line.as_bytes();
     let rest = line.get(start..).unwrap_or_default();
     if line.get(..col).is_none_or(|lead| lead.contains("/*")) {
@@ -243,12 +239,41 @@ pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
     let Some(close) = matching(b, open) else {
         return false;
     };
-    if rest.starts_with("instanceof") && line.get(open..close).is_none_or(|h| h.contains('!')) {
+    let instanceof = rest.starts_with("instanceof");
+    if instanceof
+        && line
+            .get(open..close)
+            .is_none_or(|h| h.contains(['!', '=', '^', '?']))
+    {
         return false;
     }
-    let after = line.get(close + 1..).unwrap_or_default();
+    let Some(end) = body_end(line, close + 1).filter(|&e| e <= col) else {
+        return false;
+    };
+    if !instanceof {
+        return true;
+    }
+    match line
+        .get(end..)
+        .unwrap_or_default()
+        .trim_start()
+        .strip_prefix("else")
+        .filter(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+    {
+        Some(r) => body_end(line, line.len() - r.len()).is_some_and(|e| col < e),
+        None => true,
+    }
+}
+
+fn body_end(line: &str, from: usize) -> Option<usize> {
+    static STATEMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:if|for|while|do|try|switch|synchronized|else)\b")
+            .expect("the regex is a literal")
+    });
+    let b = line.as_bytes();
+    let after = line.get(from..).unwrap_or_default();
     let body = line.len() - after.trim_start().len();
-    let end = if b.get(body) == Some(&b'{') {
+    if b.get(body) == Some(&b'{') {
         matching(b, body).map(|e| e + 1)
     } else if STATEMENT.is_match(after) {
         None
@@ -264,8 +289,7 @@ pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
                 depth < 0 || (depth == 0 && b[i] == b';')
             })
             .map(|e| e + 1)
-    };
-    end.is_some_and(|e| e <= col)
+    }
 }
 
 fn matching(b: &[u8], open: usize) -> Option<usize> {

@@ -44,6 +44,44 @@ public class Rack {
         //^ d: src/main/java/rebound/Flask.java:4
     }
 
+    void caught() { try { } catch (Ewer x) { } x.decant(); }
+    //                                           ^ d: src/main/java/rebound/Flask.java:4
+
+    void bareName(List<Ewer> es) { for (Ewer x : es) { } x.decant(); }
+    //                                                   ^ d: src/main/java/rebound/Rack.java:6
+
+    void elseBlockReturns(Object o) { if (o instanceof Ewer x) { } else { return; } x.decant(); }
+    //                                                                                ^ d: src/main/java/rebound/Ewer.java:4
+    //                                                                              ^ d: src/main/java/rebound/Rack.java:53
+
+    void elseReturns(Object o) { if (o instanceof Ewer x) { } else return; x.decant(); }
+    //                                                                       ^ d: src/main/java/rebound/Ewer.java:4
+
+    void elseThrows(Object o) { if (o instanceof Ewer x) { } else throw new IllegalStateException(); x.decant(); }
+    //                                                                                                 ^ d: src/main/java/rebound/Ewer.java:4
+
+    void equalsFalse(Object o) { if (o instanceof Ewer x == false) return; x.decant(); }
+    //                                                                       ^ d: src/main/java/rebound/Ewer.java:4
+
+    void inElse(Object o) { if (o instanceof Ewer x) { } else { x.decant(); } }
+    //                                                            ^ d: src/main/java/rebound/Flask.java:4
+
+    void recordThenIf(Object o, Object q) { if (o instanceof Box(int y)) { } if (q instanceof Ewer x) { x.decant(); } }
+    //                                                                                                    ^ d: src/main/java/rebound/Ewer.java:4
+    //                                                                                                  ^ d: src/main/java/rebound/Rack.java:69
+
+    void recordThenStatement(Object o, Object q) { if (o instanceof Box(int y)) { } if (q instanceof Ewer x) x.decant(); }
+    //                                                                                                         ^ d: src/main/java/rebound/Ewer.java:4
+
+    void recordThenCatch(Object o) { if (o instanceof Box(int y)) { } try { } catch (Ewer x) { x.decant(); } }
+    //                                                                                           ^ d: src/main/java/rebound/Ewer.java:4
+
+    void recordThenRecord(Object o, Object q) { if (o instanceof Box(int y)) { } if (q instanceof Box(Ewer x)) { x.decant(); } }
+    //                                                                                                             ^ d: src/main/java/rebound/Ewer.java:4
+
+    void catchInsideRecord(Object o) { if (o instanceof Box(int y)) { try { } catch (Ewer x) { } x.decant(); } }
+    //                                                                                             ^ d: src/main/java/rebound/Flask.java:4
+
     void use(String s) {
     }
 }
