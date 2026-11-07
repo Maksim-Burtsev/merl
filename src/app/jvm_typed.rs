@@ -361,7 +361,7 @@ impl App {
         search::jvm_type_name(lines.get(decl - 1)?)?;
         let mut found = Vec::new();
         for base in search::jvm_bases(text, decl, search::scala(here)) {
-            let JvmType::Project(b) = self.jvm_type_at(here, text, &base) else {
+            let JvmType::Project(b) = self.jvm_type_on(here, text, &base, Some(decl)) else {
                 return None;
             };
             let reason = Reason::Receiver(format!("super: {base}"));
@@ -792,7 +792,7 @@ impl App {
         let mut out = Vec::new();
         let mut known = true;
         for base in search::jvm_bases(&text, decl.line1, search::scala(&decl.path)) {
-            match self.jvm_type_at(&decl.path, &text, &base) {
+            match self.jvm_type_on(&decl.path, &text, &base, Some(decl.line1)) {
                 JvmType::Project(b) => {
                     out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
                 }
@@ -801,7 +801,9 @@ impl App {
         }
         if out.is_empty() && known {
             for base in search::java_implements(&text, decl.line1) {
-                if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
+                if let JvmType::Project(b) =
+                    self.jvm_type_on(&decl.path, &text, &base, Some(decl.line1))
+                {
                     out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
                 }
             }
@@ -836,14 +838,18 @@ impl App {
             return JvmType::Unknown;
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);
-        let imports = search::jvm_imports(text);
+        let imports = on.map_or_else(
+            || search::jvm_imports(text),
+            |line1| search::jvm_imports_at(text, line1),
+        );
         let bound = |imports: &[search::JvmImport]| {
             imports
                 .iter()
                 .find(|i| i.bound_name == written)
                 .map(|i| i.path.clone())
         };
-        if self.rel_current().as_deref() == Some(file)
+        if on.is_none()
+            && self.rel_current().as_deref() == Some(file)
             && bound(&search::jvm_imports_at(text, self.line + 1)) != bound(&imports)
         {
             return JvmType::Unknown;
