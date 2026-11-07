@@ -325,6 +325,10 @@ beside its real definition, which `d` jumps to.
 `rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
 `/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
 its real definition, which `d` jumps to.
+`php/src/Husk.php` (#1427) declares functions and a class inside `'…'` and `"…"` strings over
+several lines, and `swift/Sources/Shop/Husk.swift` inside a nested `/* /* */ */` comment and a
+`#if false` block. Neither declares anything; `d` jumps to the real definitions beside them and
+to a function under `#elseif`.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a

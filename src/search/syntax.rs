@@ -78,6 +78,9 @@ fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     if kind == Kind::C {
         hide_c_define_bodies(text, &mut out);
     }
+    if kind == Kind::Swift {
+        hide_c_disabled(text, &mut out);
+    }
     out
 }
 fn hide_c_define_bodies(text: &str, out: &mut [bool]) {
@@ -116,7 +119,7 @@ pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
         match name {
             Some("if" | "ifdef" | "ifndef") => depth += 1,
             Some("endif") => depth -= 1,
-            Some("else" | "elif" | "elifdef" | "elifndef") if depth == 1 => depth = 0,
+            Some("else" | "elif" | "elseif" | "elifdef" | "elifndef") if depth == 1 => depth = 0,
             _ => *hidden = true,
         }
     }
@@ -276,7 +279,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
-        nested_comments: (matches!(kind, Kind::Dart | Kind::Rust)
+        nested_comments: (matches!(kind, Kind::Dart | Kind::Rust | Kind::Swift)
             || (kind == Kind::Sql && super::sql::sql_nests(text)))
         .then_some(0),
         heredoc: None,
@@ -430,7 +433,10 @@ impl<'a> Scanner<'a> {
                 self.literal_closer = None;
             }
         }
-        self.out.push(self.literal_closer.is_some());
+        self.out.push(
+            self.literal_closer.is_some()
+                || (self.kind == Kind::Php && self.in_php_tags && self.line_quote.is_some()),
+        );
         if self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line {
             self.cursor.literal = Some(self.php_heredoc_quote);
         }
