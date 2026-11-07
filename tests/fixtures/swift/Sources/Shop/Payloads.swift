@@ -102,3 +102,102 @@ func shadowed(reason: Fault, flag: Bool) -> Bool {
     //                                                                     ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
     return false
 }
+
+func arms(rope: Rope, fault: Fault, held: Held<Fault.Snag>, reason: Spool, flag: Bool) -> Bool {
+    switch rope {
+    case let .snagged(reason):
+        return reason.isFrayed
+        //            ^ d: Sources/Shop/Payloads.swift:13
+    case .pair(let a, _):
+        return a.isFrayed
+        //       ^ d: Sources/Shop/Payloads.swift:45
+    }
+    switch fault {
+        case .snagged(let reason):
+            if flag { return reason.isFrayed }
+            //                      ^ d: Sources/Shop/Payloads.swift:45
+        case .bare:
+            return reason.isFrayed
+            //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+        default:
+            return false
+    }
+    switch fault { case let .snagged(reason): return reason.isFrayed }
+    //                                                      ^ d: Sources/Shop/Payloads.swift:45
+    switch fault { case let .snagged(reason): return reason.isFrayed; default: return reason.isFrayed }
+    //                                                                                       ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61
+    switch held { case let .snagged(reason): return reason.isFrayed }
+    //                                                     ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
+    switch fault {
+    case let .snagged(reason) where reason.isFrayed:
+        //                                 ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
+        return reason.isFrayed
+        //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
+    case let .snagged(reason), let .bare(reason):
+        return reason.isFrayed
+        //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
+    case let .nested(reason):
+        let reason = Spool()
+        return reason.isFrayed
+        //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+    case .pair:
+        switch rope {
+        case let .snagged(reason):
+            return reason.isFrayed
+            //            ^ d: Sources/Shop/Payloads.swift:13
+        default:
+            return reason.isFrayed
+            //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+        }
+    }
+    return false
+}
+
+func shadowedArms(reason: Fault) -> Bool {
+    switch reason {
+    case let .nested(reason):
+        return reason.isFrayed
+        //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:13 (#1341)
+    default:
+        return false
+    }
+    switch reason { case let .snagged(reason): return reason.isFrayed }
+    //                                                       ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:45 (#1341)
+}
+
+extension Fault {
+    var isFrayedArm: Bool {
+        switch self {
+        case let .snagged(reason): reason.isFrayed
+        //                                ^ d: Sources/Shop/Payloads.swift:45
+        case .bare(let reason): reason.isFrayed
+        //                             ^ d: Sources/Shop/Payloads.swift:45
+        default: false
+        }
+    }
+}
+
+struct Reel {
+    let reason = Spool()
+
+    func spin(fault: Fault) -> Bool {
+        switch fault {
+        case let .snagged(reason):
+            _ = reason
+        case .bare:
+            return reason.isFrayed
+            //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+        default:
+            break
+        }
+        switch fault {
+        case let .snagged(reason):
+            _ = reason
+        default:
+            return reason.isFrayed
+            //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+        }
+        return reason.isFrayed
+        //            ^ d: picker Sources/Shop/Payloads.swift:13, Sources/Shop/Payloads.swift:45, Sources/Shop/Payloads.swift:61; want Sources/Shop/Payloads.swift:61 (#1341)
+    }
+}

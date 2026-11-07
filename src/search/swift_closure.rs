@@ -218,7 +218,8 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>
 }
 
 pub struct SwiftPayload {
-    pub subject: String,
+    pub name: String,
+    pub subject: Option<String>,
     pub case: String,
     pub at: usize,
     pub arity: usize,
@@ -227,22 +228,30 @@ pub struct SwiftPayload {
 pub fn swift_case_payload(line: &str, name: &str) -> Option<SwiftPayload> {
     static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"^(?:\}\s*else\s+)?(?:if|guard|while)\s+case\s+(let\s+|var\s+)?\.([A-Za-z_]\w*)\(([^()]*)\)\s*=\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:,|\{|else\b|$)",
+            r"^(?:\}\s*else\s+)?(?:if|guard|while)\s+case\s+(?P<bind>let\s+|var\s+)?\.(?P<case>[A-Za-z_]\w*)\((?P<items>[^()]*)\)\s*=\s*(?P<subject>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:,|\{|else\b|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    static ARM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:switch\s+(?P<subject>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*\{\s*)?case\s+(?P<bind>let\s+|var\s+)?\.(?P<case>[A-Za-z_]\w*)\((?P<items>[^()]*)\)\s*:",
         )
         .expect("the regex is a literal")
     });
     static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^[A-Za-z_]\w*\s*:\s*").expect("the regex is a literal")
     });
+    static NEXT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bdefault\s*:").expect("the regex is a literal"));
     let t = uncommented(Kind::Swift, line);
     let t = t.trim();
-    let c = PATTERN.captures(t)?;
+    let c = PATTERN.captures(t).or_else(|| ARM.captures(t))?;
     let rest = t.get(c.get_match().end()..)?;
-    if rest.contains("case ") || super::swift_may_bind(rest, name) {
+    if rest.contains("case ") || NEXT.is_match(rest) || super::swift_may_bind(rest, name) {
         return None;
     }
-    let outer = c.get(1).is_some();
-    let items: Vec<&str> = c[3].split(',').map(str::trim).collect();
+    let outer = c.name("bind").is_some();
+    let items: Vec<&str> = c["items"].split(',').map(str::trim).collect();
     let at = items.iter().position(|item| {
         let item = LABEL
             .find(item)
@@ -257,8 +266,9 @@ pub fn swift_case_payload(line: &str, name: &str) -> Option<SwiftPayload> {
         bound.is_some_and(|b| b.trim_matches('`') == name)
     })?;
     Some(SwiftPayload {
-        subject: c[4].to_owned(),
-        case: c[2].to_owned(),
+        name: name.to_owned(),
+        subject: c.name("subject").map(|s| s.as_str().to_owned()),
+        case: c["case"].to_owned(),
         at,
         arity: items.len(),
     })
@@ -396,4 +406,13 @@ pub fn swift_wrapped_params(text: &str, line1: usize) -> bool {
             let braces = |b| code(Kind::Swift, &head).filter(|&(_, c)| c == b).count();
             braces(b'{') == braces(b'}')
         })
+}
+
+pub fn swift_switch_subject(line: &str) -> Option<String> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:return\s+)?switch\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*\{$")
+            .expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    Some(HEADER.captures(t.trim())?[1].to_owned())
 }

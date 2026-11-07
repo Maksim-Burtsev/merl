@@ -74,11 +74,11 @@ func lights(torch: Torch, maybe: Ember?, embers: [Ember], grate: Grate) throws {
         //        ^ d: Sources/Shop/Rebound.swift:8
     }
     switch grate { case let .held(torch): _ = torch.flare() }
-    //                                              ^ d: picker Sources/Shop/Rebound.swift:4, Sources/Shop/Rebound.swift:8, Sources/Shop/Rebound.swift:12; want Sources/Shop/Rebound.swift:8 (#1341)
+    //                                              ^ d: Sources/Shop/Rebound.swift:8
     switch grate {
     case let .held(torch):
         _ = torch.flare()
-        //        ^ d: picker Sources/Shop/Rebound.swift:4, Sources/Shop/Rebound.swift:8, Sources/Shop/Rebound.swift:12; want Sources/Shop/Rebound.swift:8 (#1341)
+        //        ^ d: Sources/Shop/Rebound.swift:8
     }
     if case let .held(torch) = grate { _ = torch.flare() }
     //                                           ^ d: Sources/Shop/Rebound.swift:8

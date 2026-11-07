@@ -54,7 +54,7 @@ impl App {
         if let Some(p) = &type_param {
             locals = vec![p.line1];
         }
-        if !locals.is_empty() {
+        if !locals.is_empty() || self.def_hides_import(a) {
             imports.retain(|i| i.name != a.first());
         }
         let star = kind == Kind::Python && imports.iter().any(|i| i.name == "*");
@@ -182,6 +182,10 @@ impl App {
             && line.get(range.clone()) == Some(word.as_str())
             && search::swift_binds_on(&signature(line.to_owned()), word)
             && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
+    }
+
+    fn def_hides_import(&self, a: &Asked) -> bool {
+        a.kind == Kind::Python && search::python_def_hides_import(&a.text, self.line + 1, a.first())
     }
 
     fn python_locals(&self, a: &Asked, mut locals: Vec<usize>, declared: bool) -> Vec<usize> {
