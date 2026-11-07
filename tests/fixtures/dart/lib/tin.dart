@@ -106,3 +106,20 @@ class Urn extends _Urn {
 Future<Tin<int>> packed<S>() async => Tin([1], 'green');
 //     ^ d: lib/tin.dart:1
 //                                    ^ d: picker lib/tin.dart:1, lib/tin.dart:2
+
+class Sachet {
+  final int pouch = 1;
+}
+
+class Envelope {
+  final int pouch = 2;
+}
+
+// A local set to an entry's `.key` or `.value` is of that type argument (#1338).
+int unpack(MapEntry<String, Sachet> entry, MapEntry<Envelope, int> count) {
+  final sachet = entry.value;
+  final envelope = count.key;
+  return sachet.pouch + envelope.pouch;
+  //            ^ d: lib/tin.dart:111
+  //                             ^ d: lib/tin.dart:115
+}
