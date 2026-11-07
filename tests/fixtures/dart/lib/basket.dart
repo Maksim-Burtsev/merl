@@ -24,10 +24,10 @@ class Basket {
     final parsed = c.Coupon.parse('1');
     //                      ^ d: lib/coupon.dart:8
     // status: via import coupon.dart
-    // `courier.dart` only hands `first` on: the search by name answers.
+    // `courier.dart` only hands `first` on: its export answers.
     k.first([1]);
     //^ d: lib/pricing.dart:64
-    // status: by name
+    // status: via import courier.dart
     // A member hanging off a call is no name an import binds.
     Tariff.parse('1').weigh(500);
     //                ^ d: !jump

@@ -84,9 +84,60 @@ impl App {
             _ => None,
         };
         let built = chain.is_empty().then(|| format!("{word}.{word}"));
-        let found =
-            self.dart_declared_in(&file, word, bare, &[within, built], &Reason::Import(uri));
+        let prefixed = within.is_none() && chain.len() == 1;
+        let reason = Reason::Import(uri);
+        let mut found = self.dart_declared_in(&file, word, bare, &[within, built], &reason);
+        if found.is_empty() && prefixed {
+            found = search::dart_directives(text)
+                .into_iter()
+                .flatten()
+                .filter(|d| {
+                    d.keyword == "import"
+                        && d.prefix == chain.first().cloned()
+                        && dart_names(d, word)
+                })
+                .filter_map(|d| search::dart_uri_file(&self.root, here, &d.uri, sdk.as_deref()))
+                .flat_map(|f| self.dart_exported(here, f, word, &reason, 0))
+                .collect();
+        }
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_exported(
+        &self,
+        here: &Path,
+        file: PathBuf,
+        word: &str,
+        reason: &Reason,
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let sdk = self.dart_sdk();
+        let Some((files, directives)) = self
+            .dart_library(file, sdk.as_deref(), false)
+            .filter(|_| depth < 4)
+        else {
+            return Vec::new();
+        };
+        let found: Vec<Candidate> = files
+            .iter()
+            .flat_map(|f| self.dart_declared_in(f, word, None, &[None], reason))
+            .collect();
+        if !found.is_empty() {
+            return found;
+        }
+        directives
+            .iter()
+            .filter(|d| d.keyword == "export" && dart_names(d, word))
+            .filter_map(|d| {
+                let base = if d.uri.starts_with("package:") {
+                    here
+                } else {
+                    &files[0]
+                };
+                search::dart_uri_file(&self.root, base, &d.uri, sdk.as_deref())
+            })
+            .flat_map(|f| self.dart_exported(here, f, word, reason, depth + 1))
+            .collect()
     }
 
     fn dart_declared_in(
