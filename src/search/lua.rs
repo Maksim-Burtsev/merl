@@ -5,7 +5,7 @@ use regex::Regex;
 
 use super::{
     Binding, Kind, Value, bindings, continued, indent, literal_lines, lua_binds_through,
-    uncommented,
+    lua_closes, uncommented,
 };
 
 pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
@@ -31,8 +31,9 @@ pub fn lua_reassigned(text: &str, line: usize, name: &str) -> bool {
     line.checked_sub(1)
         .filter(|&i| i < lines.len())
         .is_some_and(|at| match lua_walk(&lines, at, name, false) {
-            Ok(bound) => lua_walk(&lines, at, name, true)
-                .is_ok_and(|r| r != bound && !keeps.is_match(lines[r - 1])),
+            Ok(bound) => lua_walk(&lines, at, name, true).is_ok_and(|r| {
+                r > bound && !keeps.is_match(lines[r - 1]) && !lua_closes(&lines[r - 1..at])
+            }),
             Err(_) => false,
         })
 }

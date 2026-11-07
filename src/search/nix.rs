@@ -446,6 +446,18 @@ impl<'a> Parse<'a> {
             })
             .collect()
     }
+
+    fn sets_key_at(&self, pos: usize) -> bool {
+        let Some(k) = self.toks.iter().position(|t| t.1 == pos) else {
+            return false;
+        };
+        matches!(self.toks.get(k + 1), Some((Tok::Eq | Tok::Punct(b'.'), _)))
+            && (0..k).any(|o| {
+                self.toks[o].0 == Tok::Punct(b'{')
+                    && (self.matched[o].and_then(|c| self.attr_binds(o + 1, c)))
+                        .is_some_and(|(binds, _)| binds.iter().any(|b| b.1 == pos))
+            })
+    }
 }
 
 #[expect(
@@ -484,10 +496,17 @@ pub(super) fn nix_bindings(
         None => (line_start, line_start + lines[at].len()),
     };
     let scopes = parse.scopes(&lexed.code);
+    let key = col.is_some() && parse.sets_key_at(start);
     scopes
         .iter()
         .filter(|s| s.from <= end && s.to >= start)
-        .filter_map(|s| Some((s.from, s.binds.iter().find(|b| b.0 == name)?.1)))
+        .filter_map(|s| {
+            let bind = s
+                .binds
+                .iter()
+                .find(|b| b.0 == name && (!key || b.1 == start));
+            Some((s.from, bind?.1))
+        })
         .max_by_key(|&(from, _)| from)
         .map(|(_, pos)| Binding {
             line1: line_of(&text, pos),

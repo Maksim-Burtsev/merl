@@ -196,3 +196,34 @@ local function split_params_closed(jugs)
   --           ^ d: lua/jug/rebound.lua:7
   --     ^ d: lua/jug/rebound.lua:185
 end
+
+local function table_fields_keep()
+  local flask = Flask.new()
+  local t = {a = 1; flask = Jug.new()}; print(flask:glug())
+  --                                                ^ d: lua/jug/rebound.lua:7
+  local u = {a = 1; flask = Jug.new()}
+  print(flask:glug())
+  --          ^ d: lua/jug/rebound.lua:7
+  local opts = {
+  flask = Jug.new()
+  }
+  return flask:glug()
+  --           ^ d: lua/jug/rebound.lua:7
+end
+
+local function self_local_keeps()
+  local flask = Flask.new()
+  local flask = flask; print(flask:glug())
+  --                               ^ d: lua/jug/rebound.lua:7
+end
+
+local function table_then_reassigned()
+  local flask = Flask.new()
+  local t = {a = 1}; flask = Jug.new(); print(flask:glug())
+  --                                                ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  pcall(function()
+    flask = Jug.new()
+    print(flask:glug())
+    --          ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  end)
+end

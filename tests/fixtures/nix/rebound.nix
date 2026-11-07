@@ -31,4 +31,20 @@ in
 #        ^ d: rebound.nix:2
   roof = "${depot}";
 #           ^ d: rebound.nix:2
+  pkg = rec {
+    depot = 4;
+#   ^ d: rebound.nix:35
+    src = fetch {
+      url = "${depot}";
+#              ^ d: rebound.nix:35
+      depot = 5;
+#     ^ d: !jump
+    };
+    passthru.tests = {
+      depot = 6;
+#     ^ d: !jump
+    };
+    ramp = depot;
+#          ^ d: rebound.nix:35
+  };
 }
