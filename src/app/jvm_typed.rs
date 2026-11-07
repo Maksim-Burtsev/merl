@@ -833,6 +833,17 @@ impl App {
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);
         let imports = search::jvm_imports(text);
+        let bound = |imports: &[search::JvmImport]| {
+            imports
+                .iter()
+                .find(|i| i.bound_name == written)
+                .map(|i| i.path.clone())
+        };
+        if self.rel_current().as_deref() == Some(file)
+            && bound(&search::jvm_imports_at(text, self.line + 1)) != bound(&imports)
+        {
+            return JvmType::Unknown;
+        }
         if let Some(search::JvmImport { path, .. }) =
             imports.iter().find(|i| i.bound_name == written)
         {

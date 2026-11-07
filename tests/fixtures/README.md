@@ -1114,6 +1114,12 @@ generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` 
 the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
 ends it and `x` is the field again (#1398).
 
+`jvm/src/main/scala/tureens/` (#1415) declares a `Tureen` with a `ladle` in two packages, `north`
+and `south`, and imports one of them inside a block or an object body: `d` follows the import of
+the cursor's own block, not the file's first, and after a block's `import tureens.north._`,
+which it does not read as a wildcard, it does not jump. In `Quoted` an `import` line inside a
+multi-line string binds nothing.
+
 `Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
 `object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
