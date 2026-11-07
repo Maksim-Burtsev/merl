@@ -857,6 +857,39 @@ pub fn python_in_function_body(text: &str, line1: usize) -> bool {
         })
     })
 }
+pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
+    let n = regex::escape(name);
+    let (Ok(def), Ok(import)) = (
+        Regex::new(&format!(r"^(?:async\s+)?(?:def|class)\s+{n}\b")),
+        Regex::new(&format!(
+            r"^(?:from\s+[\w.]+\s+import\s+(?:\([^)]*|[^\n]*)\b{n}\b|import\s+[^\n]*\bas\s+{n}\b)"
+        )),
+    ) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Python, text);
+    let lines: Vec<&str> = text.lines().collect();
+    let until = if python_in_function_body(text, line1) {
+        lines.len()
+    } else {
+        line1.min(lines.len())
+    };
+    (0..until)
+        .rev()
+        .filter(|&i| literal.get(i) != Some(&true))
+        .find_map(|i| {
+            if def.is_match(lines[i]) {
+                Some(true)
+            } else if (lines[i].starts_with("from ") || lines[i].starts_with("import "))
+                && import.is_match(&lines[i..until.min(i + 64)].join("\n"))
+            {
+                Some(false)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(false)
+}
 fn python_enclosing_def(text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
