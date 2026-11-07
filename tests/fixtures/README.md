@@ -685,6 +685,10 @@ an internal `define` or `define-values`, `case-lambda`, a rest-symbol `lambda`, 
 a `:let`, a `reify` or `defrecord` method, `if-let`, `cl-loop`, `condition-case` and
 `handler-case`, and call it after a `#:when`, in a `condition-case` or `handler-case` body and in
 an `if-let` else branch.
+`clojure/src/shop/kettle.clj` and `stale.clj` (#1431) each define a `steep`: `brewer.clj` refers
+the kettle's, `teapot.clj` and `infuser.clj` refer it and define their own (on one line, and with
+the name under `(defn-`), and `strainer.cljc` refers it, and binds an alias, from both namespaces
+in a reader conditional.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
