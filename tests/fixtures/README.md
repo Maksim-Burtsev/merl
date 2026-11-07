@@ -320,6 +320,9 @@ parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
 `c/src/husk.c` and `husk.cc` (#1421) shape functions as definitions in a `//` comment, an
 indented one, the line opening a `/* */` block and a string, which declare nothing, and one
 beside its real definition, which `d` jumps to.
+`rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
+`/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
+its real definition, which `d` jumps to.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
