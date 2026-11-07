@@ -762,7 +762,11 @@ nested in `create` keep their answer of today in `rules/loud.js`.
 `typescript/winnow/` is a name the file imports hidden by a local one (#1406): `hidden.ts` imports
 the `Winnow` of `barn.ts` (`mill.ts` declares its namesake), and a method through `new Winnow()`
 lands on a `class Winnow` declared in the function, and offers a picker under a `const Winnow =
-class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing.
+class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing. A local
+`function Winnow` hides it too, for `new Winnow()`: its `this.sieveChaff =` (`hidden.ts`,
+`threshed.js`) or `Winnow.prototype.sieveChaff =` (`sifted.js`) is the method, while `r: Winnow`
+still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` to the local
+`Winnow` of another function, so the one without a method offers a picker.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -1109,6 +1113,12 @@ on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val 
 generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` after a `;` in
 the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
 ends it and `x` is the field again (#1398).
+
+`jvm/src/main/scala/tureens/` (#1415) declares a `Tureen` with a `ladle` in two packages, `north`
+and `south`, and imports one of them inside a block or an object body: `d` follows the import of
+the cursor's own block, not the file's first, and after a block's `import tureens.north._`,
+which it does not read as a wildcard, it does not jump. In `Quoted` an `import` line inside a
+multi-line string binds nothing.
 
 `Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,

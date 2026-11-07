@@ -16,7 +16,10 @@ impl App {
         {
             return None;
         }
-        if let Some(ty) = imported.and_then(|n| local_class(kind, file, text, b.line1, n)) {
+        let constructed = matches!(b.value, search::Value::New(_));
+        if let Some(ty) =
+            imported.and_then(|n| local_class(kind, file, text, b.line1, n, constructed))
+        {
             return Some(ty);
         }
         let ty = match &b.value {
@@ -46,9 +49,21 @@ fn imported_name<'a>(kind: Kind, text: &str, written: &'a str) -> Option<&'a str
     (simple && bound(&search::imports(kind, text), written).is_some()).then_some(written)
 }
 
-fn local_class(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> Option<Typed> {
+fn local_class(
+    kind: Kind,
+    file: &Path,
+    text: &str,
+    line1: usize,
+    name: &str,
+    constructed: bool,
+) -> Option<Typed> {
+    let keyword = if constructed {
+        "(?:class|function)"
+    } else {
+        "class"
+    };
     let class = Regex::new(&format!(
-        r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+{}\b",
+        r"^\s*(?:export\s+)?(?:abstract\s+)?{keyword}\s+{}\b",
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
@@ -71,10 +86,31 @@ fn shadows_import(kind: Kind, text: &str, line1: usize, name: &str) -> bool {
             .iter()
             .position(|l| l.contains(';') || l.contains(')'))
             .map_or(1, |i| i + 1);
-        !names_itself(kind, statement.first().unwrap_or(&""), name)
-            && !statement
-                .iter()
-                .take(end.min(8))
-                .any(|l| l.contains("require(") || l.contains("import("))
+        let first = statement.first().unwrap_or(&"");
+        (search::js_constructor(first) == Some(name) && prototyped_elsewhere(&lines, b.line1, name))
+            || !names_itself(kind, first, name)
+                && !statement
+                    .iter()
+                    .take(end.min(8))
+                    .any(|l| l.contains("require(") || l.contains("import("))
     })
+}
+
+fn prototyped_elsewhere(lines: &[&str], decl: usize, name: &str) -> bool {
+    let prototype = Regex::new(&format!(r"^\s*{}\.prototype\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let depth = lines.get(decl - 1).map_or(0, |l| indent(l));
+    let outer = |l: &&str| !l.trim().is_empty() && indent(l) < depth;
+    let start = lines
+        .get(..decl.saturating_sub(1))
+        .and_then(|above| above.iter().rposition(outer))
+        .map_or(0, |i| i + 1);
+    let end = lines
+        .get(decl..)
+        .and_then(|rest| rest.iter().position(outer))
+        .map_or(lines.len(), |i| decl + i);
+    (1..)
+        .zip(lines)
+        .any(|(n, l)| (n <= start || n > end) && prototype.is_match(l))
 }
