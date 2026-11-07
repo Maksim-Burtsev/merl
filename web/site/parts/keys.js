@@ -3,13 +3,14 @@ import { ICONS } from "../shared/fkeys.js";
 const KEYS = [
   ["o / Ctrl+E", "Open a file (fuzzy)", "Files and jumps"],
   ["Ctrl+N", "New file: type its path, Enter creates and edits it", "Files and jumps"],
-  ["d / F12", "Go to definition of the word under the cursor, or its implementations", "Files and jumps"],
+  ["d", "Go to definition of the word under the cursor, or its implementations", "Files and jumps"],
   ["D", "Project symbols (fuzzy)", "Files and jumps"],
-  ["u / Shift+F12", "Usages of the word under the cursor", "Files and jumps"],
+  ["u", "Usages of the word under the cursor", "Files and jumps"],
   ["[ / ]", "Back / forward in the jump history", "Files and jumps"],
   [": / Ctrl+G", "Go to line", "Files and jumps"],
   ["/ / Ctrl+F", "Find in the open file", "Search"],
   ["n / N", "Next / previous match", "Search"],
+  ["*", "Find the word under the cursor as a whole word, or the selection", "Search"],
   ["s", "Search the project", "Search"],
   ["c / C", "Review: next / previous hunk, on to the next file", "Review"],
   ["m", "Review: mark the file as viewed, or take the mark off", "Review"],
@@ -43,6 +44,10 @@ const KEYS = [
   ["Tree: Up / Down", "Move", "Panels"],
   ["Tree: Enter", "Open the file, or expand the directory", "Panels"],
   ["Tree: Left / Right", "Collapse / expand", "Panels"],
+  ["Tree: PgUp / PgDn", "Move one page", "Panels"],
+  ["Tree: Home / End", "First / last row, with Ctrl or without", "Panels"],
+  ["Tree: Ctrl+D / Ctrl+U", "Move half a page down / up", "Panels"],
+  ["Tree: { / }", "Previous / next folder", "Panels"],
   ["Picker: Up / Down", "Move", "Panels"],
   ["Picker: PgUp / PgDn", "Move one page", "Panels"],
   ["Picker: Enter", "Accept", "Panels"],
@@ -57,25 +62,26 @@ const KEYS = [
   ["q", "Quit", "General"],
 ];
 const GROUPS = [...new Set(KEYS.map(k => k[2]))];
+const ROW = Object.fromEntries(KEYS.map(k => [k[0], k]));
 
 const MAP = {
-  "": { o: ["open", 0, "o"], d: ["definition", 2, "d"], f12: ["definition", 2, "F12"], u: ["usages", 4, "u"], "[": ["back", 5, "["], "]": ["forward", 5, "]"],
-    "/": ["find", 7, "/"], n: ["next", 8, "n"], s: ["search", 9, "s"], c: ["next hunk", 10, "c"], m: ["viewed", 11, "m"], return: ["edit", 14, "Enter"],
-    v: ["select", 21, "v"], up: ["up", 30, "↑"], down: ["down", 30, "↓"], left: ["left", 30, "←"], right: ["right", 30, "→"], t: ["tree", 37, "t"],
-    tab: ["focus", 38, "Tab"], w: ["wrap", 48, "w"], p: ["preview", 49, "p"], f: ["fold", 50, "f"], esc: ["close", 52, "Esc"], q: ["quit", 53, "q"] },
-  shift: { d: ["symbols", 3, "D"], f12: ["usages", 4, "Shift+F12"], ";": ["go to line", 6, ":"], n: ["previous", 8, "N"], c: ["prev hunk", 10, "C"],
-    up: ["select", 23, "Shift+↑"], down: ["select", 23, "Shift+↓"], left: ["select", 24, "Shift+←"], right: ["select", 24, "Shift+→"],
-    "[": ["paragraph", 34, "{"], "]": ["paragraph", 34, "}"], "/": ["help", 46, "?"], t: ["theme", 51, "T"] },
-  ctrl: { a: ["select all", 22, "Ctrl+A"], e: ["open", 0, "Ctrl+E"], n: ["new file", 1, "Ctrl+N"], g: ["go to line", 6, "Ctrl+G"], f: ["find", 7, "Ctrl+F"], s: ["save", 15, "Ctrl+S"],
-    r: ["reload", 16, "Ctrl+R"], z: ["undo", 17, "Ctrl+Z"], y: ["redo", 17, "Ctrl+Y"], c: ["copy", 18, "Ctrl+C"], x: ["cut", 19, "Ctrl+X"],
-    d: ["half down", 35, "Ctrl+D"], u: ["half up", 35, "Ctrl+U"] },
-  alt: { left: ["word", 31, "Alt+←"], right: ["word", 31, "Alt+→"], delete: ["word", 20, "Alt+Backspace"] },
-  fn: { left: ["home", 32, "Home"], right: ["end", 32, "End"], up: ["page", 36, "PgUp"], down: ["page", 36, "PgDn"], delete: ["delete", null, "Delete"] },
-  "alt+shift": { left: ["word", 25, "Alt+Shift+←"], right: ["word", 25, "Alt+Shift+→"] },
-  "ctrl+shift": { left: ["to start", 26, "Ctrl+Shift+←"], right: ["to end", 26, "Ctrl+Shift+→"] },
-  "fn+shift": { left: ["to start", 27, "Shift+Home"], right: ["to end", 27, "Shift+End"], up: ["page", 28, "Shift+PgUp"], down: ["page", 28, "Shift+PgDn"] },
-  "ctrl+fn": { left: ["file start", 33, "Ctrl+Home"], right: ["file end", 33, "Ctrl+End"] },
-  "ctrl+fn+shift": { left: ["file start", 29, "Ctrl+Shift+Home"], right: ["file end", 29, "Ctrl+Shift+End"] },
+  "": { o: ["open", "o / Ctrl+E", "o"], d: ["definition", "d", "d"], u: ["usages", "u", "u"], "[": ["back", "[ / ]", "["], "]": ["forward", "[ / ]", "]"],
+    "/": ["find", "/ / Ctrl+F", "/"], n: ["next", "n / N", "n"], s: ["search", "s", "s"], c: ["next hunk", "c / C", "c"], m: ["viewed", "m", "m"], a: ["note", "a", "a"],
+    return: ["edit", "Enter", "Enter"], v: ["select", "v / V", "v"], up: ["up", "Arrows", "↑"], down: ["down", "Arrows", "↓"], left: ["left", "Arrows", "←"], right: ["right", "Arrows", "→"],
+    t: ["tree", "t", "t"], tab: ["focus", "Tab", "Tab"], w: ["wrap", "w", "w"], p: ["preview", "p", "p"], f: ["fold", "f", "f"], esc: ["close", "Esc", "Esc"], q: ["quit", "q", "q"] },
+  shift: { d: ["symbols", "D", "D"], ";": ["go to line", ": / Ctrl+G", ":"], n: ["previous", "n / N", "N"], 8: ["word", "*", "*"], c: ["prev hunk", "c / C", "C"],
+    up: ["select", "Shift+Up / Shift+Down", "Shift+↑"], down: ["select", "Shift+Up / Shift+Down", "Shift+↓"], left: ["select", "Shift+Left / Shift+Right", "Shift+←"], right: ["select", "Shift+Left / Shift+Right", "Shift+→"],
+    "[": ["paragraph", "{ / }", "{"], "]": ["paragraph", "{ / }", "}"], "/": ["help", "?", "?"], t: ["theme", "T", "T"] },
+  ctrl: { a: ["select all", "Ctrl+A", "Ctrl+A"], e: ["open", "o / Ctrl+E", "Ctrl+E"], n: ["new file", "Ctrl+N", "Ctrl+N"], g: ["go to line", ": / Ctrl+G", "Ctrl+G"], f: ["find", "/ / Ctrl+F", "Ctrl+F"], s: ["save", "Ctrl+S", "Ctrl+S"],
+    r: ["reload", "Ctrl+R", "Ctrl+R"], z: ["undo", "Ctrl+Z / Ctrl+Y", "Ctrl+Z"], y: ["redo", "Ctrl+Z / Ctrl+Y", "Ctrl+Y"], c: ["copy", "Ctrl+C", "Ctrl+C"], x: ["cut", "Edit: Ctrl+X", "Ctrl+X"],
+    d: ["half down", "Ctrl+D / Ctrl+U", "Ctrl+D"], u: ["half up", "Ctrl+D / Ctrl+U", "Ctrl+U"] },
+  alt: { left: ["word", "Alt+Left / Alt+Right", "Alt+←"], right: ["word", "Alt+Left / Alt+Right", "Alt+→"], delete: ["word", "Edit: Alt+Backspace / Alt+Delete", "Alt+Backspace"] },
+  fn: { left: ["home", "Home / End", "Home"], right: ["end", "Home / End", "End"], up: ["page", "PgUp / PgDn", "PgUp"], down: ["page", "PgUp / PgDn", "PgDn"], delete: ["delete", null, "Delete"] },
+  "alt+shift": { left: ["word", "Alt+Shift+Left / Right", "Alt+Shift+←"], right: ["word", "Alt+Shift+Left / Right", "Alt+Shift+→"] },
+  "ctrl+shift": { left: ["to start", "Ctrl+Shift+Left / Right", "Ctrl+Shift+←"], right: ["to end", "Ctrl+Shift+Left / Right", "Ctrl+Shift+→"] },
+  "fn+shift": { left: ["to start", "Shift+Home / Shift+End", "Shift+Home"], right: ["to end", "Shift+Home / Shift+End", "Shift+End"], up: ["page", "Shift+PgUp / Shift+PgDn", "Shift+PgUp"], down: ["page", "Shift+PgUp / Shift+PgDn", "Shift+PgDn"] },
+  "ctrl+fn": { left: ["file start", "Ctrl+Home / Ctrl+End", "Ctrl+Home"], right: ["file end", "Ctrl+Home / Ctrl+End", "Ctrl+End"] },
+  "ctrl+fn+shift": { left: ["file start", "Ctrl+Shift+Home / Ctrl+Shift+End", "Ctrl+Shift+Home"], right: ["file end", "Ctrl+Shift+Home / Ctrl+Shift+End", "Ctrl+Shift+End"] },
 };
 const LAYERS = Object.keys(MAP);
 const GLYPH = { shift: "⇧", ctrl: "⌃", alt: "⌥", fn: "fn" };
@@ -121,7 +127,7 @@ const look = (layer, id) => MAP[layer]?.[id];
 const byId = id => caps.filter(c => c.dataset.id === id);
 
 const IDS = Object.fromEntries(GROUPS.map(g => [g, new Set()]));
-for (const l of LAYERS) for (const [id, e] of Object.entries(MAP[l])) if (e[1] !== null) IDS[KEYS[e[1]][2]].add(id);
+for (const l of LAYERS) for (const [id, e] of Object.entries(MAP[l])) if (e[1] !== null) IDS[ROW[e[1]][2]].add(id);
 function mini(g) {
   let y = 0, s = "";
   const rect = (x, y, w, h, id) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx=".8"${IDS[g].has(id) ? ' class="on"' : ""}/>`;
@@ -163,7 +169,7 @@ function render() {
     let entry = look(layer, id), from = layer;
     if (g) {
       entry = null;
-      for (const l of [layer, ...LAYERS]) { const e = look(l, id); if (e && e[1] !== null && KEYS[e[1]][2] === g) { entry = e; from = l; break; } }
+      for (const l of [layer, ...LAYERS]) { const e = look(l, id); if (e && e[1] !== null && ROW[e[1]][2] === g) { entry = e; from = l; break; } }
     }
     if (ch && !c.classList.contains("ar")) {
       const shiftOn = mods.has("shift") && !g;
@@ -181,7 +187,7 @@ function render() {
     c.classList.toggle("held", !!m && mods.has(m));
     c.classList.toggle("lit", !!g && !!entry);
   }
-  if (g) for (const l of LAYERS.filter(l => l && Object.values(MAP[l]).some(e => e[1] !== null && KEYS[e[1]][2] === g)))
+  if (g) for (const l of LAYERS.filter(l => l && Object.values(MAP[l]).some(e => e[1] !== null && ROW[e[1]][2] === g)))
     for (const m of l.split("+")) for (const c of caps) if (MODS[c.dataset.id] === m) c.classList.add("lit");
   drawState(g);
   if (shownLayer !== layer && !g) { shownLayer = layer; if ((!touched || layer) && Date.now() - saidAt > 2500) idle(); }
@@ -195,7 +201,7 @@ function say(entry, id) {
     const name = id ? (id.length === 1 ? id : ({ shiftL: "shift", shiftR: "shift", optR: "option", opt: "option", cmdR: "command", cmd: "command", ctrl: "control" })[id] || id) : "";
     out.innerHTML = `<div class="ro-keys">${name ? `<kbd>${esc(name)}</kbd>` : ""}</div><div class="ro-text"><p class="ro-what dim">${MODS[id] ? "Hold it to see what the other keys do with it." : "merl does not use this key."}</p></div>`;
   } else {
-    const k = KEYS[entry[1]];
+    const k = ROW[entry[1]];
     out.innerHTML = `<div class="ro-keys">${comboHtml(entry[2])}</div><div class="ro-text"><p class="ro-what">${esc(k[1])}</p><p class="ro-group">${k[2]}</p></div>`;
   }
   out.classList.remove("pop"); void out.offsetWidth; out.classList.add("pop");
@@ -222,7 +228,7 @@ function act(id) {
   const g = shown();
   const layer = layerOf(active());
   let entry = look(layer, id);
-  if (g && !entry) for (const l of LAYERS) { const e = look(l, id); if (e && e[1] !== null && KEYS[e[1]][2] === g) { entry = e; break; } }
+  if (g && !entry) for (const l of LAYERS) { const e = look(l, id); if (e && e[1] !== null && ROW[e[1]][2] === g) { entry = e; break; } }
   say(entry, id);
 }
 
@@ -263,7 +269,7 @@ host.addEventListener("pointerover", e => {
   take();
   const g = shown(), layer = layerOf(active());
   let entry = look(layer, c.dataset.id);
-  if (g) { entry = null; for (const l of [layer, ...LAYERS]) { const x = look(l, c.dataset.id); if (x && x[1] !== null && KEYS[x[1]][2] === g) { entry = x; break; } } }
+  if (g) { entry = null; for (const l of [layer, ...LAYERS]) { const x = look(l, c.dataset.id); if (x && x[1] !== null && ROW[x[1]][2] === g) { entry = x; break; } } }
   if (entry) say(entry, c.dataset.id);
 });
 host.addEventListener("click", e => {
@@ -298,7 +304,7 @@ groupsEl.addEventListener("click", e => {
 function hold(g) {
   const names = { shift: "⇧ is shift", ctrl: "⌃ is control", alt: "⌥ is option", fn: "fn is fn" };
   const used = new Set();
-  for (const l of LAYERS.slice(1)) for (const e of Object.values(MAP[l])) if (e[1] !== null && KEYS[e[1]][2] === g) l.split("+").forEach(m => used.add(m));
+  for (const l of LAYERS.slice(1)) for (const e of Object.values(MAP[l])) if (e[1] !== null && ROW[e[1]][2] === g) l.split("+").forEach(m => used.add(m));
   return used.size ? ` Hold the lit modifier: ${[...used].map(m => names[m]).join(", ")}.` : "";
 }
 function sayGroup(g) {

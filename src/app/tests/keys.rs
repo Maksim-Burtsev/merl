@@ -316,6 +316,86 @@ fn readme_documents_every_key() {
 }
 
 #[test]
+fn the_site_lists_every_key_and_maps_each_to_its_row() {
+    let js = include_str!("../../../web/site/parts/keys.js");
+    let mut list = String::from("\nconst KEYS = [\n");
+    for (key, action, g) in KEYS {
+        _ = writeln!(list, "  [{key:?}, {action:?}, {g:?}],");
+    }
+    list += "];\n";
+    assert!(
+        js.contains(&list),
+        "web/site/parts/keys.js should list every key as{list}"
+    );
+    let map = js
+        .split("\nconst MAP = {\n")
+        .nth(1)
+        .and_then(|m| m.split("\n};\n").next())
+        .expect("keys.js has a MAP");
+    for (i, (key, _, _)) in KEYS.iter().enumerate() {
+        assert!(
+            !KEYS[..i].iter().any(|(k, _, _)| k == key),
+            "two rows of KEYS are {key:?}, and the site's key map names a row by its key"
+        );
+    }
+    let entry = Regex::new(r#"\["[^"]*", (?:"([^"]*)"|null), "([^"]*)"\]"#).unwrap();
+    let entries: Vec<_> = entry.captures_iter(map).collect();
+    assert_eq!(
+        entries.len(),
+        map.matches(": [").count(),
+        "every entry of the site's key map reads [\"word\", \"row\" or null, \"label\"]"
+    );
+    let mut mapped = Vec::new();
+    for c in &entries {
+        let Some(row) = c.get(1).map(|m| m.as_str()) else {
+            continue;
+        };
+        let label = c[2]
+            .replace('←', "Left")
+            .replace('→', "Right")
+            .replace('↑', "Up")
+            .replace('↓', "Down");
+        let row_key = KEYS.iter().map(|(k, _, _)| *k).find(|k| *k == row);
+        assert!(
+            row_key.is_some_and(|k| presses(k).contains(&label)),
+            "the site's key map shows {label:?} on {row:?}, a row of KEYS without that key"
+        );
+        mapped.push(row);
+    }
+    for (key, _, _) in KEYS {
+        let off_the_board = key
+            .split_once(": ")
+            .is_some_and(|(m, _)| ["Fold", "Tree", "Picker", "Help"].contains(&m));
+        assert!(
+            off_the_board || mapped.contains(key),
+            "the site's key map has no key for {key:?}"
+        );
+    }
+}
+
+fn presses(key: &str) -> Vec<String> {
+    if key == "Arrows" {
+        return ["Up", "Down", "Left", "Right"].map(String::from).to_vec();
+    }
+    let key = key
+        .split_once(": ")
+        .filter(|(m, _)| m.starts_with(char::is_alphabetic))
+        .map_or(key, |(_, k)| k);
+    let mut alts = key.split(" / ");
+    let first = alts.next().unwrap_or_default();
+    let mods = first.rsplit_once('+').map_or("", |(m, _)| m);
+    std::iter::once(first.to_owned())
+        .chain(alts.map(|a| {
+            if a.contains('+') || mods.is_empty() {
+                a.to_owned()
+            } else {
+                format!("{mods}+{a}")
+            }
+        }))
+        .collect()
+}
+
+#[test]
 fn every_group_of_keys_is_one_run() {
     let mut runs: Vec<&str> = Vec::new();
     for (_, _, g) in KEYS {
