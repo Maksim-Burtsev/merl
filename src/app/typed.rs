@@ -947,7 +947,17 @@ impl App {
         if hidden(kind, file, text, line1, &parts[0]) {
             return None;
         }
-        self.declaration(kind, file, &parts).or_else(|| {
+        let decl = self.declaration(kind, file, &parts);
+        let imported = kind == Kind::Python
+            && receiver.is_empty()
+            && decl.as_ref().is_some_and(|d| d.path == file)
+            && search::python_import_binds_last(text, line1, method);
+        let decl = if imported {
+            self.imported_declaration(kind, file, &parts)
+        } else {
+            decl
+        };
+        decl.or_else(|| {
             (kind == Kind::Python)
                 .then(|| self.outside_callee(file, text, callee))
                 .flatten()

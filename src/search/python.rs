@@ -858,11 +858,17 @@ pub fn python_in_function_body(text: &str, line1: usize) -> bool {
     })
 }
 pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
+    python_def_binds_last(text, line1, name) == Some(true)
+}
+pub fn python_import_binds_last(text: &str, line1: usize, name: &str) -> bool {
+    python_def_binds_last(text, line1, name) == Some(false)
+}
+fn python_def_binds_last(text: &str, line1: usize, name: &str) -> Option<bool> {
     let Ok(def) = Regex::new(&format!(
         r"^(?:async\s+)?(?:def|class)\s+{}\b",
         regex::escape(name)
     )) else {
-        return false;
+        return None;
     };
     let literal = literal_lines(Kind::Python, text);
     let lines: Vec<&str> = text.lines().collect();
@@ -889,7 +895,7 @@ pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
         })
         .collect();
         if (0..lines.len()).any(|i| imports_it(i) && owner(i).is_some_and(|d| chain.contains(&d))) {
-            return false;
+            return Some(false);
         }
     }
     let until = if body {
@@ -909,7 +915,6 @@ pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
                 None
             }
         })
-        .unwrap_or(false)
 }
 fn python_enclosing_def(text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();

@@ -22,10 +22,25 @@ impl App {
         {
             return Some(ty);
         }
-        match &b.value {
+        let ty = match &b.value {
             search::Value::Type(_) => self.annotated_type(kind, file, text, b.line1, t),
             _ => self.type_decl(kind, file, t),
+        };
+        if kind == Kind::Python
+            && ty.as_ref().is_some_and(|ty| ty.path == file)
+            && search::type_path(kind, t).is_some_and(|p| p == [t])
+            && search::python_import_binds_last(text, b.line1, t)
+        {
+            return self
+                .imported_declaration(kind, file, &[t.to_owned()])
+                .filter(|d| search::declares_type(kind, &d.text))
+                .map(|d| Typed {
+                    name: t.to_owned(),
+                    path: d.path,
+                    line: d.line1,
+                });
         }
+        ty
     }
 }
 

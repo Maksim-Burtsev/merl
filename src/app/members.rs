@@ -5,7 +5,7 @@ use super::{
 
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
-        self.declared(kind, file, parts, false)
+        self.declared(kind, file, parts, false, true)
     }
 
     pub(super) fn type_declaration(
@@ -14,10 +14,26 @@ impl App {
         file: &Path,
         parts: &[String],
     ) -> Option<Hit> {
-        self.declared(kind, file, parts, true)
+        self.declared(kind, file, parts, true, true)
     }
 
-    fn declared(&self, kind: Kind, file: &Path, parts: &[String], types_only: bool) -> Option<Hit> {
+    pub(super) fn imported_declaration(
+        &self,
+        kind: Kind,
+        file: &Path,
+        parts: &[String],
+    ) -> Option<Hit> {
+        self.declared(kind, file, parts, false, false)
+    }
+
+    fn declared(
+        &self,
+        kind: Kind,
+        file: &Path,
+        parts: &[String],
+        types_only: bool,
+        own: bool,
+    ) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let interface = Regex::new(&format!(
             r"^\s*(?:export\s+)?(?:declare\s+)?interface\s+{}\b",
@@ -53,7 +69,7 @@ impl App {
             }
             Err(_) => None,
         };
-        if chain.is_empty() || kind == Kind::TsJs {
+        if own && (chain.is_empty() || kind == Kind::TsJs) {
             let within = (!chain.is_empty()).then(|| parts.join("."));
             let hits = self.package_declarations(kind, file, name, within.as_deref());
             if !hits.is_empty() {
