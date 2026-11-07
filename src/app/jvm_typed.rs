@@ -501,10 +501,15 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let ext = file.extension().and_then(|e| e.to_str());
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
-        let bindings: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
-            .iter()
-            .map(|b| b.line1)
-            .collect();
+        let cursor_line = line1 == self.line + 1 && lines.get(self.line) == Some(&self.line_str());
+        let bindings: Vec<usize> = if cursor_line {
+            search::jvm_bindings_at(text, line1, self.col, name)
+        } else {
+            search::bindings(Kind::Jvm, text, line1, name)
+        }
+        .iter()
+        .map(|b| b.line1)
+        .collect();
         let declared = if bindings.is_empty() {
             let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
