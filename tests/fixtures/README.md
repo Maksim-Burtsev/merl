@@ -317,6 +317,9 @@ which answer with that binding, and keeps the global where the binding does not 
 `for (crumb in xs)`, a loop or block closed or opened later on the line, `^{`, another
 parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
 `c/src/rebound.c` reads `struct terrine (*g)` as declaring `g` (#1400), and a call `deref(g)` as not.
+`c/src/husk.c` and `husk.cc` (#1421) shape functions as definitions in a `//` comment, an
+indented one, the line opening a `/* */` block and a string, which declare nothing, and one
+beside its real definition, which `d` jumps to.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a

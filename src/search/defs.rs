@@ -994,7 +994,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Jvm if shaped_as_record_component(line_text) => in_record_header(lines(), line),
         Kind::CSharp if cs_header_parameter_line(line_text) => cs_in_record_header(lines(), line),
         Kind::Jvm => groovy_declares(path, word, line, line_text, lines).unwrap_or(true),
-        Kind::C => c_declares_where(line, line_text, lines),
+        Kind::C => c_declares_where(line, line_text, word, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,
         Kind::PowerShell => powershell_declares(lines(), line, line_text),
         Kind::Dart => dart_declares(lines(), line, line_text),
