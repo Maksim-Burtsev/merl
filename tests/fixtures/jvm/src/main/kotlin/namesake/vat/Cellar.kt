@@ -26,3 +26,37 @@ class Rack {
         //^ d: src/main/kotlin/namesake/cork/Decanter.kt:4
     }
 }
+
+class Bung {
+    val bottled: Decanter = Decanter()
+
+    fun uncork(): Decanter = bottled
+}
+
+class Tastevin {
+    class Decanter {
+        fun aerate() {}
+    }
+
+    fun unseal(s: Bung) {
+        s.bottled.aerate()
+        //        ^ d: src/main/kotlin/namesake/cork/Decanter.kt:4
+        s.uncork().aerate()
+        //         ^ d: src/main/kotlin/namesake/cork/Decanter.kt:4
+    }
+}
+
+class Corkscrew {
+    val cellared: Decanter = Decanter()
+
+    inner class Inner {
+        inner class Decanter {
+            fun aerate() {}
+        }
+
+        fun swill() {
+            cellared.aerate()
+            //       ^ d: src/main/kotlin/namesake/cork/Decanter.kt:4
+        }
+    }
+}

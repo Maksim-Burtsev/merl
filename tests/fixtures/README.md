@@ -470,7 +470,8 @@ a comment and a string. A `for` and an `if` init without a value, and a lambda c
 with no parameter list, bind `g` too; a copy capture `[g]` and a `for` init that only calls `g.slosh()` keep `Gourd`.
 A statement that calls a macro of the file whose body declares its argument (`DECLARE(Terrine, g);`, in C
 `CDECLARE(struct terrine *, g);`, one over two lines) binds `g` to a type `d` does not read, so it offers a
-picker; a macro that only reads its argument (`SHOW(g)`, `POKE(g, n)`, `RETURN(g.slosh())`) keeps `Gourd`.
+picker; a macro that only reads its argument (`SHOW(g)`, `POKE(g, n)`, `RETURN(g.slosh())`, and through
+`&x`, `*p`, `>> x` or `b > a`: `ZERO(g)`, `SHOWP(g)`, `READ(g)`, in C `CLOCK(g)`, `CMAX(g, h)`) keeps `Gourd`.
 `rebound.c` also declares `g` through a `typedef` local to the function (#1400): `Tureen`, a
 `Ladle` that hides the file's `Ladle` of `struct gourd`, and a pointer `Scoop` naming `struct
 terrine`; the file's `Ladle` answers where the local one does not reach the declaration (another
@@ -1086,7 +1087,7 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 `instanceof` whose `if` returns. The one-line shapes keep a picker holding `Ewer.decant` /
 `Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
-name's member.
+name's member. So does a `for` header written inside a string on the cursor's line.
 
 `jvm/src/main/groovy/rebound/Workbench.groovy` (#1398) binds a `Gimlet c` field and a `def x`
 field again where `d` is pressed on the name: a local ended by `;` earlier on the cursor's line
@@ -1115,7 +1116,10 @@ the anonymous class they open on the same line (`new Percolator { … }`, `new E
 from one package into a file whose `Cellar` declares a nested `Decanter` of its own: `aerate`
 through a parameter, a field and a local typed `Decanter` inside `Cellar` lands on the nested
 class's, and through a parameter of the `Rack` beside it, which the nested class does not reach,
-on the imported one's.
+on the imported one's. So does a type written outside the nested class's scope and read from a
+class that has a nested `Decanter` too: `Sommelier` (`Tastevin` in Kotlin) reads a field and a
+return type of `Magnum` (`Bung`) and, in Java, a `Jeroboam extends Decanter`; `Cooper.Inner`
+(`Corkscrew.Inner`) reads its outer class's field.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

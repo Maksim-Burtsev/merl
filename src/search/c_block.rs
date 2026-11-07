@@ -156,16 +156,15 @@ pub(super) fn declaring_macros(text: &str) -> Vec<Declarer> {
             let (Some(head), Some(rest)) = (body.get(..j), body.get(j + param.len()..)) else {
                 return false;
             };
-            let before = head.trim_end();
-            let word = before
-                .rsplit(|c: char| !is_name(c))
-                .next()
-                .unwrap_or_default();
+            let ty = head.trim_end_matches(|c: char| c.is_whitespace() || c == '*' || c == '&');
+            let word = ty.rsplit(|c: char| !is_name(c)).next().unwrap_or_default();
+            let template = ty.ends_with('>') && ty.matches('<').count() >= ty.matches('>').count();
+            let after = rest.trim_start();
             !head.ends_with(is_name)
                 && !rest.starts_with(is_name)
-                && (before.ends_with(['*', '&', '>']) || !word.is_empty())
-                && !before.ends_with("->")
+                && (template || !word.is_empty())
                 && !NOT_TYPES.contains(&word)
+                && (after.is_empty() || after.starts_with([';', '=', ',', '[', ')']))
         })
     };
     (DEFINE.captures_iter(text))
