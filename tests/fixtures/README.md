@@ -222,7 +222,9 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+declaring what the corner declares. `php/src/Tea/Grouped.php` holds grouped `use
+Shop\Tea\Stale\{Kettle}` and `use function` lines inside a block comment, which import nothing.
+`php/src/Tea/Rebound.php` binds a `Kettle $pot` again
 before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
 `??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
 `use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
@@ -445,6 +447,9 @@ master's picker.
 switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
 whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
 `Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
+`csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
+`Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
+there, so `Ignite()` lands on the `Burners` the live `using static` opens.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -1120,6 +1125,9 @@ and `south`, and imports one of them inside a block or an object body: `d` follo
 the cursor's own block, not the file's first, and after a block's `import tureens.north._`,
 which it does not read as a wildcard, it does not jump. In `Quoted` an `import` line inside a
 multi-line string binds nothing.
+`Outside.scala` types a field, a parameter and a base class under the file's `import
+tureens.south.Tureen` and calls `ladle` on them inside a block that imports the `north` one: the
+type keeps the import of the line it is written on.
 
 `Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,

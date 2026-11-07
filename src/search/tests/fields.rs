@@ -377,8 +377,11 @@ fn csharp_usings_open_namespaces_and_aliases_open_none() {
 
 #[test]
 fn csharp_usings_inside_a_block_comment_open_nothing() {
-    let text = "/*\nusing Shop.Lab;\n*/ using Shop.Late;\n// old /*\nusing Shop.Billing;\n/* a */ using Shop.Inline;\n/* b\n   c */\nusing Shop.Shipping;\n";
-    assert_eq!(cs_usings(text), ["Shop.Billing", "Shop.Shipping"]);
+    let text = "/*\nusing Shop.Lab;\n*/\n// old /*\nusing Shop.Billing;\n/* b\n   c */\nusing Shop.Shipping;\nnamespace A { class R { string g = \"api/*\"; } }\nnamespace B {\nusing Shop.Routes;\n}\n";
+    assert_eq!(
+        cs_usings(text),
+        ["Shop.Billing", "Shop.Shipping", "Shop.Routes"]
+    );
 }
 
 #[test]

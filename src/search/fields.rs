@@ -548,23 +548,8 @@ pub fn cs_using(line: &str) -> Option<CsUsing> {
 }
 
 pub fn cs_code_lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
-    let mut open = false;
-    text.lines().enumerate().filter(move |(_, l)| {
-        let code = !open;
-        let mut rest: &str = l;
-        loop {
-            let next = if open {
-                rest.split_once("*/")
-            } else {
-                rest.split_once("/*")
-                    .filter(|(before, _)| !before.contains("//"))
-            };
-            let Some((_, after)) = next else { break };
-            open = !open;
-            rest = after;
-        }
-        code
-    })
+    let literal = literal_lines(Kind::CSharp, text);
+    (text.lines().enumerate()).filter(move |&(i, _)| literal.get(i) != Some(&true))
 }
 
 pub fn cs_usings(text: &str) -> Vec<String> {
