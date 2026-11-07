@@ -214,6 +214,11 @@ impl App {
             return (!found.is_empty()).then_some(found);
         }
         if let Some(path) = bound {
+            if let Some(here) = self.rel_current()
+                && !Self::jvm_nested_in_scope(&here, text, first, self.line + 1).is_empty()
+            {
+                return None;
+            }
             let Some((files, mut names)) = longest_project_package_and_rest(path) else {
                 return Some(Vec::new());
             };
