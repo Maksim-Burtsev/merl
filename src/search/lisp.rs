@@ -505,7 +505,7 @@ pub fn lisp_bindings_at(
 }
 
 fn open_frame<'a>(
-    kind: Kind,
+    kind: (Kind, bool),
     stack: &mut [Frame<'a>],
     (c, prefix): (u8, u8),
     scopes: &mut Vec<(usize, Option<usize>)>,
@@ -516,12 +516,21 @@ fn open_frame<'a>(
         .last_mut()
         .map_or(Role::Plain, |p| child_role(kind, p, c, prefix));
     let (sequential, entry) = match stack.last() {
-        Some(p) if role == Role::Entries => (
-            SEQUENTIAL.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str()),
-            None,
-        ),
-        Some(p) if p.role == Role::Entries && p.sequential => (false, Some(found)),
-        Some(p) if (p.values && role == Role::Destructure) || role == Role::Quasi => {
+        Some(p) if role == Role::Entries => {
+            let h = p.head.unwrap_or("").to_ascii_lowercase();
+            let sequential = SEQUENTIAL.contains(&h.as_str());
+            let parallel = !sequential
+                && !racket_for(&h)
+                && !RECURSIVE.contains(&h.as_str())
+                && !["do", "do*"].contains(&h.as_str());
+            (sequential, parallel.then_some(found))
+        }
+        Some(p) if p.role == Role::Entries && p.sequential => (true, Some(found)),
+        Some(p)
+            if p.role == Role::Entries
+                || (p.values && role == Role::Destructure)
+                || role == Role::Quasi =>
+        {
             (false, p.entry)
         }
         _ => (false, None),
@@ -573,7 +582,7 @@ fn open_frame<'a>(
 }
 
 fn atom<'a>(
-    kind: Kind,
+    (kind, racket): (Kind, bool),
     stack: &mut [Frame<'a>],
     (a, prefix): (&'a str, u8),
     pos: usize,
@@ -593,7 +602,7 @@ fn atom<'a>(
             if d.idx == 1
                 && d.role == Role::Plain
                 && d.head.is_some_and(|h| {
-                    DEFINES.contains(&h) || (h == "match-define" && prefix != b'\'')
+                    DEFINES.contains(&h) || (racket && h == "match-define" && prefix != b'\'')
                 }) =>
         {
             Some(o.scope)
@@ -699,6 +708,7 @@ pub(super) fn lisp_bindings(
     let mut found: Vec<(usize, usize, usize)> = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
     let from_top = code.get(starts[top]..).unwrap_or_default();
+    let kind = (kind, kind == Kind::Scheme && racket_match(&text, &code));
     for (tok, pos) in tokens(from_top) {
         let prefix = from_top.as_bytes()[pos.saturating_sub(1)];
         let pos = pos + starts[top];
@@ -727,7 +737,7 @@ pub(super) fn lisp_bindings(
                 if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
                     found.truncate(from);
                 }
-                if let Some(from) = f.entry.filter(|_| f.role == Role::First) {
+                if let Some(from) = f.entry.filter(|_| settles(&f)) {
                     for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
                         e.2 = pos;
                     }
@@ -791,8 +801,53 @@ fn in_pattern(f: &Frame) -> bool {
     }
 }
 
-fn pattern_child(kind: Kind, p: &Frame, prefix: u8) -> Option<Role> {
-    let scheme = kind == Kind::Scheme && p.role == Role::Plain;
+fn settles(f: &Frame) -> bool {
+    f.role == Role::Entries || (f.role == Role::First && f.sequential)
+}
+
+fn racket_match(text: &str, code: &str) -> bool {
+    let lang = text
+        .lines()
+        .any(|l| matches!(l.trim(), "#lang racket" | "#lang typed/racket"));
+    if !lang && !code.contains("racket/match") {
+        return false;
+    }
+    let mut stack: Vec<(Option<&str>, usize)> = Vec::new();
+    for (tok, pos) in tokens(code) {
+        match tok {
+            Tok::Open(_) => stack.push((None, 0)),
+            Tok::Close => {
+                stack.pop();
+                if let Some(p) = stack.last_mut() {
+                    p.1 += 1;
+                }
+            }
+            Tok::Atom(a) => {
+                let quoted = code.as_bytes()[pos.saturating_sub(1)] == b'\'';
+                let head = match &*stack {
+                    [.., (Some(h), i), (None, 0)] => {
+                        *i != 1 || !(h.starts_with("define") || ["lambda", "λ"].contains(h))
+                    }
+                    [(None, 0)] => true,
+                    _ => false,
+                };
+                if ["match", "match-lambda", "match-define"].contains(&a) && !quoted && !head {
+                    return false;
+                }
+                if let Some(f) = stack.last_mut() {
+                    if f.1 == 0 {
+                        f.0 = Some(a);
+                    }
+                    f.1 += 1;
+                }
+            }
+        }
+    }
+    true
+}
+
+fn pattern_child((kind, racket): (Kind, bool), p: &Frame, prefix: u8) -> Option<Role> {
+    let scheme = racket && p.role == Role::Plain;
     match (p.role, p.head.unwrap_or(""), p.idx) {
         (Role::First, _, 0) if prefix == b'`' && kind == Kind::EmacsLisp => Some(Role::Quasi),
         (Role::Quasi, ..) if prefix != b',' => Some(Role::Quasi),
@@ -811,8 +866,8 @@ fn pattern(prefix: u8) -> Role {
     }
 }
 
-fn child_role(kind: Kind, p: &mut Frame, c: u8, prefix: u8) -> Role {
-    if let Some(role) = pattern_child(kind, p, prefix) {
+fn child_role((kind, racket): (Kind, bool), p: &mut Frame, c: u8, prefix: u8) -> Role {
+    if let Some(role) = pattern_child((kind, racket), p, prefix) {
         return role;
     }
     let clojure = kind == Kind::Clojure;

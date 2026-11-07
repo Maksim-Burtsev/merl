@@ -40,3 +40,13 @@
 ;                                           ^ d: rebound.rkt:2
 (define (r27 x) (match x [(struct grand (a)) (grand)]))
 ;                                             ^ d: rebound.rkt:2
+(define (r28) (match-lambda [(list grand) grand] [_ (grand)]))
+;                                         ^ d: rebound.rkt:43
+;                                                    ^ d: rebound.rkt:2
+(define (r29 x) (match x [grand grand]))
+;                               ^ d: rebound.rkt:46
+(define (r30 x) (match-define grand x) grand)
+;                                      ^ d: rebound.rkt:48
+(define (r31) (let ([grand 1] [b grand]) (list b grand)))
+;                                ^ d: rebound.rkt:2
+;                                                ^ d: rebound.rkt:50
