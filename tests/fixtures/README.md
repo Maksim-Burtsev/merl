@@ -320,6 +320,9 @@ parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
 `c/src/husk.c` and `husk.cc` (#1421) shape functions as definitions in a `//` comment, an
 indented one, the line opening a `/* */` block and a string, which declare nothing, and one
 beside its real definition, which `d` jumps to.
+`jvm/src/main/kotlin/husk/Chaff.kt` and `jvm/src/main/scala/husk/Bran.scala` (#1423) hide a
+class, a method, a value and namesakes of real ones in a nested block comment, which ends only at
+its second `*/`, and a KDoc whose `src/**/*.kt` nests and closes again.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a

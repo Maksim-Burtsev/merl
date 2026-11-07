@@ -928,7 +928,7 @@ impl App {
 
     fn jvm_code(&self, h: &Hit) -> bool {
         self.text_of(&h.path).is_some_and(|t| {
-            !search::literal_lines(Kind::Jvm, &t)
+            !search::path_literal_lines(Kind::Jvm, &h.path, &t)
                 .get(h.line1 - 1)
                 .copied()
                 .unwrap_or(false)
