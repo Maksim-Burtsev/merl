@@ -309,14 +309,30 @@ impl App {
                     reason: Reason::Receiver(c.clone()),
                 })
                 .collect();
-            if !found.is_empty() {
-                return found;
-            }
             let search::RubyParents {
                 superclasses: supers,
                 includes,
+                prepends,
                 extends,
             } = self.ruby_parents(here, &c);
+            if !found.is_empty() {
+                let ahead: Vec<Candidate> = prepends
+                    .iter()
+                    .filter(|_| !side)
+                    .filter_map(|m| self.ruby_resolve(here, &c, m))
+                    .flat_map(|m| {
+                        owned
+                            .iter()
+                            .filter(|o| o.class == m && !o.on_class)
+                            .map(|o| Candidate {
+                                hit: o.hit.clone(),
+                                reason: Reason::Receiver(m.clone()),
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                return if ahead.is_empty() { found } else { ahead };
+            }
             let mixed = if side { extends } else { includes };
             let next = mixed
                 .into_iter()
@@ -398,6 +414,7 @@ impl App {
             let one = search::ruby_class_parents(&t, h.line1);
             out.superclasses.extend(one.superclasses);
             out.includes.extend(one.includes);
+            out.prepends.extend(one.prepends);
             out.extends.extend(one.extends);
         }
         out
