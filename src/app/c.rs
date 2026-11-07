@@ -208,6 +208,12 @@ impl App {
     fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<CTypeIn> {
         match search::c_value_type(text, self.line + 1, Some(self.col), name) {
             Ok(Some(ty)) => {
+                let bound = search::c_bindings_at(text, self.line + 1, Some(self.col), name);
+                let ty = match (&ty, &bound[..]) {
+                    (search::CType::Name(t), [at]) => search::c_local_typedef(text, *at, t),
+                    _ => None,
+                }
+                .unwrap_or(ty);
                 return Some(CTypeIn {
                     file: here.to_path_buf(),
                     ty,

@@ -201,32 +201,22 @@ pub fn jvm_anonymous_open(before: &str) -> bool {
 }
 
 pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
+    let line = &without_block_comments(line);
     let b = line.as_bytes();
     let rest = line.get(start..).unwrap_or_default();
-    if line.get(..col).is_none_or(|lead| lead.contains("/*")) {
+    if line.get(..col).is_none() {
         return false;
     }
+    if rest.starts_with("case") {
+        return case_closed_at(b, start, col);
+    }
     let open = if rest.starts_with("instanceof") {
-        let mut depth = 0i32;
-        let open = (0..start).rev().find(|&i| {
-            match b[i] {
-                b')' => depth += 1,
-                b'(' if depth > 0 => depth -= 1,
-                b'(' => {
-                    let head = line.get(..i).unwrap_or_default().trim_end();
-                    return head.ends_with("if")
-                        && !head
-                            .get(..head.len() - 2)
-                            .unwrap_or_default()
-                            .ends_with(|c: char| c.is_alphanumeric() || c == '_');
-                }
-                _ => {}
+        match pattern_header(line, start) {
+            Header::If(o) => o,
+            Header::Statement(from) => {
+                return statement_end(b, from, start).is_some_and(|e| e <= col);
             }
-            false
-        });
-        match open {
-            Some(o) => o,
-            None => return false,
+            Header::Other => return false,
         }
     } else if ["for", "catch", "try"].iter().any(|k| rest.starts_with(k)) {
         match rest.find('(') {
@@ -260,9 +250,116 @@ pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
         .strip_prefix("else")
         .filter(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
     {
-        Some(r) => body_end(line, line.len() - r.len()).is_some_and(|e| col < e),
+        Some(r) => {
+            let from = line.len() - r.len();
+            body_end(line, from).is_some_and(|e| {
+                col < e || line.get(from..e).is_some_and(|body| !LEAVES.is_match(body))
+            })
+        }
         None => true,
     }
+}
+
+static LEAVES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\b(?:return|throw|break|continue|yield|while|for|do)\b")
+        .expect("the regex is a literal")
+});
+
+fn without_block_comments(line: &str) -> String {
+    let mut out = line.to_owned();
+    let mut from = 0;
+    while let Some(open) = out.get(from..).and_then(|r| r.find("/*")).map(|o| from + o) {
+        let close = out
+            .get(open + 2..)
+            .and_then(|r| r.find("*/"))
+            .map_or(out.len(), |c| open + 2 + c + 2);
+        out.replace_range(open..close, &" ".repeat(close - open));
+        from = close;
+    }
+    out
+}
+
+enum Header {
+    If(usize),
+    Statement(usize),
+    Other,
+}
+
+fn pattern_header(line: &str, start: usize) -> Header {
+    static DECLARATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:return\b|(?:final\s+)?[\w.]+(?:<[^<>]*>)?(?:\[\])*\s+\w+\s*=[^=])")
+            .expect("the regex is a literal")
+    });
+    let b = line.as_bytes();
+    let (mut depth, mut innermost) = (0i32, true);
+    for i in (0..start).rev() {
+        match b[i] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
+            b'{' => return Header::Statement(i + 1),
+            b'(' => {
+                let head = line.get(..i).unwrap_or_default().trim_end();
+                let word = head
+                    .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .next()
+                    .unwrap_or_default();
+                match word {
+                    "if" if innermost => return Header::If(i),
+                    "if" | "while" | "for" | "switch" | "synchronized" | "catch" | "try" => {
+                        return Header::Other;
+                    }
+                    _ => innermost = false,
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth == 0 && DECLARATION.is_match(line) {
+        Header::Statement(0)
+    } else {
+        Header::Other
+    }
+}
+
+fn statement_end(b: &[u8], from: usize, start: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    for (i, &c) in b.iter().enumerate().skip(from) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b'}' if depth == 0 => return Some(i),
+            b')' | b']' if depth == 0 => return None,
+            b')' | b']' | b'}' => depth -= 1,
+            b';' if depth == 0 && i > start => return Some(i + 1),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn case_closed_at(b: &[u8], start: usize, col: usize) -> bool {
+    let word = |i: usize| {
+        b.get(i)
+            .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+    };
+    let mut depth = 0i32;
+    for i in start + 4..col.min(b.len()) {
+        match b[i] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b'}' if depth == 0 => return true,
+            b')' | b']' if depth == 0 => return false,
+            b')' | b']' | b'}' => depth -= 1,
+            _ if depth == 0
+                && !word(i.wrapping_sub(1))
+                && [&b"case"[..], b"default"]
+                    .iter()
+                    .any(|k| b[i..].starts_with(k) && !word(i + k.len())) =>
+            {
+                return true;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn body_end(line: &str, from: usize) -> Option<usize> {
