@@ -858,21 +858,44 @@ pub fn python_in_function_body(text: &str, line1: usize) -> bool {
     })
 }
 pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
-    let n = regex::escape(name);
-    let (Ok(def), Ok(import)) = (
-        Regex::new(&format!(r"^(?:async\s+)?(?:def|class)\s+{n}\b")),
-        Regex::new(&format!(
-            r"^(?:from\s+[\w.]+\s+import\s+(?:\([^)]*|[^\n]*)\b{n}\b|import\s+[^\n]*\bas\s+{n}\b)"
-        )),
-    ) else {
+    let Ok(def) = Regex::new(&format!(
+        r"^(?:async\s+)?(?:def|class)\s+{}\b",
+        regex::escape(name)
+    )) else {
         return false;
     };
     let literal = literal_lines(Kind::Python, text);
     let lines: Vec<&str> = text.lines().collect();
-    let until = if python_in_function_body(text, line1) {
+    let imports_it = |i: usize| {
+        let t = lines[i].trim_start();
+        (t.starts_with("from ") || t.starts_with("import ")) && literal.get(i) != Some(&true) && {
+            let end = if t.contains('(') {
+                (i..lines.len().min(i + 64))
+                    .find(|&j| lines[j].contains(')'))
+                    .unwrap_or(i)
+            } else {
+                i
+            };
+            super::imports(Kind::Python, &lines[i..=end].join("\n"))
+                .iter()
+                .any(|m| m.name == name)
+        }
+    };
+    let owner = |i: usize| python_enclosing_def(text, i + 1);
+    let body = python_in_function_body(text, line1);
+    if body {
+        let chain: Vec<usize> = std::iter::successors(python_enclosing_def(text, line1), |&d| {
+            python_enclosing_def(text, d + 1)
+        })
+        .collect();
+        if (0..lines.len()).any(|i| imports_it(i) && owner(i).is_some_and(|d| chain.contains(&d))) {
+            return false;
+        }
+    }
+    let until = if body {
         lines.len()
     } else {
-        line1.min(lines.len())
+        line1.saturating_sub(1).min(lines.len())
     };
     (0..until)
         .rev()
@@ -880,9 +903,7 @@ pub fn python_def_hides_import(text: &str, line1: usize, name: &str) -> bool {
         .find_map(|i| {
             if def.is_match(lines[i]) {
                 Some(true)
-            } else if (lines[i].starts_with("from ") || lines[i].starts_with("import "))
-                && import.is_match(&lines[i..until.min(i + 64)].join("\n"))
-            {
+            } else if imports_it(i) && owner(i).is_none() {
                 Some(false)
             } else {
                 None

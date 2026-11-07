@@ -133,3 +133,26 @@ impl Infuser {
 //      ^ d: src/tea/kettle.rs:50
     }
 }
+
+pub struct Steeper;
+
+impl Steeper {
+    pub fn steep(&self) -> u32 { steep(2) }
+//                               ^ d: src/tea/kettle.rs:50
+}
+
+pub struct Brewer<T>(T);
+
+impl<T> Brewer<T>
+where
+    T: Clone,
+{
+    pub fn steep(&self) -> u32 {
+        0
+    }
+
+    pub fn pour(&self) -> u32 {
+        steep(3)
+//      ^ d: src/tea/kettle.rs:50
+    }
+}

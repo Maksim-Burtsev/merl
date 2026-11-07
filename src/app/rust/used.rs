@@ -37,14 +37,27 @@ impl App {
         let glob = Regex::new(r"(?m)^[ \t]+use\s[^;]*\*\s*;").expect("a valid pattern");
         let item = Regex::new(&search::def_patterns(Kind::Rust, first)[0])
             .expect("an escaped name keeps the pattern valid");
+        let above = |k: usize, deeper: bool| {
+            (0..k).rev().find(|&j| {
+                let t = lines[j].trim();
+                !t.is_empty()
+                    && literal.get(j) != Some(&true)
+                    && !comment(j)
+                    && if deeper {
+                        indent(lines[j]) < indent(lines[k])
+                    } else {
+                        indent(lines[j]) <= indent(lines[k]) && t != "where"
+                    }
+            })
+        };
         let in_body = |k: usize| {
-            (0..k)
-                .rev()
-                .find(|&j| {
-                    !lines[j].trim().is_empty()
-                        && literal.get(j) != Some(&true)
-                        && !comment(j)
-                        && indent(lines[j]) < indent(lines[k])
+            above(k, true)
+                .and_then(|j| {
+                    if lines[j].trim() == "{" {
+                        above(j, false)
+                    } else {
+                        Some(j)
+                    }
                 })
                 .is_some_and(|j| !OPENS_ITEMS.is_match(lines[j].trim_start()))
         };
@@ -54,8 +67,13 @@ impl App {
                 reaches(line_of(m.start()), false) && indent(lines[line_of(m.start())]) > *depth
             }) || lines.iter().enumerate().take(self.line + 1).any(|(k, l)| {
                 literal.get(k) != Some(&true)
-                    && item.is_match(l)
-                    && (k == self.line || (indent(l) > *depth && reaches(k, true) && in_body(k)))
+                    && item.find(l).is_some_and(|m| {
+                        if k == self.line {
+                            m.range().contains(&self.col)
+                        } else {
+                            indent(l) > *depth && reaches(k, true) && in_body(k)
+                        }
+                    })
             }))
         {
             return None;
