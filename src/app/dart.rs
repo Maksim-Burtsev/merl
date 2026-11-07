@@ -84,9 +84,60 @@ impl App {
             _ => None,
         };
         let built = chain.is_empty().then(|| format!("{word}.{word}"));
-        let found =
-            self.dart_declared_in(&file, word, bare, &[within, built], &Reason::Import(uri));
+        let prefixed = within.is_none() && chain.len() == 1;
+        let reason = Reason::Import(uri);
+        let mut found = self.dart_declared_in(&file, word, bare, &[within, built], &reason);
+        if found.is_empty() && prefixed {
+            found = search::dart_directives(text)
+                .into_iter()
+                .flatten()
+                .filter(|d| {
+                    d.keyword == "import"
+                        && d.prefix == chain.first().cloned()
+                        && dart_names(d, word)
+                })
+                .filter_map(|d| search::dart_uri_file(&self.root, here, &d.uri, sdk.as_deref()))
+                .flat_map(|f| self.dart_exported(here, f, word, &reason, 0))
+                .collect();
+        }
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_exported(
+        &self,
+        here: &Path,
+        file: PathBuf,
+        word: &str,
+        reason: &Reason,
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let sdk = self.dart_sdk();
+        let Some((files, directives)) = self
+            .dart_library(file, sdk.as_deref(), false)
+            .filter(|_| depth < 4)
+        else {
+            return Vec::new();
+        };
+        let found: Vec<Candidate> = files
+            .iter()
+            .flat_map(|f| self.dart_declared_in(f, word, None, &[None], reason))
+            .collect();
+        if !found.is_empty() {
+            return found;
+        }
+        directives
+            .iter()
+            .filter(|d| d.keyword == "export" && dart_names(d, word))
+            .filter_map(|d| {
+                let base = if d.uri.starts_with("package:") {
+                    here
+                } else {
+                    &files[0]
+                };
+                search::dart_uri_file(&self.root, base, &d.uri, sdk.as_deref())
+            })
+            .flat_map(|f| self.dart_exported(here, f, word, reason, depth + 1))
+            .collect()
     }
 
     fn dart_declared_in(
@@ -518,6 +569,19 @@ impl App {
         if let Some(list) = search::dart_list_element(line, name) {
             let (line, _) = line_of(list).filter(|_| list != name)?;
             return Some((search::dart_element_typed(line, list)?, here.to_path_buf()));
+        }
+        if let Some((entry, value)) = search::dart_entry_part(line, name) {
+            let (line, _) = line_of(entry).filter(|_| entry != name)?;
+            let ty = search::dart_entry_typed(line, entry, value)?;
+            let own = self
+                .dart_visible_files(here, "MapEntry", None)?
+                .iter()
+                .any(|f| !f.is_absolute() && self.dart_declares_class(f, "MapEntry"));
+            let params = search::dart_this_super(text, self.line, false)
+                .and_then(|o| search::dart_type_params(text, &o.class))
+                .unwrap_or_default();
+            return (!own && (ty.prefix.is_some() || !params.contains(&ty.class)))
+                .then(|| (ty, here.to_path_buf()));
         }
         if let Some(items) = search::dart_for_in(line, name) {
             if items == name {

@@ -109,6 +109,53 @@ class Rebound
     #                             ^ d: picker app/rebound.rb:13
   end
 
+  def closed_on_the_line(receipts)
+    entry = Ledger.new
+    receipts.each { |entry| entry.lstrip }; entry.reconcile
+    #                                             ^ d: app/rebound.rb:5
+  end
+
+  def closed_then_assigned(receipts)
+    entry = Ledger.new
+    receipts.each { |entry| entry.lstrip }; entry = Receipt.new; entry.reconcile
+    #                                                                  ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def assigned_in_closed(receipts)
+    entry = Ledger.new
+    receipts.each { |n| entry = Receipt.new }; entry.reconcile
+    #                                                ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def inside_the_block(receipts)
+    entry = Ledger.new
+    receipts.each { |entry| entry.reconcile }; entry.reconcile
+    #                             ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def nested_blocks(receipts)
+    entry = Ledger.new
+    receipts.each { |entry| receipts.each { |n| n.lstrip } }; entry.reconcile
+    #                                                               ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def closed_do(receipts)
+    entry = Ledger.new
+    receipts.each do |entry| entry.lstrip end; entry.reconcile
+    #                                                ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def closed_lambda(receipts)
+    entry = Ledger.new
+    ->(entry) { entry.lstrip }; entry.reconcile
+    #                                 ^ d: picker app/rebound.rb:5, app/rebound.rb:10
+  end
+
+  def method_closed_on_the_line(receipts)
+    receipts.each { |ledger| ledger.lstrip }; ledger.reconcile
+    #                                                ^ d: app/rebound.rb:5
+  end
+
   def either(receipts)
     entry = Ledger.new
     receipts.empty? || entry.reconcile || receipts.first

@@ -6,6 +6,63 @@ use super::{
 };
 
 impl App {
+    pub(super) fn rust_bound(
+        &self,
+        text: &str,
+        first: &str,
+        chain: &[String],
+    ) -> Option<Vec<(Vec<String>, usize)>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Rust, text);
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let line_of = |at: usize| text.bytes().take(at).filter(|&b| b == b'\n').count();
+        let comment = |k: usize| lines[k].trim_start().starts_with("//");
+        let reaches = |from: usize, past_comments: bool| {
+            let depth = indent(lines[from]);
+            depth == 0
+                || (from < self.line
+                    && (from + 1..=self.line).all(|k| {
+                        lines[k].trim().is_empty()
+                            || indent(lines[k]) >= depth
+                            || literal.get(k) == Some(&true)
+                            || (past_comments && comment(k))
+                    }))
+        };
+        let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses(text)
+            .into_iter()
+            .filter(|u| u.name == first && reaches(line_of(u.start_byte), false))
+            .map(|u| (u.path, indent(lines[line_of(u.start_byte)])))
+            .collect();
+        bound.dedup();
+        let glob = Regex::new(r"(?m)^[ \t]+use\s[^;]*\*\s*;").expect("a valid pattern");
+        let item = Regex::new(&search::def_patterns(Kind::Rust, first)[0])
+            .expect("an escaped name keeps the pattern valid");
+        let in_body = |k: usize| {
+            (0..k)
+                .rev()
+                .find(|&j| {
+                    !lines[j].trim().is_empty()
+                        && literal.get(j) != Some(&true)
+                        && !comment(j)
+                        && indent(lines[j]) < indent(lines[k])
+                })
+                .is_some_and(|j| !OPENS_ITEMS.is_match(lines[j].trim_start()))
+        };
+        if let [(_, depth)] = bound.as_slice()
+            && chain.is_empty()
+            && (glob.find_iter(text).any(|m| {
+                reaches(line_of(m.start()), false) && indent(lines[line_of(m.start())]) > *depth
+            }) || lines.iter().enumerate().take(self.line + 1).any(|(k, l)| {
+                literal.get(k) != Some(&true)
+                    && item.is_match(l)
+                    && (k == self.line || (indent(l) > *depth && reaches(k, true) && in_body(k)))
+            }))
+        {
+            return None;
+        }
+        Some(bound)
+    }
+
     pub(super) fn rust_used_type(
         &self,
         file: &Path,
@@ -282,6 +339,13 @@ impl App {
         self.workspace_crate(&target)
     }
 }
+
+static OPENS_ITEMS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?(?:impl|trait|mod|enum|struct|union|extern)\b",
+    )
+    .expect("the regex is a literal")
+});
 
 static GLOB: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]*\*[^;]*);")

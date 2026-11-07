@@ -1,6 +1,6 @@
 use super::c::{
-    DeclaredIn, Head, bracket_contents_blanked, c_code, close_or_end, declared_at, line_starts,
-    scopes_inside_out_to_type_or_namespace,
+    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_code, c_innermost_open_brace,
+    c_type_def, close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
 };
 use regex::Regex;
 use std::sync::LazyLock;
@@ -105,7 +105,7 @@ pub(super) fn control_init(code: &str, from: usize, pos: usize, name: &str) -> O
     found
 }
 pub(super) fn control_head_declarations(parens: &str, name: &str) -> Vec<usize> {
-    let parts = split_top_level_semicolons(parens);
+    let parts = split_top_level(parens, ';');
     let init = parts.len() > 1;
     (parts.into_iter().enumerate())
         .filter_map(|(i, (at, part))| {
@@ -117,14 +117,108 @@ pub(super) fn control_head_declarations(parens: &str, name: &str) -> Vec<usize> 
         })
         .collect()
 }
-fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
+fn split_top_level(s: &str, sep: char) -> Vec<(usize, &str)> {
     let f = bracket_contents_blanked(s);
     let mut from = 0;
-    f.split(';')
+    f.split(sep)
         .filter_map(|part| {
             let at = from;
             from += part.len() + 1;
             Some((at, s.get(at..at + part.len())?))
         })
         .collect()
+}
+pub(super) type Declarer = (String, Vec<usize>);
+pub(super) fn declaring_macros(text: &str) -> Vec<Declarer> {
+    static DEFINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"(?m)^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)\(([^)\n]*)\)((?:[^\n]*\\\r?\n)*[^\n]*)",
+        )
+        .expect("the regex is a literal")
+    });
+    const NOT_TYPES: &[&str] = &[
+        "return",
+        "delete",
+        "throw",
+        "sizeof",
+        "case",
+        "else",
+        "do",
+        "new",
+        "co_return",
+        "co_yield",
+        "co_await",
+        "goto",
+    ];
+    let is_name = |c: char| c.is_alphanumeric() || c == '_';
+    let declares = |body: &str, param: &str| {
+        body.match_indices(param).any(|(j, _)| {
+            let (Some(head), Some(rest)) = (body.get(..j), body.get(j + param.len()..)) else {
+                return false;
+            };
+            let before = head.trim_end();
+            let word = before
+                .rsplit(|c: char| !is_name(c))
+                .next()
+                .unwrap_or_default();
+            !head.ends_with(is_name)
+                && !rest.starts_with(is_name)
+                && (before.ends_with(['*', '&', '>']) || !word.is_empty())
+                && !before.ends_with("->")
+                && !NOT_TYPES.contains(&word)
+        })
+    };
+    (DEFINE.captures_iter(text))
+        .filter_map(|c| {
+            let declared: Vec<usize> = (c[2].split(',').enumerate())
+                .filter(|(_, p)| !p.trim().is_empty() && declares(&c[3], p.trim()))
+                .map(|(k, _)| k)
+                .collect();
+            (!declared.is_empty()).then(|| (c[1].to_owned(), declared))
+        })
+        .collect()
+}
+pub(super) fn macro_declared_at(stmt: &str, name: &str, macros: &[Declarer]) -> Option<usize> {
+    static CALL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)\s*\(").expect("the regex is a literal"));
+    let call = CALL.captures(stmt)?;
+    let (_, declared) = macros.iter().find(|(m, _)| *m == call[1])?;
+    let open = call.get(0)?.end() - 1;
+    let close = close_or_end(stmt, open, stmt.len());
+    if !stmt
+        .get(close + 1..)?
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .is_empty()
+    {
+        return None;
+    }
+    let args = stmt.get(open + 1..close)?;
+    let (k, (at, arg)) = split_top_level(args, ',')
+        .into_iter()
+        .enumerate()
+        .find(|(_, (_, a))| a.trim() == name)?;
+    declared
+        .contains(&k)
+        .then(|| open + 1 + at + arg.len() - arg.trim_start().len())
+}
+pub fn c_local_typedef(text: &str, at: CPlace, name: &str) -> Option<CType> {
+    let code = c_code(text);
+    let pos = line_starts(&code).get(at.line1.checked_sub(1)?)? + at.byte_col;
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    code.get(..pos)?
+        .match_indices(name)
+        .filter(|&(i, _)| {
+            code.get(..i)
+                .is_some_and(|h| h.ends_with(|c: char| !is_name(c)))
+                && code
+                    .get(i + name.len()..)
+                    .is_some_and(|r| r.trim_start().starts_with(';'))
+                && c_innermost_open_brace(code.as_bytes(), i)
+                    .is_some_and(|open| close_or_end(&code, open, code.len()) > pos)
+        })
+        .filter_map(|(i, _)| c_type_def(&code, i))
+        .last()
+        .filter(|t| matches!(t, CType::Name(_)))
 }

@@ -259,7 +259,7 @@ impl App {
                     return None;
                 }
                 if search::scala(here) {
-                    let bound: Vec<usize> = search::bindings(Kind::Jvm, text, line, f)
+                    let bound: Vec<usize> = search::jvm_bindings_at(text, line, self.col, f)
                         .iter()
                         .map(|b| b.line1)
                         .collect();
@@ -836,6 +836,12 @@ impl App {
         if let Some(search::JvmImport { path, .. }) =
             imports.iter().find(|i| i.bound_name == written)
         {
+            if self.rel_current().as_deref() == Some(file) {
+                let nested = self.jvm_nested_in_scope(file, text, written);
+                if !nested.is_empty() {
+                    return one_type(nested);
+                }
+            }
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };
@@ -880,6 +886,27 @@ impl App {
             })
             .collect();
         one_type(same)
+    }
+
+    fn jvm_nested_in_scope(&self, file: &Path, text: &str, written: &str) -> Vec<Hit> {
+        let lines: Vec<&str> = text.lines().collect();
+        search::jvm_enclosing_types(text, self.line + 1)
+            .into_iter()
+            .map(|decl| {
+                search::jvm_members_of(text, decl, written)
+                    .into_iter()
+                    .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(written))
+                    .map(|l| Hit {
+                        deleted: None,
+                        path: file.to_path_buf(),
+                        line1: l,
+                        byte_col: None,
+                        text: lines[l - 1].to_owned(),
+                    })
+                    .collect::<Vec<Hit>>()
+            })
+            .find(|found| !found.is_empty())
+            .unwrap_or_default()
     }
 
     fn jvm_code(&self, h: &Hit) -> bool {
