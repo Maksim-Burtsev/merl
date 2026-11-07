@@ -2545,3 +2545,18 @@ fn csharp_slices_grouped_awaits_and_attributes_read_as_csharp_does() {
         "an attribute's type argument is no parameter"
     );
 }
+
+#[test]
+fn a_typedef_in_scope_at_a_declaration_names_its_type() {
+    let text = "typedef struct alpha B;\nvoid f(void) { typedef struct beta B; B *a; }\nvoid g(void) { B *a; }\nvoid h(void) { { typedef struct beta B; } B *a; }\nvoid k(void) { B *a; typedef struct beta B; }\nvoid m(void) { typedef struct beta *B; B a; }\nvoid n(void) { typedef struct { int get; } B; B *a; }\n";
+    let at = |line1: usize| {
+        let byte_col = text.lines().nth(line1 - 1).unwrap().find("a;").unwrap();
+        c_local_typedef(text, CPlace { line1, byte_col }, "B")
+    };
+    assert_eq!(at(2), Some(CType::Name("beta".into())));
+    assert_eq!(at(3), None);
+    assert_eq!(at(4), None);
+    assert_eq!(at(5), None);
+    assert_eq!(at(6), Some(CType::Name("beta".into())));
+    assert_eq!(at(7), None);
+}

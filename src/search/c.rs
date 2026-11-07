@@ -1284,25 +1284,6 @@ pub fn c_value_type(
         _ => Err(()),
     }
 }
-pub fn c_local_typedef(text: &str, at: CPlace, name: &str) -> Option<CType> {
-    let code = c_code(text);
-    let pos = line_starts(&code).get(at.line1.checked_sub(1)?)? + at.byte_col;
-    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
-    code.get(..pos)?
-        .match_indices(name)
-        .filter(|&(i, _)| {
-            code.get(..i)
-                .is_some_and(|h| h.ends_with(|c: char| !is_name(c)))
-                && code
-                    .get(i + name.len()..)
-                    .is_some_and(|r| r.trim_start().starts_with(';'))
-                && c_innermost_open_brace(code.as_bytes(), i)
-                    .is_some_and(|open| close_or_end(&code, open, code.len()) > pos)
-        })
-        .filter_map(|(i, _)| c_type_def(&code, i))
-        .last()
-        .filter(|t| matches!(t, CType::Name(_)))
-}
 pub fn c_words_on_line(
     code: &str,
     line1: usize,
@@ -1644,21 +1625,6 @@ mod tests {
             assert!(re.is_match(line), "{line}");
         }
         assert!(!re.is_match("  x = f(1);"));
-    }
-
-    #[test]
-    fn a_typedef_in_scope_at_a_declaration_names_its_type() {
-        let text = "typedef struct alpha B;\nvoid f(void) { typedef struct beta B; B *a; }\nvoid g(void) { B *a; }\nvoid h(void) { { typedef struct beta B; } B *a; }\nvoid k(void) { B *a; typedef struct beta B; }\nvoid m(void) { typedef struct beta *B; B a; }\nvoid n(void) { typedef struct { int get; } B; B *a; }\n";
-        let at = |line1: usize| {
-            let byte_col = text.lines().nth(line1 - 1).unwrap().find("a;").unwrap();
-            c_local_typedef(text, CPlace { line1, byte_col }, "B")
-        };
-        assert_eq!(at(2), Some(CType::Name("beta".into())));
-        assert_eq!(at(3), None);
-        assert_eq!(at(4), None);
-        assert_eq!(at(5), None);
-        assert_eq!(at(6), Some(CType::Name("beta".into())));
-        assert_eq!(at(7), None);
     }
 
     #[test]
