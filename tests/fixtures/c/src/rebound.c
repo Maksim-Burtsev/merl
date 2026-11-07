@@ -19,3 +19,16 @@ void paren(struct gourd *g) { { struct terrine (*g) = 0; g->slosh = 1; } }
 int deref(struct gourd *g);
 void called(struct gourd *g) { deref(g); g->slosh = 1; }
 //                                          ^ d: src/rebound.c:1
+void tureen(struct gourd *g) { { typedef struct terrine Tureen; Tureen *g = 0; g->slosh = 1; } }
+//                                                                                ^ d: src/rebound.c:2
+typedef struct gourd Ladle;
+void ladle(void) { typedef struct terrine Ladle; Ladle *g = 0; g->slosh = 1; }
+//                                                                ^ d: src/rebound.c:2
+void ladle_outer(void) { Ladle *g = 0; g->slosh = 1; }
+//                                        ^ d: src/rebound.c:1
+void ladle_closed(void) { { typedef struct terrine Ladle; } Ladle *g = 0; g->slosh = 1; }
+//                                                                           ^ d: src/rebound.c:1
+void ladle_late(void) { Ladle *g = 0; typedef struct terrine Ladle; g->slosh = 1; }
+//                                                                     ^ d: src/rebound.c:1
+void ladle_ptr(void) { typedef struct terrine *Scoop; Scoop g = 0; g->slosh = 1; }
+//                                                                    ^ d: src/rebound.c:2
