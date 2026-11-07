@@ -149,7 +149,7 @@ impl App {
             self.hidden_of(kind, hit).get(hit.line1 - 1) != Some(&true)
         } else {
             (self.text_of(&hit.path)).is_some_and(|text| {
-                search::literal_lines(kind, &text).get(hit.line1 - 1) != Some(&true)
+                search::path_literal_lines(kind, &hit.path, &text).get(hit.line1 - 1) != Some(&true)
             })
         }
     }
