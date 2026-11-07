@@ -11,3 +11,5 @@ func NewStub() *Stub {
 }
 
 func (s *Stub) Wipe() {}
+
+func Balance() int { return 2 }

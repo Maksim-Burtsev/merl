@@ -11,12 +11,7 @@ pub(super) struct Near {
 impl App {
     pub(super) fn scope_near(&mut self, a: &Asked) -> Option<Near> {
         let (kind, word, range) = (a.kind, &a.word, &a.range);
-        let in_literal = search::literal_lines(kind, &a.text).get(self.line) == Some(&true);
-        let mut imports = if in_literal {
-            search::imports_as_written(kind, &a.text)
-        } else {
-            search::imports(kind, &a.text)
-        };
+        let mut imports = self.imports_near(a);
         let swift_binds_here = self.swift_binds_here(a);
         let ts_key = ts_key(a, self.line + 1);
         let declared = swift_binds_here
@@ -110,6 +105,39 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn imports_near(&self, a: &Asked) -> Vec<search::Import> {
+        let kind = a.kind;
+        if search::literal_lines(kind, &a.text).get(self.line) == Some(&true) {
+            return search::imports_as_written(kind, &a.text);
+        }
+        let mut imports = search::imports(kind, &a.text);
+        if kind == Kind::Go && a.chain.len() == 1 && imports.iter().all(|i| i.name != a.first()) {
+            imports.extend(self.go_import_by_package(a));
+        }
+        imports
+    }
+
+    fn go_import_by_package(&self, a: &Asked) -> Option<search::Import> {
+        let name = a.first();
+        search::go_unaliased_imports(&a.text)
+            .into_iter()
+            .find(|path| {
+                search::module_files(Kind::Go, &self.root, &self.files, &a.here, path)
+                    .first()
+                    .and_then(|f| self.text_of(f))
+                    .is_some_and(|t| {
+                        t.lines()
+                            .find_map(|l| l.strip_prefix("package "))
+                            .and_then(|p| p.split_whitespace().next())
+                            == Some(name)
+                    })
+            })
+            .map(|path| search::Import {
+                name: name.to_owned(),
+                path,
+            })
     }
 
     fn ts_declares_here(&self, a: &Asked) -> bool {
