@@ -87,7 +87,10 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
     };
     let assigns = |i: usize| {
         literal.get(i) != Some(&true)
-            && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
+            && ((assign.is_match(lines[i])
+                && !(ASSIGN_WORD.is_match(lines[i].trim_start())
+                    && shell_runs_a_command(lines[i])))
+                || shell_loop_binds(lines[i], name) == Some(true))
             && !sibling(i)
             && !arm_closed(i)
     };
@@ -99,6 +102,118 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
                 .find(|&i| assigns(i) && shell_function_at(lines, i).is_none())
         })
         .map(|i| i + 1)
+}
+static ASSIGN_WORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\w+(?:\[[^\]]*\])?\+?=").expect("the regex is a literal")
+});
+pub fn shell_assigns_word(tail: &str) -> bool {
+    ASSIGN_WORD.is_match(&format!("x{tail}"))
+}
+fn shell_runs_a_command(segment: &str) -> bool {
+    static REDIRECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\d+|&)?[<>]+[&|]?").expect("the regex is a literal")
+    });
+    let mut words = shell_words(segment).into_iter();
+    while let Some(mut w) = words.next() {
+        if w.starts_with('#') {
+            return false;
+        }
+        if w == "&&" || w == "||" {
+            return false;
+        }
+        if let Some(op) = REDIRECT.find(w) {
+            if op.end() == w.len() {
+                w = words.next().unwrap_or("");
+            }
+            if w.ends_with(';') {
+                return false;
+            }
+            continue;
+        }
+        if w.starts_with(['&', '|']) {
+            return true;
+        }
+        if !ASSIGN_WORD.is_match(w) {
+            return true;
+        }
+        if w.ends_with(';') {
+            return false;
+        }
+    }
+    false
+}
+fn shell_segment_binds(segment: &str, name: &str) -> bool {
+    let mut s = segment.trim_start();
+    while let Some(rest) = ["do ", "then ", "else ", "! "]
+        .iter()
+        .find_map(|k| s.strip_prefix(k))
+    {
+        s = rest.trim_start();
+    }
+    if let Some(names) = shell_local_of(s) {
+        return names.contains(&name);
+    }
+    if shell_loop_binds(s, name) == Some(true) {
+        return true;
+    }
+    !shell_runs_a_command(s)
+        && shell_words(s)
+            .iter()
+            .any(|w| ASSIGN_WORD.is_match(w) && w.split(['=', '[', '+']).next() == Some(name))
+}
+pub fn shell_binds_before(line: &str, col: usize, name: &str) -> bool {
+    let b = line.as_bytes();
+    let end = col.min(b.len());
+    let (mut quote, mut depth, mut i) = (None, 0_i32, 0);
+    let mut starts = vec![(0, 0_i32)];
+    let mut seps: Vec<(usize, i32)> = Vec::new();
+    let mut low = vec![0_i32; end + 1];
+    while i < end {
+        let (c, from) = (b[i], i);
+        match (quote, c) {
+            (Some(b'"') | None, b'\\') => i += 1,
+            (Some(q), _) if c == q => quote = None,
+            (None, b'"' | b'\'') => quote = Some(c),
+            (None, b'#') if i == 0 || b[i - 1].is_ascii_whitespace() => return false,
+            (None, b'{' | b'(') => {
+                depth += 1;
+                starts.push((i + 1, depth));
+            }
+            (None, b'}' | b')') => {
+                depth -= 1;
+                starts.push((i + 1, depth));
+            }
+            (None, b';') => {
+                seps.push((i, depth));
+                starts.push((i + 1, depth));
+            }
+            (None, b'&' | b'|') if b.get(i + 1) == Some(&c) => {
+                seps.push((i, depth));
+                starts.push((i + 2, depth));
+                i += 1;
+            }
+            (None, b'&' | b'|') => starts.push((i + 1, i32::MIN)),
+            _ => {}
+        }
+        i += 1;
+        for l in low.iter_mut().take(i.min(end) + 1).skip(from + 1) {
+            *l = depth;
+        }
+    }
+    for k in (0..end).rev() {
+        low[k] = low[k].min(low[k + 1]);
+    }
+    starts.iter().any(|&(s, d)| {
+        let Some(&(sep, sd)) = seps.iter().find(|&&(p, _)| p >= s) else {
+            return false;
+        };
+        d != i32::MIN
+            && sd == d
+            && low.get(s).is_some_and(|&l| l >= d)
+            && line
+                .get(s..sep)
+                .is_some_and(|seg| shell_segment_binds(seg, name))
+    })
 }
 static CASE_ESAC: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| Regex::new(r"\b(?:case|esac)\b").expect("the regex is a literal"));
@@ -273,12 +388,16 @@ fn shell_words(s: &str) -> Vec<&str> {
         let (start, mut depth, mut quote) = (i, 0usize, None);
         while i < b.len() && (quote.is_some() || depth > 0 || !b[i].is_ascii_whitespace()) {
             match (quote, b[i]) {
-                (Some(b'"'), b'\\') => i += 1,
+                (Some(b'"' | b'`') | None, b'\\') => i += 1,
                 (Some(q), c) if c == q => quote = None,
                 (Some(_), _) => {}
-                (None, c @ (b'"' | b'\'')) => quote = Some(c),
+                (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
+                (None, b'$') if b.get(i + 1) == Some(&b'{') => {
+                    depth += 1;
+                    i += 1;
+                }
                 (None, b'(') => depth += 1,
-                (None, b')') => depth = depth.saturating_sub(1),
+                (None, b')' | b'}') if depth > 0 => depth -= 1,
                 _ => {}
             }
             i += 1;

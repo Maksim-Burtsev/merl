@@ -22,7 +22,7 @@ impl App {
         let declared = swift_binds_here
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
-        let mut locals = self.locals_of(a, declared);
+        let mut locals = self.python_locals(a, self.locals_of(a, declared), declared);
         let go_own = kind == Kind::Go
             && locals.contains(&(self.line + 1))
             && search::go_binds_here(self.line_str(), word, range.start);
@@ -76,7 +76,7 @@ impl App {
             return None;
         }
         let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart)
-            || (kind == Kind::Swift && !declared))
+            || (matches!(kind, Kind::Swift | Kind::Lua) && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
@@ -88,7 +88,7 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        let python_own = self.python_own(a, &locals, declared);
+        let python_own = self.python_own(a, &mut locals, declared);
         if self.answered_by_locals(
             a,
             &locals,
@@ -156,11 +156,36 @@ impl App {
             && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
     }
 
-    fn python_own(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
-        a.kind == Kind::Python
-            && locals == [self.line + 1]
-            && ((!declared && search::python_inline_binds(self.line_str(), &a.word))
-                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)))
+    fn python_locals(&self, a: &Asked, mut locals: Vec<usize>, declared: bool) -> Vec<usize> {
+        let (line, word) = (self.line_str(), &a.word);
+        let elsewhere = matches!(a.kind, Kind::Python | Kind::Starlark)
+            && !declared
+            && !a.dotted
+            && locals.contains(&(self.line + 1))
+            && search::python_binds_only_inline(line, word)
+            && !search::python_binds_around(line, word, a.range.start);
+        if elsewhere {
+            locals.retain(|&n| n != self.line + 1);
+        }
+        locals
+    }
+
+    fn python_own(&self, a: &Asked, locals: &mut Vec<usize>, declared: bool) -> bool {
+        let (line, own) = (self.line_str(), self.line + 1);
+        let around = matches!(a.kind, Kind::Python | Kind::Starlark)
+            && !declared
+            && !a.dotted
+            && locals.contains(&own)
+            && (search::python_binds_around(line, &a.word, a.range.start)
+                || search::python_def_line_binds(line, &a.word, a.range.start));
+        if around {
+            *locals = vec![own];
+        }
+        around
+            || (a.kind == Kind::Python
+                && *locals == [own]
+                && !a.dotted
+                && search::python_in_function_body(&a.text, own))
     }
 
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
@@ -183,7 +208,9 @@ impl App {
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))))
             || (kind == Kind::Dart
                 && after.starts_with(':')
-                && search::dart_label(&a.text, self.line + 1, range.start));
+                && search::dart_label(&a.text, self.line + 1, range.start))
+            || (kind == Kind::Solidity
+                && search::solidity_key(&a.text, self.line + 1, before, after));
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust
@@ -228,6 +255,9 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&a.text, self.line + 1);
+        if let Some(own) = self.shell_line_locals(a) {
+            return own;
+        }
         if kind == Kind::Shell
             && locals.is_empty()
             && search::shell_command_position(&a.lead) == Some(false)
@@ -276,6 +306,7 @@ impl App {
             && !locals.is_empty()
             && (!on_itself
                 || ours
+                || self.shell_line_locals(a).as_deref() == Some(locals)
                 || matches!(
                     kind,
                     Kind::Rust
@@ -291,6 +322,22 @@ impl App {
             return self.show_found(a, found);
         }
         false
+    }
+
+    fn shell_line_locals(&self, a: &Asked) -> Option<Vec<usize>> {
+        if a.kind != Kind::Shell {
+            return None;
+        }
+        match search::shell_command_position(&a.lead) {
+            Some(true) if !search::shell_assigns_word(&a.tail) => Some(Vec::new()),
+            Some(false)
+                if search::shell_binds_before(self.line_str(), a.range.start, a.first())
+                    && search::literal_lines(a.kind, &a.text).get(self.line) != Some(&true) =>
+            {
+                Some(vec![self.line + 1])
+            }
+            _ => None,
+        }
     }
 }
 

@@ -28,10 +28,29 @@ impl App {
     ) -> Vec<usize> {
         let found = if search::lisp(kind) && bare && line == self.line + 1 {
             search::lisp_bindings_at(kind, text, line, col, name)
+        } else if let Some(l) = (kind == Kind::Julia && line == self.line + 1)
+            .then(|| search::julia_comprehension_below(text, line, col, name))
+            .flatten()
+        {
+            return vec![l];
         } else if kind == Kind::C && line == self.line + 1 {
             search::c_bindings(text, line, Some(col), name)
+        } else if line == self.line + 1
+            && self.line_str().get(..col).is_some_and(|lead| match kind {
+                Kind::Lua => search::lua_binds_before(lead, name, false),
+                Kind::Julia => search::julia_binds_before(lead, name),
+                _ => false,
+            })
+        {
+            return vec![line];
         } else if kind == Kind::Dart && line == self.line + 1 {
             search::dart_bindings_at(text, line, col, name)
+        } else if kind == Kind::Jvm && line == self.line + 1 {
+            search::jvm_bindings_at(text, line, col, name)
+        } else if kind == Kind::Nix && line == self.line + 1 {
+            search::nix_bindings_at(text, line, col, name)
+        } else if kind == Kind::Solidity && line == self.line + 1 {
+            search::bindings_at(kind, text, line, Some(col), name)
         } else {
             search::bindings(kind, text, line, name)
         };

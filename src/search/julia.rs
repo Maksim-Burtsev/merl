@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::julia_rebound::julia_let_binds;
 use super::{Binding, Import, Value, indent};
 
 macro_rules! julia_macros {
@@ -352,7 +353,14 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         }
         let body = std::mem::replace(&mut depth, indent(l));
         let_seen |= k != at && shadow.is_match(l);
-        if k != at && (generator.is_match(l) || (catch.is_match(l) && !let_seen)) {
+        let let_binds = || {
+            let code = julia_code(l);
+            code.trim_start()
+                .strip_prefix("let")
+                .filter(|r| r.starts_with(char::is_whitespace))
+                .is_some_and(|r| julia_let_binds(r, name))
+        };
+        if k != at && (generator.is_match(l) || (catch.is_match(l) && !let_seen) || let_binds()) {
             let assigned = (k + 1..body_end)
                 .rev()
                 .find(|&i| code(i) && assigns(lines[i]));
@@ -802,7 +810,7 @@ fn signature(lines: &[&str], k: usize) -> Option<(String, String)> {
     Some((from.get(1..close)?.to_owned(), tail.to_owned()))
 }
 
-fn top_level(inner: &str) -> Vec<&str> {
+pub(super) fn top_level(inner: &str) -> Vec<&str> {
     let (mut out, mut depth, mut start) = (Vec::new(), 0usize, 0);
     for (i, c) in inner.char_indices() {
         match c {
@@ -945,7 +953,7 @@ pub fn julia_names_a_type_here(lines: &[&str], row: usize, start: usize, name: &
         })
 }
 
-fn julia_code(line: &str) -> String {
+pub(super) fn julia_code(line: &str) -> String {
     let b = line.as_bytes();
     let mut out = b.to_vec();
     let mut i = 0;

@@ -1851,3 +1851,54 @@ fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn an_indexed_python_list_is_its_element_and_a_slice_is_not() {
+    let both = || {
+        picker(
+            "delete_user: by name, 2 declarations",
+            &[
+                ("UserRepository.delete_user", "repos.py:8"),
+                ("AuditLog.delete_user", "repos.py:13"),
+            ],
+        )
+    };
+    py_rows(vec![
+        (
+            "a list a declared return hands out",
+            "elements.py",
+            "loaded[0].delete_user|(user_id + 9)",
+            jump(
+                "delete_user \u{2192} UserRepository.delete_user (via load_repos() -> list[UserRepository])",
+                "repos.py:8",
+            ),
+        ),
+        (
+            "an annotated parameter",
+            "elements.py",
+            "repos[-1].delete_user|(user_id + 10)",
+            jump(
+                "delete_user \u{2192} UserRepository.delete_user (via repos: list[UserRepository])",
+                "repos.py:8",
+            ),
+        ),
+        (
+            "a slice is a list again",
+            "elements.py",
+            "repos[1:].delete_user",
+            both(),
+        ),
+        (
+            "a dict's value",
+            "elements.py",
+            "by_name[\"a\"].delete_user",
+            both(),
+        ),
+        (
+            "an index of an index",
+            "elements.py",
+            "grid[0][1].delete_user",
+            both(),
+        ),
+    ]);
+}

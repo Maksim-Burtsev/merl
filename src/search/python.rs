@@ -515,26 +515,115 @@ fn top_level_targets(target: &str) -> String {
         })
         .collect()
 }
-fn python_inline(t: &str, name: &str) -> bool {
-    static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bfor\s+([^=]*?)\s+in\b|\blambda\b([^:]*)").expect("the regex is a literal")
-    });
-    INLINE.captures_iter(t).any(|c| match (c.get(1), c.get(2)) {
-        (Some(targets), _) => names(targets.as_str(), name),
-        (_, Some(params)) => params.as_str().split(',').any(|p| {
-            p.split_once('=')
-                .map_or(p, |(param, _)| param)
-                .trim()
-                .trim_start_matches('*')
-                == name
-        }),
-        _ => false,
+static FOR_IN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\bfor\s+([^=]*?)\s+in\b").expect("the regex is a literal")
+});
+static LAMBDA: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\blambda\b([^:]*)").expect("the regex is a literal"));
+fn lambda_names(params: &str, name: &str) -> bool {
+    params.split(',').any(|p| {
+        p.split_once('=')
+            .map_or(p, |(param, _)| param)
+            .trim()
+            .trim_start_matches('*')
+            == name
     })
 }
-pub fn python_inline_binds(line: &str, name: &str) -> bool {
+fn python_inline(t: &str, name: &str) -> bool {
+    FOR_IN.captures_iter(t).any(|c| names(&c[1], name))
+        || LAMBDA.captures_iter(t).any(|c| lambda_names(&c[1], name))
+}
+pub fn python_binds_around(line: &str, name: &str, col: usize) -> bool {
+    static CLAUSE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\b(?:for|if)\b").expect("the regex is a literal"));
+    let (mut shown, mut open, mut groups) = (vec![b' '; line.len()], Vec::new(), Vec::new());
+    for (i, c) in code(Kind::Python, line) {
+        if c == 0 {
+            break;
+        }
+        shown[i] = if c.is_ascii() { c } else { b'_' };
+        match c {
+            b'(' | b'[' | b'{' => open.push(i + 1),
+            b')' | b']' | b'}' => groups.push((open.pop().unwrap_or(0), i)),
+            _ => {}
+        }
+    }
+    groups.extend(open.into_iter().map(|s| (s, line.len())));
+    groups.push((0, line.len()));
+    let t = line.trim_start();
+    let statement_for = t.starts_with("for ") || t.starts_with("async for ");
+    groups.iter().enumerate().any(|(g, &(s, e))| {
+        if !(s..e).contains(&col) {
+            return false;
+        }
+        let top: String = (s..e)
+            .map(|j| {
+                let nested = groups
+                    .iter()
+                    .enumerate()
+                    .any(|(h, &(hs, he))| h != g && s <= hs && he <= e && (hs..he).contains(&j));
+                if nested || b"()[]{}".contains(&shown[j]) {
+                    ' '
+                } else {
+                    char::from(shown[j])
+                }
+            })
+            .collect();
+        let at = col - s;
+        let iterable = FOR_IN.find(&top).map(|m| {
+            m.end()
+                ..CLAUSE
+                    .find_at(&top, m.end())
+                    .map_or(top.len(), |k| k.start())
+        });
+        let comprehension = (g + 1 != groups.len() || !statement_for)
+            && !iterable.is_some_and(|r| r.contains(&at))
+            && FOR_IN.captures_iter(&top).any(|c| names(&c[1], name));
+        let lambda = LAMBDA.captures_iter(&top).any(|c| {
+            let params = c.get(1).map_or(0..0, |p| p.range());
+            let rest = top.get(params.end..).unwrap_or("");
+            let end = rest.find([',', ';']).map_or(top.len(), |k| params.end + k);
+            rest.starts_with(':')
+                && (params.end + 1..end).contains(&at)
+                && lambda_names(&c[1], name)
+        });
+        comprehension || lambda
+    })
+}
+fn python_def_line_body(line: &str, name: &str) -> Option<(std::ops::Range<usize>, bool)> {
+    let lines = [line];
     let t = uncommented(Kind::Python, line);
-    let t = t.trim_start();
-    !t.starts_with("for ") && !t.starts_with("async for ") && python_inline(t, name)
+    let open = line.find('(').filter(|_| DEF.is_match(t.trim_start()))?;
+    let g = group(Kind::Python, &lines, 0, open).filter(|g| g.close_line == 0)?;
+    let mut params = Vec::new();
+    python_params(&lines, 0, &g.inner_uncommented, name, &mut params);
+    let (k, _) = code(Kind::Python, g.after_close).find(|&(_, c)| c == b':')?;
+    let rest = g.after_close.get(k + 1..)?;
+    let r = Rules::of(name);
+    let binds = !params.is_empty()
+        || split_top(Kind::Python, rest, b';')
+            .into_iter()
+            .any(|s| statement_binds(&r, s.trim(), name).is_some());
+    Some((line.len() - rest.len()..t.len(), binds))
+}
+pub fn python_def_line_binds(line: &str, name: &str, col: usize) -> bool {
+    python_def_line_body(line, name).is_some_and(|(body, binds)| binds && body.contains(&col))
+}
+pub fn python_binds_only_inline(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Python, line);
+    let t = t.trim();
+    let r = Rules::of(name);
+    python_inline(t, name)
+        && match SCOPE.captures(t) {
+            Some(c) => &c[1] != name && python_def_line_body(line, name).is_some_and(|(_, b)| !b),
+            None => {
+                !r.unknown.is_match(t)
+                    && !python_case_binds(t, name)
+                    && python_statements(t, false)
+                        .into_iter()
+                        .all(|s| statement_binds(&r, s, name).is_none())
+            }
+        }
 }
 fn python_case_binds(t: &str, name: &str) -> bool {
     let Some(pattern) = t.strip_prefix("case ") else {

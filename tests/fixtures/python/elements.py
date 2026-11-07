@@ -51,3 +51,17 @@ def sweep_handed_on(repos: list[UserRepository], user_id: int) -> None:
     for repo in repos:
         current = repo
         current.delete_user(user_id + 8)
+
+
+def sweep_indexed(
+    repos: list[UserRepository],
+    by_name: dict[str, UserRepository],
+    grid: list[list[UserRepository]],
+    user_id: int,
+) -> None:
+    loaded = load_repos()
+    loaded[0].delete_user(user_id + 9)
+    repos[-1].delete_user(user_id + 10)
+    repos[1:].delete_user(user_id + 11), "a slice is a list again"
+    by_name["a"].delete_user(user_id + 12), "a dict's value is not read"
+    grid[0][1].delete_user(user_id + 13), "an index of an index is not read"

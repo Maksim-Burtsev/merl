@@ -29,9 +29,9 @@ void caught(Gourd g) { try {} catch (Terrine& g) { g.slosh(); } g.slosh(); }
 //                                                   ^ d: src/rebound.cc:5
 //                                                                ^ d: src/rebound.cc:2
 void bare(Gourd g) { for (Terrine g; ; ) g.slosh(); }
-//                                         ^ d: src/rebound.cc:2; want src/rebound.cc:5 (#1387)
+//                                         ^ d: src/rebound.cc:5
 void bare_if(Gourd g) { if (Terrine g; true) g.slosh(); }
-//                                             ^ d: src/rebound.cc:2; want src/rebound.cc:5 (#1387)
+//                                             ^ d: src/rebound.cc:5
 void reads(Gourd g, int i) { for (i = 0; i < g.slosh(); ++i) g.slosh(); }
 //                                             ^ d: src/rebound.cc:2
 //                                                             ^ d: src/rebound.cc:2
@@ -42,3 +42,19 @@ void noted(Gourd g) { /* { Terrine g; */ g.slosh(); }
 int quoted(const char*, int);
 void quotes(Gourd g) { quoted("{ Terrine g;", g.slosh()); }
 //                                              ^ d: src/rebound.cc:2
+void capture(Gourd g) { auto l = [g = Terrine()] { return g.slosh(); }; g.slosh(); }
+//                                                          ^ d: src/rebound.cc:5
+//                                                                        ^ d: src/rebound.cc:2
+void copied(Gourd g) { auto l = [g] { return g.slosh(); }; }
+//                                             ^ d: src/rebound.cc:2
+void captured(Gourd g) {
+  auto l = [&h = g, g = Terrine()] {
+    return g.slosh();
+//           ^ d: src/rebound.cc:5
+  };
+  g.slosh();
+//  ^ d: src/rebound.cc:2
+}
+void stepped(Gourd g, int i) { for (g.slosh(); i; ) g.slosh(); }
+//                                    ^ d: src/rebound.cc:2
+//                                                    ^ d: src/rebound.cc:2

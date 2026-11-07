@@ -243,6 +243,11 @@ and `lua/tea/table.lua` must not reach (#1062), nor the key `assert = function` 
 below a comment; its globals assigned in an `if` block and at the top level stay definitions (#1112).
 `lua/tea/tray.lua` calls a bare `rinse` whose namesakes are `function S.rinse` in `saucer.lua` and
 `spec.lua`'s `local rinse`, a picker of both.
+`lua/jug/rebound.lua` (#1393) binds a `flask` typed `Flask` again on the cursor's own line before
+the cursor: a closure's parameter, a loop variable, a `local` after `;`, in a `while` or before an
+`until`, a reassignment and a closure's `self`. The name lands on its own line and its `glug` opens
+the picker; the control rows (a read before the binding ends, a `do` block or a closure closed
+before the cursor, a comment, a string) keep master's answer.
 `lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
 `gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
 `insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches
@@ -289,7 +294,16 @@ the `else` of an `if` that follows an `if` or a loop already closed, whose assig
 `sieve` reads one in a later arm of a `case` whose earlier arm `;;` ended: the assignment above
 the `case` answers. `simmer` reads one after a `case` inside `$(..)`, and `decoct` in an arm of a
 `case` inside a `while` loop, where an earlier pass ran the earlier arm: the nearest assignment
-answers, as on master.
+answers, as on master. `shell/bin/rebound.sh` (#1395) binds `mug` again earlier on the cursor's
+line (a `local` in a one-line function, `for`, `while read`, `x=1;`, a subshell, a `case` arm,
+`mapfile`), which answers with that line, and keeps the older assignment where the binding does
+not reach the use: a `mug=z cmd` prefix, a plain read, a block or subshell closed earlier on the
+line, a comment, a string, `mug=$(echo "$mug")`, `local mug=12 tea=$mug` and a `local` after
+the use. The command `chai` under a `local chai=1` is the function. `eight` reads `mug` right
+after an assignment whose value holds backticks, a `${…}` with a space, an escaped space, `$(…)`
+or ends in a redirection, which answers with that assignment; `nine` puts the cursor on the target
+of `mug=$((…))`, `mug+=1`, `… && mug=5` and `then mug=7;` under a `local mug=0`, which answers
+with the `local`.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -297,6 +311,12 @@ each part of its selector, a property, a block property, the four `NS_ENUM` macr
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
 the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehouse.h`'s
 `courier_cmp` take unnamed `const T` and `struct T` parameters, whose `T` is a type (#1276).
+`objc/Rebound.m` (#1400) binds the global `crumb` again by a block parameter (`^(int crumb)`,
+`^ (`, `^NSString *(`, nested, in a message argument) and by a braceless `for (id crumb in xs)`,
+which answer with that binding, and keeps the global where the binding does not reach the use:
+`for (crumb in xs)`, a loop or block closed or opened later on the line, `^{`, another
+parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
+`c/src/rebound.c` reads `struct terrine (*g)` as declaring `g` (#1400), and a call `deref(g)` as not.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -446,7 +466,8 @@ local, and declarations in a string, a comment and `#if 0`.
 cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and condition, a
 `catch`), before and after the use, and keep `Gourd`'s jump where the rebinding does not reach
 the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
-a comment and a string. A `for` and an `if` init without a value still read the outer `g`.
+a comment and a string. A `for` and an `if` init without a value, and a lambda capture `[g = Terrine()]`
+with no parameter list, bind `g` too; a copy capture `[g]` and a `for` init that only calls `g.slosh()` keep `Gourd`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -461,6 +482,11 @@ star-import `infuse` where the later-wins rule must give up (#980): a later modu
 name, and a star import below the use or indented. `lamp.py` has a class attribute and a `def`
 below it of one name, the `def` the answer: JavaScript's rule that a field shadows its method
 (#1004) must stay out of Python.
+`rebound.py` (#1399) binds `infuse`, imported, and `LEAVES` again by a one-line `def`'s
+parameter (one with a default) or a local after `;`, by a comprehension and a lambda, and reads
+them beside these on the line too: before the lambda, after the comprehension, in its first
+iterable and after a lambda's body, where the outer binding wins; a top-level comprehension's
+variable wins over a later module-level namesake.
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under
@@ -560,7 +586,12 @@ method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl`
 of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
 lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
 a parameter before the dot is a value. `err` in a `catch err` block is the variable `catch` binds,
-and none past the block's `end` (#1375).
+and none past the block's `end` (#1375); a `let err` inside that block is the `let`'s (#1396).
+`julia/src/rebound.jl` (#1396) binds a `flask` typed `Flask` again by an enclosing `let`, a
+`let …;` before the cursor on its line and an assignment ended by `;`, and `swig` and `Flask`
+beside the module's function and struct: each lands on that binding, `flask.sip` in the `let`
+body keeps the picker, and the control rows (a closed `let`, a `let`'s right side, a keyword
+argument, a comparison, a closed `for`, a comment, a string) keep master's answer.
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
@@ -594,6 +625,14 @@ aliased and as a qualifier, a remapped one through `remappings.txt` and one thro
 `foundry.toml` into `lib/`, every declaration form of the issue, parameters, named returns and
 locals of a header over lines, and declaration-shaped lines in a NatSpec `/** */`, a `/* */` and a
 `//` comment.
+`solidity/contracts/Rebound.sol` (#1397) reads a name where a local or parameter of the same name
+is in scope but is not what the cursor names: a named argument's key (`Crate({heft: heft})`, on
+one line and over lines, which lands on the struct's field, and an event's, which keeps a picker),
+and a name in its own declaration's initializer (`uint256 notch = notch + 1;`, a tuple, a `for`
+header, a read before a same-line `;`), which opens a picker holding the state variable. Its controls
+keep the local: the value after the key, a ternary's `: ` on one line and over lines, a Yul `:=`,
+a read after the declaration's `;` on its line, and plain reads under a commented and a quoted
+declaration.
 `yaml/api/` (#435) is an OpenAPI description over two files and two JSON Schemas, for `d` on a
 `$ref`: a pointer into the same file past a namesake key, one into another file (on each word of
 the reference and on its punctuation), a whole file, an escaped path key, a quoted status code,
@@ -611,6 +650,15 @@ opens a file, each refusal of the issue, and declaration-shaped lines in a docst
 `scheme/lib/rules.scm` and `common-lisp/generic.lisp` (#1344) bind a `let-values` formal, a
 `syntax-rules` pattern variable (not its literal, not its macro's keyword, not past its rule)
 and a `defgeneric` parameter, and call a name starting with `%`.
+`common-lisp/rebound.lisp`, `emacs-lisp/shop-rebound.el` and `scheme/lib/rebound.scm` (#1401) bind a
+name of a top-level function again by `dolist`, `dotimes`, `destructuring-bind`, `seq-let`,
+`receive`, `guard`, `do`, `with-slots`, `cl-flet` or `symbol-macrolet`, and call the function
+after the form closes, in a form binding other names, and beside a string of its name. They,
+`scheme/rebound.rkt` and `clojure/src/shop/rebound.clj` also bind it by a Racket `for` clause,
+an internal `define` or `define-values`, `case-lambda`, a rest-symbol `lambda`, `as->`, `catch`,
+a `:let`, a `reify` or `defrecord` method, `if-let`, `cl-loop`, `condition-case` and
+`handler-case`, and call it after a `#:when`, in a `condition-case` or `handler-case` body and in
+an `if-let` else branch.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
@@ -618,6 +666,7 @@ parameter shadows), labels to a target in every form (`:api`, `api`, `//api`, `@
 `@//api`), to a source file and to a repository (`@rules_go`, `@bazel_gazelle` by its
 `repo_name`), each refusal of the issue (a rule call, a keyword argument, a computed name, a load's
 strings, `native.genrule`, a `select` key), and declaration-shaped lines in a docstring.
+`tools/rebound.bzl` (#1399) is `tea/rebound.py` of Python in Starlark, over a loaded `weigh_parcel`.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
@@ -1020,13 +1069,28 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
 name's member.
 
+`jvm/src/main/groovy/rebound/Workbench.groovy` (#1398) binds a `Gimlet c` field and a `def x`
+field again where `d` is pressed on the name: a local ended by `;` earlier on the cursor's line
+(`Auger c = …;`, `def x = 2;`, `def (a, x) = …;`), a typed closure parameter (`{ Auger c -> …`)
+on the line and over lines, and `def (a, x) = …` on a line above. Each lands on its own line. A
+plain read, a block or a closure (typed or not) closed before the cursor, a use before the
+declaration, a declaration on a later line, in a comment or a string, the right side of
+`def c = c.bore()` and `foo(c: 1)` keep the field.
+
 `jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
 cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
 `for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
 `given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
 of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
 on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
-generator on a later line keep `Cup.sip`.
+generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` after a `;` in
+the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
+ends it and `x` is the field again (#1398).
+
+`Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
+the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
+`object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
+`this.` after the anonymous class is closed keeps the class's own member.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

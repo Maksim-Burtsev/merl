@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::jvm::{ident, param_names};
 use super::{Kind, code, indent, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
@@ -34,6 +35,30 @@ pub fn jvm_rebound_before(before: &str, name: &str) -> bool {
     })
 }
 
+pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    let ret = super::jvm_return_type!();
+    let Ok(declared) = Regex::new(&format!(
+        r"(?:^|[;{{])\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+    )) else {
+        return false;
+    };
+    declared.find_iter(lead).any(|m| {
+        let (mut depth, mut ended) = (0i32, false);
+        lead.get(m.end()..).is_some_and(|rest| {
+            rest.bytes().all(|b| {
+                match b {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    b';' if depth == 0 => ended = true,
+                    _ => {}
+                }
+                depth >= 0
+            })
+        }) && ended
+    })
+}
+
 pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bool {
     static EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:return|throw|continue|break)\b").expect("the regex is a literal")
@@ -56,4 +81,121 @@ pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bo
                 .take_while(|l| l.trim().is_empty() || indent(l) > depth),
         )
         .any(|l| EXIT.is_match(&blanked(&uncommented(Kind::Jvm, l))))
+}
+
+pub(super) fn lambda_names(line: &str) -> Vec<String> {
+    lambda_binders(line).into_iter().map(|(n, _)| n).collect()
+}
+
+pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)> {
+    static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[(,{=]|=>)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*=>")
+            .expect("the regex is a literal")
+    });
+    static CASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bcase\s+(.+?)\s*(?:\bif\b.*?)?=>").expect("the regex is a literal")
+    });
+    static BINDER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?:^|[^\w.`"'])([a-z_]\w*)\s*([(.]?)"#).expect("the regex is a literal")
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\{\s*([^{}]*?)\s*->").expect("the regex is a literal")
+    });
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[(,=]|->)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
+            .expect("the regex is a literal")
+    });
+    static GROOVY_TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:final\s+)?(?:def|int|long|short|byte|char|boolean|float|double|[A-Z][\w.]*(?:<[^<>]*>)?(?:\[\])*)\s+([A-Za-z_]\w*)$")
+            .expect("the regex is a literal")
+    });
+    let mut out = Vec::new();
+    for c in KOTLIN.captures_iter(line) {
+        let at = c.get(0).map_or(0..0, |m| m.range());
+        for entry in c[1].split(',') {
+            let e = entry.trim().trim_matches(['(', ')']).trim();
+            let name = e.split(':').next().unwrap_or("").trim();
+            if ident(name) {
+                out.push((name.to_owned(), at.clone()));
+            } else if let Some(typed) = GROOVY_TYPED.captures(e) {
+                out.push((typed[1].to_owned(), at.clone()));
+            }
+        }
+    }
+    for c in CASE.captures_iter(line) {
+        let at = c.get(0).map_or(0..0, |m| m.range());
+        for b in BINDER.captures_iter(&c[1]).filter(|b| b[2].is_empty()) {
+            out.push((b[1].to_owned(), at.clone()));
+        }
+    }
+    for c in JAVA.captures_iter(line).chain(SCALA.captures_iter(line)) {
+        let at = c.get(0).map_or(0..0, |m| m.range());
+        match (c.get(1), c.get(2)) {
+            (Some(list), _) => {
+                for entry in list.as_str().split(',') {
+                    let e = entry.trim();
+                    let names = if e.contains(char::is_whitespace) {
+                        param_names(e, false)
+                    } else {
+                        ident(e).then(|| e.to_owned()).into_iter().collect()
+                    };
+                    out.extend(names.into_iter().map(|n| (n, at.clone())));
+                }
+            }
+            (None, Some(name)) => out.push((name.as_str().to_owned(), at)),
+            _ => {}
+        }
+    }
+    out.retain(|(n, _)| n != "_");
+    out
+}
+
+pub(super) fn lambda_open_at(line: &str, at: &std::ops::Range<usize>, col: usize) -> bool {
+    if col < at.start {
+        return false;
+    }
+    let case = line.get(at.start..).is_some_and(|l| l.starts_with("case"));
+    let braced = case || line.get(at.start..).is_some_and(|l| l.starts_with('{'));
+    let mut depth = 0i32;
+    line.get(at.end.min(col)..col).is_some_and(|body| {
+        let word = |i: usize| {
+            body.as_bytes()
+                .get(i)
+                .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        };
+        body.bytes().enumerate().all(|(i, b)| {
+            match b {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            let next_case = case
+                && depth == 0
+                && body.get(i..).is_some_and(|r| r.starts_with("case"))
+                && !word(i.wrapping_sub(1))
+                && !word(i + 4);
+            depth >= 0 && !next_case && (braced || depth > 0 || !matches!(b, b';' | b','))
+        })
+    })
+}
+
+pub fn jvm_anonymous_open(before: &str) -> bool {
+    static OPENS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>)?\s*(?:\([^{}]*\))?\s*\{|\bobject\s*:[^{}]*\{")
+            .expect("the regex is a literal")
+    });
+    let line = blanked(before);
+    OPENS.find_iter(&line).any(|m| {
+        let mut depth = 0i32;
+        line.get(m.end()..).is_some_and(|rest| {
+            rest.bytes().all(|b| {
+                match b {
+                    b'{' => depth += 1,
+                    b'}' => depth -= 1,
+                    _ => {}
+                }
+                depth >= 0
+            })
+        })
+    })
 }

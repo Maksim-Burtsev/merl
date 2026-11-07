@@ -788,7 +788,8 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line.get(..word_start)?.strip_suffix('.')?;
     let mut fields = Vec::new();
-    let indexed = |b: &str| matches!(kind, Kind::TsJs | Kind::Go) && b.ends_with(']');
+    let indexed =
+        |b: &str| matches!(kind, Kind::TsJs | Kind::Go | Kind::Python) && b.ends_with(']');
     while !before.ends_with(')') && !indexed(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
@@ -804,7 +805,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             .map(|(i, _)| i)
             .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
         let index = before.get(open + 1..before.len() - 1)?;
-        if kind == Kind::Go && split_top(kind, index, b':').len() > 1 {
+        if matches!(kind, Kind::Go | Kind::Python) && split_top(kind, index, b':').len() > 1 {
             return None;
         }
         let head = before.get(..open)?;
