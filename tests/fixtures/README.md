@@ -1103,6 +1103,12 @@ the anonymous class they open on the same line (`new Percolator { … }`, `new E
 `object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
 `this.` after the anonymous class is closed keeps the class's own member.
 
+`jvm/src/main/java/namesake/` and `jvm/src/main/kotlin/namesake/` (#1408) import a `Decanter`
+from one package into a file whose `Cellar` declares a nested `Decanter` of its own: `aerate`
+through a parameter, a field and a local typed `Decanter` inside `Cellar` lands on the nested
+class's, and through a parameter of the `Rack` beside it, which the nested class does not reach,
+on the imported one's.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides
