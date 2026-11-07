@@ -199,3 +199,83 @@ pub fn jvm_anonymous_open(before: &str) -> bool {
         })
     })
 }
+
+pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
+    static STATEMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:if|for|while|do|try|switch|synchronized|else)\b")
+            .expect("the regex is a literal")
+    });
+    let b = line.as_bytes();
+    let rest = line.get(start..).unwrap_or_default();
+    if line.get(..col).is_none_or(|lead| lead.contains("/*")) {
+        return false;
+    }
+    let open = if rest.starts_with("instanceof") {
+        let mut depth = 0i32;
+        let open = (0..start).rev().find(|&i| {
+            match b[i] {
+                b')' => depth += 1,
+                b'(' if depth > 0 => depth -= 1,
+                b'(' => {
+                    let head = line.get(..i).unwrap_or_default().trim_end();
+                    return head.ends_with("if")
+                        && !head
+                            .get(..head.len() - 2)
+                            .unwrap_or_default()
+                            .ends_with(|c: char| c.is_alphanumeric() || c == '_');
+                }
+                _ => {}
+            }
+            false
+        });
+        match open {
+            Some(o) => o,
+            None => return false,
+        }
+    } else if ["for", "catch", "try"].iter().any(|k| rest.starts_with(k)) {
+        match rest.find('(') {
+            Some(o) => start + o,
+            None => return false,
+        }
+    } else {
+        return false;
+    };
+    let Some(close) = matching(b, open) else {
+        return false;
+    };
+    if rest.starts_with("instanceof") && line.get(open..close).is_none_or(|h| h.contains('!')) {
+        return false;
+    }
+    let after = line.get(close + 1..).unwrap_or_default();
+    let body = line.len() - after.trim_start().len();
+    let end = if b.get(body) == Some(&b'{') {
+        matching(b, body).map(|e| e + 1)
+    } else if STATEMENT.is_match(after) {
+        None
+    } else {
+        let mut depth = 0i32;
+        (body..b.len())
+            .find(|&i| {
+                match b[i] {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                depth < 0 || (depth == 0 && b[i] == b';')
+            })
+            .map(|e| e + 1)
+    };
+    end.is_some_and(|e| e <= col)
+}
+
+fn matching(b: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    (open..b.len()).find(|&i| {
+        match b[i] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        depth == 0
+    })
+}
