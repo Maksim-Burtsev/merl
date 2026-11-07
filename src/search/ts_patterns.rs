@@ -732,9 +732,22 @@ pub(super) fn ts_hoisted_vars(lines: &[&str], at: usize, name: &str, out: &mut V
             !t.is_empty() && !t.starts_with(['}', ')', ']', '/', '*']) && indent(lines[j]) < depth
         })
     };
+    let allman = |j: usize| {
+        (0..j)
+            .rev()
+            .map(|k| (k, uncommented(Kind::TsJs, lines[k])))
+            .find(|(k, l)| !l.trim().is_empty() && indent(lines[*k]) <= indent(lines[j]))
+            .is_some_and(|(_, l)| {
+                let l = l.trim();
+                !CONTROL.is_match(l) && !l.ends_with([';', '{', '}'])
+            })
+    };
     let scope_of = |mut i: usize| {
         while let Some(j) = header_of(i) {
             let header = uncommented(Kind::TsJs, lines[j]);
+            if header.trim() == "{" && allman(j) {
+                return Some(j);
+            }
             if !CONTROL.is_match(header.trim()) {
                 return header.trim_end().ends_with('{').then_some(j);
             }
@@ -745,7 +758,7 @@ pub(super) fn ts_hoisted_vars(lines: &[&str], at: usize, name: &str, out: &mut V
     let mut literal = None;
     let mut from = at;
     while let Some(h) = scope_of(from) {
-        if from != at && out.iter().any(|b| b.line1 > from) {
+        if from != at && out.iter().any(|b| b.line1 > h + 1) {
             return;
         }
         let mut hoisted = Vec::new();
@@ -763,6 +776,7 @@ pub(super) fn ts_hoisted_vars(lines: &[&str], at: usize, name: &str, out: &mut V
             let before = line.get(..m.start()).unwrap_or_default().trim();
             if before.contains("=>")
                 || names(before, "function")
+                || (from != at && before.matches('{').count() > before.matches('}').count())
                 || out.iter().any(|b| b.line1 == l + 1)
                 || scope_of(l) != Some(h)
                 || literal.get_or_insert_with(|| literal_lines(Kind::TsJs, &lines.join("\n")))[l]

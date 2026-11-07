@@ -26,3 +26,44 @@ class Rack {
         //^ d: src/main/java/namesake/a/Decanter.java:4
     }
 }
+
+class Magnum {
+    Decanter bottled = new Decanter();
+
+    Decanter uncork() {
+        return bottled;
+    }
+}
+
+class Jeroboam extends Decanter {
+}
+
+class Sommelier {
+    static class Decanter {
+        void aerate() {}
+    }
+
+    void unseal(Magnum s, Jeroboam f) {
+        s.bottled.aerate();
+        //        ^ d: src/main/java/namesake/a/Decanter.java:4
+        s.uncork().aerate();
+        //         ^ d: src/main/java/namesake/a/Decanter.java:4
+        f.aerate();
+        //^ d: src/main/java/namesake/a/Decanter.java:4
+    }
+}
+
+class Cooper {
+    Decanter cellared = new Decanter();
+
+    class Inner {
+        class Decanter {
+            void aerate() {}
+        }
+
+        void swill() {
+            cellared.aerate();
+            //       ^ d: src/main/java/namesake/a/Decanter.java:4
+        }
+    }
+}
