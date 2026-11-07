@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::jvm_rebound::{
-    blanked, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
+    blanked, clause_closed_at, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
     negated_pattern_exits,
 };
 use super::{
@@ -270,23 +270,31 @@ fn header_lines1_binding(
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\(.*\b(?:var|{ret})\s+{n}\s*[,)]"
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
     ));
     let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
         .into_iter()
         .collect();
     for (i, l) in lines.iter().enumerate().take(to + 1).skip(from) {
         let code = uncommented(Kind::Jvm, l);
-        let lambda = match cursor {
+        let (lambda, clause) = match cursor {
             Some(col) => {
                 let line = blanked(l);
-                lambda_binders(&line)
+                let lambda = lambda_binders(&line)
                     .iter()
-                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col))
+                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
+                let open = std::iter::successors(clause.find(&code), |m| {
+                    clause.find_at(&code, m.start() + 1)
+                })
+                .any(|m| !clause_closed_at(&line, m.start(), col));
+                (lambda, open)
             }
-            None => lambda_names(&code).iter().any(|p| p == name),
+            None => (
+                lambda_names(&code).iter().any(|p| p == name),
+                clause.is_match(&code),
+            ),
         };
-        if clause.is_match(&code) || lambda {
+        if clause || lambda {
             out.push(i + 1);
         }
     }
