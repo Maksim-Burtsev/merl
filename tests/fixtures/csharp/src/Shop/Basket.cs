@@ -106,4 +106,17 @@ public class Basket
         //                  ^ d: src/Shop/Basket.cs:102
         //                        ^ d: src/Shop/Basket.cs:102
     }
+
+    public ScopeView Rescope(bool Checked)
+    {
+        var view = new ScopeView { Checked = Checked };
+        //                         ^ d: src/Shop/Warehouse/Courier.cs:25
+        //                                   ^ d: src/Shop/Basket.cs:110
+        ScopeView again = new()
+        {
+            Checked = !Checked,
+        //  ^ d: src/Shop/Warehouse/Courier.cs:25
+        };
+        return again;
+    }
 }
