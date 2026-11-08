@@ -120,12 +120,12 @@ fn dart_declares(t: &str, name: &str) -> bool {
 }
 
 pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Option<usize> {
-    let lines: Vec<&str> = text.lines().collect();
-    let literal = literal_lines(kind, text);
     static RUST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\S+)?)\s+)*(fn|struct|enum|union|trait|impl|type|mod)\b")
             .expect("the regex is a literal")
     });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(kind, text);
     let mut k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut inside_item = false;
     loop {
