@@ -27,6 +27,3 @@ type Row [N]Goblet
 //          ^ d: cart/goblets.go:3
 
 const N = 2
-
-type Buf [N + 1]byte
-//        ^ d: cart/goblets.go:29

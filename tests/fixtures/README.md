@@ -131,6 +131,10 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `dart/lib/amphora_rack.dart` and `jvm/src/main/{java/amphora,kotlin/pithos,scala/krater}`
   declare generics whose parameter is called like the class beside them, a method re-declaring
   it inside a generic class, a bound naming the class, and the class used outside any generic.
+  Shapes that declare no parameter answer the class or field (#1440 review): a javadoc or `//`
+  comment under a generic method, `a < LOW || a > HIGH`, a `when` branch `a < size ->`, an
+  anonymous `given Ordering[Krater] with`, a Rust `fn` nested in a generic `fn`, and Go's
+  `type Buf [N + 1]byte` in `go/cart/bufs.go`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
