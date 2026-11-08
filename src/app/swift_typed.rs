@@ -107,9 +107,9 @@ impl App {
                         .collect()
                 });
             };
-            let mut rows = self.swift_member_rows(here, ty, word)?;
+            let mut rows = self.swift_call_rows(here, ty, word)?;
             for arm in &arms[1..] {
-                for h in self.swift_member_rows(here, arm, word)? {
+                for h in self.swift_call_rows(here, arm, word)? {
                     if !rows.iter().any(|r| r.path == h.path && r.line1 == h.line1) {
                         rows.push(h);
                     }
@@ -155,7 +155,7 @@ impl App {
             call_signature,
         } = via;
         let ty = self.swift_type(here, &written)?;
-        let mut rows = self.swift_member_rows(here, &ty, word)?;
+        let mut rows = self.swift_call_rows(here, &ty, word)?;
         rows.retain(|h| {
             search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
         });
@@ -1029,49 +1029,6 @@ impl App {
                     .filter(|ty| ty.keyword.is_some())
             })
             .collect()
-    }
-
-    fn swift_member_rows(&self, here: &Path, ty: &SwiftType, word: &str) -> Option<Vec<Hit>> {
-        let pattern = search::def_patterns(Kind::Swift, word).join("|");
-        let hits = self.project_definitions(Kind::Swift, here, word, &pattern);
-        let mut owner = ty.owner.clone();
-        let (mut keyword, mut base) = (ty.keyword.clone(), ty.base.clone());
-        let mut seen = HashSet::from([owner.clone()]);
-        let mut walked = vec![ty.name.clone()];
-        loop {
-            let full = format!("{owner}.{word}");
-            let rows: Vec<Hit> = hits
-                .iter()
-                .filter(|h| {
-                    self.text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, word))
-                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
-                        && !search::swift_extension(&h.text)
-                        && self.in_code(Kind::Swift, h)
-                })
-                .cloned()
-                .collect();
-            if !rows.is_empty() {
-                return Some(rows);
-            }
-            match (keyword.as_deref(), base) {
-                (None, _) => return Some(Vec::new()),
-                (Some("class"), Some(next)) if seen.insert(next.clone()) => {
-                    match self.swift_type(here, &next) {
-                        Some(up) if up.keyword.as_deref() == Some("class") => {
-                            walked.push(up.name);
-                            (owner, keyword, base) = (up.owner, up.keyword, up.base);
-                        }
-                        None if self.swift_protocol(here, &next) => {
-                            return self.swift_defaults(here, &walked, word);
-                        }
-                        _ => return None,
-                    }
-                }
-                (Some("class"), Some(_)) => return None,
-                (Some(_), _) => return self.swift_defaults(here, &walked, word),
-            }
-        }
     }
 
     fn swift_outside_rows(&self, here: &Path, written: &str, word: &str) -> Option<Vec<Hit>> {
