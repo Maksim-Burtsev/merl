@@ -6,8 +6,8 @@ use super::{
     go_declares_then_uses, haskell_bindings, indent, julia_bindings, jvm_bindings, lisp,
     lisp_bindings, literal_lines, lua_bindings, names, nix_bindings, powershell_params,
     python_bindings_at, ruby_bindings, rust_bindings, shell_bindings, solidity_bindings, split_top,
-    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_vars,
-    ts_params, type_list, uncommented,
+    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_function,
+    ts_hoisted_vars, ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,7 +187,12 @@ pub fn bindings_at(
                 return vec![unknown(line)];
             }
             ts_hoisted_vars(&lines, at, name, &mut out);
-            out
+            match ts_hoisted_function(&lines, at, name) {
+                Some((header, f)) if f > line && out.iter().all(|b| b.line1 <= header) => {
+                    vec![unknown(f)]
+                }
+                _ => out,
+            }
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
