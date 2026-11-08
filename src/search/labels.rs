@@ -123,53 +123,58 @@ pub fn label_at(
             | Kind::Ruby
             | Kind::Julia,
             b'(',
-        ) => {
-            static ANNOTATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal")
-            });
-            static JULIA_SHORT_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"^\s*[\w.!]+\s*\(.*\)\s*(?:where\b.*)?(?:::\s*[\w{}.]+\s*)?=[^=]")
-                    .expect("the regex is a literal")
-            });
-            let before = lines[at].get(..open)?;
-            if declares(before) || (kind == Kind::Julia && JULIA_SHORT_DEF.is_match(lines[at])) {
-                return None;
-            }
-            if java && !ANNOTATION.is_match(before) {
-                return None;
-            }
-            let col = callee(kind, lines[at], open)?;
-            let owner = if kind == Kind::Swift
-                && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
-            {
-                let head =
-                    (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
-                head.and_then(|h| {
-                    let name = h
-                        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
-                        .next()?;
-                    (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
-                        line0: at,
-                        byte_col: h.len() - 1,
-                        how: Owner::Args,
-                    })
-                })
-                .or_else(|| head.and_then(|h| swift_implicit_init(kind, &lines, &literal, at, h)))
-            } else {
-                Some(LabelOwner {
-                    line0: at,
-                    byte_col: col,
-                    how: Owner::Args,
-                })
-            };
-            Some(Label {
-                what: "argument label",
-                owner,
-                nested: false,
-            })
-        }
+        ) => call_label(kind, java, &lines, &literal, at, open),
         _ => None,
     }
+}
+
+fn call_label(
+    kind: Kind,
+    java: bool,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+) -> Option<Label> {
+    static ANNOTATION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal"));
+    static JULIA_SHORT_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*[\w.!]+\s*\(.*\)\s*(?:where\b.*)?(?:::\s*[\w{}.]+\s*)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    let before = lines[at].get(..open)?;
+    if declares(before) || (kind == Kind::Julia && JULIA_SHORT_DEF.is_match(lines[at])) {
+        return None;
+    }
+    if java && !ANNOTATION.is_match(before) {
+        return None;
+    }
+    let col = callee(kind, lines[at], open)?;
+    let owner = if kind == Kind::Swift && word_at(lines[at], col, "").map(|w| w.1) == Some("init") {
+        let head = (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
+        head.and_then(|h| {
+            let name = h
+                .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .next()?;
+            (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
+                line0: at,
+                byte_col: h.len() - 1,
+                how: Owner::Args,
+            })
+        })
+        .or_else(|| head.and_then(|h| swift_implicit_init(kind, lines, literal, at, h)))
+    } else {
+        Some(LabelOwner {
+            line0: at,
+            byte_col: col,
+            how: Owner::Args,
+        })
+    };
+    Some(Label {
+        what: "argument label",
+        owner,
+        nested: false,
+    })
 }
 
 fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Option<Label> {
