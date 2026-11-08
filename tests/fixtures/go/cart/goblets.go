@@ -65,3 +65,42 @@ func Wrapped[Goblet any](
 	x.Quaff()
 	//^ d: none
 }
+
+type Shelf[T Toaster] struct {
+	held T
+}
+
+func (s Shelf[T]) Ring(x T) {
+	x.Clink()
+	//^ d: cart/goblets.go:32
+	s.held.Clink()
+	//     ^ d: cart/goblets.go:32
+}
+
+func (s *Shelf[U]) Again(x U) {
+	x.Clink()
+	//^ d: cart/goblets.go:32
+}
+
+type Pourer interface{ Pour() }
+
+func (g Goblet) Pour() {}
+
+type Jug[T Pourer] struct{}
+
+func (j Jug[T]) Tip(x T) {
+	x.Pour()
+	//^ d: picker cart/goblets.go:87, rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/rival.go:181, rival/twin/twin.go:7; want cart/goblets.go:85 (#1438)
+}
+
+func Tilt[T Pourer](x T) {
+	x.Pour()
+	//^ d: picker cart/goblets.go:87, rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/rival.go:181, rival/twin/twin.go:7; want cart/goblets.go:85 (#1438)
+}
+
+type Loose[T any] struct{}
+
+func (l Loose[T]) Drop(x T) {
+	x.Pour()
+	//^ d: none
+}

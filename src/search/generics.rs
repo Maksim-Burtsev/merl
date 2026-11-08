@@ -176,6 +176,7 @@ pub struct TypeParam {
 
 pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Option<TypeParam> {
     let (at, bound) = type_param(kind, text, line1, name)?;
+    let bound = bound?;
     let clause = match kind {
         Kind::Rust | Kind::Swift => "where",
         Kind::C => "requires",
@@ -191,7 +192,9 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
     })
 }
 
-fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize, Option<String>)> {
+type Bound = Option<Option<String>>;
+
+fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize, Bound)> {
     static RUST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\S+)?)\s+)*(fn|struct|enum|union|trait|impl|type|mod)\b")
             .expect("the regex is a literal")
@@ -239,7 +242,7 @@ fn continues(t: &str) -> bool {
     t.starts_with([')', ']', '>']) || t.starts_with("where") || t.starts_with("->")
 }
 
-fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, Option<String>)> {
+fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, Bound)> {
     static RUST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"\b(?:fn\s+\w+|impl|struct\s+\w+|enum\s+\w+|union\s+\w+|trait\s+\w+|type\s+\w+)\s*<",
@@ -251,7 +254,7 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
             .expect("the regex is a literal")
     });
     static GO_RECEIVER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^func\s*\(\s*\w*\s*\*?\s*\w+\s*\[").expect("the regex is a literal")
+        Regex::new(r"^func\s*\(\s*\w*\s*\*?\s*(\w+)\s*\[").expect("the regex is a literal")
     });
     static CPP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\btemplate\s*<").expect("the regex is a literal"));
@@ -266,7 +269,7 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
         let i = parts
             .iter()
             .position(|p| param_name(p, last) == Some(name))?;
-        Some(param_bound(kind, &parts, i))
+        Some(Some(param_bound(kind, &parts, i)))
     };
     let angled = |re: &Regex| {
         re.find_iter(t)
@@ -280,16 +283,15 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
         Kind::Go => {
             let list = |re: &Regex| list_after(t.get(re.find(t)?.end()..)?, b'[', b']');
             list(&GO)
-                .filter(|l| {
-                    top_parts(l)
-                        .last()
-                        .and_then(|p| p.split_whitespace().nth(1))
-                        .is_some_and(|c| {
-                            c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c))
-                        })
-                })
+                .filter(|l| go_constrained(l))
                 .and_then(|l| named(l, false))
-                .or_else(|| list(&GO_RECEIVER).and_then(|l| named(l, false)))
+                .or_else(|| {
+                    let ty = GO_RECEIVER.captures(t)?.get(1)?.as_str();
+                    let i = top_parts(list(&GO_RECEIVER)?)
+                        .iter()
+                        .position(|p| param_name(p, false) == Some(name))?;
+                    Some(go_type_bound(lines, ty, i))
+                })
                 .map(|b| (k, b))
         }
         Kind::C => (0..=k)
@@ -304,6 +306,27 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
             }),
         _ => None,
     }
+}
+
+fn go_constrained(list: &str) -> bool {
+    top_parts(list)
+        .last()
+        .and_then(|p| p.split_whitespace().nth(1))
+        .is_some_and(|c| c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c)))
+}
+
+fn go_type_bound(lines: &[&str], ty: &str, i: usize) -> Bound {
+    let head = format!("type {ty}");
+    lines.iter().find_map(|l| {
+        let l = coded(Kind::Go, l);
+        let list = list_after(
+            l.strip_prefix(&head)?.trim_start().strip_prefix('[')?,
+            b'[',
+            b']',
+        )?;
+        let parts = top_parts(list);
+        (go_constrained(list) && i < parts.len()).then(|| param_bound(Kind::Go, &parts, i))
+    })
 }
 
 fn param_bound(kind: Kind, parts: &[&str], i: usize) -> Option<String> {
