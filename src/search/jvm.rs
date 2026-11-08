@@ -497,6 +497,27 @@ fn primary_constructor_property_on_header(lines: &[&str], k: usize, name: &str) 
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
 }
 
+fn one_line_body(line: &str) -> Option<&str> {
+    let (mut depth, mut open) = (0i32, None);
+    for (i, c) in code(Kind::Jvm, line) {
+        match c {
+            b'{' if depth == 0 && open.is_none() => {
+                open = Some(i + 1);
+                depth += 1;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
+                depth -= 1;
+                if depth == 0 && c == b'}' {
+                    return open.and_then(|o| line.get(o..i));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex) -> Vec<usize> {
     static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\b")).expect("the regex is a literal")
@@ -535,10 +556,7 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
             }
         }
     }
-    if lines[k]
-        .split_once('{')
-        .is_some_and(|(_, body)| re.is_match(body))
-    {
+    if one_line_body(lines[k]).is_some_and(|body| re.is_match(body)) {
         out.push(k + 1);
     }
     let Some(member_indent) = member_indent else {

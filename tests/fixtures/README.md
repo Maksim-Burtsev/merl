@@ -820,7 +820,7 @@ of `barn.ts` and declare a `function Sheaf` inside an `if`, `else`, `for`, `try`
 of the module (#1420): it is block-scoped there, so a `new Sheaf()` outside the block, above or
 below it, and the method through it, land on the import, while the use inside the block lands on
 the block's function. `stack.ts` and `stack.js` declare methods whose line ends in a `//` or a
-`/* */` comment, or holds one between `{` and `}` (#1433).
+`/* */` comment, or holds one between `{` and `}` (#1433), while the call `knot({ // …` in `stack.js` declares nothing. `hand.js` requires `helper` from `tool.js`: a `function helper()` line inside a template string or a block comment hides nothing, a real one below the use does.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on

@@ -43,3 +43,14 @@ class Dam : Basin() {
     //         ^ d: src/main/kotlin/sluice/Dam.kt:13
     }
 }
+
+open class Gauge {
+    var sill = 0
+}
+
+class Reset(val clear: () -> Unit = { sill = 0 }) : Gauge() {
+    fun run() {
+        println(sill)
+    //          ^ d: src/main/kotlin/sluice/Dam.kt:48
+    }
+}
