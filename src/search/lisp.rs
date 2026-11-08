@@ -221,7 +221,7 @@ fn here_string_end(b: &[u8], i: usize) -> usize {
 }
 
 fn lex(kind: Kind, text: &str) -> Lexed {
-    lex_keeping(kind, text, false)
+    lex_keeping(kind, text, false, false)
 }
 
 fn char_literal(kind: Kind, b: &[u8], i: usize) -> bool {
@@ -256,19 +256,17 @@ fn comment_form(b: &[u8], i: usize, depth: usize) -> bool {
 }
 
 pub fn lisp_code(kind: Kind, text: &str) -> Vec<u8> {
-    lex_keeping(kind, text, true).code
+    lex_keeping(kind, text, true, false).code
 }
 
-fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
+fn lex_keeping(kind: Kind, text: &str, comment_forms: bool, datums: bool) -> Lexed {
     let b = text.as_bytes();
     let clojure = kind == Kind::Clojure;
     let hashed = matches!(kind, Kind::Scheme | Kind::CommonLisp);
-    let mut code = b.to_vec();
-    let mut literal = vec![false];
+    let (mut code, mut literal) = (b.to_vec(), vec![false]);
     let (mut depth, mut i) = (0usize, 0usize);
     let (mut string, mut block, mut here) = (false, 0usize, 0usize);
-    let mut ignored: Option<(usize, usize)> = None;
-    let (mut datum, mut pending) = (false, 0usize);
+    let (mut datum, mut pending, mut ignored) = (false, 0usize, None::<(usize, usize)>);
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
@@ -305,9 +303,11 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
             i += 2;
             blank(&mut code, start..i);
         } else if let Some(n) = discard(kind, &b[i..]) {
-            pending = ignored.map_or(1, |_| pending + usize::from(datum));
-            datum |= ignored.is_none();
-            ignored = ignored.or(Some((depth, i)));
+            if !datums {
+                pending = ignored.map_or(1, |_| pending + usize::from(datum));
+                datum |= ignored.is_none();
+                ignored = ignored.or(Some((depth, i)));
+            }
             i += n;
         } else if char_literal(kind, b, i) {
             i = char_end(b, i);
@@ -388,6 +388,54 @@ pub(super) fn lisp_form_encloses(kind: Kind, text: &str, form_line0: usize, line
 
 pub(super) fn lisp_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     lex(kind, text).literal
+}
+
+pub fn racket_prose(path: &Path, text: &str, at: usize) -> bool {
+    if path.extension().is_none_or(|e| e != "rkt") && !text.starts_with("#lang") {
+        return false;
+    }
+    let code = lex_keeping(Kind::Scheme, text, true, true).code;
+    let hidden = code.get(at) == Some(&b' ') && text.as_bytes().get(at) != Some(&b' ');
+    hidden || (text.starts_with("#lang at-exp") && in_at_text(&code, at))
+}
+
+fn in_at_text(code: &[u8], at: usize) -> bool {
+    if at == 0 || code.get(at - 1) == Some(&b'@') {
+        return false;
+    }
+    let Some(open) = open_before(code, at) else {
+        return false;
+    };
+    let mut i = open;
+    if code[open] != b'{' {
+        return false;
+    }
+    if i > 0 && code[i - 1] == b']' {
+        let Some(o) = open_before(code, i - 1) else {
+            return false;
+        };
+        i = o;
+    }
+    while i > 0 && !delimiter(code[i - 1]) && code[i - 1] != b'@' {
+        i -= 1;
+    }
+    i > 0 && code[i - 1] == b'@'
+}
+
+fn open_before(code: &[u8], at: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    code.get(..at)?.iter().rposition(|&c| match c {
+        b')' | b']' | b'}' => {
+            depth += 1;
+            false
+        }
+        b'(' | b'[' | b'{' if depth > 0 => {
+            depth -= 1;
+            false
+        }
+        b'(' | b'[' | b'{' => true,
+        _ => false,
+    })
 }
 
 enum Tok<'a> {
@@ -490,6 +538,7 @@ const LETS: &[&str] = &[
     "let-values",
     "let*-values",
     "letrec-values",
+    "with-syntax",
     "flet",
     "labels",
     "cl-flet",
@@ -565,6 +614,12 @@ const DEFINES: &[&str] = &[
     "define/private",
     "define/override",
 ];
+
+pub fn racket_method_sent(lead: &str) -> bool {
+    static SENT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\(send\s+[^\s()\[\]]+\s+$").expect("the regex is a literal"));
+    SENT.is_match(lead)
+}
 
 fn racket_for(h: &str) -> bool {
     ["for", "for*"].contains(&h) || h.starts_with("for/") || h.starts_with("for*/")
