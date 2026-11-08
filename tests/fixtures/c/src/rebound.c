@@ -49,3 +49,9 @@ void cread(struct gourd *g, struct gourd *h) { { CLOCK(g); g->slosh = 1; CCLEAR(
 void cpeek(struct gourd *g, struct gourd *h) { { CPEEK(g); g->slosh = 1; CMAX(g, h); g->slosh = 1; } }
 //                                                            ^ d: src/rebound.c:1
 //                                                                                      ^ d: src/rebound.c:1
+#include "shop/declare.h"
+void hdeclared(struct gourd *g) { { HDECLARE(struct terrine *, g); g->slosh = 1; } g->slosh = 1; }
+//                                                                    ^ d: picker src/rebound.c:1, src/rebound.c:2
+//                                                                                    ^ d: src/rebound.c:1
+void hshown(struct gourd *g) { { HSHOW(g); g->slosh = 1; } }
+//                                            ^ d: src/rebound.c:1
