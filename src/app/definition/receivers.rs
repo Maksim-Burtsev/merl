@@ -117,6 +117,51 @@ impl App {
         false
     }
 
+    pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
+        let (kind, chain) = (a.kind, a.chain.as_slice());
+        let reaches = match kind {
+            Kind::Go => !chain.is_empty(),
+            Kind::C | Kind::Swift | Kind::Rust => chain.len() == 1,
+            _ => false,
+        };
+        if !a.dotted || !reaches {
+            return false;
+        }
+        let Some((file, text, bindings, _)) = self.last_bindings(kind, &a.here, chain) else {
+            return false;
+        };
+        let last = chain.last().map_or("", String::as_str);
+        let unbound = |b: &search::Binding| {
+            let written = match &b.value {
+                search::Value::Type(t) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
+                search::Value::Unknown if kind != Kind::Go => {
+                    search::declared_type_on(kind, text.lines().nth(b.line1 - 1)?, last)?
+                }
+                _ => return None,
+            };
+            let [one] = &search::type_path(kind, &written)?[..] else {
+                return None;
+            };
+            let bound = search::type_param_bound(kind, &text, b.line1, one)?;
+            let resolves = bound
+                .is_some_and(|w| kind != Kind::Go || self.type_decl(kind, &file, &w).is_some());
+            (!resolves).then(|| one.clone())
+        };
+        let Some(Some(param)) = bindings
+            .iter()
+            .map(unbound)
+            .collect::<Option<Vec<_>>>()
+            .map(|p| p.into_iter().next())
+        else {
+            return false;
+        };
+        self.none_found(format!(
+            "no definition for {} in the project (via {}: type parameter {param})",
+            a.word,
+            chain.join(".")
+        ))
+    }
+
     pub(super) fn declares_here(&self, a: &Asked) -> bool {
         if a.kind == Kind::Swift && search::swift_right_of_binding(&a.lead) {
             return false;

@@ -1151,7 +1151,7 @@ fn go_constrained(t: &str, type_params: &[(String, String)]) -> String {
             .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '.')
     };
     match type_params.iter().find(|(n, _)| n == base) {
-        Some((_, constraint)) if plain(constraint) => {
+        Some((_, constraint)) if plain(constraint) && constraint != "any" => {
             format!(
                 "{}{constraint}",
                 t.get(..t.len() - base.len()).unwrap_or_default()
