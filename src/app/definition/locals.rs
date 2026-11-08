@@ -109,7 +109,7 @@ impl App {
 
     fn imports_near(&self, a: &Asked) -> Vec<search::Import> {
         let kind = a.kind;
-        if search::literal_lines(kind, &a.text).get(self.line) == Some(&true) {
+        if search::path_literal_lines(kind, &a.here, &a.text).get(self.line) == Some(&true) {
             return search::imports_as_written(kind, &a.text);
         }
         let mut imports = search::imports(kind, &a.text);
@@ -157,7 +157,7 @@ impl App {
         )) else {
             return false;
         };
-        let literal = search::literal_lines(a.kind, &a.text);
+        let literal = search::path_literal_lines(a.kind, &a.here, &a.text);
         let Some(used) = (self.line + 1..self.buf.lines.len()).find(|&k| {
             let l = self.buf.lines[k].trim_start();
             !literal.get(k).copied().unwrap_or(true)
@@ -295,7 +295,7 @@ impl App {
             && search::shell_command_position(&a.lead) == Some(false)
         {
             let lines: Vec<&str> = a.text.lines().collect();
-            let literal = search::literal_lines(kind, &a.text);
+            let literal = search::path_literal_lines(kind, &a.here, &a.text);
             locals.extend(search::shell_assigned(&lines, &literal, self.line, first));
         }
         if let [only] = locals[..]
@@ -364,7 +364,8 @@ impl App {
             Some(true) if !search::shell_assigns_word(&a.tail) => Some(Vec::new()),
             Some(false)
                 if search::shell_binds_before(self.line_str(), a.range.start, a.first())
-                    && search::literal_lines(a.kind, &a.text).get(self.line) != Some(&true) =>
+                    && search::path_literal_lines(a.kind, &a.here, &a.text).get(self.line)
+                        != Some(&true) =>
             {
                 Some(vec![self.line + 1])
             }

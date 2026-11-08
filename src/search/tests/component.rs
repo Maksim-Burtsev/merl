@@ -90,6 +90,40 @@ fn a_destructuring_binds_the_name_after_its_key() {
 }
 
 #[test]
+fn only_a_comment_markup_opens_hides_a_script_below_it() {
+    let code = |text: &str| script_lines(Path::new("A.vue"), text).unwrap();
+    let script = "<script setup>\nconst a = 1\n</script>";
+    for above in [
+        "<p v-html=\"'<!--'\">",
+        "<p title='<!--'>x</p>",
+        "<p\n  title=\"<!--\"\n>",
+        "{{ '<!--' }}",
+        "<!-->",
+        "<!--->",
+        "<!-- a -->",
+        "<!-- a\n-->",
+    ] {
+        let text = format!("{above}\n{script}");
+        let lines = code(&text);
+        assert_eq!(
+            lines[lines.len() - 2..],
+            [true, false],
+            "the script below {above:?} is code"
+        );
+    }
+    assert_eq!(
+        code("<!-- a\n--> <script setup>\nconst a = 1\n</script>"),
+        [false, false, true, false],
+        "a script opened on the line that closes the comment"
+    );
+    assert_eq!(
+        code("<p>a</p> <!-- b\n<script setup>\nconst a = 1\n</script>\n-->"),
+        [false, false, false, false, false],
+        "a comment opened after markup still hides the script"
+    );
+}
+
+#[test]
 fn a_component_saved_with_a_bom_still_has_its_script() {
     let code = script_lines(
         Path::new("A.vue"),

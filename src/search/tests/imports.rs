@@ -858,7 +858,7 @@ fn java_and_kotlin_imports_bind_their_names_to_paths() {
     let text = "package app.c;\n\nimport app.a.User;\nimport java.util.*;\nimport static a.b.Queries.isNull;\nimport static a.b.Queries.*;\nimport app.model.Topic as Model\nimport app.ui.fn // a function\n";
     let path = |p: &str| p.split('.').map(str::to_owned).collect::<Vec<_>>();
     assert_eq!(
-        jvm_imports(text)
+        jvm_imports(Path::new("A.kt"), text)
             .into_iter()
             .map(|i| (i.bound_name, i.path))
             .collect::<Vec<_>>(),

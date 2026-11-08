@@ -136,7 +136,11 @@ impl App {
                         let literal = literals
                             .entry(h.path.clone())
                             .or_insert_with(|| {
-                                search::literal_lines(Kind::Jvm, text.as_deref().unwrap_or(""))
+                                search::path_literal_lines(
+                                    Kind::Jvm,
+                                    &h.path,
+                                    text.as_deref().unwrap_or(""),
+                                )
                             })
                             .get(h.line1 - 1)
                             .copied()
@@ -181,7 +185,8 @@ impl App {
         word: &str,
         cursor_on_import: bool,
     ) -> Option<Vec<Candidate>> {
-        let imports = search::jvm_imports_at(text, self.line + 1);
+        let here = self.rel_current().unwrap_or_default();
+        let imports = search::jvm_imports_at(&here, text, self.line + 1);
         let first = chain.first().map_or(word, String::as_str);
         let bound = imports
             .iter()
@@ -472,7 +477,7 @@ impl App {
                 continue;
             };
             let lines: Vec<&str> = text.lines().collect();
-            let literal = search::literal_lines(Kind::Jvm, &text);
+            let literal = search::path_literal_lines(Kind::Jvm, &c.hit.path, &text);
             let inside = |line: usize| {
                 re.is_match(lines[line - 1])
                     && !literal.get(line - 1).copied().unwrap_or(false)

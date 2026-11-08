@@ -2,7 +2,8 @@ use regex::Regex;
 
 use super::jvm::{opens_type, scope_of};
 use super::jvm_rebound::blanked;
-use super::{Kind, indent, literal_lines};
+use super::{Kind, indent, path_literal_lines};
+use std::path::Path;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Scope {
@@ -191,8 +192,8 @@ fn covers(
         .all(|k| inside(lines[k]))
 }
 
-fn unread_above(lines: &[&str], at: usize, name: &str) -> Option<usize> {
-    let literal = literal_lines(Kind::Jvm, &lines.join("\n"));
+fn unread_above(path: &Path, lines: &[&str], at: usize, name: &str) -> Option<usize> {
+    let literal = path_literal_lines(Kind::Jvm, path, &lines.join("\n"));
     let n = regex::escape(name);
     let enumerator = Regex::new(&format!(r"^\s*{n}\s*=(?:[^=>]|$)")).ok()?;
     let ends_in_arrow = Regex::new(r"=>\s*$").ok()?;
@@ -248,7 +249,14 @@ fn unread_above(lines: &[&str], at: usize, name: &str) -> Option<usize> {
     None
 }
 
-pub fn scala_rebound(text: &str, line1: usize, before: &str, name: &str, bound: &[usize]) -> bool {
+pub fn scala_rebound(
+    path: &Path,
+    text: &str,
+    line1: usize,
+    before: &str,
+    name: &str,
+    bound: &[usize],
+) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
@@ -267,5 +275,5 @@ pub fn scala_rebound(text: &str, line1: usize, before: &str, name: &str, bound: 
     if open.contains(&true) {
         return true;
     }
-    unread_above(&lines, at, name).is_some_and(|l| bound.iter().all(|&b| b < l))
+    unread_above(path, &lines, at, name).is_some_and(|l| bound.iter().all(|&b| b < l))
 }

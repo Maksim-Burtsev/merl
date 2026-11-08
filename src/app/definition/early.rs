@@ -428,7 +428,7 @@ impl App {
         }
         if kind == Kind::TsJs && matches!(a.chain.join(".").as_str(), "exports" | "module.exports")
         {
-            let literal = search::literal_lines(kind, &a.text);
+            let literal = search::path_literal_lines(kind, &a.here, &a.text);
             let lines: Vec<usize> = search::cjs_exported_lines(&a.text, &a.word)
                 .into_iter()
                 .filter(|&n| literal.get(n - 1) != Some(&true))
@@ -444,7 +444,7 @@ impl App {
             && search::jsdoc_braced_at(
                 self.line_str(),
                 a.range.clone(),
-                search::literal_lines(kind, &a.text).get(self.line) == Some(&true),
+                search::path_literal_lines(kind, &a.here, &a.text).get(self.line) == Some(&true),
             )
         {
             let found: Vec<Hit> = match &search::jsdoc_typedefs(&a.text, &a.word)[..] {
