@@ -13,11 +13,19 @@ impl App {
         let t = match search::type_path(kind, t).as_deref() {
             Some([one]) if kind == Kind::Go => {
                 match search::type_param_bound(kind, text, b.line1, one) {
-                    Some(written) => {
-                        bound = written?;
+                    Some(param)
+                        if search::type_param_line(
+                            kind,
+                            &self.buf.lines.join("\n"),
+                            self.line + 1,
+                            one,
+                        )
+                        .is_some() =>
+                    {
+                        bound = param.bound?;
                         bound.as_str()
                     }
-                    None => t,
+                    _ => t,
                 }
             }
             _ => t,

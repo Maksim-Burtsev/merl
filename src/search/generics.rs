@@ -123,24 +123,25 @@ pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Opti
     type_param(kind, text, line1, name).map(|(at, _)| at)
 }
 
-pub fn type_param_bound(
-    kind: Kind,
-    text: &str,
-    line1: usize,
-    name: &str,
-) -> Option<Option<String>> {
+pub struct TypeParam {
+    pub bound: Option<String>,
+}
+
+pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Option<TypeParam> {
     let (at, bound) = type_param(kind, text, line1, name)?;
     let clause = match kind {
         Kind::Rust | Kind::Swift => "where",
         Kind::C => "requires",
-        _ => return Some(bound),
+        _ => return Some(TypeParam { bound }),
     };
     let clauses = text.lines().take(line1).skip(at - 1).any(|l| {
         coded(kind, l)
             .split(|c: char| !c.is_alphanumeric())
             .any(|w| w == clause)
     });
-    Some(bound.or_else(|| clauses.then(|| clause.to_owned())))
+    Some(TypeParam {
+        bound: bound.or_else(|| clauses.then(|| clause.to_owned())),
+    })
 }
 
 fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize, Option<String>)> {

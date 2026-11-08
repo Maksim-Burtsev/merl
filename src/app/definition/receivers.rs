@@ -142,8 +142,14 @@ impl App {
             let [one] = &search::type_path(kind, &written)?[..] else {
                 return None;
             };
-            let bound = search::type_param_bound(kind, &text, b.line1, one)?;
-            let resolves = bound
+            if chain.len() > 1
+                && (file != a.here
+                    || search::type_param_line(kind, &a.text, self.line + 1, one).is_none())
+            {
+                return None;
+            }
+            let resolves = search::type_param_bound(kind, &text, b.line1, one)?
+                .bound
                 .is_some_and(|w| kind != Kind::Go || self.type_decl(kind, &file, &w).is_some());
             (!resolves).then(|| one.clone())
         };
