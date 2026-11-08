@@ -263,12 +263,10 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool, datums: bool) -> Lex
     let b = text.as_bytes();
     let clojure = kind == Kind::Clojure;
     let hashed = matches!(kind, Kind::Scheme | Kind::CommonLisp);
-    let mut code = b.to_vec();
-    let mut literal = vec![false];
+    let (mut code, mut literal) = (b.to_vec(), vec![false]);
     let (mut depth, mut i) = (0usize, 0usize);
     let (mut string, mut block, mut here) = (false, 0usize, 0usize);
-    let mut ignored: Option<(usize, usize)> = None;
-    let (mut datum, mut pending) = (false, 0usize);
+    let (mut datum, mut pending, mut ignored) = (false, 0usize, None::<(usize, usize)>);
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
