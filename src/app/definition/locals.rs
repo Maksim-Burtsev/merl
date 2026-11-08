@@ -44,20 +44,10 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param =
-            (!a.dotted && a.chain.is_empty() && locals.is_empty() && !a.before.ends_with("::"))
-                .then(|| match kind {
-                    Kind::TsJs if imports.iter().all(|i| i.name != *word) => {
-                        search::ts_type_param(&a.text, self.line + 1, word).map(|p| p.line1)
-                    }
-                    Kind::CSharp => search::cs_generic_param_line(&a.text, self.line + 1, word),
-                    Kind::Rust if !rust_type_position(a) => None,
-                    Kind::Rust | Kind::Go | Kind::C => {
-                        search::type_param_line(kind, &a.text, self.line + 1, word)
-                    }
-                    _ => None,
-                })
-                .flatten();
+        let type_param = locals
+            .is_empty()
+            .then(|| self.type_param(a, &imports))
+            .flatten();
         if let Some(p) = type_param {
             locals = vec![p];
         }
@@ -112,6 +102,22 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn type_param(&self, a: &Asked, imports: &[search::Import]) -> Option<usize> {
+        let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
+        if a.dotted || !a.chain.is_empty() || a.before.ends_with("::") {
+            return None;
+        }
+        match kind {
+            Kind::TsJs if imports.iter().all(|i| i.name != *word) => {
+                search::ts_type_param(&a.text, line1, word).map(|p| p.line1)
+            }
+            Kind::CSharp => search::cs_generic_param_line(&a.text, line1, word),
+            Kind::Rust if !rust_type_position(a) => None,
+            Kind::Rust | Kind::Go | Kind::C => search::type_param_line(kind, &a.text, line1, word),
+            _ => None,
+        }
     }
 
     fn imports_near(&self, a: &Asked) -> Vec<search::Import> {
