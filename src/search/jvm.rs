@@ -429,6 +429,17 @@ pub(super) fn anonymous(line: &str) -> bool {
     ANONYMOUS.is_match(line)
 }
 
+pub fn jvm_anonymous_base(line: &str) -> Option<String> {
+    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
+    });
+    if !anonymous(line) {
+        return None;
+    }
+    let c = BASE.captures_iter(line).last()?;
+    c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned())
+}
+
 pub fn jvm_type_name(line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:class|interface|enum|record|object|trait)\s+(?:class\s+)?([A-Za-z_]\w*)")
@@ -509,6 +520,12 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
                 break;
             }
         }
+    }
+    if lines[k]
+        .split_once('{')
+        .is_some_and(|(_, body)| re.is_match(body))
+    {
+        out.push(k + 1);
     }
     let Some(member_indent) = member_indent else {
         return out;
