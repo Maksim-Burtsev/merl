@@ -70,3 +70,40 @@ class AmphoraRange {
         return false;
     }
 }
+
+class AmphoraWrapped<
+        Amphora> {
+  //    ^ d: src/main/java/amphora/AmphoraRack.java:75
+    Amphora held;
+  //^ d: src/main/java/amphora/AmphoraRack.java:75
+
+    <Amphora> Amphora wrapped(
+            Amphora x,
+    //      ^ d: src/main/java/amphora/AmphoraRack.java:80
+            int y) {
+        return x;
+    }
+
+    Amphora plain(
+  //^ d: src/main/java/amphora/AmphoraRack.java:75
+            Amphora x) {
+    //      ^ d: src/main/java/amphora/AmphoraRack.java:75
+        return x;
+    }
+}
+
+class AmphoraWrappedOutside {
+    Amphora plain(
+  //^ d: src/main/java/amphora/Amphora.java:3
+            Amphora x) {
+    //      ^ d: src/main/java/amphora/Amphora.java:3
+        return x;
+    }
+
+    public static <Amphora>
+            Amphora first(Amphora a) {
+    //      ^ d: src/main/java/amphora/AmphoraRack.java:103
+    //                    ^ d: src/main/java/amphora/AmphoraRack.java:103
+        return a;
+    }
+}

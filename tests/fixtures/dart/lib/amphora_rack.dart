@@ -36,3 +36,25 @@ abstract class AmphoraHolder<Amphora> {
 typedef AmphoraPair<Amphora> = List<Amphora>;
 //                  ^ d: lib/amphora_rack.dart:36
 //                                  ^ d: lib/amphora_rack.dart:36
+
+class AmphoraWrapped<
+  Amphora
+//^ d: lib/amphora_rack.dart:41
+> {
+  Amphora? held;
+//^ d: lib/amphora_rack.dart:41
+}
+
+class AmphoraWrappedFns {
+  Amphora wrapped<Amphora>(
+//^ d: lib/amphora_rack.dart:49
+    Amphora x,
+  //^ d: lib/amphora_rack.dart:49
+    int y,
+  ) => x;
+  Amphora plain(
+//^ d: lib/amphora.dart:1
+    Amphora x,
+  //^ d: lib/amphora.dart:1
+  ) => x;
+}
