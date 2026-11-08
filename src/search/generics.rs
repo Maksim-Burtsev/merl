@@ -46,7 +46,7 @@ pub fn generic_param_line(
 }
 
 fn dart_declares(t: &str, name: &str) -> bool {
-    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    static HEADER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|mixin|extension|typedef)\s+[\w$]+\s*<|^(?:(?:static|external)\s+)*(?P<ret>[\w$.]+)(?:<[^()=]*>)?\??\s+[\w$]+\s*<")
             .expect("the regex is a literal")
     });
