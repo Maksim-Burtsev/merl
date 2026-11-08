@@ -16,29 +16,37 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
     }
 }
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    lexed_literal_lines(kind, text, false)
+}
+pub fn path_literal_lines(kind: Kind, path: &std::path::Path, text: &str) -> Vec<bool> {
+    let nests = kind == Kind::Jvm && (super::scala(path) || super::kotlin(path));
+    lexed_literal_lines(kind, text, nests)
+}
+type LexedText = (Kind, bool, String, Vec<bool>);
+fn lexed_literal_lines(kind: Kind, text: &str, nests: bool) -> Vec<bool> {
     thread_local! {
-        static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
+        static LEXED: std::cell::RefCell<std::collections::VecDeque<LexedText>> =
             const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
     }
     let seen = LEXED.with_borrow(|l| {
         l.iter()
-            .find(|(k, t, _)| *k == kind && t == text)
+            .find(|(k, n, t, _)| *k == kind && *n == nests && t == text)
             .map(|(.., lines)| lines.clone())
     });
     if let Some(lines) = seen {
         return lines;
     }
-    let lines = lex_literal_lines(kind, text);
+    let lines = lex_literal_lines(kind, text, nests);
     LEXED.with_borrow_mut(|l| {
         if l.len() == LEXED_KEPT {
             l.pop_front();
         }
-        l.push_back((kind, text.to_owned(), lines.clone()));
+        l.push_back((kind, nests, text.to_owned(), lines.clone()));
     });
     lines
 }
 const LEXED_KEPT: usize = 16;
-fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+fn lex_literal_lines(kind: Kind, text: &str, nests: bool) -> Vec<bool> {
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
@@ -68,15 +76,18 @@ fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
-        let mut out = scan(kind, &style_blocks(text), usize::MAX).lines_in_literal;
+        let mut out = scan(kind, &style_blocks(text), usize::MAX, false).lines_in_literal;
         for (o, h) in out.iter_mut().zip(html) {
             *o |= h;
         }
         return out;
     }
-    let mut out = scan(kind, text, usize::MAX).lines_in_literal;
+    let mut out = scan(kind, text, usize::MAX, nests).lines_in_literal;
     if kind == Kind::C {
         hide_c_define_bodies(text, &mut out);
+    }
+    if kind == Kind::Swift {
+        hide_c_disabled(text, &mut out);
     }
     out
 }
@@ -116,17 +127,17 @@ pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
         match name {
             Some("if" | "ifdef" | "ifndef") => depth += 1,
             Some("endif") => depth -= 1,
-            Some("else" | "elif" | "elifdef" | "elifndef") if depth == 1 => depth = 0,
+            Some("else" | "elif" | "elseif" | "elifdef" | "elifndef") if depth == 1 => depth = 0,
             _ => *hidden = true,
         }
     }
 }
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
     match kind {
-        Kind::Rust => scan(kind, text, at).at_in_rust_string,
+        Kind::Rust => scan(kind, text, at, false).at_in_rust_string,
         Kind::Php => {
             let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
-            let s = scan(kind, text, at);
+            let s = scan(kind, text, at, false);
             let prose = (s.at_php_quote_from)
                 .is_none_or(|from| php_prose(text, from) && !php_qualified_name(text, at));
             prose
@@ -262,7 +273,7 @@ struct Cursor {
     line_quote_unread: bool,
     quote_from: Option<usize>,
 }
-fn scan(kind: Kind, text: &str, at: usize) -> Scan {
+fn scan(kind: Kind, text: &str, at: usize, nests: bool) -> Scan {
     let mut s = Scanner {
         kind,
         b: text.as_bytes(),
@@ -276,8 +287,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
-        nested_comments: (kind == Kind::Dart || (kind == Kind::Sql && super::sql::sql_nests(text)))
-            .then_some(0),
+        nested_comments: (nests
+            || matches!(kind, Kind::Dart | Kind::Rust | Kind::Swift)
+            || (kind == Kind::Sql && super::sql::sql_nests(text)))
+        .then_some(0),
         heredoc: None,
         php_heredoc_quote: b'"',
         ruby_heredocs_from_next_line: Vec::new(),
@@ -401,7 +414,10 @@ impl<'a> Scanner<'a> {
 
     fn newline(&mut self) {
         let (b, i) = (self.b, self.i);
-        if !(self.kind == Kind::Php && self.in_php_tags) {
+        let continued = self.kind == Kind::Solidity
+            && self.line_quote.is_some()
+            && b[..i].iter().rev().take_while(|&&c| c == b'\\').count() % 2 == 1;
+        if !(continued || (self.kind == Kind::Php && self.in_php_tags)) {
             self.line_quote = None;
         }
         if self.heredoc.is_none() && !self.ruby_heredocs_from_next_line.is_empty() {
@@ -429,7 +445,11 @@ impl<'a> Scanner<'a> {
                 self.literal_closer = None;
             }
         }
-        self.out.push(self.literal_closer.is_some());
+        self.out.push(
+            self.literal_closer.is_some()
+                || continued
+                || (self.kind == Kind::Php && self.in_php_tags && self.line_quote.is_some()),
+        );
         if self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line {
             self.cursor.literal = Some(self.php_heredoc_quote);
         }
@@ -438,9 +458,9 @@ impl<'a> Scanner<'a> {
     fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
         let (b, i, kind) = (self.b, self.i, self.kind);
         let doubled = self.in_verbatim_string && c == b'"' && b.get(i + 1) == Some(&b'"');
-        let escape = matches!(kind, Kind::Rust | Kind::Cmake)
+        let escape = ((matches!(kind, Kind::Rust | Kind::Cmake) && *end == *b"\"")
+            || (kind == Kind::Ruby && end.len() == 1))
             && !self.in_raw_string
-            && *end == *b"\""
             && c == b'\\'
             && b.get(i + 1) != Some(&b'\n');
         let bracket = self.long_bracket() && *end == *b"]]";
@@ -459,7 +479,10 @@ impl<'a> Scanner<'a> {
                 && !doubled
                 && b[i..].starts_with(&end)
                 && (end.len() > 1
-                    || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake | Kind::Shell)
+                    || matches!(
+                        kind,
+                        Kind::Go | Kind::Rust | Kind::Cmake | Kind::Shell | Kind::Ruby
+                    )
                     || self.in_verbatim_string
                     || b[i - 1] != b'\\')
         };
@@ -613,6 +636,15 @@ impl<'a> Scanner<'a> {
             ) = (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
             self.literal_closer = Some(b"\"".into());
+        } else if kind == Kind::Ruby && (c == b'"' || c == b'\'') && ruby_literal_may_start(&b[..i])
+        {
+            self.literal_closer = Some(vec![c].into());
+        } else if let Some((closer, open)) = (kind == Kind::Ruby && c == b'%')
+            .then(|| ruby_percent_literal(b, i))
+            .flatten()
+        {
+            self.literal_closer = Some(vec![closer].into());
+            self.i = open;
         } else if let Some(hashes) =
             (kind == Kind::Rust && c == b'r' && self.token_at(i, &[b"b", b"c"]))
                 .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
@@ -862,6 +894,21 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             _ => Some((i, c)),
         }
     })
+}
+fn ruby_percent_literal(b: &[u8], i: usize) -> Option<(u8, usize)> {
+    if !ruby_literal_may_start(&b[..i]) {
+        return None;
+    }
+    let letter = b.get(i + 1).is_some_and(|l| b"qQwWiIrsx".contains(l));
+    let open = i + 1 + usize::from(letter);
+    let closer = match b.get(open)? {
+        b'{' => b'}',
+        b'[' => b']',
+        b'(' => b')',
+        b'<' => b'>',
+        _ => return None,
+    };
+    Some((closer, open))
 }
 fn ruby_literal_may_start(before: &[u8]) -> bool {
     before

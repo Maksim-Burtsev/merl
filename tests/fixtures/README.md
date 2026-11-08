@@ -319,6 +319,23 @@ which answer with that binding, and keeps the global where the binding does not 
 `for (crumb in xs)`, a loop or block closed or opened later on the line, `^{`, another
 parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
 `c/src/rebound.c` reads `struct terrine (*g)` as declaring `g` (#1400), and a call `deref(g)` as not.
+`c/src/husk.c` and `husk.cc` (#1421) shape functions as definitions in a `//` comment, an
+indented one, the line opening a `/* */` block and a string, which declare nothing, and one
+beside its real definition, which `d` jumps to.
+`rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
+`/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
+its real definition, which `d` jumps to.
+`php/src/Husk.php` (#1427) declares functions and a class inside `'…'` and `"…"` strings over
+several lines, and `swift/Sources/Shop/Husk.swift` inside a nested `/* /* */ */` comment and a
+`#if false` block. Neither declares anything; `d` jumps to the real definitions beside them and
+to a function under `#elseif`.
+`common-lisp/husk.lisp` (#1428) hides functions behind `#+nil`, `#+(or)` and `#-(and)`, which
+declare nothing, and one behind `#+sbcl`, which stays live; `clojure/src/shop/husk.clj` discards
+two forms with `#_ #_`, and `solidity/contracts/Husk.sol` holds functions in a string continued by
+`\` at its line ends, then a `"C:\\"` string after which code is code again.
+`jvm/src/main/kotlin/husk/Chaff.kt` and `jvm/src/main/scala/husk/Bran.scala` (#1423) hide a
+class, a method, a value and namesakes of real ones in a nested block comment, which ends only at
+its second `*/`, and a KDoc whose `src/**/*.kt` nests and closes again.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -1166,7 +1183,10 @@ ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` 
 unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` Ruby calls
 (#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
 module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
-`def self.new`) and `Jug` (a base outside the project) answer nothing.
+`def self.new`) and `Jug` (a base outside the project) answer nothing. `quoted.rb` (#1422) holds
+the methods of an included `Brewable` again inside its `Mug`'s strings over several lines
+(`%q{}`, `%Q()`, `%()`, `%w[]`, `"` and `'`, one closing after an escaped backslash), which are no
+definitions, and a `?"` and an apostrophe in a regex merl does not read as one, which open no string.
 
 `ruby/app/percolator_uses.rb` follows Ruby's constant lookup over three `Percolator`s (#1414),
 and a class opened earlier on the cursor's line and still open there gives the picker.

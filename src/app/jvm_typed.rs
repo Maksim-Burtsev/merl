@@ -263,7 +263,7 @@ impl App {
                         .iter()
                         .map(|b| b.line1)
                         .collect();
-                    if search::scala_rebound(text, line, before, f, &bound) {
+                    if search::scala_rebound(here, text, line, before, f, &bound) {
                         return None;
                     }
                 }
@@ -839,8 +839,8 @@ impl App {
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);
         let imports = on.map_or_else(
-            || search::jvm_imports(text),
-            |line1| search::jvm_imports_at(text, line1),
+            || search::jvm_imports(file, text),
+            |line1| search::jvm_imports_at(file, text, line1),
         );
         let bound = |imports: &[search::JvmImport]| {
             imports
@@ -850,7 +850,7 @@ impl App {
         };
         if on.is_none()
             && self.rel_current().as_deref() == Some(file)
-            && bound(&search::jvm_imports_at(text, self.line + 1)) != bound(&imports)
+            && bound(&search::jvm_imports_at(file, text, self.line + 1)) != bound(&imports)
         {
             return JvmType::Unknown;
         }
@@ -934,7 +934,7 @@ impl App {
 
     fn jvm_code(&self, h: &Hit) -> bool {
         self.text_of(&h.path).is_some_and(|t| {
-            !search::literal_lines(Kind::Jvm, &t)
+            !search::path_literal_lines(Kind::Jvm, &h.path, &t)
                 .get(h.line1 - 1)
                 .copied()
                 .unwrap_or(false)

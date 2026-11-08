@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::{Kind, erlang, lexical, literal_lines};
+use super::{Kind, erlang, lexical, path_literal_lines};
 
 pub const ERLANG_PREDEFINED: &[&str] = &[
     "MODULE",
@@ -128,7 +128,7 @@ pub fn file_literal_lines(kind: Kind, path: &Path, text: &str) -> Vec<bool> {
     if erlang(path) {
         erlang_literal_lines(text)
     } else {
-        literal_lines(kind, text)
+        path_literal_lines(kind, path, text)
     }
 }
 

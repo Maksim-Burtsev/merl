@@ -276,6 +276,10 @@ impl App {
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
+                let literal = search::literal_lines(Kind::Ruby, &t);
+                if literal.get(h.line1 - 1).copied().unwrap_or(false) {
+                    return None;
+                }
                 Some(Owned {
                     class: search::ruby_class_path(&t, h.line1),
                     on_class: search::ruby_on_class(&t, h.line1),

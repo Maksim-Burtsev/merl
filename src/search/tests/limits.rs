@@ -319,9 +319,10 @@ fn elixir_sigils_are_read_by_their_quotes() {
 }
 
 #[test]
-fn ruby_reads_percent_strings_as_code_and_a_slash_after_a_word_as_division() {
+fn ruby_hides_percent_strings_and_reads_a_slash_after_a_word_as_division() {
+    assert_eq!(hidden(Kind::Ruby, "x = %q{\ndef fake\n}\n"), [2, 3]);
     assert_eq!(
-        hidden(Kind::Ruby, "x = %q{\ndef fake\n}\n"),
+        hidden(Kind::Ruby, "x = { e: /can't/ }\ndef real\nend\n"),
         Vec::<usize>::new()
     );
     assert_eq!(

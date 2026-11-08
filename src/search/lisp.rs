@@ -168,6 +168,24 @@ fn char_literal(kind: Kind, b: &[u8], i: usize) -> bool {
     }
 }
 
+fn discard(kind: Kind, b: &[u8]) -> Option<usize> {
+    let fixed = match kind {
+        Kind::Clojure => b"#_".as_slice(),
+        Kind::Scheme => b"#;",
+        _ => b"",
+    };
+    if !fixed.is_empty() && b.starts_with(fixed) {
+        return Some(2);
+    }
+    let feature = [b"#+nil".as_slice(), b"#+(or)", b"#-(and)"]
+        .into_iter()
+        .find(|f| b.get(..f.len()).is_some_and(|h| h.eq_ignore_ascii_case(f)))?;
+    let n = feature.len();
+    (kind == Kind::CommonLisp
+        && (feature.ends_with(b")") || b.get(n).is_none_or(|&c| delimiter(c))))
+    .then_some(n)
+}
+
 fn comment_form(b: &[u8], i: usize, depth: usize) -> bool {
     depth == 0 && b[i..].starts_with(b"(comment") && b.get(i + 8).is_none_or(|&c| delimiter(c))
 }
@@ -185,7 +203,7 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
     let (mut depth, mut i) = (0usize, 0usize);
     let (mut string, mut block, mut here) = (false, 0usize, 0usize);
     let mut ignored: Option<(usize, usize)> = None;
-    let mut datum = false;
+    let (mut datum, mut pending) = (false, 0usize);
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
@@ -221,19 +239,18 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
             block = 1;
             i += 2;
             blank(&mut code, start..i);
-        } else if (clojure && at(b"#_")) || (kind == Kind::Scheme && at(b"#;")) {
-            if ignored.is_none() {
-                ignored = Some((depth, i));
-                datum = true;
-            }
-            i += 2;
+        } else if let Some(n) = discard(kind, &b[i..]) {
+            pending = ignored.map_or(1, |_| pending + usize::from(datum));
+            datum |= ignored.is_none();
+            ignored = ignored.or(Some((depth, i)));
+            i += n;
         } else if char_literal(kind, b, i) {
             i = char_end(b, i);
             blank(&mut code, start..i);
             datum = false;
         } else {
             if clojure && !comment_forms && ignored.is_none() && comment_form(b, i, depth) {
-                ignored = Some((0, i));
+                (ignored, pending) = (Some((0, i)), 1);
             }
             match c {
                 b'"' => {
@@ -271,7 +288,9 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
             && i > from
         {
             blank(&mut code, from..i);
-            ignored = None;
+            pending -= 1;
+            datum = pending > 0;
+            ignored = ignored.filter(|_| datum);
         }
     }
     Lexed { code, literal }
