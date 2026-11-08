@@ -707,7 +707,7 @@ impl App {
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
-        let hits = self.project_grep(kind, here, pattern);
+        let hits = self.definitions_grep(kind, here, word, pattern);
         let mut hits = self.declaring(kind, word, hits);
         if kind == Kind::TsJs {
             let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
