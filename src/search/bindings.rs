@@ -3,12 +3,12 @@ use std::path::Path;
 
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
-    cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
-    go_declares_then_uses, haskell_bindings, indent, julia_bindings, jvm_bindings, lisp,
-    lisp_bindings, literal_lines, lua_bindings, names, nix_bindings, powershell_params,
-    python_bindings_at, ruby_bindings, rust_bindings, shell_bindings, solidity_bindings, split_top,
-    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_function,
-    ts_hoisted_vars, ts_params, type_list, uncommented,
+    cs_opener, cs_opener_in, cs_statement, cs_type_decl, dart_bindings, declares_type,
+    gdscript_bindings, go_declares_then_uses, haskell_bindings, indent, julia_bindings,
+    jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names, nix_bindings,
+    powershell_params, python_bindings_at, ruby_bindings, rust_bindings, shell_bindings,
+    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_declares_then_uses,
+    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -548,7 +548,7 @@ fn go_arm(header: &str, arm: Option<Vec<String>>) -> Option<Vec<String>> {
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
-    if !this && own_line_hides(kind, lines[at], at, name, &mut out) {
+    if !this && own_line_hides(kind, lines, at, name, &mut out) {
         return out;
     }
     let literal = literal_lines(kind, &lines.join("\n"));
@@ -663,14 +663,28 @@ fn go_switch_init(
     out.push(Binding { line1: line, value });
     true
 }
-fn own_line_hides(kind: Kind, line: &str, at: usize, name: &str, out: &mut Vec<Binding>) -> bool {
-    let own = uncommented(kind, line);
-    let own = if kind == Kind::CSharp {
-        own.trim()
-    } else {
-        &own
-    };
-    opener_bindings(kind, own, at + 1, name, out) && kind == Kind::CSharp
+fn own_line_hides(
+    kind: Kind,
+    lines: &[&str],
+    at: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
+    let own = uncommented(kind, lines[at]);
+    if kind == Kind::CSharp {
+        let outer = if own.contains("=>") {
+            lines[..at].join("\n")
+        } else {
+            String::new()
+        };
+        let opener = cs_opener_in(&outer, own.trim(), name);
+        if opener.binds {
+            out.push(unknown(at + 1));
+        }
+        return opener.hides_outer_scopes;
+    }
+    let _ = opener_bindings(kind, &own, at + 1, name, out);
+    false
 }
 fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

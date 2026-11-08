@@ -21,3 +21,7 @@ pub mod bales;
 pub mod infusion;
 pub mod sieves;
 pub mod husks;
+pub mod corvid;
+pub mod chessman;
+pub mod rookery;
+pub mod board;

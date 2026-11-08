@@ -1,0 +1,1 @@
+enum Chessman { rook, pawn }
