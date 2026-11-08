@@ -43,3 +43,19 @@ func plain(_ x: Goblet) {
     x.quaff()
     //^ d: Sources/Shop/Goblets.swift:2
 }
+
+struct Rack3<T> {
+    var held: T
+    func use() {
+        self.held.quaff()
+        //        ^ d: Sources/Shop/Goblets.swift:2; want none (#1438)
+    }
+}
+
+struct Rack4<Goblet> {
+    var held: Goblet
+    func use() {
+        self.held.quaff()
+        //        ^ d: Sources/Shop/Goblets.swift:2; want none (#1438)
+    }
+}
