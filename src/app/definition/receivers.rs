@@ -131,7 +131,7 @@ impl App {
                 .is_some_and(|b| b.trim_end().ends_with("this->"))
         };
         let explicit = match (kind, chain) {
-            (Kind::Swift, [s, f]) if s == "self" => Some(f),
+            (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
             (Kind::C, [f]) if on_this(f) => Some(f),
             _ => None,
         };
@@ -144,7 +144,15 @@ impl App {
             return false;
         }
         let own = |f: &str| {
-            let field = search::own_field(kind, &a.text, self.line + 1, f)?;
+            let field = if kind == Kind::Rust {
+                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
+                search::Binding {
+                    line1: self.line + 1,
+                    value: search::Value::Type(t),
+                }
+            } else {
+                search::own_field(kind, &a.text, self.line + 1, f)?
+            };
             Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
         };
         let found = match explicit {

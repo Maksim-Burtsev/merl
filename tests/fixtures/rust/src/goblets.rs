@@ -60,8 +60,47 @@ pub struct Shelf<T> {
 impl<T> Shelf<T> {
     pub fn probe_field(&self) {
         self.held.quaff();
-        //        ^ d: src/goblets.rs:3; want none (#1438)
+        //        ^ d: none
         self.cup.quaff();
         //       ^ d: src/goblets.rs:3
+    }
+}
+impl<U> Shelf<U> {
+    pub fn probe_renamed(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+impl<T> Toaster for Shelf<T> {
+    fn clink(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+impl Shelf<Goblet> {
+    pub fn probe_concrete(&self) {
+        self.held.quaff();
+        //        ^ d: src/goblets.rs:3
+    }
+}
+pub struct Cellar<T: Toaster> {
+    held: T,
+}
+impl<T: Toaster> Cellar<T> {
+    pub fn probe_bounded(&self) {
+        self.held.clink();
+        //        ^ d: src/goblets.rs:39
+    }
+}
+pub struct Vault<T> {
+    held: T,
+}
+impl<T> Vault<T>
+where
+    T: Toaster,
+{
+    pub fn probe_where(&self) {
+        self.held.clink();
+        //        ^ d: src/goblets.rs:39
     }
 }
