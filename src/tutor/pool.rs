@@ -131,9 +131,8 @@ pub const POOL: &[Task] = &[
         done: |a| {
             at(a, "store.py")
                 && a.line + 1 == CALL_LINE
-                && a.find_re
-                    .as_ref()
-                    .is_some_and(|r| r.as_str() == r"(?-u:\b)config(?-u:\b)")
+                && a.find_word_chars.is_some()
+                && a.find_re.as_ref().is_some_and(|r| r.as_str() == "config")
         },
     },
     Task {

@@ -401,7 +401,7 @@ pub struct App {
     pub prompt: LineEdit,
     pub find_re: Option<Regex>,
     find_query: String,
-    find_word_chars: Option<&'static str>,
+    pub find_word_chars: Option<&'static str>,
     find_anchor: (TextLine, usize),
     find_view: (usize, usize, usize, usize),
     find_sel: Option<(TextLine, usize)>,
