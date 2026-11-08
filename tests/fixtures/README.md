@@ -1249,6 +1249,14 @@ and a class opened earlier on the cursor's line and still open there gives the p
 a class the project declares once (`Grinder`, `Moka::Mill`). Inside `class Moka::Hopper` Ruby
 does not see `Moka::Mill`; `d` keeps master's jump there, the owner's call.
 
+Two enums sharing a case name, declared in files of their own, with the case written without its
+enum where the language lets it (#1448): Swift's `Rookery.swift`, Rust's `rookery.rs` and
+`board.rs`, `jvm`'s `aviary/` (Java), `gambit/` (Kotlin) and `rookery/` (Scala), C#'s `Rookery/`,
+C++'s `c/src/rookery/`, Dart's `lib/rookery/` and TypeScript's `rookery/`. Each JVM language has
+enums of its own names, since the three share one project. C#'s `Arms.cs` keeps the bare pattern
+of a switch-expression arm from reading as a lambda parameter, beside a declaration pattern and
+lambdas that still bind.
+
 ### Adding a kind
 
 1. Make `tests/fixtures/<kind>/`, a small project laid out as the language lays one out (a
