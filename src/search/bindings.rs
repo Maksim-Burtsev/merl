@@ -187,7 +187,7 @@ pub fn bindings_at(
                 return vec![unknown(line)];
             }
             ts_hoisted_vars(&lines, at, name, &mut out);
-            match ts_hoisted_function(&lines, at, name) {
+            match ts_hoisted_function(text, &lines, at, name) {
                 Some((header, f)) if f > line && out.iter().all(|b| b.line1 <= header) => {
                     vec![unknown(f)]
                 }

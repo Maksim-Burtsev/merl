@@ -283,6 +283,7 @@ impl App {
                 Some(Owned {
                     class: search::ruby_class_path(&t, h.line1),
                     on_class: search::ruby_on_class(&t, h.line1),
+                    in_block: search::ruby_in_block(&t, h.line1),
                     module_method_on_both_sides: search::ruby_singleton(&t, h.line1),
                     hit: h,
                 })
@@ -323,7 +324,7 @@ impl App {
                     .flat_map(|m| {
                         owned
                             .iter()
-                            .filter(|o| o.class == m && !o.on_class)
+                            .filter(|o| o.class == m && !o.on_class && !o.in_block)
                             .map(|o| Candidate {
                                 hit: o.hit.clone(),
                                 reason: Reason::Receiver(m.clone()),
@@ -601,5 +602,6 @@ struct Owned {
     hit: Hit,
     class: String,
     on_class: bool,
+    in_block: bool,
     module_method_on_both_sides: bool,
 }

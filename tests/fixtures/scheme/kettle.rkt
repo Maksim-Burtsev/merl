@@ -9,3 +9,8 @@
 ;  ^ d: kettle.rkt:2
   (kettle-cool 2))
 ;  ^ d: kettle.rkt:4
+(begin
+  (define-syntax-rule
+    (kettle-log x) (displayln x)))
+(kettle-log 1)
+;^ d: kettle.rkt:13

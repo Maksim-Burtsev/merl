@@ -13,3 +13,18 @@ export class Rack {
   }
   lashTight() { /* a note */ }
 }
+
+export class Twine {
+  knot() {}
+}
+
+export function tie(knot) {
+  knot({ // a call, no declaration
+    n: 1,
+  });
+}
+
+export function pull() {
+  return this.knot();
+  //          ^ d: glean/stack.js:18
+}

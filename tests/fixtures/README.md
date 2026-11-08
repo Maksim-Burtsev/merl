@@ -714,7 +714,13 @@ the kettle's, `teapot.clj` and `infuser.clj` refer it and define their own (on o
 the name under `(defn-`), and `strainer.cljc` refers it, and binds an alias, from both namespaces
 in a reader conditional. `infuser.clj`, `common-lisp/kettle.lisp`, `scheme/kettle.rkt` and
 `emacs-lisp/shop-kettle.el` also define a name on the line under its head, and under a head whose
-next line names it only in a comment.
+next line names it only in a comment. What must keep master's answer: `ladler.clj` adds a
+`defmethod` to the kettle's referred `ladle` and lands on its `defmulti`; `sifter.clj` refers a
+`sieve` from outside the project and calls it as `(sieve [x y]`, which answers nothing, not with
+`stale.clj`'s namesake; `scheme/checked.scm` names a `syntax-rules` pattern variable under a lone
+`(define-record-type` of its template, and `scheme/queries/highlights.scm` is a tree-sitter query
+whose `(module` has `(identifier)` under it: neither defines anything. `kettle.rkt` still finds an
+indented `(define-syntax-rule` with its pattern on the next line.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
@@ -824,7 +830,7 @@ of `barn.ts` and declare a `function Sheaf` inside an `if`, `else`, `for`, `try`
 of the module (#1420): it is block-scoped there, so a `new Sheaf()` outside the block, above or
 below it, and the method through it, land on the import, while the use inside the block lands on
 the block's function. `stack.ts` and `stack.js` declare methods whose line ends in a `//` or a
-`/* */` comment, or holds one between `{` and `}` (#1433).
+`/* */` comment, or holds one between `{` and `}` (#1433), while the call `knot({ // …` in `stack.js` declares nothing. `hand.js` requires `helper` from `tool.js`: a `function helper()` line inside a template string or a block comment hides nothing, a real one below the use does.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
