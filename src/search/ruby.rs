@@ -351,7 +351,7 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
         .into_iter()
         .collect();
     let literal = literal_lines(Kind::Ruby, text);
-    let (mut includes, mut extends) = (Vec::new(), Vec::new());
+    let (mut includes, mut prepends, mut extends) = (Vec::new(), Vec::new(), Vec::new());
     for i in line1..lines.len() {
         let t = lines[i].trim();
         if !t.is_empty() && !literal[i] && indent(lines[i]) <= indent(head) {
@@ -372,12 +372,18 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
         let names = c[2].split(',').map(|n| n.trim().to_owned());
         match &c[1] {
             "extend" => extends.extend(names),
+            "prepend" => {
+                let names: Vec<String> = names.collect();
+                prepends.extend(names.iter().cloned());
+                includes.extend(names);
+            }
             _ => includes.extend(names),
         }
     }
     RubyParents {
         superclasses,
         includes,
+        prepends,
         extends,
     }
 }
@@ -385,6 +391,7 @@ pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
 pub struct RubyParents {
     pub superclasses: Vec<String>,
     pub includes: Vec<String>,
+    pub prepends: Vec<String>,
     pub extends: Vec<String>,
 }
 
