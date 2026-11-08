@@ -13,7 +13,7 @@ impl App {
         };
         let free = |name: &str| {
             let declared = format!("(?m){}", search::def_patterns(Kind::Jvm, name).join("|"));
-            search::bindings(Kind::Jvm, text, self.line + 1, name).is_empty()
+            search::path_bindings(Kind::Jvm, here, text, self.line + 1, name).is_empty()
                 && Regex::new(&declared).is_ok_and(|re| !re.is_match(text))
         };
         let build_script = here.to_string_lossy().ends_with(".gradle.kts");

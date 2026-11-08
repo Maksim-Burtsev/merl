@@ -108,7 +108,7 @@ fn tsconfig_extends_is_followed_for_eight_hops() {
 fn a_label_is_looked_for_up_to_eighty_lines_back() {
     let label = |n: usize| {
         let text = numbered("f(", |_| "    a=1,".into(), n - 1, "    b=2,\n)\n");
-        label_at(Kind::Python, false, &text, n, 4..5)
+        label_at(Kind::Python, Path::new(""), &text, n, 4..5)
     };
     assert!(label(80).is_some());
     assert_eq!(label(81), None);
