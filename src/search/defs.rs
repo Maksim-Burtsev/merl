@@ -856,7 +856,7 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
             let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
             vec![
                 format!(
-                    r"{mods}{w}\??\s*(?:<.*>)?\((?:(?:[^;]|:\s*\{{[^{{}}]*\}})*\{{\s*\}}?)?\s*$"
+                    r"{mods}{w}\??\s*(?:<.*>)?\((?:(?:[^;]|:\s*\{{[^{{}}]*\}})*\{{\s*(?:/\*.*\*/\s*)?\}}?)?\s*(?://.*|/\*.*\*/\s*)?$"
                 ),
                 format!(r"{mods}{w}\??\s*<\s*$"),
                 format!(
