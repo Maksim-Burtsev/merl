@@ -806,6 +806,13 @@ still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` 
 `repatched.js` patch the imported `Winnow.prototype` at the top level: that keeps the local
 function's `this.sieveChaff`, and is no method of a local `function Winnow` that has none.
 
+`typescript/glean/` holds two of the 2026-11-07 hunts. `field.js` and `probe.js` import the `Sheaf`
+of `barn.ts` and declare a `function Sheaf` inside an `if`, `else`, `for`, `try` or one-line block
+of the module (#1420): it is block-scoped there, so a `new Sheaf()` outside the block, above or
+below it, and the method through it, land on the import, while the use inside the block lands on
+the block's function. `stack.ts` and `stack.js` declare methods whose line ends in a `//` or a
+`/* */` comment, or holds one between `{` and `}` (#1433).
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
