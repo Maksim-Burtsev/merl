@@ -44,7 +44,10 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = locals.is_empty().then(|| self.type_param(a)).flatten();
+        let type_param = locals
+            .is_empty()
+            .then(|| self.type_param(a, &imports))
+            .flatten();
         if let Some(line1) = type_param {
             locals = vec![line1];
         }
@@ -101,12 +104,18 @@ impl App {
         })
     }
 
-    fn type_param(&self, a: &Asked) -> Option<usize> {
+    fn type_param(&self, a: &Asked, imports: &[search::Import]) -> Option<usize> {
         let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
         if a.dotted || !a.chain.is_empty() {
             return None;
         }
         match kind {
+            Kind::TsJs
+                if imports.iter().any(|i| i.name == *word)
+                    && !ts_type_position(a, self.line_str()) =>
+            {
+                None
+            }
             Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
             Kind::Jvm | Kind::Dart => {
                 search::generic_param_line(kind, &a.here, &a.text, line1, word)
@@ -392,6 +401,35 @@ fn rust_type_position(a: &Asked) -> bool {
     }) || (b.ends_with(',') && in_angles)
         || t.starts_with("::")
         || (b.is_empty() && t.starts_with(':'))
+}
+
+fn ts_type_position(a: &Asked, line: &str) -> bool {
+    let b = a.before.trim_end();
+    let decl = line.trim_start();
+    let decl = decl.strip_prefix("export ").unwrap_or(decl).trim_start();
+    let decl = decl.strip_prefix("declare ").unwrap_or(decl).trim_start();
+    let marks = [
+        ":",
+        "<",
+        "|",
+        "&",
+        "extends",
+        "implements",
+        "keyof",
+        "as",
+        "satisfies",
+        "is",
+        "infer",
+        "readonly",
+    ];
+    let in_angles = b.matches('<').count() > b.matches('>').count() - b.matches("=>").count();
+    decl.starts_with("type ")
+        || (b.ends_with(',') && in_angles)
+        || marks.iter().any(|m| {
+            b.strip_suffix(m).is_some_and(|rest| {
+                m.len() == 1 || !rest.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+            })
+        })
 }
 
 fn ts_key(a: &Asked, line1: usize) -> bool {

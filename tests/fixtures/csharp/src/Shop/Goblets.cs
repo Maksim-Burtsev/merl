@@ -25,4 +25,29 @@ namespace Shop.Goblets
         public void GobletBound<T>(T x) where T : Goblet { }
         //                                        ^ d: src/Shop/Goblets.cs:3
     }
+
+    public class GobletServe
+    {
+        public void Serve(Services services)
+        {
+            services.AddScoped<Goblet>();
+            //                 ^ d: src/Shop/Goblets.cs:3
+            var all = new List<Goblet>();
+            //                 ^ d: src/Shop/Goblets.cs:3
+            foreach (var c in Items().OfType<Goblet>())
+            //                               ^ d: src/Shop/Goblets.cs:3
+            {
+                Goblet g = c;
+                //^ d: src/Shop/Goblets.cs:3
+            }
+            store.Update(Arg.Any<Goblet>())
+                .Returns(call => call.Arg<Goblet>());
+                //                        ^ d: src/Shop/Goblets.cs:3
+        }
+        public Goblet Load(string s)
+        {
+            return Deserialize<Goblet>(s);
+            //                 ^ d: src/Shop/Goblets.cs:3
+        }
+    }
 }
