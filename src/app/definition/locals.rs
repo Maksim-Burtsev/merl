@@ -267,7 +267,11 @@ impl App {
                 && after.starts_with(':')
                 && search::dart_label(&a.text, self.line + 1, range.start))
             || (kind == Kind::Solidity
-                && search::solidity_key(&a.text, self.line + 1, before, after));
+                && search::solidity_key(&a.text, self.line + 1, before, after))
+            || (kind == Kind::CSharp
+                && !dotted
+                && search::cs_initialized(&self.buf.lines, self.line, range.start, range.end)
+                    .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust
