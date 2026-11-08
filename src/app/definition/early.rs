@@ -168,7 +168,8 @@ impl App {
             && !lead.ends_with("{{")
             && tail.starts_with(['}', ':']);
         if !captured
-            && search::in_string(kind, &text, at)
+            && (search::in_string(kind, &text, at)
+                || (kind == Kind::Scheme && search::racket_prose(&here, &text, at)))
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
         {
             self.message = resolution(&word, None, &[], None, false);
@@ -213,6 +214,7 @@ impl App {
                         .unwrap_or_default(),
                 ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
+            || (kind == Kind::Scheme && search::racket_method_sent(lead))
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
