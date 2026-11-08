@@ -44,7 +44,6 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Solidity
         | Kind::Clojure
         | Kind::EmacsLisp
-        | Kind::Scheme
         | Kind::CommonLisp
         | Kind::Starlark
         | Kind::Sql
@@ -52,7 +51,26 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         | Kind::Graphql
         | Kind::Css => kind_of(path) == Some(kind),
         Kind::Elixir => kind_of(path) == Some(kind) && erlang(path) == erlang(here),
+        Kind::Scheme => kind_of(path) == Some(kind) && !tree_sitter_query(path),
     }
+}
+
+fn tree_sitter_query(path: &Path) -> bool {
+    const NAMES: &[&str] = &[
+        "highlights",
+        "injections",
+        "locals",
+        "folds",
+        "indents",
+        "textobjects",
+        "tags",
+    ];
+    path.extension().is_some_and(|e| e == "scm")
+        && (path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .is_some_and(|s| NAMES.contains(&s))
+            || path.components().any(|c| c.as_os_str() == "queries"))
 }
 fn toolchain_output(cmd: &str, args: &[&str]) -> Option<String> {
     let out = toolchain(cmd, args).output().ok()?;

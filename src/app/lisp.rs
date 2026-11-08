@@ -115,7 +115,7 @@ impl App {
             (None, Some(b)) => (qualifier(b), word),
             (None, None)
                 if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty()
-                    && !defines(text, word) =>
+                    && !search::clojure_defines(text, word) =>
             {
                 let ns = requires.iter().find(|(n, ns)| n == word && ns != word)?;
                 (ns.1.clone(), word)
@@ -138,15 +138,6 @@ impl App {
         });
         Some(found.collect())
     }
-}
-
-fn defines(text: &str, word: &str) -> bool {
-    let pattern = search::def_patterns(Kind::Clojure, word).join("|");
-    let Ok(re) = regex::Regex::new(&format!("(?m){pattern}")) else {
-        return false;
-    };
-    let code = search::lisp_code(Kind::Clojure, text);
-    re.is_match(&String::from_utf8_lossy(&code))
 }
 
 fn unambiguous(requires: &[(String, String)]) -> Vec<(String, String)> {
