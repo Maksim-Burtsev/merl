@@ -7,7 +7,7 @@ template <typename Goblet> struct Rack {
     //^ d: src/goblets.cc:5
     void goblet_fill(Goblet x) { x.quaff(); }
     //               ^ d: src/goblets.cc:5
-    //                             ^ d: none
+    //                             ^ d: src/goblets.cc:2; want none (#1438)
 };
 
 template <class Goblet> void goblet_pour(Goblet x) {}
@@ -21,35 +21,35 @@ void goblet_wrapped(Goblet x) {}
 //                  ^ d: src/goblets.cc:19
 
 template <typename T> void goblet_t(T x) { x.quaff(); }
-//                                           ^ d: none
+//                                           ^ d: src/goblets.cc:2; want none (#1438)
 template <typename Goblet> void goblet_free(Goblet x) { x.quaff(); }
-//                                                        ^ d: none
+//                                                        ^ d: src/goblets.cc:2; want none (#1438)
 template <typename Goblet> void goblet_ptr(Goblet* x) { x->quaff(); }
-//                                                         ^ d: none
+//                                                         ^ d: src/goblets.cc:2; want none (#1438)
 template <typename Goblet> void goblet_ref(const Goblet& x) { x.quaff(); }
-//                                                              ^ d: none
+//                                                              ^ d: src/goblets.cc:2; want none (#1438)
 template <typename Goblet>
 void goblet_lines(Goblet x) {
     x.quaff();
-    //^ d: none
+    //^ d: src/goblets.cc:2; want none (#1438)
     Goblet y;
     y.quaff();
-    //^ d: none
+    //^ d: src/goblets.cc:2; want none (#1438)
 }
 template <typename Goblet> struct Rack2 {
     Goblet held;
     void f() { held.quaff(); }
-    //              ^ d: none
+    //              ^ d: src/goblets.cc:2; want none (#1438)
 };
 template <typename T> struct Rack3 {
     T held;
     void f() { this->held.quaff(); }
-    //                    ^ d: none
+    //                    ^ d: src/goblets.cc:2; want none (#1438)
 };
 template <typename Goblet> struct Rack4 {
     Goblet held;
     void f() { this->held.quaff(); }
-    //                    ^ d: none
+    //                    ^ d: src/goblets.cc:2; want none (#1438)
 };
 template <typename T> struct Rack5 {
     T held;
@@ -64,7 +64,7 @@ template <typename T> class Rack6 {
 public:
     T* held;
     void f() { held->quaff(); this->held->quaff(); }
-    //               ^ d: none
+    //               ^ d: src/goblets.cc:2; want none (#1438)
 };
 void goblet_plain_ptr(Goblet* x) { x->quaff(); }
 //                                    ^ d: src/goblets.cc:2

@@ -423,9 +423,6 @@ impl App {
         {
             return shown;
         }
-        if kind == Kind::C && self.answered_through_type_param(a) {
-            return true;
-        }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
         {

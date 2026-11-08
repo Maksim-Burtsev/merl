@@ -179,7 +179,6 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
     let bound = bound?;
     let clause = match kind {
         Kind::Rust | Kind::Swift => "where",
-        Kind::C => "requires",
         _ => return Some(TypeParam { bound }),
     };
     let clauses = text.lines().take(line1).skip(at - 1).any(|l| {
@@ -225,7 +224,6 @@ fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize
                 && literal.get(i) != Some(&true)
                 && !continues(t)
                 && !t.starts_with(['{', '}', '#'])
-                && !access_label(kind, t)
                 && indent(lines[i]) < depth
         })?;
     }
@@ -419,9 +417,6 @@ fn param_name(part: &str, last: bool) -> Option<&str> {
 pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
     let n = regex::escape(name);
     let pattern = match kind {
-        Kind::C => format!(
-            r"(?:^|[(,;{{])\s*(?:const\s+)?([A-Za-z_]\w*)\s*(?:const\s*)?[&*]*\s*\b{n}\s*(?:[,)=;\[{{]|$)"
-        ),
         Kind::Rust | Kind::Swift => format!(
             r"(?:^|[^\w.])(?:_\s+)?{n}\s*:\s*(?:&\s*)?(?:mut\s+|inout\s+)?([A-Za-z_]\w*)[?!]?\s*(?:[,)=;{{]|$)"
         ),
@@ -449,7 +444,6 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
             !t.is_empty()
                 && literal.get(i) != Some(&true)
                 && !t.starts_with(['{', '}', '#'])
-                && !access_label(kind, t)
                 && indent(lines[i]) < indent(lines[k])
         })?;
         if HEAD.is_match(&coded(kind, lines[p])) {
@@ -462,16 +456,12 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         .iter()
         .enumerate()
         .skip(parent + 1)
-        .take_while(|(_, l)| {
-            l.trim().is_empty() || access_label(kind, l.trim()) || indent(l) > outer
-        })
+        .take_while(|(_, l)| l.trim().is_empty() || indent(l) > outer)
         .filter(|&(i, l)| indent(l) == base && literal.get(i) != Some(&true))
         .find_map(|(i, l)| {
             let t = coded(kind, l);
-            let field = match kind {
-                Kind::C => !t.contains('('),
-                _ => t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func "),
-            };
+            let field =
+                t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func ");
             Some(super::Binding {
                 line1: i + 1,
                 value: super::Value::Type(declared_type_on(kind, l, name).filter(|_| field)?),
@@ -505,20 +495,4 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
         .iter()
         .any(|p| param_name(p, false) == Some(arg))
         .then(|| arg.to_owned())
-}
-
-pub fn arrow_head(before: &str) -> Option<String> {
-    let head = before.strip_suffix("->")?;
-    let len: usize = (head.chars().rev())
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .map(char::len_utf8)
-        .sum();
-    let (rest, name) = head.split_at_checked(head.len() - len)?;
-    let plain = !rest.trim_end().ends_with(['.', '>', ':', ')', ']', '*']);
-    (plain && name != "this" && name.starts_with(|c: char| c.is_alphabetic() || c == '_'))
-        .then(|| name.to_owned())
-}
-
-fn access_label(kind: Kind, t: &str) -> bool {
-    kind == Kind::C && matches!(t, "public:" | "private:" | "protected:")
 }
