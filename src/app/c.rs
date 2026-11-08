@@ -59,6 +59,7 @@ impl App {
             && !line.trim_start().starts_with('#')
         {
             let before = before.to_owned();
+            let text = &self.c_with_included_macros(here, text);
             let mut broke = match self.c_receiver_field(here, text, &before, word) {
                 Ok(Some(found)) => return Some((vec![found], None)),
                 Ok(None) => None,
@@ -448,6 +449,19 @@ impl App {
 
     pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
         self.c_reached_from(here, None)
+    }
+
+    fn c_with_included_macros(&mut self, here: &Path, text: &str) -> String {
+        let mut out = text.to_owned();
+        for f in self.c_reached(here) {
+            if f.is_relative()
+                && f != here
+                && let Some(t) = self.text_of(&f)
+            {
+                out.push_str(&search::c_function_macros(&t));
+            }
+        }
+        out
     }
 
     pub(super) fn c_clang_redefinition(

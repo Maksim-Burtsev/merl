@@ -129,14 +129,19 @@ fn split_top_level(s: &str, sep: char) -> Vec<(usize, &str)> {
         })
         .collect()
 }
+static DEFINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?m)^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)\(([^)\n]*)\)((?:[^\n]*\\\r?\n)*[^\n]*)",
+    )
+    .expect("the regex is a literal")
+});
+pub fn c_function_macros(text: &str) -> String {
+    (DEFINE.find_iter(text))
+        .map(|m| format!("\n{}", m.as_str()))
+        .collect()
+}
 pub(super) type Declarer = (String, Vec<usize>);
 pub(super) fn declaring_macros(text: &str) -> Vec<Declarer> {
-    static DEFINE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"(?m)^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)\(([^)\n]*)\)((?:[^\n]*\\\r?\n)*[^\n]*)",
-        )
-        .expect("the regex is a literal")
-    });
     const NOT_TYPES: &[&str] = &[
         "return",
         "delete",
