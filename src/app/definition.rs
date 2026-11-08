@@ -77,7 +77,7 @@ impl App {
     }
 
     fn define_by_patterns(&mut self, mut a: Asked, mut near: Near, mut p: Patterns) {
-        if self.answered_by_rust_or_name(&a, &near, &p) {
+        if self.answered_through_type_param(&a) || self.answered_by_rust_or_name(&a, &near, &p) {
             return;
         }
         let mut walk = Walk {

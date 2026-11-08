@@ -848,8 +848,8 @@ func logged(_ logs: Logs) -> Bool {
 }
 
 // A generic bound by one protocol or class from outside the project is that outside type: its
-// members answer from the project's extensions of it or none, never from a project type that
-// conforms to the bound. A project bound, `A & B` or no bound keep the search by name (#1068).
+// members answer from its project extensions or none, never from a project type conforming to
+// the bound. A project bound or `A & B` keep the search by name (#1068); no bound, none (#1438).
 struct Tag: CodingKey {
     var stringValue: String
     var intValue: Int?
@@ -887,7 +887,7 @@ func composed<T: Hashable & Codable>(_ value: T) -> Bool {
 
 func unbound<T>(_ value: T) -> Bool {
     value.isEmpty
-    //    ^ d: Sources/Shop/Outcomes.swift:29
+    //    ^ d: none
 }
 
 func ledgered<T: Logbook>(_ value: T) -> Bool {
@@ -920,7 +920,7 @@ func headed<C: Collection>(_ c: C) -> Bool? where C.Element == Logbook {
 
 func mapped<T>(_ value: T, _ names: [T: String]) -> Bool {
     value.isEmpty
-    //    ^ d: Sources/Shop/Outcomes.swift:29
+    //    ^ d: none
 }
 
 // A field typed by a generic parameter, read through a receiver of a concrete type, is that type

@@ -35,3 +35,21 @@ pub fn outer<Goblet>(x: Goblet) {
     // fn h<Goblet>(y: Goblet)
     //                 ^ d: src/goblets.rs:1
 }
+pub trait Toaster {
+    fn clink(&self);
+}
+impl Toaster for Goblet {
+    fn clink(&self) {}
+}
+pub fn probe_fill<Goblet>(x: Goblet) {
+    x.quaff();
+    //^ d: none
+}
+pub fn probe_unbound<T>(x: T) {
+    x.quaff();
+    //^ d: none
+}
+pub fn probe_bounded<T: Toaster>(x: T) {
+    x.clink();
+    //^ d: src/goblets.rs:39
+}

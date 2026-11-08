@@ -9,6 +9,27 @@ impl App {
         b: &search::Binding,
         t: &str,
     ) -> Option<Typed> {
+        let bound;
+        let t = match search::type_path(kind, t).as_deref() {
+            Some([one]) if kind == Kind::Go => {
+                match search::type_param_bound(kind, text, b.line1, one) {
+                    Some(param)
+                        if search::type_param_line(
+                            kind,
+                            &self.buf.lines.join("\n"),
+                            self.line + 1,
+                            one,
+                        )
+                        .is_some() =>
+                    {
+                        bound = param.bound?;
+                        bound.as_str()
+                    }
+                    _ => t,
+                }
+            }
+            _ => t,
+        };
         let path = search::type_path(kind, t).filter(|p| p.len() > 1);
         let imported = imported_name(kind, text, t);
         if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0]))
