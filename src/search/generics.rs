@@ -479,6 +479,34 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         })
 }
 
+pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
+    fn angled(s: &str) -> Option<Vec<&str>> {
+        Some(top_parts(list_after(
+            s.get(s.find('<')? + 1..)?,
+            b'<',
+            b'>',
+        )?))
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let owner = super::rust_self_type(&lines, line1.checked_sub(1)?)?;
+    let head = coded(Kind::Rust, lines[owner.impl_line0]);
+    let generics = head.trim().strip_prefix("impl")?.trim_start();
+    let params = angled(generics).filter(|_| generics.starts_with('<'))?;
+    let args = angled(head.get(head.rfind(&format!("{}<", owner.written))?..)?)?;
+    let decl = Regex::new(&super::rust_type_decl_pattern(&owner.written)).ok()?;
+    let mut decls = (0..lines.len()).filter(|&i| decl.is_match(lines[i]));
+    let s = decls.next().filter(|_| decls.next().is_none())?;
+    let written = super::rust_struct_field(&lines, s, name)?.written_type;
+    let i = angled(&coded(Kind::Rust, lines[s]))?
+        .iter()
+        .position(|p| param_name(p, false) == Some(&written))?;
+    let arg = args.get(i)?.trim();
+    params
+        .iter()
+        .any(|p| param_name(p, false) == Some(arg))
+        .then(|| arg.to_owned())
+}
+
 pub fn arrow_head(before: &str) -> Option<String> {
     let head = before.strip_suffix("->")?;
     let len: usize = (head.chars().rev())
