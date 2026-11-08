@@ -763,13 +763,14 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
 }
 
 pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
+    cs_generic_param_line(text, line, name).is_some()
+}
+pub fn cs_generic_param_line(text: &str, line: usize, name: &str) -> Option<usize> {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(mut k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
-        return false;
-    };
+    let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     let declares = |l: &str| {
         let mut l = l.trim_start();
         while let Some(end) = l
@@ -801,12 +802,9 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     };
     loop {
         if declares(lines[k]) {
-            return true;
+            return Some(k + 1);
         }
-        match cs_enclosing(&lines, k) {
-            Some(e) => k = e,
-            None => return false,
-        }
+        k = cs_enclosing(&lines, k)?;
     }
 }
 

@@ -44,15 +44,7 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = (!a.dotted && a.chain.is_empty() && locals.is_empty())
-            .then(|| match kind {
-                Kind::TsJs => search::ts_type_param(&a.text, self.line + 1, word).map(|p| p.line1),
-                Kind::Jvm | Kind::Dart => {
-                    search::generic_param_line(kind, &a.here, &a.text, self.line + 1, word)
-                }
-                _ => None,
-            })
-            .flatten();
+        let type_param = locals.is_empty().then(|| self.type_param(a)).flatten();
         if let Some(line1) = type_param {
             locals = vec![line1];
         }
@@ -107,6 +99,24 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn type_param(&self, a: &Asked) -> Option<usize> {
+        let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
+        if a.dotted || !a.chain.is_empty() {
+            return None;
+        }
+        match kind {
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
+            Kind::Jvm | Kind::Dart => {
+                search::generic_param_line(kind, &a.here, &a.text, line1, word)
+            }
+            _ if a.before.ends_with("::") => None,
+            Kind::CSharp => search::cs_generic_param_line(&a.text, line1, word),
+            Kind::Rust if !rust_type_position(a) => None,
+            Kind::Rust | Kind::Go | Kind::C => search::type_param_line(kind, &a.text, line1, word),
+            _ => None,
+        }
     }
 
     fn imports_near(&self, a: &Asked) -> Vec<search::Import> {
@@ -367,6 +377,21 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_type_position(a: &Asked) -> bool {
+    let (b, t) = (a.before.trim_end(), a.tail.trim_start());
+    let marks = [
+        ":", "->", "<", "&", "[", "mut", "const", "dyn", "impl", "for", "as", "where",
+    ];
+    let in_angles = b.matches('<').count() > b.matches('>').count() - b.matches("->").count();
+    marks.iter().any(|m| {
+        b.strip_suffix(m).is_some_and(|rest| {
+            m.len() == 1 || !rest.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+        })
+    }) || (b.ends_with(',') && in_angles)
+        || t.starts_with("::")
+        || (b.is_empty() && t.starts_with(':'))
 }
 
 fn ts_key(a: &Asked, line1: usize) -> bool {
