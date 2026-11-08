@@ -725,6 +725,9 @@ next line names it only in a comment. What must keep master's answer: `ladler.cl
 `(define-record-type` of its template, and `scheme/queries/highlights.scm` is a tree-sitter query
 whose `(module` has `(identifier)` under it: neither defines anything. `kettle.rkt` still finds an
 indented `(define-syntax-rule` with its pattern on the next line.
+`scheme/siphoning.rkt` (#1441) names `siphon`, the macro of `siphon.rkt`, in a comment, a string,
+a block comment, the text of an `at-exp` `@list{…}` and as a method of `send`, which answer
+nothing, binds it by `with-syntax`, and still finds it in `@racket[…]` and under `#;`.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
