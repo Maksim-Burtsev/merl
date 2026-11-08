@@ -621,6 +621,12 @@ pub fn racket_method_sent(lead: &str) -> bool {
     SENT.is_match(lead)
 }
 
+pub fn clojure_keyword(lead: &str) -> bool {
+    let head = lead.trim_end_matches(':');
+    (1..=2).contains(&(lead.len() - head.len()))
+        && !head.ends_with(|c: char| c.is_alphanumeric() || "-_*+!?<>=./".contains(c))
+}
+
 fn racket_for(h: &str) -> bool {
     ["for", "for*"].contains(&h) || h.starts_with("for/") || h.starts_with("for*/")
 }
