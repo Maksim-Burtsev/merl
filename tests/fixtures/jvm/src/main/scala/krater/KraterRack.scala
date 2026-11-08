@@ -39,3 +39,10 @@ class KraterOuter[Krater] {
   //           ^ d: src/main/scala/krater/KraterRack.scala:32
   //                    ^ d: src/main/scala/krater/KraterRack.scala:32
 }
+
+object KraterGivens {
+  given Ordering[Krater] with
+  //             ^ d: src/main/scala/krater/Krater.scala:3
+    def compare(a: Krater, b: Krater): Int = 0
+    //             ^ d: src/main/scala/krater/Krater.scala:3
+}

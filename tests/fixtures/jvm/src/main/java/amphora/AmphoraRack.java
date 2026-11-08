@@ -44,3 +44,29 @@ interface AmphoraHolder<Amphora> {
     Amphora get();
   //^ d: src/main/java/amphora/AmphoraRack.java:42
 }
+
+class AmphoraRange {
+    static final int LOW = 0;
+    static final int HIGH = 9;
+
+    <Amphora> void own(Amphora x) {}
+
+    /**
+     * @param <Amphora> the kind it holds.
+//             ^ d: src/main/java/amphora/Amphora.java:3
+     */
+    boolean in(int a) {
+        // an Amphora counts
+//            ^ d: src/main/java/amphora/Amphora.java:3
+        if (a < LOW || a > HIGH) {
+//              ^ d: src/main/java/amphora/AmphoraRack.java:49
+            return LOW == a;
+//                 ^ d: src/main/java/amphora/AmphoraRack.java:49
+        }
+        while (a < HIGH && a > 1) {
+            a += HIGH;
+//               ^ d: src/main/java/amphora/AmphoraRack.java:50
+        }
+        return false;
+    }
+}
