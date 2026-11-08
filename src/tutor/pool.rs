@@ -89,6 +89,7 @@ pub const POOL: &[Task] = &[
         answer: "/load_config<Enter>",
         done: |a| {
             a.mode == Mode::Normal
+                && !a.find_whole
                 && a.find_re
                     .as_ref()
                     .is_some_and(|r| r.as_str() == "load_config")
@@ -131,7 +132,7 @@ pub const POOL: &[Task] = &[
         done: |a| {
             at(a, "store.py")
                 && a.line + 1 == CALL_LINE
-                && a.find_word_chars.is_some()
+                && a.find_whole
                 && a.find_re.as_ref().is_some_and(|r| r.as_str() == "config")
         },
     },

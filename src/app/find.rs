@@ -50,7 +50,7 @@ impl App {
         };
         let re = Regex::new(&regex::escape(word)).expect("an escaped word compiles");
         let query = word.to_owned();
-        self.find_word_chars = Some(extra);
+        self.find_whole = true;
         let before = (self.at(), self.col);
         let hit = self
             .match_at_or_after(&re, (self.at(), range.end))
@@ -96,6 +96,7 @@ impl App {
     }
 
     pub(super) fn refresh_find(&mut self) {
+        self.find_whole = false;
         if self.prompt.is_empty() {
             self.find_re = None;
             self.message.clear();
@@ -122,7 +123,6 @@ impl App {
             self.message = "no match".into();
         }
         self.find_re = Some(re);
-        self.find_word_chars = None;
         self.find_query = self.prompt.to_string();
     }
 
@@ -137,7 +137,7 @@ impl App {
         from: usize,
     ) -> impl Iterator<Item = Range<usize>> + 't {
         let next = move |at: usize| re.find_at(text, at).map(|m| m.range());
-        let word_chars = self.find_word_chars;
+        let word_chars = (self.find_whole).then(|| search::word_chars(self.kind(), false));
         std::iter::successors(next(from), move |r| {
             (!r.is_empty()).then(|| next(r.end)).flatten()
         })
@@ -258,6 +258,6 @@ fn word_around<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usiz
         .sum();
     let range = col - back..col + ahead;
     line.get(range.clone())
-        .filter(|w| !w.is_empty())
+        .filter(|w| w.contains(is_word))
         .map(|w| (range, w))
 }

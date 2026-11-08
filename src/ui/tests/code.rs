@@ -2231,3 +2231,23 @@ fn a_review_s_tint_wins_over_a_capture_s_background_as_diff_add_does_in_neovim()
     assert_eq!(buf[(4, 2)].bg, theme.add_bg_hl, "the added heading");
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn star_marks_only_whole_names_with_the_file_type_s_word_chars() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/a.css"), b".btn {}\n.btn-primary {}\n"),
+        None,
+    );
+    app.show_tree = false;
+    app.col = 1;
+    app.key(KeyEvent::new(KeyCode::Char('*'), KeyModifiers::NONE));
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(30, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let b = (0..30).find(|&x| buffer[(x, 1)].symbol() == "b").unwrap();
+    assert_ne!(buffer[(b, 1)].bg, theme.find_bg, "not inside `btn-primary`");
+}

@@ -620,11 +620,38 @@ fn star_in(ext: &str, text: &str, (line, col): (usize, usize)) -> App {
 
 #[test]
 fn star_reads_and_matches_the_whole_name_with_the_language_s_word_chars() {
-    let a = star_in("css", ".btn {}\n.btn-primary {}\n.btn {}\n", (0, 1));
+    let mut a = star_in("css", ".btn {}\n.btn-primary {}\n.btn {}\n", (0, 1));
     assert_eq!(
         (a.line, a.col, &*a.message),
         (2, 1, "2/2"),
         "past `btn-primary`"
+    );
+    press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, &*a.message), (0, 1, "1/2"), "`N` too");
+    let js = ".btn {}\n.btn-primary {}\n";
+    a.buf = Buffer::from_bytes(
+        a.buf.path.clone().unwrap().with_extension("js"),
+        js.as_bytes(),
+    );
+    (a.line, a.col) = (0, 0);
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, &*a.message),
+        (0, 1, "1/2"),
+        "in a JS file `-` does not join `btn-primary`"
+    );
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    typed(&mut a, "b");
+    assert_eq!(
+        (&*a.prompt, &*a.message),
+        ("b", "1/2"),
+        "a typed query is a plain find from its first key"
+    );
+    let a = star_in("yaml", "- db\n- web\n", (0, 0));
+    assert_eq!(
+        (a.line, a.col, &*a.message),
+        (0, 0, "no word under the cursor"),
+        "a lone `-` is no word"
     );
     let mut a = star_in("css", ".btn {}\n.btn-primary {}\n.btn {}\n", (1, 6));
     assert_eq!((a.line, a.col, &*a.message), (1, 1, "1/1"));
