@@ -1,7 +1,8 @@
 use super::{
-    App, Buffer, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, next_char,
-    search, shown_str,
+    App, Buffer, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, is_word,
+    next_char, search, shown_str, whole,
 };
+use std::ops::Range;
 
 const FIND_CAP: usize = 1_000;
 
@@ -43,13 +44,13 @@ impl App {
             return;
         }
         let extra = search::word_chars(self.kind(), false);
-        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
+        let Some((range, word)) = word_around(self.line_str(), self.col, extra) else {
             self.message = "no word under the cursor".into();
             return;
         };
-        let re = Regex::new(&format!(r"(?-u:\b){}(?-u:\b)", regex::escape(word)))
-            .expect("an escaped word between word boundaries compiles");
+        let re = Regex::new(&regex::escape(word)).expect("an escaped word compiles");
         let query = word.to_owned();
+        self.find_word_chars = Some(extra);
         let before = (self.at(), self.col);
         let hit = self
             .match_at_or_after(&re, (self.at(), range.end))
@@ -121,6 +122,7 @@ impl App {
             self.message = "no match".into();
         }
         self.find_re = Some(re);
+        self.find_word_chars = None;
         self.find_query = self.prompt.to_string();
     }
 
@@ -128,13 +130,27 @@ impl App {
         std::iter::successors(Some(from), |&t| self.next_line(t)).map(|t| (t, self.text(t)))
     }
 
+    pub fn find_hits<'t>(
+        &self,
+        re: &'t Regex,
+        text: &'t str,
+        from: usize,
+    ) -> impl Iterator<Item = Range<usize>> + 't {
+        let next = move |at: usize| re.find_at(text, at).map(|m| m.range());
+        let word_chars = self.find_word_chars;
+        std::iter::successors(next(from), move |r| {
+            (!r.is_empty()).then(|| next(r.end)).flatten()
+        })
+        .filter(move |r| word_chars.is_none_or(|extra| whole(text, r.clone(), extra)))
+    }
+
     fn match_count(&self, re: &Regex) -> String {
         let (mut at, mut total) = (0, 0);
         let here = (self.at(), self.col);
         for (t, text) in self.lines_from(self.first_line()) {
-            for m in re.find_iter(text) {
+            for m in self.find_hits(re, text, 0) {
                 total += 1;
-                if (t, m.start()) <= here {
+                if (t, m.start) <= here {
                     at = total;
                 }
             }
@@ -173,8 +189,8 @@ impl App {
     ) -> Option<(TextLine, usize)> {
         for (t, text) in self.lines_from(line) {
             let from = if t == line { col.min(text.len()) } else { 0 };
-            if let Some(m) = re.find_at(text, from) {
-                return Some((t, m.start()));
+            if let Some(m) = self.find_hits(re, text, from).next() {
+                return Some((t, m.start));
             }
         }
         None
@@ -188,8 +204,11 @@ impl App {
         for t in std::iter::successors(Some(line), |&t| self.prev_line(t)) {
             let limit = if t == line { col } else { usize::MAX };
             let text = self.text(t);
-            if let Some(m) = re.find_iter(text).take_while(|m| m.start() < limit).last() {
-                return Some((t, m.start()));
+            if let Some(m) = (self.find_hits(re, text, 0))
+                .take_while(|m| m.start < limit)
+                .last()
+            {
+                return Some((t, m.start));
             }
         }
         None
@@ -226,4 +245,19 @@ impl App {
             base.clear_hl();
         }
     }
+}
+
+fn word_around<'a>(line: &'a str, col: usize, extra: &str) -> Option<(Range<usize>, &'a str)> {
+    let part = |c: &char| is_word(*c) || extra.contains(*c);
+    let col = col.min(line.len());
+    let back: usize = (line.get(..col)?.chars().rev().take_while(part))
+        .map(char::len_utf8)
+        .sum();
+    let ahead: usize = (line.get(col..)?.chars().take_while(part))
+        .map(char::len_utf8)
+        .sum();
+    let range = col - back..col + ahead;
+    line.get(range.clone())
+        .filter(|w| !w.is_empty())
+        .map(|w| (range, w))
 }

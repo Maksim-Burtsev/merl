@@ -608,18 +608,41 @@ fn star_wraps_from_the_last_or_only_use_and_back_returns_to_the_word() {
     assert_eq!((a.line, a.col, &*a.message), (3, 0, "1/1"));
 }
 
-#[test]
-fn star_stops_inside_names_joined_by_the_language_s_word_chars() {
-    let text = ".btn {}\n.btn-primary {}\n.btn {}\n";
+fn star_in(ext: &str, text: &str, (line, col): (usize, usize)) -> App {
     let mut a = app(text);
-    let path = a.buf.path.clone().unwrap().with_extension("css");
+    let path = a.buf.path.clone().unwrap().with_extension(ext);
     std::fs::write(&path, text).unwrap();
     a.buf = Buffer::from_bytes(path, text.as_bytes());
-    a.col = 1;
+    (a.line, a.col) = (line, col);
     press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    a
+}
+
+#[test]
+fn star_reads_and_matches_the_whole_name_with_the_language_s_word_chars() {
+    let a = star_in("css", ".btn {}\n.btn-primary {}\n.btn {}\n", (0, 1));
     assert_eq!(
         (a.line, a.col, &*a.message),
-        (1, 1, "2/3"),
-        "today; want (2, 1, \"2/2\") (#1321)"
+        (2, 1, "2/2"),
+        "past `btn-primary`"
+    );
+    let mut a = star_in("css", ".btn {}\n.btn-primary {}\n.btn {}\n", (1, 6));
+    assert_eq!((a.line, a.col, &*a.message), (1, 1, "1/1"));
+    assert_eq!(a.find_query, "btn-primary");
+    press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 1), "`N` keeps the whole name too");
+    let a = star_in("clj", "(valid? x)\n(valid x)\n(valid? y)\n", (0, 2));
+    assert_eq!((a.line, a.col, &*a.message), (2, 1, "2/2"), "`valid?`");
+    let a = star_in("clj", "*depth* depth *depth*\n", (0, 3));
+    assert_eq!(
+        (a.find_query.as_str(), a.col, &*a.message),
+        ("*depth*", 14, "2/2")
+    );
+    let a = star_in("py", "caf = 1\ncafé = 2\ncaf\n", (0, 0));
+    assert_eq!((a.line, a.col, &*a.message), (2, 0, "2/2"), "past `café`");
+    let a = star_in("py", "café = 2\ncaf\ncafé\n", (0, 3));
+    assert_eq!(
+        (a.find_query.as_str(), a.line, a.message.as_str()),
+        ("café", 2, "2/2")
     );
 }
