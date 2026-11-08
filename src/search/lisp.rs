@@ -71,7 +71,9 @@ pub fn lisp_names_below(kind: Kind, text: &str, line1: usize, word: &str) -> boo
         None => Some(0),
         Some(n) => code.match_indices('\n').nth(n).map(|(i, _)| i + 1),
     };
-    start.is_some_and(|s| re.is_match(&code[s..]))
+    start
+        .and_then(|s| code.get(s..))
+        .is_some_and(|c| re.is_match(c))
 }
 
 pub(super) const CLOJURE_SYMBOL: &str = concat!(

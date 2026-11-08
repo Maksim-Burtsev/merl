@@ -17,13 +17,16 @@ impl App {
         hits
     }
 
-    pub(super) fn lisp_split_heads(
+    pub(super) fn definitions_grep(
         &self,
         kind: Kind,
         here: &Path,
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
+        if !search::lisp(kind) {
+            return self.project_grep(kind, here, pattern);
+        }
         let alone = search::lisp_head_alone(kind);
         let mut hits = self.project_grep(kind, here, &format!("{pattern}|{alone}"));
         let Ok(alone) = regex::Regex::new(&alone) else {

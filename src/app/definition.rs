@@ -707,11 +707,8 @@ impl App {
         word: &str,
         pattern: &str,
     ) -> Vec<Hit> {
-        let mut hits = match search::lisp(kind) {
-            true => self.lisp_split_heads(kind, here, word, pattern),
-            false => self.project_grep(kind, here, pattern),
-        };
-        hits = self.declaring(kind, word, hits);
+        let hits = self.definitions_grep(kind, here, word, pattern);
+        let mut hits = self.declaring(kind, word, hits);
         if kind == Kind::TsJs {
             let mut lines: HashMap<PathBuf, Vec<String>> = HashMap::new();
             hits.retain(|h| {
