@@ -763,13 +763,58 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
 }
 
 pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
+    cs_generic_params(text, line, name, false).is_some()
+}
+pub fn cs_generic_param_line(text: &str, line: usize, name: &str) -> Option<usize> {
+    cs_generic_params(text, line, name, true)
+}
+
+fn cs_declares_generic(l: &str, at: usize) -> bool {
+    static NAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"([\w>\]?])\s+@?\w+\s*$").expect("the regex is a literal")
+    });
+    if cs_type_decl(l).is_some() {
+        return true;
+    }
+    let head = l.get(..at).unwrap_or_default();
+    NAMED.captures(head).is_some_and(|c| {
+        let before = head
+            .get(..c.get(1).map_or(0, |m| m.end()))
+            .unwrap_or_default();
+        let word = before
+            .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
+            .next();
+        !before.ends_with("=>")
+            && !matches!(
+                word,
+                Some(
+                    "return"
+                        | "new"
+                        | "await"
+                        | "throw"
+                        | "yield"
+                        | "in"
+                        | "is"
+                        | "as"
+                        | "case"
+                        | "else"
+                        | "out"
+                        | "ref"
+                        | "typeof"
+                        | "nameof"
+                        | "default"
+                        | "using"
+                )
+            )
+    })
+}
+
+fn cs_generic_params(text: &str, line: usize, name: &str, strict: bool) -> Option<usize> {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(mut k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
-        return false;
-    };
+    let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     let declares = |l: &str| {
         let mut l = l.trim_start();
         while let Some(end) = l
@@ -789,24 +834,23 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
             None => l,
         };
         PARAMS.captures_iter(l).any(|c| {
-            cs_split(&c[1]).iter().any(|p| {
-                let p = p.trim();
-                let p = p
-                    .strip_prefix("in ")
-                    .or_else(|| p.strip_prefix("out "))
-                    .unwrap_or(p);
-                p.trim() == name
-            })
+            let at = c.get(1).map_or(0, |m| m.start() - 1);
+            (!strict || cs_declares_generic(l, at))
+                && cs_split(&c[1]).iter().any(|p| {
+                    let p = p.trim();
+                    let p = p
+                        .strip_prefix("in ")
+                        .or_else(|| p.strip_prefix("out "))
+                        .unwrap_or(p);
+                    p.trim() == name
+                })
         })
     };
     loop {
         if declares(lines[k]) {
-            return true;
+            return Some(k + 1);
         }
-        match cs_enclosing(&lines, k) {
-            Some(e) => k = e,
-            None => return false,
-        }
+        k = cs_enclosing(&lines, k)?;
     }
 }
 

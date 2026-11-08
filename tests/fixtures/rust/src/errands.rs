@@ -115,7 +115,7 @@ impl Tally {
 
 pub fn generic<Tally: Default>() -> Tally {
     Tally::default()
-    // ^ d: !jump
+    // ^ d: src/errands.rs:116
 }
 
 fn tally() -> u32 {

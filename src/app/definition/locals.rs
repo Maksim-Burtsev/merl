@@ -44,15 +44,12 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = (kind == Kind::TsJs
-            && !a.dotted
-            && a.chain.is_empty()
-            && locals.is_empty()
-            && imports.iter().all(|i| i.name != *word))
-        .then(|| search::ts_type_param(&a.text, self.line + 1, word))
-        .flatten();
-        if let Some(p) = &type_param {
-            locals = vec![p.line1];
+        let type_param = locals
+            .is_empty()
+            .then(|| self.type_param(a, &imports))
+            .flatten();
+        if let Some(line1) = type_param {
+            locals = vec![line1];
         }
         if !locals.is_empty() || self.def_hides_import(a) {
             imports.retain(|i| i.name != a.first());
@@ -105,6 +102,34 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn type_param(&self, a: &Asked, imports: &[search::Import]) -> Option<usize> {
+        let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
+        if a.dotted
+            || !a.chain.is_empty()
+            || (kind != Kind::TsJs
+                && search::in_prose(kind, &a.here, &a.text, line1, a.range.start))
+        {
+            return None;
+        }
+        match kind {
+            Kind::TsJs
+                if imports.iter().any(|i| i.name == *word)
+                    && !ts_type_position(a, self.line_str()) =>
+            {
+                None
+            }
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
+            Kind::Jvm | Kind::Dart => {
+                search::generic_param_line(kind, &a.here, &a.text, line1, word)
+            }
+            _ if a.before.ends_with("::") => None,
+            Kind::CSharp => search::cs_generic_param_line(&a.text, line1, word),
+            Kind::Rust if !rust_type_position(a) => None,
+            Kind::Rust | Kind::Go | Kind::C => search::type_param_line(kind, &a.text, line1, word),
+            _ => None,
+        }
     }
 
     fn imports_near(&self, a: &Asked) -> Vec<search::Import> {
@@ -365,6 +390,50 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_type_position(a: &Asked) -> bool {
+    let (b, t) = (a.before.trim_end(), a.tail.trim_start());
+    let marks = [
+        ":", "->", "<", "&", "[", "mut", "const", "dyn", "impl", "for", "as", "where",
+    ];
+    let in_angles = b.matches('<').count() > b.matches('>').count() - b.matches("->").count();
+    marks.iter().any(|m| {
+        b.strip_suffix(m).is_some_and(|rest| {
+            m.len() == 1 || !rest.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+        })
+    }) || (b.ends_with(',') && in_angles)
+        || t.starts_with("::")
+        || (b.is_empty() && t.starts_with(':'))
+}
+
+fn ts_type_position(a: &Asked, line: &str) -> bool {
+    let b = a.before.trim_end();
+    let decl = line.trim_start();
+    let decl = decl.strip_prefix("export ").unwrap_or(decl).trim_start();
+    let decl = decl.strip_prefix("declare ").unwrap_or(decl).trim_start();
+    let marks = [
+        ":",
+        "<",
+        "|",
+        "&",
+        "extends",
+        "implements",
+        "keyof",
+        "as",
+        "satisfies",
+        "is",
+        "infer",
+        "readonly",
+    ];
+    let in_angles = b.matches('<').count() > b.matches('>').count() - b.matches("=>").count();
+    decl.starts_with("type ")
+        || (b.ends_with(',') && in_angles)
+        || marks.iter().any(|m| {
+            b.strip_suffix(m).is_some_and(|rest| {
+                m.len() == 1 || !rest.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+            })
+        })
 }
 
 fn ts_key(a: &Asked, line1: usize) -> bool {
