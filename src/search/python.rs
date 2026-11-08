@@ -829,10 +829,14 @@ pub fn python_class_defines(text: &str, header1: usize, name: &str) -> bool {
         .any(|l| defines.is_match(l))
 }
 pub fn python_method(text: &str, line1: usize) -> bool {
+    python_parent(text, line1).is_some_and(|p| p.starts_with("class "))
+}
+pub fn python_init_statement(text: &str, line1: usize) -> bool {
+    python_parent(text, line1).is_some_and(|p| p.starts_with("def __init__("))
+}
+fn python_parent(text: &str, line1: usize) -> Option<&str> {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let literal = literal_lines(Kind::Python, text);
     let depth = indent(lines[at]);
     (0..at)
@@ -844,7 +848,7 @@ pub fn python_method(text: &str, line1: usize) -> bool {
                 && !literal[i]
                 && indent(lines[i]) < depth
         })
-        .is_some_and(|i| lines[i].trim_start().starts_with("class "))
+        .map(|i| lines[i].trim_start())
 }
 pub fn python_in_function(text: &str, line1: usize) -> bool {
     python_enclosing_def(text, line1).is_some()
