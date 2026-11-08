@@ -50,12 +50,12 @@ pub fn label_at(
     let l = *lines.get(line0)?;
     let tight = l.get(range.end..)?;
     let after = match kind {
-        Kind::Ruby => tight,
+        Kind::Ruby | Kind::Elixir => tight,
         _ => tight.trim_start(),
     };
     let sep = match kind {
-        Kind::Python | Kind::Jvm => b'=',
-        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust => b':',
+        Kind::Python | Kind::Jvm | Kind::Julia => b'=',
+        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust | Kind::Elixir => b':',
         Kind::TsJs if after.starts_with('=') => b'=',
         Kind::TsJs => b':',
         _ => return None,
@@ -68,16 +68,40 @@ pub fn label_at(
     if kind == Kind::TsJs && sep == b'=' {
         return jsx(kind, &lines, &literal, line0, range.start);
     }
+    let opened = enclosing(
+        kind,
+        &lines,
+        &literal,
+        line0,
+        range.start,
+        kind != Kind::Julia,
+    );
+    if kind == Kind::Elixir {
+        let keyword = rest.get(1).is_none_or(u8::is_ascii_whitespace)
+            && opened.as_ref().is_none_or(|o| o.bracket != b'{')
+            && !l.trim_start().starts_with("defstruct");
+        return keyword.then_some(Label {
+            what: "key",
+            owner: None,
+            nested: false,
+        });
+    }
+    let after_the_bracket = |o: &OpenBracket| {
+        o.first_met == Some(o.bracket)
+            || o.first_met == Some(b',')
+            || (kind == Kind::Julia && o.first_met == Some(b';'))
+    };
+    if !opened.as_ref().is_some_and(after_the_bracket) {
+        return (kind == Kind::Ruby)
+            .then(|| ruby_command_label(kind, l, line0, range.start))
+            .flatten();
+    }
     let OpenBracket {
         line0: at,
         byte: open,
         bracket,
-        first_met,
         ..
-    } = open_bracket(kind, &lines, &literal, line0, range.start)?;
-    if first_met != Some(bracket) && first_met != Some(b',') {
-        return None;
-    }
+    } = opened?;
     match (kind, bracket) {
         (Kind::TsJs, b'{') => ts_object_key(kind, &lines, &literal, at, open),
         (Kind::Rust, b'{') => rust_struct_key(kind, &lines, &literal, at, open),
@@ -94,49 +118,89 @@ pub fn label_at(
                 nested: false,
             })
         }
-        (Kind::Python | Kind::Jvm | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby, b'(') => {
-            static ANNOTATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal")
-            });
-            let before = lines[at].get(..open)?;
-            if declares(before) {
-                return None;
-            }
-            if java && !ANNOTATION.is_match(before) {
-                return None;
-            }
-            let col = callee(kind, lines[at], open)?;
-            let owner = if kind == Kind::Swift
-                && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
-            {
-                let head =
-                    (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
-                head.and_then(|h| {
-                    let name = h
-                        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
-                        .next()?;
-                    (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
-                        line0: at,
-                        byte_col: h.len() - 1,
-                        how: Owner::Args,
-                    })
-                })
-                .or_else(|| head.and_then(|h| swift_implicit_init(kind, &lines, &literal, at, h)))
-            } else {
-                Some(LabelOwner {
-                    line0: at,
-                    byte_col: col,
-                    how: Owner::Args,
-                })
-            };
-            Some(Label {
-                what: "argument label",
-                owner,
-                nested: false,
-            })
-        }
+        (
+            Kind::Python
+            | Kind::Jvm
+            | Kind::Swift
+            | Kind::CSharp
+            | Kind::Php
+            | Kind::Ruby
+            | Kind::Julia,
+            b'(',
+        ) => call_label(kind, java, &lines, &literal, at, open),
         _ => None,
     }
+}
+
+fn call_label(
+    kind: Kind,
+    java: bool,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+) -> Option<Label> {
+    static ANNOTATION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal"));
+    static JULIA_SHORT_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*[\w.!]+\s*\(.*\)\s*(?:where\b.*)?(?:::\s*[\w{}.]+\s*)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    let before = lines[at].get(..open)?;
+    if declares(before) || (kind == Kind::Julia && JULIA_SHORT_DEF.is_match(lines[at])) {
+        return None;
+    }
+    if java && !ANNOTATION.is_match(before) {
+        return None;
+    }
+    let col = callee(kind, lines[at], open)?;
+    let owner = if kind == Kind::Swift && word_at(lines[at], col, "").map(|w| w.1) == Some("init") {
+        let head = (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
+        head.and_then(|h| {
+            let name = h
+                .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .next()?;
+            (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
+                line0: at,
+                byte_col: h.len() - 1,
+                how: Owner::Args,
+            })
+        })
+        .or_else(|| head.and_then(|h| swift_implicit_init(kind, lines, literal, at, h)))
+    } else {
+        Some(LabelOwner {
+            line0: at,
+            byte_col: col,
+            how: Owner::Args,
+        })
+    };
+    Some(Label {
+        what: "argument label",
+        owner,
+        nested: false,
+    })
+}
+
+fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Option<Label> {
+    let lead = line.get(..start)?;
+    let head = lead.trim_end();
+    if head.trim_start().is_empty()
+        || !lead.ends_with(char::is_whitespace)
+        || !head.ends_with(|c: char| c.is_alphanumeric() || matches!(c, '_' | ',' | '!'))
+        || declares(head)
+    {
+        return None;
+    }
+    let owner = callee(kind, line, start).map(|byte_col| LabelOwner {
+        line0,
+        byte_col,
+        how: Owner::Args,
+    });
+    Some(Label {
+        what: "argument label",
+        owner,
+        nested: false,
+    })
 }
 
 fn swift_implicit_init(
