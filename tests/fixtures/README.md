@@ -305,7 +305,11 @@ the use. The command `chai` under a `local chai=1` is the function. `eight` read
 after an assignment whose value holds backticks, a `${…}` with a space, an escaped space, `$(…)`
 or ends in a redirection, which answers with that assignment; `nine` puts the cursor on the target
 of `mug=$((…))`, `mug+=1`, `… && mug=5` and `then mug=7;` under a `local mug=0`, which answers
-with the `local`.
+with the `local`. `shell/bin/quoted.sh` (#1426) declares functions and a variable inside `"…"`
+strings over lines (after `name=`, after `echo`, holding `$(printf 'x')` and `\"`), a `$'…'` one
+holding `\'`, and an odd `"` inside a `'…'` over lines; none is a definition, and a function after
+an escaped `\"` is. The code the shell runs inside `"$( … )"` and `sh -c "…"` over lines stays
+code: `sencha` and `LEAF` answer with their assignments there.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
