@@ -142,6 +142,7 @@ The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `li
 The swift row with #1341's eleventh pass (an enum payload bound by `if`/`guard`/`while case let .c(x) = subject`, typed from the enum's case: swift0203 `reason.isBodyPartInputStreamCreationFailed` jumps to `AFError+AlamofireTests.swift:237`): over `f7620fd07` with this change, 2026-11-07, release build, `vm.loadavg` { 3.24 4.28 4.55 } before the run.
 The elisp, racket and scheme rows with #1401's third pass (Racket `match`, `match-lambda` and `match-define` patterns, Emacs Lisp `pcase-let` and its backquote patterns): over `c6f38f26e`, 2026-11-07, release build, `vm.loadavg` { 3.22 3.33 3.66 } before the run, { 4.44 3.70 3.78 } after.
 The dart row with the fourth pass of #1338 (a prefixed import's name looked up through the library's exports, `web_adapter.compute`; a local set to `entry.value` / `.key` of a `MapEntry<K, V>` takes that type argument): over `7c5e6e93e`, 2026-11-07, release build, `vm.loadavg` { 17.26 18.09 18.53 } before the run (the times read high under that load).
+The racket row with racket0207 judged from the code (`define/oc-log`: the `define-syntax-rule` of `module-language.rkt:1066` whose pattern head on the next line binds it, now a direct hit after #1431): `9716e6d6c`, 2026-11-08, release build, `vm.loadavg` { 4.76 6.95 6.76 } after the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -172,7 +173,7 @@ The dart row with the fourth pass of #1338 (a prefixed import's name looked up t
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
 | elisp (magit) | 39 | 29 (74%) | 4 (10%) | 0 (0%) | 6 (15%) | 41 | 0 | 4.0 | 5.0 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
-| racket (drracket) | 113 | 80 (71%) | 7 (6%) | 0 (0%) | 26 (23%) | 123 | 29 | 14.2 | 17.7 |
+| racket (drracket) | 114 | 81 (71%) | 7 (6%) | 0 (0%) | 26 (23%) | 122 | 29 | 17.9 | 22.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
