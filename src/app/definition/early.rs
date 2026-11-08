@@ -364,8 +364,8 @@ impl App {
             return self.show_found(a, found);
         }
         if self.probe.is_none()
-            && let java = a.here.extension().is_some_and(|e| e == "java")
-            && let Some(label) = search::label_at(kind, java, &a.text, self.line, a.range.clone())
+            && let Some(label) =
+                search::label_at(kind, &a.here, &a.text, self.line, a.range.clone())
         {
             if label.nested && self.answered_by_typed_key(a) {
                 return true;

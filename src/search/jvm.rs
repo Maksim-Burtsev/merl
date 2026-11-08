@@ -313,7 +313,13 @@ fn declares_local(t: &str, name: &str) -> bool {
     .is_ok_and(|re| re.is_match(t))
 }
 
-pub fn jvm_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
+pub fn jvm_bindings_at(
+    path: &std::path::Path,
+    text: &str,
+    line1: usize,
+    col: usize,
+    name: &str,
+) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
@@ -328,10 +334,11 @@ pub fn jvm_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<
             value: Value::Unknown,
         }];
     }
-    jvm_bindings(&lines, at, name, Some(col))
+    jvm_bindings(path, &lines, at, name, Some(col))
 }
 
 pub(super) fn jvm_bindings(
+    path: &std::path::Path,
     lines: &[&str],
     at: usize,
     name: &str,
@@ -345,7 +352,7 @@ pub(super) fn jvm_bindings(
         return Vec::new();
     }
     let text = lines.join("\n");
-    let literal = literal_lines(Kind::Jvm, &text);
+    let literal = path_literal_lines(Kind::Jvm, path, &text);
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -1032,6 +1039,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
 }
 
 pub fn kotlin_lambda_collection(
+    path: &std::path::Path,
     text: &str,
     line1: usize,
     before: &str,
@@ -1054,7 +1062,7 @@ pub fn kotlin_lambda_collection(
     }
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let nearest: Vec<usize> = jvm_bindings(&lines, at, name, None)
+    let nearest: Vec<usize> = jvm_bindings(path, &lines, at, name, None)
         .iter()
         .map(|b| b.line1)
         .collect();

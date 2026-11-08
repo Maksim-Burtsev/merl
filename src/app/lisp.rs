@@ -44,6 +44,7 @@ impl App {
     pub(super) fn binding_lines(
         &self,
         kind: Kind,
+        path: &Path,
         text: &str,
         line: usize,
         col: usize,
@@ -70,13 +71,13 @@ impl App {
         } else if kind == Kind::Dart && line == self.line + 1 {
             search::dart_bindings_at(text, line, col, name)
         } else if kind == Kind::Jvm && line == self.line + 1 {
-            search::jvm_bindings_at(text, line, col, name)
+            search::jvm_bindings_at(path, text, line, col, name)
         } else if kind == Kind::Nix && line == self.line + 1 {
             search::nix_bindings_at(text, line, col, name)
         } else if kind == Kind::Solidity && line == self.line + 1 {
-            search::bindings_at(kind, text, line, Some(col), name)
+            search::bindings_at(kind, path, text, line, Some(col), name)
         } else {
-            search::bindings(kind, text, line, name)
+            search::path_bindings(kind, path, text, line, name)
         };
         found.iter().map(|b| b.line1).collect()
     }

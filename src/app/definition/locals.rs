@@ -58,7 +58,7 @@ impl App {
         let unbound = kind == Kind::Python
             && !a.dotted
             && a.chain.is_empty()
-            && search::bindings(kind, &a.text, self.line + 1, word).is_empty()
+            && search::path_bindings(kind, &a.here, &a.text, self.line + 1, word).is_empty()
             && !search::python_class_binds(&a.text, self.line + 1, word)
             && !names_itself(kind, self.line_str(), word)
             && !self.offer_only;
@@ -192,7 +192,7 @@ impl App {
         }) else {
             return false;
         };
-        self.binding_lines(a.kind, &a.text, used + 1, 0, true, word)
+        self.binding_lines(a.kind, &a.here, &a.text, used + 1, 0, true, word)
             .into_iter()
             .map(|n| search::written_line(&self.buf.lines, n, word))
             .any(|n| n == self.line + 1)
@@ -291,7 +291,15 @@ impl App {
             let binding: Vec<usize> = if declared {
                 vec![self.line + 1]
             } else {
-                self.binding_lines(kind, text, line, range.start, chain.is_empty(), first)
+                self.binding_lines(
+                    kind,
+                    &a.here,
+                    text,
+                    line,
+                    range.start,
+                    chain.is_empty(),
+                    first,
+                )
             };
             binding
                 .into_iter()
