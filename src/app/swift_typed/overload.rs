@@ -1,4 +1,4 @@
-use super::{App, Candidate, Kind, Path, WrittenVia, generic, search};
+use super::{App, Candidate, HashSet, Hit, Kind, Path, SwiftType, WrittenVia, generic, search};
 
 enum Typed {
     Literal(&'static str),
@@ -151,6 +151,121 @@ impl App {
         }
     }
 
+    pub(in crate::app) fn swift_misfit(&self, word: &str, rows: &[Hit]) -> bool {
+        let Some((range, w)) = self.definition_word(Some(Kind::Swift)) else {
+            return false;
+        };
+        let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
+        let (Some(call), Some(here)) = (
+            search::swift_call_labels(&lines, self.line, range.end).filter(|_| w == word),
+            self.rel_current(),
+        ) else {
+            return false;
+        };
+        let text = self.buf.lines.join("\n");
+        let cut = self.truncated.get();
+        let out = rows.iter().all(|h| {
+            let Some(t) = self.text_of(&h.path) else {
+                return false;
+            };
+            let decl: Vec<&str> = t.lines().collect();
+            let Some(ps) = h
+                .line1
+                .checked_sub(1)
+                .and_then(|l| search::swift_param_labels(&decl, l, word))
+                .filter(|ps| ps.iter().all(|p| !p.variadic))
+            else {
+                return false;
+            };
+            if !search::swift_call_fits(&call, &ps) {
+                return true;
+            }
+            let Some(slots) = slots(&call.labels, &ps) else {
+                return false;
+            };
+            let generics = self.swift_scope_generics(&here, &t, h.line1);
+            call.args.iter().zip(&slots).any(|(e, s)| {
+                ps.get(*s)
+                    .zip(self.swift_arg_type(&here, &text, e))
+                    .is_some_and(|(p, a)| self.swift_fit(&here, &p.ty, &a, &generics) == Fit::Not)
+            })
+        });
+        self.truncated.set(cut);
+        out
+    }
+
+    pub(super) fn swift_member_rows(
+        &self,
+        here: &Path,
+        ty: &SwiftType,
+        word: &str,
+    ) -> Option<Vec<Hit>> {
+        self.swift_level_rows(here, ty, word, false)
+    }
+
+    pub(super) fn swift_call_rows(
+        &self,
+        here: &Path,
+        ty: &SwiftType,
+        word: &str,
+    ) -> Option<Vec<Hit>> {
+        self.swift_level_rows(here, ty, word, true)
+    }
+
+    fn swift_level_rows(
+        &self,
+        here: &Path,
+        ty: &SwiftType,
+        word: &str,
+        call: bool,
+    ) -> Option<Vec<Hit>> {
+        let pattern = search::def_patterns(Kind::Swift, word).join("|");
+        let hits = self.project_definitions(Kind::Swift, here, word, &pattern);
+        let mut owner = ty.owner.clone();
+        let (mut keyword, mut base) = (ty.keyword.clone(), ty.base.clone());
+        let mut seen = HashSet::from([owner.clone()]);
+        let mut walked = vec![ty.name.clone()];
+        let mut nearest = None;
+        let up = loop {
+            let full = format!("{owner}.{word}");
+            let rows: Vec<Hit> = hits
+                .iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, word))
+                        .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                        && !search::swift_extension(&h.text)
+                        && self.in_code(Kind::Swift, h)
+                })
+                .cloned()
+                .collect();
+            if !rows.is_empty() {
+                if !call || !self.swift_misfit(word, &rows) {
+                    return Some(rows);
+                }
+                nearest.get_or_insert(rows);
+            }
+            match (keyword.as_deref(), base) {
+                (None, _) => break Some(Vec::new()),
+                (Some("class"), Some(next)) if seen.insert(next.clone()) => {
+                    match self.swift_type(here, &next) {
+                        Some(up) if up.keyword.as_deref() == Some("class") => {
+                            walked.push(up.name);
+                            (owner, keyword, base) = (up.owner, up.keyword, up.base);
+                        }
+                        None if self.swift_protocol(here, &next) => {
+                            break self.swift_defaults(here, &walked, word);
+                        }
+                        _ => break None,
+                    }
+                }
+                (Some("class"), Some(_)) => break None,
+                (Some(_), _) => break self.swift_defaults(here, &walked, word),
+            }
+        };
+        nearest.or(up)
+    }
+
     pub(super) fn swift_call_fields(
         &self,
         here: &Path,
@@ -288,7 +403,17 @@ impl App {
                 let (_, value, literals) = SDK_TYPES.iter().find(|(n, _, _)| *n == name)?;
                 Some(Nominal {
                     value: *value,
-                    literals: headers.is_empty().then_some(*literals),
+                    literals: hits
+                        .iter()
+                        .filter(|h| {
+                            search::swift_type_header(&h.text).is_some_and(|t| t.name == name)
+                        })
+                        .all(|h| {
+                            h.text
+                                .split_once('{')
+                                .is_some_and(|(head, _)| !head.contains(':'))
+                        })
+                        .then_some(*literals),
                 })
             }
             _ => None,
