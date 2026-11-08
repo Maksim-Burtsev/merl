@@ -119,28 +119,17 @@ impl App {
 
     pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
         let kind = a.kind;
-        let arrow = (kind == Kind::C)
-            .then(|| search::arrow_head(&a.before))
-            .flatten();
-        let arrowed = arrow.is_some();
-        let chain = arrow.map_or_else(|| a.chain.clone(), |head| vec![head]);
-        let chain = chain.as_slice();
-        let on_this = |f: &str| {
-            (a.before.strip_suffix('.'))
-                .and_then(|b| b.strip_suffix(f))
-                .is_some_and(|b| b.trim_end().ends_with("this->"))
-        };
+        let chain = a.chain.as_slice();
         let explicit = match (kind, chain) {
             (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
-            (Kind::C, [f]) if on_this(f) => Some(f),
             _ => None,
         };
         let reaches = match kind {
             Kind::Go => !chain.is_empty(),
-            Kind::C | Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
+            Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
             _ => false,
         };
-        if !(a.dotted || arrowed) || !reaches {
+        if !a.dotted || !reaches {
             return false;
         }
         let own = |f: &str| {

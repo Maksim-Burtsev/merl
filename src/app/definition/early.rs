@@ -215,6 +215,7 @@ impl App {
                 ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
             || (kind == Kind::Scheme && search::racket_method_sent(lead))
+            || (kind == Kind::Clojure && search::clojure_keyword(lead))
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
@@ -421,9 +422,6 @@ impl App {
             && let Some(shown) = self.sql_in_file(a)
         {
             return shown;
-        }
-        if kind == Kind::C && self.answered_through_type_param(a) {
-            return true;
         }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
