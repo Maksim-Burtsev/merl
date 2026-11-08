@@ -72,8 +72,54 @@ pub fn lisp_names_below(kind: Kind, text: &str, line1: usize, word: &str) -> boo
         Some(n) => code.match_indices('\n').nth(n).map(|(i, _)| i + 1),
     };
     start
+        .filter(|&s| !in_template(&code.as_bytes()[..s]))
         .and_then(|s| code.get(s..))
         .is_some_and(|c| re.is_match(c))
+}
+
+fn in_template(code: &[u8]) -> bool {
+    const TEMPLATES: &[&[u8]] = &[
+        b"syntax-rules",
+        b"syntax-case",
+        b"syntax-parse",
+        b"define-syntax-rule",
+        b"er-macro-transformer",
+        b"ir-macro-transformer",
+        b"sc-macro-transformer",
+        b"rsc-macro-transformer",
+        b"quasiquote",
+        b"quasisyntax",
+        b"syntax",
+        b"quote",
+    ];
+    let mut open = Vec::new();
+    for (i, &c) in code.iter().enumerate() {
+        match c {
+            b'(' | b'[' | b'{' => {
+                let quoted = i > 0 && matches!(code[i - 1], b'`' | b'\'');
+                let rest = &code[i + 1..];
+                let head = &rest[..rest
+                    .iter()
+                    .position(|&c| delimiter(c))
+                    .unwrap_or(rest.len())];
+                open.push(quoted || TEMPLATES.contains(&head));
+            }
+            b')' | b']' | b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.contains(&true)
+}
+
+pub fn clojure_defines(text: &str, word: &str) -> bool {
+    let heads =
+        "def|defn-?|defmacro|defonce|defmulti|defprotocol|defrecord|deftype|definterface|defstruct";
+    let w = regex::escape(word);
+    let code = lisp_code(Kind::Clojure, text);
+    Regex::new(&format!(r"(?m)^\s*\((?:{heads})\s+{META}{w}{END}"))
+        .is_ok_and(|re| re.is_match(&String::from_utf8_lossy(&code)))
 }
 
 pub(super) const CLOJURE_SYMBOL: &str = concat!(

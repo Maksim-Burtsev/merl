@@ -710,7 +710,13 @@ the kettle's, `teapot.clj` and `infuser.clj` refer it and define their own (on o
 the name under `(defn-`), and `strainer.cljc` refers it, and binds an alias, from both namespaces
 in a reader conditional. `infuser.clj`, `common-lisp/kettle.lisp`, `scheme/kettle.rkt` and
 `emacs-lisp/shop-kettle.el` also define a name on the line under its head, and under a head whose
-next line names it only in a comment.
+next line names it only in a comment. What must keep master's answer: `ladler.clj` adds a
+`defmethod` to the kettle's referred `ladle` and lands on its `defmulti`; `sifter.clj` refers a
+`sieve` from outside the project and calls it as `(sieve [x y]`, which answers nothing, not with
+`stale.clj`'s namesake; `scheme/checked.scm` names a `syntax-rules` pattern variable under a lone
+`(define-record-type` of its template, and `scheme/queries/highlights.scm` is a tree-sitter query
+whose `(module` has `(identifier)` under it: neither defines anything. `kettle.rkt` still finds an
+indented `(define-syntax-rule` with its pattern on the next line.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
