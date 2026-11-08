@@ -4,7 +4,7 @@ namespace drainer {
 
 template <typename Funnel>
 int Hold(Funnel* f) {
-//       ^ d: !jump
+//       ^ d: src/tea/colander_hold.cc:5
   return 0;
 }
 

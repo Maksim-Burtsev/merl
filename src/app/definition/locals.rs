@@ -44,15 +44,22 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = (kind == Kind::TsJs
-            && !a.dotted
-            && a.chain.is_empty()
-            && locals.is_empty()
-            && imports.iter().all(|i| i.name != *word))
-        .then(|| search::ts_type_param(&a.text, self.line + 1, word))
-        .flatten();
-        if let Some(p) = &type_param {
-            locals = vec![p.line1];
+        let type_param =
+            (!a.dotted && a.chain.is_empty() && locals.is_empty() && !a.before.ends_with("::"))
+                .then(|| match kind {
+                    Kind::TsJs if imports.iter().all(|i| i.name != *word) => {
+                        search::ts_type_param(&a.text, self.line + 1, word).map(|p| p.line1)
+                    }
+                    Kind::CSharp => search::cs_generic_param_line(&a.text, self.line + 1, word),
+                    Kind::Rust if !rust_type_position(a) => None,
+                    Kind::Rust | Kind::Go | Kind::C => {
+                        search::type_param_line(kind, &a.text, self.line + 1, word)
+                    }
+                    _ => None,
+                })
+                .flatten();
+        if let Some(p) = type_param {
+            locals = vec![p];
         }
         if !locals.is_empty() || self.def_hides_import(a) {
             imports.retain(|i| i.name != a.first());
@@ -365,6 +372,21 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_type_position(a: &Asked) -> bool {
+    let (b, t) = (a.before.trim_end(), a.tail.trim_start());
+    let marks = [
+        ":", "->", "<", "&", "[", "mut", "const", "dyn", "impl", "for", "as", "where",
+    ];
+    let in_angles = b.matches('<').count() > b.matches('>').count() - b.matches("->").count();
+    marks.iter().any(|m| {
+        b.strip_suffix(m).is_some_and(|rest| {
+            m.len() == 1 || !rest.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+        })
+    }) || (b.ends_with(',') && in_angles)
+        || t.starts_with("::")
+        || (b.is_empty() && t.starts_with(':'))
 }
 
 fn ts_key(a: &Asked, line1: usize) -> bool {

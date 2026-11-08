@@ -11,5 +11,5 @@ public static class Aliased
 public class Boxed<Jar>
 {
     public Jar Item { get; set; }
-    //     ^ d: picker src/Shop/Pantry/Aliased.cs:2, src/Shop/Pantry/Jar.cs:3, src/Shop/Pantry/Old/Jar.cs:3, src/Shop/Pantry/Shadowed.cs:1, src/Shop/Tea/Infuse/Checks.cs:2
+    //     ^ d: src/Shop/Pantry/Aliased.cs:11
 }
