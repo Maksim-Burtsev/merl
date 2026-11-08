@@ -1,7 +1,7 @@
 use regex::Regex;
 
-use super::jvm::{ident, param_names};
-use super::{Kind, code, indent, uncommented};
+use super::jvm::{ident, jvm_bindings, param_names};
+use super::{Binding, Kind, Value, code, indent, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
     let mut bytes = vec![b' '; s.len()];
@@ -399,4 +399,28 @@ fn matching(b: &[u8], open: usize) -> Option<usize> {
         }
         depth == 0
     })
+}
+
+pub fn jvm_bindings_at(
+    path: &std::path::Path,
+    text: &str,
+    line1: usize,
+    col: usize,
+    name: &str,
+) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    if !matches!(name, "this" | "super" | "it")
+        && blanked(lines[at])
+            .get(..col)
+            .is_some_and(|lead| jvm_declared_before(lead, name))
+    {
+        return vec![Binding {
+            line1,
+            value: Value::Unknown,
+        }];
+    }
+    jvm_bindings(path, &lines, at, name, Some(col))
 }

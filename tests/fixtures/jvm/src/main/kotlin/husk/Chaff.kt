@@ -31,3 +31,12 @@ fun thresh(c: Chaff) {
     winnowGlob()
 //  ^ d: src/main/kotlin/husk/Chaff.kt:18
 }
+
+fun steep(): Int {
+    val leaves = 1
+    /* Kotlin comments nest: /* this one */ closes only the inner one
+    val leaves = 0
+    */
+    return leaves
+//         ^ d: src/main/kotlin/husk/Chaff.kt:36
+}
