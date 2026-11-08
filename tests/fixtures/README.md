@@ -127,6 +127,10 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   under a tag of its own, the last two used from `platforms_gate.go` (`//go:build gated`);
   `aliases` an alias with a method of its own over an embedded namesake; `qualifiers` a parameter
   behind a function-typed one and a field called like the import.
+- type parameters named like a project type (#1439): `typescript/amphora_rack.ts`,
+  `dart/lib/amphora_rack.dart` and `jvm/src/main/{java/amphora,kotlin/pithos,scala/krater}`
+  declare generics whose parameter is called like the class beside them, a method re-declaring
+  it inside a generic class, a bound naming the class, and the class used outside any generic.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
