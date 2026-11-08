@@ -149,6 +149,41 @@ fn picker_overlay_renders_border_prompt_and_items() {
 }
 
 #[test]
+fn a_selection_in_a_picker_query_is_drawn_like_one_in_the_code_and_the_cursor_shows_on_it() {
+    let files = ["src/app.rs"].map(PathBuf::from).to_vec();
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        files,
+        Buffer::empty(),
+        None,
+    );
+    app.open_files_picker();
+    for c in "abc".chars() {
+        app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    for _ in 0..2 {
+        app.key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
+    }
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+    let buf = terminal.backend().buffer();
+    let (x, y) = cell_at(&terminal, "> abc");
+    let (cursor, selected) = (&buf[(x + 3, y)], &buf[(x + 4, y)]);
+    assert_eq!(
+        (selected.symbol(), selected.bg, selected.modifier),
+        (
+            "c",
+            theme.selection,
+            theme.visual(ratatui::style::Style::new()).add_modifier
+        )
+    );
+    assert_ne!((cursor.fg, cursor.bg), (selected.fg, selected.bg));
+}
+
+#[test]
 fn search_title_hides_the_count_until_the_grep_answers() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor/notes");
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);

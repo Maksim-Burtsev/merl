@@ -180,9 +180,7 @@ impl<'a> Painter<'a> {
                 .fg(theme.cursor_gutter_fg)
                 .bg(theme.cursor_gutter_bg())
                 .add_modifier(theme.modifiers(&["CursorLineNr"])),
-            sel: theme
-                .selected(base)
-                .add_modifier(theme.modifiers(&["Visual"])),
+            sel: theme.visual(base),
             sel_lines: app.selection().map(|(start, end)| (start.0, end.0)),
             text_hl,
             nowrap: app.nowrap(),
