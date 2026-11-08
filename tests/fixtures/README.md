@@ -473,6 +473,13 @@ subclasses that a call cannot take: `Pour(int a, int b)` and `Pour(string s)`, s
 a bare `Pour(1)`, a typed receiver and `new Dipper().Pour(2)` reach `Carafe.Pour`, while a call the
 overload takes stays on it, `Pour(long n)` keeps an `int` literal, and a class with no base keeps
 its only overload.
+`swift/Sources/Shop/Decant/` (#1436) declares overloads of an inherited `Flagon.decant(_:)` in
+its subclasses that a call cannot take, `decant(into:)` and `decant(_ s: String)`, so
+`self.decant(1)`, a bare `decant(2)`, a typed receiver and `Tankard().decant(2)` reach
+`Flagon.decant`, also through a class that declares none; a call the overload takes stays on it,
+a `true` that no level takes keeps the nearest, an `override` beside a `String` overload takes the
+`Int` literal, a trailing closure keeps its own, a generic overload keeps a picker, and a base from
+outside the project keeps the class's own.
 `csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
 `Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
 there, so `Ignite()` lands on the `Burners` the live `using static` opens.
