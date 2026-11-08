@@ -12,7 +12,7 @@ type Rack[Goblet any] struct {
 func Fill[Goblet any](x Goblet) Goblet {
 //                      ^ d: cart/goblets.go:12
 	x.Quaff()
-	//^ d: cart/goblets.go:5; want none (#1438)
+	//^ d: none
 	return x
 }
 
@@ -27,3 +27,41 @@ type Row [N]Goblet
 //          ^ d: cart/goblets.go:3
 
 const N = 2
+
+type Toaster interface {
+	Clink()
+}
+
+func (g Goblet) Clink() {}
+
+func Bounded[T Toaster](x T) {
+	x.Clink()
+	//^ d: cart/goblets.go:32
+}
+
+func Unbound[T any](x T) {
+	x.Quaff()
+	//^ d: none
+}
+
+func (r Rack[Goblet]) Use(x Goblet, y *Goblet) {
+	x.Quaff()
+	//^ d: none
+	y.Quaff()
+	//^ d: none
+	r.held.Quaff()
+	//     ^ d: none
+}
+
+func Tilde[Goblet ~int](x Goblet) {
+	var y Goblet
+	y.Quaff()
+	//^ d: none
+}
+
+func Wrapped[Goblet any](
+	x Goblet,
+) {
+	x.Quaff()
+	//^ d: none
+}

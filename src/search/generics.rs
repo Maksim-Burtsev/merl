@@ -167,6 +167,31 @@ fn dart_declares(t: &str, name: &str) -> bool {
 }
 
 pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Option<usize> {
+    type_param(kind, text, line1, name).map(|(at, _)| at)
+}
+
+pub struct TypeParam {
+    pub bound: Option<String>,
+}
+
+pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Option<TypeParam> {
+    let (at, bound) = type_param(kind, text, line1, name)?;
+    let clause = match kind {
+        Kind::Rust | Kind::Swift => "where",
+        Kind::C => "requires",
+        _ => return Some(TypeParam { bound }),
+    };
+    let clauses = text.lines().take(line1).skip(at - 1).any(|l| {
+        coded(kind, l)
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|w| w == clause)
+    });
+    Some(TypeParam {
+        bound: bound.or_else(|| clauses.then(|| clause.to_owned())),
+    })
+}
+
+fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize, Option<String>)> {
     static RUST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\S+)?)\s+)*(fn|struct|enum|union|trait|impl|type|mod)\b")
             .expect("the regex is a literal")
@@ -184,8 +209,8 @@ pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Opti
             }
             inside_item = true;
         }
-        if let Some(at) = declares(kind, &lines, k, name) {
-            return Some(at + 1);
+        if let Some((at, bound)) = declares(kind, &lines, k, name) {
+            return Some((at + 1, bound));
         }
         let t = uncommented(kind, lines[k]);
         let t = t.trim();
@@ -214,7 +239,7 @@ fn continues(t: &str) -> bool {
     t.starts_with([')', ']', '>']) || t.starts_with("where") || t.starts_with("->")
 }
 
-fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
+fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, Option<String>)> {
     static RUST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"\b(?:fn\s+\w+|impl|struct\s+\w+|enum\s+\w+|union\s+\w+|trait\s+\w+|type\s+\w+)\s*<",
@@ -230,44 +255,72 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
     });
     static CPP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\btemplate\s*<").expect("the regex is a literal"));
+    static SWIFT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:func\s+\w+|init[?!]?|subscript|(?:struct|class|enum|actor)\s+\w+)\s*<")
+            .expect("the regex is a literal")
+    });
     let line = coded(kind, lines[k]);
     let t = line.trim();
     let named = |list: &str, last: bool| {
-        top_parts(list)
+        let parts = top_parts(list);
+        let i = parts
             .iter()
-            .any(|p| param_name(p, last) == Some(name))
+            .position(|p| param_name(p, last) == Some(name))?;
+        Some(param_bound(kind, &parts, i))
+    };
+    let angled = |re: &Regex| {
+        re.find_iter(t)
+            .filter_map(|m| list_after(t.get(m.end()..)?, b'<', b'>'))
+            .find_map(|l| named(l, false))
+            .map(|b| (k, b))
     };
     match kind {
-        Kind::Rust => RUST
-            .find_iter(t)
-            .filter_map(|m| list_after(t.get(m.end()..)?, b'<', b'>'))
-            .any(|l| named(l, false))
-            .then_some(k),
+        Kind::Rust => angled(&RUST),
+        Kind::Swift => angled(&SWIFT),
         Kind::Go => {
             let list = |re: &Regex| list_after(t.get(re.find(t)?.end()..)?, b'[', b']');
-            let typed = list(&GO).is_some_and(|l| {
-                let parts = top_parts(l);
-                parts
-                    .last()
-                    .and_then(|p| p.split_whitespace().nth(1))
-                    .is_some_and(|c| {
-                        c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c))
-                    })
-                    && named(l, false)
-            });
-            (typed || list(&GO_RECEIVER).is_some_and(|l| named(l, false))).then_some(k)
+            list(&GO)
+                .filter(|l| {
+                    top_parts(l)
+                        .last()
+                        .and_then(|p| p.split_whitespace().nth(1))
+                        .is_some_and(|c| {
+                            c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c))
+                        })
+                })
+                .and_then(|l| named(l, false))
+                .or_else(|| list(&GO_RECEIVER).and_then(|l| named(l, false)))
+                .map(|b| (k, b))
         }
         Kind::C => (0..=k)
             .rev()
             .take_while(|&i| i == k || bare_template(&uncommented(kind, lines[i])))
-            .find(|&i| {
+            .find_map(|i| {
                 let l = coded(kind, lines[i]);
                 CPP.find_iter(&l)
                     .filter_map(|m| list_after(l.get(m.end()..)?, b'<', b'>'))
-                    .any(|l| named(l, true))
+                    .find_map(|l| named(l, true))
+                    .map(|b| (i, b))
             }),
         _ => None,
     }
+}
+
+fn param_bound(kind: Kind, parts: &[&str], i: usize) -> Option<String> {
+    let part = parts[i].split('=').next().unwrap_or_default().trim();
+    let bound = match kind {
+        Kind::Go => parts[i..]
+            .iter()
+            .find_map(|p| p.trim().split_once(char::is_whitespace))
+            .map(|(_, c)| c.trim())
+            .filter(|c| !matches!(*c, "any" | "interface{}")),
+        Kind::C => part
+            .split_whitespace()
+            .next()
+            .filter(|w| !matches!(*w, "typename" | "class")),
+        _ => part.split_once(':').map(|(_, b)| b.trim()),
+    };
+    bound.map(str::to_owned)
 }
 
 fn bare_template(line: &str) -> bool {
@@ -337,4 +390,22 @@ fn param_name(part: &str, last: bool) -> Option<&str> {
     WORD.find(head)
         .filter(|m| m.start() == 0)
         .map(|m| m.as_str())
+}
+
+pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let pattern = match kind {
+        Kind::C => format!(
+            r"(?:^|[(,;{{])\s*(?:const\s+)?([A-Za-z_]\w*)\s*(?:const\s*)?[&*]*\s*\b{n}\s*(?:[,)=;\[{{]|$)"
+        ),
+        Kind::Rust | Kind::Swift => format!(
+            r"(?:^|[^\w.])(?:_\s+)?{n}\s*:\s*(?:&\s*)?(?:mut\s+|inout\s+)?([A-Za-z_]\w*)[?!]?\s*(?:[,)=;{{]|$)"
+        ),
+        _ => return None,
+    };
+    let code = coded(kind, line);
+    Regex::new(&pattern)
+        .ok()?
+        .captures(code.trim())
+        .map(|c| c[1].to_owned())
 }
