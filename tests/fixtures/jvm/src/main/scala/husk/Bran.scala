@@ -18,7 +18,7 @@ object Mill {
 
   def run(b: Bran): Unit = {
     new Bran()
-//      ^ d: none; want src/main/scala/husk/Bran.scala:3 (#1424)
+//      ^ d: src/main/scala/husk/Bran.scala:3
     b.sift
 //    ^ d: src/main/scala/husk/Bran.scala:4
     grindBefore
