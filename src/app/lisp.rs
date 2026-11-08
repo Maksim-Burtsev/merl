@@ -17,6 +17,27 @@ impl App {
         hits
     }
 
+    pub(super) fn lisp_split_heads(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+    ) -> Vec<Hit> {
+        let alone = search::lisp_head_alone(kind);
+        let mut hits = self.project_grep(kind, here, &format!("{pattern}|{alone}"));
+        let Ok(alone) = regex::Regex::new(&alone) else {
+            return hits;
+        };
+        hits.retain(|h| {
+            !alone.is_match(&h.text)
+                || self
+                    .text_of(&h.path)
+                    .is_some_and(|t| search::lisp_names_below(kind, &t, h.line1, word))
+        });
+        hits
+    }
+
     pub(super) fn binding_lines(
         &self,
         kind: Kind,

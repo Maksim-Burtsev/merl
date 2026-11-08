@@ -701,7 +701,9 @@ an `if-let` else branch.
 `clojure/src/shop/kettle.clj` and `stale.clj` (#1431) each define a `steep`: `brewer.clj` refers
 the kettle's, `teapot.clj` and `infuser.clj` refer it and define their own (on one line, and with
 the name under `(defn-`), and `strainer.cljc` refers it, and binds an alias, from both namespaces
-in a reader conditional.
+in a reader conditional. `infuser.clj`, `common-lisp/kettle.lisp`, `scheme/kettle.rkt` and
+`emacs-lisp/shop-kettle.el` also define a name on the line under its head, and under a head whose
+next line names it only in a comment.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a

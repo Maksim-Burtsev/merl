@@ -57,6 +57,23 @@ pub fn lisp_patterns(kind: Kind, word: &str) -> Vec<String> {
     out
 }
 
+pub fn lisp_head_alone(kind: Kind) -> String {
+    let case = if kind == Kind::CommonLisp { "(?i)" } else { "" };
+    format!(r"{case}^\s*\((?:{})\s*(?:;.*)?$", heads(kind))
+}
+
+pub fn lisp_names_below(kind: Kind, text: &str, line1: usize, word: &str) -> bool {
+    let Ok(re) = Regex::new(&lisp_patterns(kind, word)[0]) else {
+        return false;
+    };
+    let code = String::from_utf8_lossy(&lisp_code(kind, text)).into_owned();
+    let start = match line1.checked_sub(2) {
+        None => Some(0),
+        Some(n) => code.match_indices('\n').nth(n).map(|(i, _)| i + 1),
+    };
+    start.is_some_and(|s| re.is_match(&code[s..]))
+}
+
 pub(super) const CLOJURE_SYMBOL: &str = concat!(
     r"^\s*\((?:defn-?|defmacro|defmulti|defprotocol|defrecord|deftype|definterface|ns)\s+",
     r"(?:\^(?:\{[^}]*\}|\S+)\s+)*(?P<name>[^\s()\[\]{}^]+)"
