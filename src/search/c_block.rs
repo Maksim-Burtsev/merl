@@ -137,7 +137,7 @@ static DEFINE: LazyLock<Regex> = LazyLock::new(|| {
 });
 pub fn c_function_macros(text: &str) -> String {
     (DEFINE.find_iter(text))
-        .map(|m| format!("\n{}", m.as_str()))
+        .flat_map(|m| ["\n", m.as_str()])
         .collect()
 }
 pub(super) type Declarer = (String, Vec<usize>);
