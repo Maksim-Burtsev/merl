@@ -53,7 +53,7 @@ impl App {
             };
         }
         if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
-            let element = Self::jvm_element(text, self.line + 1, &source, true)?;
+            let element = Self::jvm_element(here, text, self.line + 1, &source, true)?;
             let ty = self.jvm_type_at(here, text, &element);
             let label = format!("{source}: element {element}");
             return self.jvm_typed_member(here, ty, &label, word);
@@ -173,7 +173,7 @@ impl App {
         let at = text.lines().nth(line1.checked_sub(1)?)?;
         if let Some(d) = search::kotlin_destructured(at, name) {
             let source = if d.in_loop {
-                let element = Self::jvm_element(text, line1, &d.source, false)?;
+                let element = Self::jvm_element(file, text, line1, &d.source, false)?;
                 self.jvm_type_at(file, text, &element)
             } else {
                 self.jvm_value(file, text, line1, &d.source, true, 1)?
@@ -195,7 +195,7 @@ impl App {
         {
             let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
-                .map(|d| search::jvm_members_of(text, d, name))
+                .map(|d| search::jvm_members_of(file, text, d, name))
                 .find(|m| !m.is_empty())?;
             let [m] = members[..] else {
                 return None;
@@ -279,7 +279,7 @@ impl App {
                             }
                             _ => None,
                         },
-                        None => Self::jvm_element(text, line, &lambda, false),
+                        None => Self::jvm_element(here, text, line, &lambda, false),
                     }
                 });
                 let WrittenType {
@@ -513,7 +513,7 @@ impl App {
         let declared = if bindings.is_empty() {
             let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
-                .map(|d| search::jvm_members_of(text, d, name))
+                .map(|d| search::jvm_members_of(file, text, d, name))
                 .find(|m| !m.is_empty());
             match members {
                 Some(m) => m,
@@ -673,7 +673,13 @@ impl App {
         matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
     }
 
-    fn jvm_element(text: &str, line1: usize, name: &str, java: bool) -> Option<String> {
+    fn jvm_element(
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        java: bool,
+    ) -> Option<String> {
         let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
             .iter()
             .map(|b| b.line1)
@@ -681,7 +687,7 @@ impl App {
         if declared.is_empty() {
             declared = search::jvm_enclosing_types(text, line1)
                 .into_iter()
-                .map(|d| search::jvm_members_of(text, d, name))
+                .map(|d| search::jvm_members_of(file, text, d, name))
                 .find(|m| !m.is_empty())?;
         }
         let [l] = declared[..] else {
@@ -771,7 +777,7 @@ impl App {
             return Vec::new();
         };
         let lines: Vec<&str> = text.lines().collect();
-        let mut found = search::jvm_members_of(&text, decl.line1, word);
+        let mut found = search::jvm_members_of(&decl.path, &text, decl.line1, word);
         if found.is_empty() {
             found = search::jvm_lombok_fields(&text, decl.line1, word);
         }
@@ -920,7 +926,7 @@ impl App {
         search::jvm_enclosing_types(text, line1)
             .into_iter()
             .map(|decl| {
-                search::jvm_members_of(text, decl, written)
+                search::jvm_members_of(file, text, decl, written)
                     .into_iter()
                     .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(written))
                     .map(|l| Hit {
@@ -971,7 +977,7 @@ impl App {
             return JvmType::Unknown;
         };
         let lines: Vec<&str> = text.lines().collect();
-        let nested: Vec<usize> = search::jvm_members_of(&text, decl.line1, name)
+        let nested: Vec<usize> = search::jvm_members_of(&decl.path, &text, decl.line1, name)
             .into_iter()
             .filter(|&l| search::jvm_type_name(lines[l - 1]).as_deref() == Some(name))
             .collect();

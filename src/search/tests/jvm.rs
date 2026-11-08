@@ -137,18 +137,23 @@ fn jvm_anonymous_classes_enclose_but_name_nothing() {
 fn jvm_members_of_a_type() {
     let java = "class A {\n    A() {}\n    int size;\n}\n";
     assert!(
-        jvm_members_of(java, 1, "A").is_empty(),
+        jvm_members_of(Path::new("A.java"), java, 1, "A").is_empty(),
         "a constructor is no member"
     );
-    assert_eq!(jvm_members_of(java, 1, "size"), [3]);
+    assert_eq!(jvm_members_of(Path::new("A.java"), java, 1, "size"), [3]);
     let record = "record Point(\n    int x,\n    int y\n) {}\n";
-    assert!(jvm_members_of(record, 1, "x").contains(&2));
+    assert!(jvm_members_of(Path::new("A.java"), record, 1, "x").contains(&2));
     assert_eq!(
-        jvm_members_of("record Point(int x, int y) {}\n", 1, "y"),
+        jvm_members_of(
+            Path::new("A.java"),
+            "record Point(int x, int y) {}\n",
+            1,
+            "y"
+        ),
         [1]
     );
     let kotlin = "class A {\n    companion object {\n        fun make() = A()\n    }\n}\n";
-    assert_eq!(jvm_members_of(kotlin, 1, "make"), [3]);
+    assert_eq!(jvm_members_of(Path::new("A.kt"), kotlin, 1, "make"), [3]);
 }
 
 #[test]
