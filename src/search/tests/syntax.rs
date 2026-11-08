@@ -8,6 +8,31 @@ fn hidden(kind: Kind, text: &str) -> Vec<usize> {
 }
 
 #[test]
+fn a_kotlin_and_a_java_file_of_one_text_keep_their_own_comments() {
+    let text = "/* a /* b */\nfun fake() {}\n*/\nfun real() {}";
+    let read = |name: &str| path_literal_lines(Kind::Jvm, Path::new(name), text);
+    let (java, nested) = (vec![false; 4], vec![false, true, true, false]);
+    assert_eq!(read("A.java"), java);
+    assert_eq!(read("A.kt"), nested, "Kotlin's comments nest");
+    assert_eq!(
+        read("A.java"),
+        java,
+        "Java keeps its reading after Kotlin's"
+    );
+    assert_eq!(read("A.scala"), nested);
+    assert_eq!(read("A.groovy"), java);
+    let imports = "/* a /* b */\nimport app.Fake\n*/\nimport app.Real\n";
+    let bound = |name: &str| -> Vec<String> {
+        let imports = jvm_imports(Path::new(name), imports);
+        imports.into_iter().map(|i| i.bound_name).collect()
+    };
+    assert_eq!(bound("A.kt"), ["Real"], "an import inside a nested comment");
+    assert_eq!(bound("A.java"), ["Fake", "Real"]);
+    let at = |name: &str| jvm_imports_at(Path::new(name), imports, 4).len();
+    assert_eq!((at("A.kt"), at("A.java")), (1, 2));
+}
+
+#[test]
 fn a_kind_runs_over_lines_only_the_literals_it_has() {
     for (kind, text) in [
         (Kind::Graphql, "/*\ntype Fake\n*/"),

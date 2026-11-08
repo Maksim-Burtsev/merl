@@ -136,7 +136,11 @@ impl App {
                         let literal = literals
                             .entry(h.path.clone())
                             .or_insert_with(|| {
-                                search::literal_lines(Kind::Jvm, text.as_deref().unwrap_or(""))
+                                search::path_literal_lines(
+                                    Kind::Jvm,
+                                    &h.path,
+                                    text.as_deref().unwrap_or(""),
+                                )
                             })
                             .get(h.line1 - 1)
                             .copied()
@@ -181,7 +185,8 @@ impl App {
         word: &str,
         cursor_on_import: bool,
     ) -> Option<Vec<Candidate>> {
-        let imports = search::jvm_imports_at(text, self.line + 1);
+        let here = self.rel_current().unwrap_or_default();
+        let imports = search::jvm_imports_at(&here, text, self.line + 1);
         let first = chain.first().map_or(word, String::as_str);
         let bound = imports
             .iter()
@@ -296,7 +301,7 @@ impl App {
         }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
-        for &decl in &types {
+        for (i, &decl) in types.iter().enumerate() {
             let reason = match search::jvm_type_name(lines[decl - 1]) {
                 Some(name) => Reason::Path(name),
                 None => Reason::Local,
@@ -305,6 +310,9 @@ impl App {
                 .into_iter()
                 .map(|line| candidate(here, &lines, line, reason.clone()))
                 .collect();
+            if found.is_empty() && i + 1 < types.len() {
+                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word);
+            }
             if !found.is_empty() {
                 break;
             }
@@ -350,6 +358,41 @@ impl App {
             .iter()
             .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    fn jvm_nested_inherited(
+        &self,
+        here: &Path,
+        text: &str,
+        header: &str,
+        decl: usize,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let (ty, name) = match search::jvm_type_name(header) {
+            Some(name) => (
+                Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: decl,
+                    byte_col: None,
+                    text: header.to_owned(),
+                },
+                name,
+            ),
+            None => match search::jvm_anonymous_base(header)
+                .map(|base| (self.jvm_type_at(here, text, &base), base))
+            {
+                Some((super::jvm_typed::JvmType::Project(b), base)) => (b, base),
+                _ => return Vec::new(),
+            },
+        };
+        self.jvm_hierarchy_member(&ty, word, 0, &mut Vec::new())
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(name.clone()),
+            })
+            .collect()
     }
 
     fn jvm_base_members(&self, here: &Path, base: &str, word: &str) -> Option<Vec<Candidate>> {
@@ -472,7 +515,7 @@ impl App {
                 continue;
             };
             let lines: Vec<&str> = text.lines().collect();
-            let literal = search::literal_lines(Kind::Jvm, &text);
+            let literal = search::path_literal_lines(Kind::Jvm, &c.hit.path, &text);
             let inside = |line: usize| {
                 re.is_match(lines[line - 1])
                     && !literal.get(line - 1).copied().unwrap_or(false)

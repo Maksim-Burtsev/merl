@@ -329,6 +329,10 @@ its real definition, which `d` jumps to.
 several lines, and `swift/Sources/Shop/Husk.swift` inside a nested `/* /* */ */` comment and a
 `#if false` block. Neither declares anything; `d` jumps to the real definitions beside them and
 to a function under `#elseif`.
+`common-lisp/husk.lisp` (#1428) hides functions behind `#+nil`, `#+(or)` and `#-(and)`, which
+declare nothing, and one behind `#+sbcl`, which stays live; `clojure/src/shop/husk.clj` discards
+two forms with `#_ #_`, and `solidity/contracts/Husk.sol` holds functions in a string continued by
+`\` at its line ends, then a `"C:\\"` string after which code is code again.
 `jvm/src/main/kotlin/husk/Chaff.kt` and `jvm/src/main/scala/husk/Bran.scala` (#1423) hide a
 class, a method, a value and namesakes of real ones in a nested block comment, which ends only at
 its second `*/`, and a KDoc whose `src/**/*.kt` nests and closes again.

@@ -414,7 +414,10 @@ impl<'a> Scanner<'a> {
 
     fn newline(&mut self) {
         let (b, i) = (self.b, self.i);
-        if !(self.kind == Kind::Php && self.in_php_tags) {
+        let continued = self.kind == Kind::Solidity
+            && self.line_quote.is_some()
+            && b[..i].iter().rev().take_while(|&&c| c == b'\\').count() % 2 == 1;
+        if !(continued || (self.kind == Kind::Php && self.in_php_tags)) {
             self.line_quote = None;
         }
         if self.heredoc.is_none() && !self.ruby_heredocs_from_next_line.is_empty() {
@@ -444,6 +447,7 @@ impl<'a> Scanner<'a> {
         }
         self.out.push(
             self.literal_closer.is_some()
+                || continued
                 || (self.kind == Kind::Php && self.in_php_tags && self.line_quote.is_some()),
         );
         if self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line {
