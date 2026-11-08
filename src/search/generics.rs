@@ -4,9 +4,43 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::{
-    Kind, comment, indent, jvm_type_parameter, literal_lines, path_literal_lines, scala,
-    scala_type_parameter, split_top, uncommented,
+    Kind, code, comment, indent, literal_lines, path_literal_lines, scala, scala_type_parameter,
+    split_top, uncommented,
 };
+
+pub fn in_prose(kind: Kind, path: &Path, text: &str, line1: usize, col: usize) -> bool {
+    let Some(line) = line1.checked_sub(1).and_then(|k| text.lines().nth(k)) else {
+        return true;
+    };
+    let lead = line.get(..col).unwrap_or(line);
+    comment(kind, line.trim())
+        || path_literal_lines(kind, path, text).get(line1 - 1) == Some(&true)
+        || lead.rfind("/*") > lead.rfind("*/")
+        || uncommented(kind, line).len() <= col
+        || (!lead.contains('$') && !code(kind, line).any(|(i, _)| i == col))
+}
+
+fn jvm_declares(t: &str, name: &str) -> bool {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\b(?:class|interface|record|typealias)\s+[A-Za-z_]\w*\s*|\b(?:fun|val|var)\s*|^(?:@\w+(?:\([^()]*\))?\s+|(?:public|protected|private|static|final|abstract|synchronized|native|default|strictfp)\s+)*)<([^<>]*(?:<[^<>]*>[^<>]*)*)>").expect("the regex is a literal")
+    });
+    HEAD.captures_iter(t).any(|c| {
+        split_top(Kind::Jvm, &c[1], b',').iter().any(|e| {
+            e.split_whitespace()
+                .find(|w| !matches!(*w, "in" | "out" | "reified"))
+                .is_some_and(|w| w.trim_end_matches(':') == name)
+        })
+    })
+}
+
+fn scala_declares(t: &str, name: &str) -> bool {
+    static ANONYMOUS_GIVEN: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bgiven\s+[\w.]+\s*\[[^\]]*\]\s*(?:with\b|=|\{|$)")
+            .expect("the regex is a literal")
+    });
+    !ANONYMOUS_GIVEN.is_match(t) && scala_type_parameter(t, name)
+}
+
 pub fn generic_param_line(
     kind: Kind,
     path: &Path,
@@ -16,8 +50,8 @@ pub fn generic_param_line(
 ) -> Option<usize> {
     let declares = |t: &str| match kind {
         Kind::Dart => dart_declares(t, name),
-        Kind::Jvm if scala(path) => scala_type_parameter(t, name),
-        Kind::Jvm => jvm_type_parameter(t, name),
+        Kind::Jvm if scala(path) => scala_declares(t, name),
+        Kind::Jvm => jvm_declares(t, name),
         _ => false,
     };
     let lines: Vec<&str> = text.lines().collect();
@@ -88,8 +122,21 @@ fn dart_declares(t: &str, name: &str) -> bool {
 pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let literal = literal_lines(kind, text);
+    static RUST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\S+)?)\s+)*(fn|struct|enum|union|trait|impl|type|mod)\b")
+            .expect("the regex is a literal")
+    });
     let mut k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut inside_item = false;
     loop {
+        if kind == Kind::Rust
+            && let Some(c) = RUST_ITEM.captures(coded(kind, lines[k]).trim())
+        {
+            if inside_item && &c[1] == "fn" {
+                return None;
+            }
+            inside_item = true;
+        }
         if let Some(at) = declares(kind, &lines, k, name) {
             return Some(at + 1);
         }
@@ -106,6 +153,14 @@ pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Opti
                 && indent(lines[i]) < depth
         })?;
     }
+}
+
+fn coded(kind: Kind, s: &str) -> String {
+    let bytes: Vec<u8> = code(kind, s)
+        .map(|(_, c)| c)
+        .take_while(|&c| c != 0)
+        .collect();
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 fn continues(t: &str) -> bool {
@@ -128,7 +183,7 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
     });
     static CPP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\btemplate\s*<").expect("the regex is a literal"));
-    let line = uncommented(kind, lines[k]);
+    let line = coded(kind, lines[k]);
     let t = line.trim();
     let named = |list: &str, last: bool| {
         top_parts(list)
@@ -147,7 +202,10 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
                 let parts = top_parts(l);
                 parts
                     .last()
-                    .is_some_and(|p| p.split_whitespace().count() > 1)
+                    .and_then(|p| p.split_whitespace().nth(1))
+                    .is_some_and(|c| {
+                        c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c))
+                    })
                     && named(l, false)
             });
             (typed || list(&GO_RECEIVER).is_some_and(|l| named(l, false))).then_some(k)
@@ -156,7 +214,7 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
             .rev()
             .take_while(|&i| i == k || bare_template(&uncommented(kind, lines[i])))
             .find(|&i| {
-                let l = uncommented(kind, lines[i]);
+                let l = coded(kind, lines[i]);
                 CPP.find_iter(&l)
                     .filter_map(|m| list_after(l.get(m.end()..)?, b'<', b'>'))
                     .any(|l| named(l, true))

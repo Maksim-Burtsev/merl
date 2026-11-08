@@ -42,3 +42,21 @@ class PithosOuter<Pithos> {
 typealias PithosPair<Pithos> = List<Pithos>
 //                   ^ d: src/main/kotlin/pithos/PithosRack.kt:42
 //                                  ^ d: src/main/kotlin/pithos/PithosRack.kt:42
+
+class PithosRange {
+    val size = 3
+    fun <Pithos> own(x: Pithos) = x
+
+    // a Pithos counts
+//       ^ d: src/main/kotlin/pithos/Pithos.kt:3
+    fun check(a: Int): String {
+        when {
+            a < size -> {
+//              ^ d: src/main/kotlin/pithos/PithosRack.kt:47
+                return "x" + size
+//                           ^ d: src/main/kotlin/pithos/PithosRack.kt:47
+            }
+        }
+        return ""
+    }
+}

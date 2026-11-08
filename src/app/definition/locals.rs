@@ -103,7 +103,11 @@ impl App {
 
     fn type_param(&self, a: &Asked) -> Option<usize> {
         let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
-        if a.dotted || !a.chain.is_empty() {
+        if a.dotted
+            || !a.chain.is_empty()
+            || (kind != Kind::TsJs
+                && search::in_prose(kind, &a.here, &a.text, line1, a.range.start))
+        {
             return None;
         }
         match kind {

@@ -26,3 +26,12 @@ pub fn valued<Goblet>(x: Goblet) -> crate::goblets::Goblet {
     Goblet
     //^ d: src/goblets.rs:1
 }
+pub fn outer<Goblet>(x: Goblet) {
+    fn inner() -> Goblet {
+    //            ^ d: src/goblets.rs:1
+        crate::goblets::Goblet
+    }
+    let s = "fn h<Goblet>(y: Goblet)";
+    // fn h<Goblet>(y: Goblet)
+    //                 ^ d: src/goblets.rs:1
+}
