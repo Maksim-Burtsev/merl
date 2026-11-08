@@ -127,6 +127,7 @@ fn ruby_classes_are_read_by_their_nesting() {
     let RubyParents {
         superclasses,
         includes,
+        prepends,
         extends,
     } = ruby_class_parents(text, 2);
     assert_eq!(superclasses, ["Base"]);
@@ -135,6 +136,7 @@ fn ruby_classes_are_read_by_their_nesting() {
         ["Taxed", "Logged"],
         "a `prepend` is an `include`, one in a block of a method is not the class's"
     );
+    assert_eq!(prepends, ["Logged"]);
     assert_eq!(extends, ["Finder"]);
     assert!(
         ruby_self_is_class(text, 6),
