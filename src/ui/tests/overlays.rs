@@ -187,24 +187,24 @@ fn a_selection_in_a_picker_query_is_drawn_like_one_in_the_code_and_the_cursor_sh
     assert_eq!(
         picker_query_b_and_c_as_shown("github-light"),
         [
-            (rgb(0xffffff), rgb(0x1f2328), false),
-            (rgb(0x1f2328), rgb(0xdae9f9), false)
+            (rgb(0xff_ff_ff), rgb(0x1f_23_28), false),
+            (rgb(0x1f_23_28), rgb(0xda_e9_f9), false)
         ],
         "the cursor on b, then the selected c in Visual's background"
     );
     assert_eq!(
         picker_query_b_and_c_as_shown("catppuccin-mocha"),
         [
-            (rgb(0x1e1e2e), rgb(0xf5e0dc), true),
-            (rgb(0xcdd6f4), rgb(0x45475a), true)
+            (rgb(0x1e_1e_2e), rgb(0xf5_e0_dc), true),
+            (rgb(0xcd_d6_f4), rgb(0x45_47_5a), true)
         ],
         "Visual's bold"
     );
     assert_eq!(
         picker_query_b_and_c_as_shown("srcery"),
         [
-            (rgb(0x121110), rgb(0xfbb829), false),
-            (rgb(0x312f2c), rgb(0xfce8c3), false)
+            (rgb(0x12_11_10), rgb(0xfb_b8_29), false),
+            (rgb(0x31_2f_2c), rgb(0xfc_e8_c3), false)
         ],
         "the theme's selection foreground"
     );
