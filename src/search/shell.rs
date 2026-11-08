@@ -629,3 +629,103 @@ pub fn shell_gated_by(line: &str, f: &str, g: &str) -> bool {
     }
     any
 }
+pub(super) fn shell_text_string_end(b: &[u8], open: usize) -> Option<usize> {
+    let q = b[open];
+    let from = b[..open]
+        .iter()
+        .rposition(|&c| c == b'\n')
+        .map_or(0, |n| n + 1);
+    let lead = if q == b'"' {
+        &b[from..open]
+    } else {
+        b[from..open].strip_suffix(b"$")?
+    };
+    let continued = from > 0 && b[..from - 1].last() == Some(&b'\\');
+    if continued || !shell_text_lead(lead.trim_ascii_start()) {
+        return None;
+    }
+    let mut i = open + 1;
+    while let Some(&c) = b.get(i) {
+        i = match c {
+            b'\\' => i + 2,
+            c if c == q => break,
+            b'$' if q == b'"' && b.get(i + 1) == Some(&b'(') => shell_line_group_end(b, i + 1)?,
+            b'$' if q == b'"' && b.get(i + 1) == Some(&b'{') => {
+                let n = b[i..].iter().position(|&c| c == b'}')?;
+                if b[i + 2..i + n].iter().any(|c| b"'\"`{\n$\\".contains(c)) {
+                    return None;
+                }
+                i + n + 1
+            }
+            b'`' if q == b'"' => return None,
+            _ => i + 1,
+        };
+    }
+    let end = i + 1;
+    let after = b.get(end).copied();
+    let word_ends = after.is_none_or(|c| b" \t\r\n;|&)<>".contains(&c));
+    (end <= b.len() && word_ends && b[open..end].contains(&b'\n')).then_some(end)
+}
+fn shell_text_lead(lead: &[u8]) -> bool {
+    let assigned = |w: &[u8]| {
+        w.strip_suffix(b"=")
+            .map(|n| n.strip_suffix(b"+").unwrap_or(n))
+            .is_some_and(|n| {
+                n.first().is_some_and(|c| !c.is_ascii_digit()) && n.iter().all(|&c| ident(c))
+            })
+    };
+    let mut quoted = false;
+    for &c in lead {
+        if c == b'\'' {
+            quoted = !quoted;
+        } else if !quoted && b";|&`()<>\"\\{}$#".contains(&c) {
+            return false;
+        }
+    }
+    let words: Vec<&[u8]> = lead.split(u8::is_ascii_whitespace).collect();
+    let last = words.last().copied().unwrap_or_default();
+    !quoted
+        && match words.as_slice() {
+            [w] => assigned(w),
+            [b"echo" | b"printf" | b":", ..] => true,
+            [
+                b"local" | b"export" | b"declare" | b"readonly" | b"typeset",
+                ..,
+            ] => assigned(last),
+            _ => false,
+        }
+}
+fn shell_line_group_end(b: &[u8], open: usize) -> Option<usize> {
+    let line_quote_end = |at: usize, stops: &[u8]| {
+        let n = b.get(at + 1..)?.iter().position(|c| stops.contains(c))?;
+        (b[at + 1 + n] == b[at]).then_some(at + n + 2)
+    };
+    let mut depth = 0usize;
+    let mut i = open;
+    while let Some(&c) = b.get(i) {
+        i = match c {
+            b'\n' | b'`' | b'#' => return None,
+            b'<' if b.get(i + 1) == Some(&b'<') => return None,
+            b'c' if b[i..].starts_with(b"case") => return None,
+            b'\\' => i + 2,
+            b'\'' => line_quote_end(i, b"'\n")?,
+            b'"' => line_quote_end(i, b"\"\n\\$`")?,
+            b'(' => {
+                depth += 1;
+                i + 1
+            }
+            b')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(i + 1);
+                }
+                i + 1
+            }
+            _ => i + 1,
+        };
+    }
+    None
+}
+fn ident(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || c == b'_'
+}

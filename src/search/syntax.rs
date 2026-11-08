@@ -779,6 +779,14 @@ impl<'a> Scanner<'a> {
             self.i = end - 1;
         } else if kind == Kind::Shell && c == b'\'' && self.shell_quote_leads_line() {
             self.literal_closer = Some(b"'".into());
+        } else if let Some(end) = (kind == Kind::Shell
+            && (c == b'"' || (c == b'\'' && i > 0 && b[i - 1] == b'$')))
+            .then(|| super::shell::shell_text_string_end(b, i))
+            .flatten()
+        {
+            self.out
+                .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
+            self.i = end - 1;
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
