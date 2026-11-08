@@ -56,3 +56,11 @@ export class AmphoraOuter<Amphora> {
     return x;
   }
 }
+
+export class AmphoraMaker<Amphora> {
+  make(): Amphora {
+  //      ^ d: amphora_rack.ts:60
+    return new Amphora();
+    //         ^ d: amphora.ts:1
+  }
+}
