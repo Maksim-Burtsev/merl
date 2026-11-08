@@ -94,11 +94,11 @@ fn wrapped_list(kind: Kind, lines: &[&str], literal: &[bool], i: usize) -> Optio
         _ => return None,
     };
     let mut depth = 1i32;
-    for j in i + 1..lines.len().min(i + 16) {
+    for (j, line) in lines.iter().enumerate().skip(i + 1).take(15) {
         if literal.get(j) == Some(&true) {
             return None;
         }
-        let l = uncommented(kind, lines[j]);
+        let l = uncommented(kind, line);
         for (k, c) in l.char_indices() {
             let arrow = || l.get(..k).is_some_and(|p| p.ends_with(['-', '=']));
             if c == open {
