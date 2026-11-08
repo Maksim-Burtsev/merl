@@ -127,8 +127,12 @@ pub fn label_at(
             static ANNOTATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal")
             });
+            static JULIA_SHORT_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^\s*[\w.!]+\s*\(.*\)\s*(?:where\b.*)?(?:::\s*[\w{}.]+\s*)?=[^=]")
+                    .expect("the regex is a literal")
+            });
             let before = lines[at].get(..open)?;
-            if declares(before) {
+            if declares(before) || (kind == Kind::Julia && JULIA_SHORT_DEF.is_match(lines[at])) {
                 return None;
             }
             if java && !ANNOTATION.is_match(before) {

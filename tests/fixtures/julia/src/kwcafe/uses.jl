@@ -14,7 +14,7 @@ function kwserve()
 end
 
 kwshort(; mugful = 0) = mugful
-#         ^ d: none
+#         ^ d: src/kwcafe/uses.jl:16
 
 function kwlong(p; mugful = 1)
     #              ^ d: src/kwcafe/uses.jl:19
