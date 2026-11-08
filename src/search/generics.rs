@@ -68,15 +68,62 @@ pub fn generic_param_line(
         {
             continue;
         }
-        depth = ind + usize::from(t.starts_with([')', '>']));
+        depth = ind + usize::from(t.starts_with([')', '>', ']']));
         if declares(t) {
             return Some(i + 1);
+        }
+        if let Some(at) = wrapped_list(kind, &lines, &literal, i)
+            .filter(|&last| declares(&joined(kind, &lines, i, last)))
+            .and_then(|last| {
+                (i + 1..=last).find(|&j| holds_word(&uncommented(kind, lines[j]), name))
+            })
+        {
+            return Some(at + 1);
         }
         if depth == 0 {
             break;
         }
     }
     None
+}
+
+fn wrapped_list(kind: Kind, lines: &[&str], literal: &[bool], i: usize) -> Option<usize> {
+    let (open, close) = match uncommented(kind, lines[i]).trim_end().chars().last()? {
+        '<' => ('<', '>'),
+        '[' => ('[', ']'),
+        _ => return None,
+    };
+    let mut depth = 1i32;
+    for (j, line) in lines.iter().enumerate().skip(i + 1).take(15) {
+        if literal.get(j) == Some(&true) {
+            return None;
+        }
+        let l = uncommented(kind, line);
+        for (k, c) in l.char_indices() {
+            let arrow = || l.get(..k).is_some_and(|p| p.ends_with(['-', '=']));
+            if c == open {
+                depth += 1;
+            } else if c == close && !(open == '<' && arrow()) {
+                depth -= 1;
+            }
+        }
+        if depth <= 0 {
+            return Some(j);
+        }
+    }
+    None
+}
+
+fn joined(kind: Kind, lines: &[&str], from: usize, to: usize) -> String {
+    (from..=to)
+        .map(|j| uncommented(kind, lines[j]).trim().to_owned())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub(super) fn holds_word(code: &str, name: &str) -> bool {
+    code.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .any(|w| w == name)
 }
 
 fn dart_declares(t: &str, name: &str) -> bool {

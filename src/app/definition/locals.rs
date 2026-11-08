@@ -114,13 +114,13 @@ impl App {
             return None;
         }
         match kind {
-            Kind::TsJs
-                if imports.iter().any(|i| i.name == *word)
-                    && !ts_type_position(a, self.line_str()) =>
-            {
-                None
-            }
-            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word)
+                .filter(|p| {
+                    p.typed
+                        || imports.iter().all(|i| i.name != *word)
+                        || ts_type_position(a, self.line_str())
+                })
+                .map(|p| p.line1),
             Kind::Jvm | Kind::Dart => {
                 search::generic_param_line(kind, &a.here, &a.text, line1, word)
             }
