@@ -153,7 +153,11 @@ fn call_label(
     if java && !ANNOTATION.is_match(before) {
         return None;
     }
-    let col = callee(kind, lines[at], open)?;
+    let Some(col) = callee(kind, lines[at], open) else {
+        return (kind == Kind::Julia)
+            .then(|| julia_named_tuple_key(kind, lines, at, open))
+            .flatten();
+    };
     let owner = if kind == Kind::Swift && word_at(lines[at], col, "").map(|w| w.1) == Some("init") {
         let head = (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
         head.and_then(|h| {
@@ -177,6 +181,26 @@ fn call_label(
     Some(Label {
         what: "argument label",
         owner,
+        nested: false,
+    })
+}
+
+fn julia_named_tuple_key(kind: Kind, lines: &[&str], at: usize, open: usize) -> Option<Label> {
+    let Group {
+        inner_uncommented,
+        after_close,
+        ..
+    } = group(kind, lines, at, open)?;
+    let inner = inner_uncommented.trim_start();
+    let parts = split_top(kind, inner, b';').len();
+    let tuple = if inner.starts_with(';') {
+        parts == 2
+    } else {
+        parts == 1 && split_top(kind, inner, b',').len() > 1
+    };
+    (tuple && !after_close.trim_start().starts_with("->")).then_some(Label {
+        what: "key",
+        owner: None,
         nested: false,
     })
 }

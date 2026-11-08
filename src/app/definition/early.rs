@@ -215,6 +215,7 @@ impl App {
                 ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
             || (kind == Kind::Scheme && search::racket_method_sent(lead))
+            || (kind == Kind::Clojure && search::clojure_keyword(lead))
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
