@@ -41,3 +41,13 @@ template <typename Goblet> struct Rack2 {
     void f() { held.quaff(); }
     //              ^ d: src/goblets.cc:2; want none (#1438)
 };
+template <typename T> struct Rack3 {
+    T held;
+    void f() { this->held.quaff(); }
+    //                    ^ d: src/goblets.cc:2; want none (#1438)
+};
+template <typename Goblet> struct Rack4 {
+    Goblet held;
+    void f() { this->held.quaff(); }
+    //                    ^ d: src/goblets.cc:2; want none (#1438)
+};
