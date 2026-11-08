@@ -188,3 +188,30 @@ pub fn cs_validated(base: &str) -> Option<String> {
     let inner = inner.strip_prefix('<')?.strip_suffix('>')?.trim();
     (cs_split(inner).len() == 1 && cs_type_name(inner).is_some()).then(|| inner.to_owned())
 }
+
+pub(super) fn cs_switch_arm(before: &str) -> bool {
+    static SWITCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\W)switch\s*$").expect("the regex is a literal")
+    });
+    static BARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?s)^(?:.*\b(?:or|and|not))?\s*$").expect("the regex is a literal")
+    });
+    let mut open: Vec<(usize, usize)> = Vec::new();
+    for (i, c) in code(Kind::CSharp, before) {
+        match c {
+            b'(' | b'[' | b'{' => open.push((i, i)),
+            b')' | b']' | b'}' => drop(open.pop()),
+            b',' => {
+                if let Some(top) = open.last_mut() {
+                    top.1 = i;
+                }
+            }
+            _ => {}
+        }
+    }
+    open.last().is_some_and(|&(o, arm)| {
+        before.as_bytes().get(o) == Some(&b'{')
+            && before.get(..o).is_some_and(|b| SWITCH.is_match(b))
+            && before.get(arm + 1..).is_some_and(|a| BARE.is_match(a))
+    })
+}
