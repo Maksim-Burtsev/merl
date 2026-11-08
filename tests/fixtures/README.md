@@ -727,7 +727,10 @@ whose `(module` has `(identifier)` under it: neither defines anything. `kettle.r
 indented `(define-syntax-rule` with its pattern on the next line.
 `scheme/siphoning.rkt` (#1441) names `siphon`, the macro of `siphon.rkt`, in a comment, a string,
 a block comment, the text of an `at-exp` `@list{…}` and as a method of `send`, which answer
-nothing, binds it by `with-syntax`, and still finds it in `@racket[…]` and under `#;`.
+nothing, binds it by `with-syntax`, and still finds it in `@racket[…]` and under `#;`; `siphoned.rkt`, a
+`.rkt` with no `#lang`, names it in a comment too. The other
+Lisps still look up a name from prose as master does: `emacs-lisp/shop-kettle.el` names its
+functions in a docstring and a comment, `clojure/src/shop/kettle.clj` its `steep` in a docstring.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a

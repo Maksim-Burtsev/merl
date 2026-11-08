@@ -147,7 +147,6 @@ pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
                     None => false,
                 }
         }
-        _ if lisp(kind) => super::lisp_prose(kind, text, at),
         _ => false,
     }
 }

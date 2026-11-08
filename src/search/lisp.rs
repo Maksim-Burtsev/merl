@@ -390,10 +390,13 @@ pub(super) fn lisp_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     lex(kind, text).literal
 }
 
-pub(super) fn lisp_prose(kind: Kind, text: &str, at: usize) -> bool {
-    let code = lex_keeping(kind, text, true, true).code;
+pub fn racket_prose(path: &Path, text: &str, at: usize) -> bool {
+    if path.extension().is_none_or(|e| e != "rkt") && !text.starts_with("#lang") {
+        return false;
+    }
+    let code = lex_keeping(Kind::Scheme, text, true, true).code;
     let hidden = code.get(at) == Some(&b' ') && text.as_bytes().get(at) != Some(&b' ');
-    hidden || (kind == Kind::Scheme && text.starts_with("#lang at-exp") && in_at_text(&code, at))
+    hidden || (text.starts_with("#lang at-exp") && in_at_text(&code, at))
 }
 
 fn in_at_text(code: &[u8], at: usize) -> bool {

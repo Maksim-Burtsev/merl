@@ -168,7 +168,8 @@ impl App {
             && !lead.ends_with("{{")
             && tail.starts_with(['}', ':']);
         if !captured
-            && search::in_string(kind, &text, at)
+            && (search::in_string(kind, &text, at)
+                || (kind == Kind::Scheme && search::racket_prose(&here, &text, at)))
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
         {
             self.message = resolution(&word, None, &[], None, false);
