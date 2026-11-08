@@ -1,5 +1,5 @@
 export class Sheaf {
-  bind(n: number): number {
+  stookUp(n: number): number {
     return n;
   }
 }

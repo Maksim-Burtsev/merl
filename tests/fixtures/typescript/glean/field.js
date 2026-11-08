@@ -16,7 +16,7 @@ export function stacked(ripe) {
   }
   const s = new Sheaf();
   //            ^ d: glean/barn.ts:1
-  return s.bind(1);
+  return s.stookUp(1);
   //       ^ d: glean/barn.ts:2
 }
 
@@ -29,26 +29,26 @@ export function hoisted() {
 export function built(ripe) {
   if (ripe) {
     function Sheaf() {
-      this.bind = function (n) {
+      this.stookUp = function (n) {
         return n;
       };
     }
   }
   const s = new Sheaf();
-  return s.bind(2);
+  return s.stookUp(2);
   //       ^ d: glean/barn.ts:2
 }
 
 if (globalThis.ripe) {
   function Sheaf() {
-    this.bind = function (n) {
+    this.stookUp = function (n) {
       return n;
     };
   }
 }
 
 export function top() {
-  return new Sheaf().bind(3);
+  return new Sheaf().stookUp(3);
   //         ^ d: glean/barn.ts:1
   //                 ^ d: glean/barn.ts:2
 }

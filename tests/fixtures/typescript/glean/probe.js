@@ -5,12 +5,12 @@ export function before(ripe) {
   //            ^ d: glean/barn.ts:1
   if (ripe) {
     function Sheaf() {
-      this.bind = function (n) {
+      this.stookUp = function (n) {
         return n;
       };
     }
   }
-  return s.bind(1);
+  return s.stookUp(1);
   //       ^ d: glean/barn.ts:2
 }
 
@@ -28,7 +28,7 @@ for (const x of []) {
   function Sheaf() {}
 }
 
-export const late = () => new Sheaf().bind(4);
+export const late = () => new Sheaf().stookUp(4);
 //                            ^ d: glean/barn.ts:1
 //                                    ^ d: glean/barn.ts:2
 
@@ -55,8 +55,8 @@ export function nested(ripe) {
 }
 
 export function inline(ripe) {
-  if (ripe) { function Sheaf() { this.bind = (n) => n; } }
-  return new Sheaf().bind(5);
+  if (ripe) { function Sheaf() { this.stookUp = (n) => n; } }
+  return new Sheaf().stookUp(5);
   //         ^ d: glean/barn.ts:1
   //                 ^ d: glean/barn.ts:2
 }
@@ -64,11 +64,11 @@ export function inline(ripe) {
 export function patched(ripe) {
   if (ripe) {
     function Sheaf() {}
-    Sheaf.prototype.bind = function (n) {
+    Sheaf.prototype.stookUp = function (n) {
       return n;
     };
   }
   const s = new Sheaf();
-  return s.bind(6);
+  return s.stookUp(6);
   //       ^ d: glean/barn.ts:2
 }
