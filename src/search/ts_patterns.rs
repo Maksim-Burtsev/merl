@@ -573,6 +573,11 @@ pub(super) fn ts_hoisted_function(
     mut at: usize,
     name: &str,
 ) -> Option<(usize, usize)> {
+    lines
+        .get(at + 1..)?
+        .iter()
+        .any(|l| l.contains("function") && l.contains(name))
+        .then_some(())?;
     let declares = Regex::new(&format!(
         r"^\s+(?:export\s+)?(?:async\s+)?function\s*\*?\s*{}\s*[<(]",
         regex::escape(name)
