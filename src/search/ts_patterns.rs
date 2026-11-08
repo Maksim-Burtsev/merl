@@ -568,14 +568,23 @@ fn angle_list(s: &str) -> Option<(&str, &str)> {
     }
     None
 }
-pub fn ts_hoisted_function(text: &str, line1: usize, name: &str) -> Option<usize> {
+pub(super) fn ts_hoisted_function(
+    text: &str,
+    lines: &[&str],
+    mut at: usize,
+    name: &str,
+) -> Option<(usize, usize)> {
+    lines
+        .get(at + 1..)?
+        .iter()
+        .any(|l| l.contains("function") && l.contains(name))
+        .then_some(())?;
     let declares = Regex::new(&format!(
         r"^\s+(?:export\s+)?(?:async\s+)?function\s*\*?\s*{}\s*[<(]",
         regex::escape(name)
     ))
     .ok()?;
-    let lines: Vec<&str> = text.lines().collect();
-    let mut at = line1.checked_sub(1)?;
+    let literal = literal_lines(Kind::TsJs, text);
     let mut depth = indent(lines.get(at)?);
     while depth > 0 {
         let header = (0..at).rev().find(|&i| {
@@ -599,10 +608,14 @@ pub fn ts_hoisted_function(text: &str, line1: usize, name: &str) -> Option<usize
             .map_or(0, |l| indent(l));
         if let Some(i) = body
             .enumerate()
-            .find(|(_, l)| indent(l) == child && declares.is_match(l))
+            .find(|&(i, l)| {
+                indent(l) == child
+                    && !literal.get(header + 1 + i).copied().unwrap_or(false)
+                    && declares.is_match(l)
+            })
             .map(|(i, _)| i)
         {
-            return Some(header + i + 2);
+            return Some((header + 1, header + i + 2));
         }
         at = header;
         depth = outer;

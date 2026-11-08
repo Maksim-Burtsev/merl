@@ -219,6 +219,11 @@ impl App {
             return (!found.is_empty()).then_some(found);
         }
         if let Some(path) = bound {
+            if let Some(here) = self.rel_current()
+                && !Self::jvm_nested_in_scope(&here, text, first, self.line + 1).is_empty()
+            {
+                return None;
+            }
             let Some((files, mut names)) = longest_project_package_and_rest(path) else {
                 return Some(Vec::new());
             };
@@ -296,15 +301,18 @@ impl App {
         }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
-        for &decl in &types {
+        for (i, &decl) in types.iter().enumerate() {
             let reason = match search::jvm_type_name(lines[decl - 1]) {
                 Some(name) => Reason::Path(name),
                 None => Reason::Local,
             };
-            found = search::jvm_members_of(text, decl, word)
+            found = search::jvm_members_of(here, text, decl, word)
                 .into_iter()
                 .map(|line| candidate(here, &lines, line, reason.clone()))
                 .collect();
+            if found.is_empty() && i + 1 < types.len() {
+                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word);
+            }
             if !found.is_empty() {
                 break;
             }
@@ -352,6 +360,41 @@ impl App {
         (!found.is_empty() && !on_it).then_some(found)
     }
 
+    fn jvm_nested_inherited(
+        &self,
+        here: &Path,
+        text: &str,
+        header: &str,
+        decl: usize,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let (ty, name) = match search::jvm_type_name(header) {
+            Some(name) => (
+                Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: decl,
+                    byte_col: None,
+                    text: header.to_owned(),
+                },
+                name,
+            ),
+            None => match search::jvm_anonymous_base(header)
+                .map(|base| (self.jvm_type_at(here, text, &base), base))
+            {
+                Some((super::jvm_typed::JvmType::Project(b), base)) => (b, base),
+                _ => return Vec::new(),
+            },
+        };
+        self.jvm_hierarchy_member(&ty, word, 0, &mut Vec::new())
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(name.clone()),
+            })
+            .collect()
+    }
+
     fn jvm_base_members(&self, here: &Path, base: &str, word: &str) -> Option<Vec<Candidate>> {
         let pattern = search::def_patterns(Kind::Jvm, base).join("|");
         let cut = self.truncated.get();
@@ -367,7 +410,7 @@ impl App {
         let t = self.text_of(&hit.path)?;
         let lines: Vec<&str> = t.lines().collect();
         Some(
-            search::jvm_members_of(&t, hit.line1, word)
+            search::jvm_members_of(&hit.path, &t, hit.line1, word)
                 .into_iter()
                 .map(|line| Candidate {
                     hit: Hit {

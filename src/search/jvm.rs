@@ -6,7 +6,8 @@ use super::jvm_rebound::{
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
-    literal_lines, qualified, scala_given_tail, scala_mods, split_top, steps_over, uncommented,
+    literal_lines, path_literal_lines, qualified, scala_given_tail, scala_mods, split_top,
+    steps_over, uncommented,
 };
 
 pub(super) fn opens_type(line: &str) -> bool {
@@ -379,7 +380,7 @@ pub(super) fn jvm_bindings(
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
             if member_or_top_level
                 || header_may_bind(lines, i, end)
-                || !jvm_members_of(&text, i + 1, name).is_empty()
+                || !lexed_members_of(&text, &literal, i + 1, name).is_empty()
             {
                 break;
             }
@@ -429,6 +430,17 @@ pub(super) fn anonymous(line: &str) -> bool {
     ANONYMOUS.is_match(line)
 }
 
+pub fn jvm_anonymous_base(line: &str) -> Option<String> {
+    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
+    });
+    if !anonymous(line) {
+        return None;
+    }
+    let c = BASE.captures_iter(line).last()?;
+    c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned())
+}
+
 pub fn jvm_type_name(line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:class|interface|enum|record|object|trait)\s+(?:class\s+)?([A-Za-z_]\w*)")
@@ -439,7 +451,21 @@ pub fn jvm_type_name(line: &str) -> Option<String> {
         .flatten()
 }
 
-pub fn jvm_members_of(text: &str, decl_line1: usize, name: &str) -> Vec<usize> {
+pub fn jvm_members_of(
+    path: &std::path::Path,
+    text: &str,
+    decl_line1: usize,
+    name: &str,
+) -> Vec<usize> {
+    lexed_members_of(
+        text,
+        &path_literal_lines(Kind::Jvm, path, text),
+        decl_line1,
+        name,
+    )
+}
+
+fn lexed_members_of(text: &str, literal: &[bool], decl_line1: usize, name: &str) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
@@ -447,8 +473,7 @@ pub fn jvm_members_of(text: &str, decl_line1: usize, name: &str) -> Vec<usize> {
     let Ok(re) = Regex::new(&def_patterns(Kind::Jvm, name).join("|")) else {
         return Vec::new();
     };
-    let literal = literal_lines(Kind::Jvm, text);
-    members_of(&lines, &literal, k, name, &re)
+    members_of(&lines, literal, k, name, &re)
 }
 
 fn primary_constructor_property_on_header(lines: &[&str], k: usize, name: &str) -> bool {
@@ -470,6 +495,27 @@ fn primary_constructor_property_on_header(lines: &[&str], k: usize, name: &str) 
             },
         )
         && PROPERTY.captures_iter(lines[k]).any(|c| &c[1] == name)
+}
+
+fn one_line_body(line: &str) -> Option<&str> {
+    let (mut depth, mut open) = (0i32, None);
+    for (i, c) in code(Kind::Jvm, line) {
+        match c {
+            b'{' if depth == 0 && open.is_none() => {
+                open = Some(i + 1);
+                depth += 1;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
+                depth -= 1;
+                if depth == 0 && c == b'}' {
+                    return open.and_then(|o| line.get(o..i));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex) -> Vec<usize> {
@@ -509,6 +555,9 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
                 break;
             }
         }
+    }
+    if one_line_body(lines[k]).is_some_and(|body| re.is_match(body)) {
+        out.push(k + 1);
     }
     let Some(member_indent) = member_indent else {
         return out;
@@ -763,7 +812,7 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
         .is_some_and(|k| k < lines.len() && class_re.is_match(&with_annotations_above(k)));
     let mut out: Vec<usize> = names
         .iter()
-        .flat_map(|n| jvm_members_of(text, decl_line1, n))
+        .flat_map(|n| lexed_members_of(text, &literal_lines(Kind::Jvm, text), decl_line1, n))
         .filter(|&l| {
             let code = uncommented(Kind::Jvm, lines[l - 1]);
             let code = ANNOTATIONS.replace(&code, "");

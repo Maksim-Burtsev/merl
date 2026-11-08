@@ -206,7 +206,7 @@ racket0203
 racket0204			
 racket0205			
 racket0206			
-racket0207			
+racket0207	drracket-core-lib/drracket/private/module-language.rkt:1067		judged: the define-syntax-rule of module-language.rkt:1066 binds define/oc-log, its pattern head on the next line
 racket0208	drracket-test/tests/drracket/io.rkt:42		
 racket0209	drracket-core/scribblings/tools/example-src.rkt:8		
 racket0210			

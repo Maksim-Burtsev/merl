@@ -691,7 +691,11 @@ impl App {
 
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
         if kind != Kind::TsJs {
-            return self.own_member(kind, t, word);
+            let own = self.own_member(kind, t, word);
+            return match kind {
+                Kind::Python => own.or_else(|| self.init_shadows_method(t, word)),
+                _ => own,
+            };
         }
         if let Some(name) = self.constructor_name(t) {
             return self.constructed_member(t, &name, word);
@@ -722,6 +726,39 @@ impl App {
         }
         members.push(field);
         Some(members)
+    }
+
+    fn init_shadows_method(&self, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&t.path)?;
+        let line = |n: usize| text.lines().nth(n - 1).unwrap_or_default();
+        let at = format!("self.{word}");
+        let line1 = search::field_bindings(Kind::Python, &text, t.line, word)
+            .iter()
+            .map(|b| b.line1)
+            .find(|&n| {
+                line(n).trim_start().starts_with(&at) && search::python_init_statement(&text, n)
+            })?;
+        let plain = |h: &Hit| {
+            let def = h.text.trim_start();
+            (def.starts_with("def ") || def.starts_with("async def "))
+                && self.text_of(&h.path).is_some_and(|text| {
+                    h.line1 < 2
+                        || !text
+                            .lines()
+                            .nth(h.line1 - 2)
+                            .is_some_and(|l| l.trim_start().starts_with('@'))
+                })
+        };
+        let inherited = self.above(Kind::Python, t, word, 0).ok()?;
+        (!inherited.is_empty() && inherited.iter().all(plain)).then(|| {
+            vec![Hit {
+                text: line(line1).to_owned(),
+                path: t.path.clone(),
+                line1,
+                byte_col: None,
+                deleted: None,
+            }]
+        })
     }
 
     fn alias_literal_member(&self, t: &Typed, word: &str) -> Option<Vec<Hit>> {

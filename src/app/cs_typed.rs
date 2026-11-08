@@ -3,6 +3,7 @@ use std::cell::OnceCell;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 mod elements;
+mod fits;
 
 #[derive(Debug, Clone)]
 enum CsType {
@@ -82,7 +83,7 @@ impl App {
         let label = format!("new {}", search::cs_type_name(&written)?);
         match ty {
             CsType::Outside(_) => Some(CsAnswer::Outside { links: label }),
-            CsType::Project(t) => match self.cs_up(&t, word, 0) {
+            CsType::Project(t) => match self.cs_up_call(&t, word) {
                 Up::Found(hits) => Some(CsAnswer::Found(receivers(hits, &label))),
                 Up::Outside { .. } => Some(CsAnswer::Outside { links: label }),
                 Up::Missing { .. } | Up::Unknown => None,
@@ -305,7 +306,7 @@ impl App {
     ) -> Option<CsAnswer> {
         let (walked, outside, class) = match ty {
             CsType::Outside(name) => (vec![name.clone()], true, false),
-            CsType::Project(t) => match self.cs_up(t, word, 0) {
+            CsType::Project(t) => match self.cs_up_call(t, word) {
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
                     let hits = if fit.is_empty() {
@@ -361,6 +362,17 @@ impl App {
     }
 
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
+        self.cs_climb(ty, word, depth, &|_| true, &mut None)
+    }
+
+    fn cs_climb(
+        &self,
+        ty: &Typed,
+        word: &str,
+        depth: usize,
+        fits: &dyn Fn(&[Hit]) -> bool,
+        nearest: &mut Option<Vec<Hit>>,
+    ) -> Up {
         let mut walked = vec![ty.name.clone()];
         let Some(text) = self.text_of(&ty.path) else {
             return Up::Outside { walked, base: true };
@@ -378,7 +390,10 @@ impl App {
             })
             .collect();
         if !own.is_empty() {
-            return Up::Found(own);
+            if fits(&own) {
+                return Up::Found(own);
+            }
+            nearest.get_or_insert(own);
         }
         if depth >= 8 {
             return Up::Outside { walked, base: true };
@@ -395,16 +410,18 @@ impl App {
             });
             for (i, entry) in search::cs_bases(&text, part.line).into_iter().enumerate() {
                 match self.cs_resolve(&part.path, &text, part.line, &entry) {
-                    Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
-                        Up::Found(hits) => return Up::Found(hits),
-                        Up::Outside { walked: more, base } => {
-                            outside = true;
-                            class |= derives && i == 0 && base;
-                            walked.extend(more);
+                    Some(CsType::Project(b)) => {
+                        match self.cs_climb(&b, word, depth + 1, fits, nearest) {
+                            Up::Found(hits) => return Up::Found(hits),
+                            Up::Outside { walked: more, base } => {
+                                outside = true;
+                                class |= derives && i == 0 && base;
+                                walked.extend(more);
+                            }
+                            Up::Missing { walked: more } => walked.extend(more),
+                            Up::Unknown => return Up::Unknown,
                         }
-                        Up::Missing { walked: more } => walked.extend(more),
-                        Up::Unknown => return Up::Unknown,
-                    },
+                    }
                     Some(CsType::Outside(name)) => {
                         outside = true;
                         class |= derives && i == 0 && !interface_named(&name);
@@ -1135,7 +1152,7 @@ impl App {
         if around.is_empty() {
             return Err(None);
         }
-        let level = Level {
+        let mut level = Level {
             around: OnceCell::from(around.iter().map(|t| t.name.clone()).collect::<Vec<_>>()),
             types: types_only.then(|| {
                 Regex::new(&search::def_patterns(Kind::CSharp, word)[..2].join("|"))
@@ -1144,11 +1161,17 @@ impl App {
             args: self.cs_args(),
             cursor_file: here.to_path_buf(),
             cursor_line1: self.line + 1,
+            misfit: OnceCell::new(),
         };
         let mut walked = Vec::new();
         let mut unknown = false;
         for ty in &around {
             let hits = self.cs_walk(ty, word, &level, 0, &mut walked, &mut unknown);
+            let hits = if hits.is_empty() {
+                level.misfit.take().unwrap_or_default()
+            } else {
+                hits
+            };
             if hits
                 .iter()
                 .any(|h| h.path == here && h.line1 == self.line + 1)
@@ -1205,8 +1228,11 @@ impl App {
                     && level.types.as_ref().is_none_or(|re| re.is_match(&h.text))
             });
             let own = self.cs_overload(word, self.cs_fit(word, level.args, None, own));
-            if !own.is_empty() {
+            if !own.is_empty() && !self.cs_misfit(word, &own) {
                 return own;
+            }
+            if !own.is_empty() {
+                level.misfit.get_or_init(|| own);
             }
         }
         if depth >= 8 {
@@ -1351,51 +1377,6 @@ impl App {
         }
         search::cs_arguments(&self.buf.lines, self.line, range.end)
     }
-
-    pub(super) fn cs_fit(
-        &self,
-        word: &str,
-        args: Option<usize>,
-        receiver: Option<&str>,
-        hits: Vec<Hit>,
-    ) -> Vec<Hit> {
-        let Some(n) = args else {
-            return hits;
-        };
-        hits.into_iter()
-            .filter(|h| {
-                let Some(text) = self.hit_text(h) else {
-                    return true;
-                };
-                let Some(search::CsArity {
-                    fewest: min,
-                    most_unless_params: max,
-                    extension_this: this,
-                }) = search::cs_parameters(&text, h.line1, word)
-                else {
-                    return true;
-                };
-                let owner = match search::cs_place(&text, h.line1, word) {
-                    search::CsPlace::Member { owner, .. } => owner,
-                    _ => String::new(),
-                };
-                let by = usize::from(this && receiver.is_some_and(|q| q.is_empty() || q != owner));
-                n + by >= min && max.is_none_or(|m| n + by <= m)
-            })
-            .collect()
-    }
-
-    fn cs_overload(&self, word: &str, hits: Vec<Hit>) -> Vec<Hit> {
-        let Some(args) = self
-            .definition_word(Some(Kind::CSharp))
-            .and_then(|(r, _)| search::cs_literal_arguments(&self.buf.lines, self.line, r.end))
-        else {
-            return hits;
-        };
-        search::literal_overloads(hits, &args, |h| {
-            search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)
-        })
-    }
 }
 
 struct Level {
@@ -1404,6 +1385,7 @@ struct Level {
     args: Option<usize>,
     cursor_file: PathBuf,
     cursor_line1: usize,
+    misfit: OnceCell<Vec<Hit>>,
 }
 
 fn owner_of(file: &Path, text: &str, line1: usize) -> Option<Typed> {

@@ -42,7 +42,6 @@ fn a_kind_runs_over_lines_only_the_literals_it_has() {
         (Kind::Css, "`\n.fake {}\n`"),
         (Kind::Css, "// a /* in a line comment\n.fake {}\n"),
         (Kind::Jvm, "`\nclass Fake\n`"),
-        (Kind::Shell, "echo \"a\nfake() {\n\""),
         (Kind::Shell, "echo 'a\nfake() {\n'"),
         (Kind::Shell, ": 'a\\'\nreal() {\n"),
         (Kind::Shell, "x='a' y='b\nfake() {\n'"),
@@ -109,5 +108,38 @@ fn sql_block_comments_nest_only_in_a_file_written_for_it() {
         ),
     ] {
         assert_eq!(hidden(Kind::Sql, text), want, "{text}");
+    }
+}
+
+#[test]
+fn a_bash_string_over_lines_hides_only_text_the_shell_never_runs() {
+    for text in [
+        "msg=\"\nfake() {\n\"\nreal() {",
+        "  usage=\"usage:\nfake() {\n\"\nreal() {",
+        "echo \"a\nfake() {\n\"\nreal() {",
+        "local x=\"\nfake() {\n\"\nreal() {",
+        "export Y=\"\nfake() {\n\"\nreal() {",
+        "printf '%s\\n' \"a\nfake() {\n\"\nreal() {",
+        "w=\"$(printf 'x')\nfake() {\n\"\nreal() {",
+        "z=\"it's \\\"q\\\"\nfake() {\n\"\nreal() {",
+        "echo $'it\\'s\nfake() {\n'\nreal() {",
+    ] {
+        assert_eq!(hidden(Kind::Shell, text), vec![2, 3], "{text}");
+    }
+    for text in [
+        "out=\"$(\nreal=1\necho \"$real\"\n)\"",
+        "m=( ${(f)\"$(\nfor a in $m; do\nreal=${a#*;}\ndone\n)\"} )",
+        "eval \"a\nreal() {\n\"",
+        "run bash -c \"\nreal=1\n\"",
+        "sh -c \"\nreal=1\n\"",
+        "trap \"\nreal=1\n\" EXIT",
+        "a=\"${1:-can't}\"\nreal() {\nb=\"${2:-won't}\"",
+        "z=\"$(cat <<'EOF'\nit's\nEOF\n)\"\nreal() {\nx=\"y\"",
+        "c=\"$(case $x in a) echo \"it's\";; esac)\nreal() {\n\"",
+        "echo \\\"\nreal() {\necho \"",
+        "x=\"a\"b\nreal() {\n\"",
+        "x=\"a\nb\"c\nreal() {\n\"",
+    ] {
+        assert_eq!(hidden(Kind::Shell, text), Vec::<usize>::new(), "{text}");
     }
 }

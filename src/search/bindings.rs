@@ -6,8 +6,8 @@ use super::{
     go_declares_then_uses, haskell_bindings, indent, julia_bindings, jvm_bindings, lisp,
     lisp_bindings, literal_lines, lua_bindings, names, nix_bindings, powershell_params,
     python_bindings_at, ruby_bindings, rust_bindings, shell_bindings, solidity_bindings, split_top,
-    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_vars,
-    ts_params, type_list, uncommented,
+    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_function,
+    ts_hoisted_vars, ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -187,7 +187,12 @@ pub fn bindings_at(
                 return vec![unknown(line)];
             }
             ts_hoisted_vars(&lines, at, name, &mut out);
-            out
+            match ts_hoisted_function(text, &lines, at, name) {
+                Some((header, f)) if f > line && out.iter().all(|b| b.line1 <= header) => {
+                    vec![unknown(f)]
+                }
+                _ => out,
+            }
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
@@ -1201,12 +1206,6 @@ pub(super) fn statement_bindings(
     name: &str,
     out: &mut Vec<Binding>,
 ) {
-    static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
-        )
-        .expect("the regex is a literal")
-    });
     static TS_DESTRUCTURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=")
             .expect("the regex is a literal")
@@ -1263,38 +1262,53 @@ pub(super) fn statement_bindings(
             }
         }
         Kind::Go => {
-            let list =
-                |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
-            if let Some(c) = GO_SHORT.captures(t) {
-                let Some(at) = list(&c[1]).iter().position(|p| p == name) else {
-                    return;
-                };
-                go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, |e| value_of(kind, e))
-            } else if let Some(c) = GO_VAR.captures(t) {
-                match (
-                    list(&c[1]).iter().position(|p| p == name),
-                    c.get(2),
-                    c.get(3),
-                ) {
-                    (None, ..) => return,
-                    (Some(_), Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-                    (Some(at), None, Some(v)) => go_assigned(&c[1], v.as_str(), at)
-                        .map_or(Value::Unknown, |e| value_of(kind, e)),
-                    _ => Value::Unknown,
-                }
-            } else if t
-                .strip_prefix("const ")
-                .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
-            {
-                Value::Unknown
-            } else {
+            let Some(value) = go_statement_value(t, line, name) else {
                 return;
-            }
+            };
+            value
         }
         Kind::CSharp if cs_statement(t, name) => Value::Unknown,
         _ => return,
     };
     out.push(Binding { line1: line, value });
+}
+fn go_statement_value(t: &str, line: usize, name: &str) -> Option<Value> {
+    static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
+        )
+        .expect("the regex is a literal")
+    });
+    let list = |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
+    let anonymous = |e: &str| {
+        e.trim_start()
+            .trim_start_matches('&')
+            .strip_prefix("struct")
+            .is_some_and(|r| r.trim_start().starts_with('{'))
+    };
+    let value = |e: &str| {
+        if anonymous(e) {
+            Value::Struct(line)
+        } else {
+            value_of(Kind::Go, e)
+        }
+    };
+    if let Some(c) = GO_SHORT.captures(t) {
+        let at = list(&c[1]).iter().position(|p| p == name)?;
+        Some(go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, value))
+    } else if let Some(c) = GO_VAR.captures(t) {
+        let at = list(&c[1]).iter().position(|p| p == name)?;
+        Some(match (c.get(2), c.get(3)) {
+            (Some(ty), _) if anonymous(ty.as_str()) => Value::Struct(line),
+            (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
+            (None, Some(v)) => go_assigned(&c[1], v.as_str(), at).map_or(Value::Unknown, value),
+            (None, None) => Value::Unknown,
+        })
+    } else {
+        t.strip_prefix("const ")
+            .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
+            .then_some(Value::Unknown)
+    }
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct TsHeader {

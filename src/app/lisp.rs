@@ -17,6 +17,30 @@ impl App {
         hits
     }
 
+    pub(super) fn definitions_grep(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        pattern: &str,
+    ) -> Vec<Hit> {
+        if !search::lisp(kind) {
+            return self.project_grep(kind, here, pattern);
+        }
+        let alone = search::lisp_head_alone(kind);
+        let mut hits = self.project_grep(kind, here, &format!("{pattern}|{alone}"));
+        let Ok(alone) = regex::Regex::new(&alone) else {
+            return hits;
+        };
+        hits.retain(|h| {
+            !alone.is_match(&h.text)
+                || self
+                    .text_of(&h.path)
+                    .is_some_and(|t| search::lisp_names_below(kind, &t, h.line1, word))
+        });
+        hits
+    }
+
     pub(super) fn binding_lines(
         &self,
         kind: Kind,
@@ -64,7 +88,7 @@ impl App {
         word: &str,
         after: &str,
     ) -> Option<Vec<Candidate>> {
-        let requires = search::clojure_requires(text);
+        let requires = unambiguous(&search::clojure_requires(text));
         let qualifier = |b: &str| {
             let at = b
                 .rfind(|c: char| c.is_whitespace() || "()[]{}'`#@~^\"".contains(c))
@@ -90,7 +114,8 @@ impl App {
             }
             (None, Some(b)) => (qualifier(b), word),
             (None, None)
-                if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty() =>
+                if search::bindings(Kind::Clojure, text, self.line + 1, word).is_empty()
+                    && !search::clojure_defines(text, word) =>
             {
                 let ns = requires.iter().find(|(n, ns)| n == word && ns != word)?;
                 (ns.1.clone(), word)
@@ -113,4 +138,9 @@ impl App {
         });
         Some(found.collect())
     }
+}
+
+fn unambiguous(requires: &[(String, String)]) -> Vec<(String, String)> {
+    let one = |(n, ns): &(String, String)| requires.iter().all(|(m, o)| m != n || o == ns);
+    requires.iter().filter(|r| one(r)).cloned().collect()
 }

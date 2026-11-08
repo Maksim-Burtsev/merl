@@ -283,6 +283,7 @@ impl App {
                 Some(Owned {
                     class: search::ruby_class_path(&t, h.line1),
                     on_class: search::ruby_on_class(&t, h.line1),
+                    in_block: search::ruby_in_block(&t, h.line1),
                     module_method_on_both_sides: search::ruby_singleton(&t, h.line1),
                     hit: h,
                 })
@@ -309,14 +310,30 @@ impl App {
                     reason: Reason::Receiver(c.clone()),
                 })
                 .collect();
-            if !found.is_empty() {
-                return found;
-            }
             let search::RubyParents {
                 superclasses: supers,
                 includes,
+                prepends,
                 extends,
             } = self.ruby_parents(here, &c);
+            if !found.is_empty() {
+                let ahead: Vec<Candidate> = prepends
+                    .iter()
+                    .filter(|_| !side)
+                    .filter_map(|m| self.ruby_resolve(here, &c, m))
+                    .flat_map(|m| {
+                        owned
+                            .iter()
+                            .filter(|o| o.class == m && !o.on_class && !o.in_block)
+                            .map(|o| Candidate {
+                                hit: o.hit.clone(),
+                                reason: Reason::Receiver(m.clone()),
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                return if ahead.is_empty() { found } else { ahead };
+            }
             let mixed = if side { extends } else { includes };
             let next = mixed
                 .into_iter()
@@ -398,6 +415,7 @@ impl App {
             let one = search::ruby_class_parents(&t, h.line1);
             out.superclasses.extend(one.superclasses);
             out.includes.extend(one.includes);
+            out.prepends.extend(one.prepends);
             out.extends.extend(one.extends);
         }
         out
@@ -584,5 +602,6 @@ struct Owned {
     hit: Hit,
     class: String,
     on_class: bool,
+    in_block: bool,
     module_method_on_both_sides: bool,
 }

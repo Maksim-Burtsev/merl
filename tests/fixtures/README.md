@@ -305,7 +305,11 @@ the use. The command `chai` under a `local chai=1` is the function. `eight` read
 after an assignment whose value holds backticks, a `${…}` with a space, an escaped space, `$(…)`
 or ends in a redirection, which answers with that assignment; `nine` puts the cursor on the target
 of `mug=$((…))`, `mug+=1`, `… && mug=5` and `then mug=7;` under a `local mug=0`, which answers
-with the `local`.
+with the `local`. `shell/bin/quoted.sh` (#1426) declares functions and a variable inside `"…"`
+strings over lines (after `name=`, after `echo`, holding `$(printf 'x')` and `\"`), a `$'…'` one
+holding `\'`, and an odd `"` inside a `'…'` over lines; none is a definition, and a function after
+an escaped `\"` is. The code the shell runs inside `"$( … )"` and `sh -c "…"` over lines stays
+code: `sencha` and `LEAF` answer with their assignments there.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -464,6 +468,18 @@ master's picker.
 switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
 whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
 `Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
+`csharp/src/Shop/Spout/` (#1436) declares overloads of an inherited `Carafe.Pour(int)` in its
+subclasses that a call cannot take: `Pour(int a, int b)` and `Pour(string s)`, so `this.Pour(1)`,
+a bare `Pour(1)`, a typed receiver and `new Dipper().Pour(2)` reach `Carafe.Pour`, while a call the
+overload takes stays on it, `Pour(long n)` keeps an `int` literal, and a class with no base keeps
+its only overload.
+`swift/Sources/Shop/Decant/` (#1436) declares overloads of an inherited `Flagon.decant(_:)` in
+its subclasses that a call cannot take, `decant(into:)` and `decant(_ s: String)`, so
+`self.decant(1)`, a bare `decant(2)`, a typed receiver and `Tankard().decant(2)` reach
+`Flagon.decant`, also through a class that declares none; a call the overload takes stays on it,
+a `true` that no level takes keeps the nearest, an `override` beside a `String` overload takes the
+`Int` literal, a trailing closure keeps its own, a generic overload keeps a picker, and a base from
+outside the project keeps the class's own.
 `csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
 `Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
 there, so `Ignite()` lands on the `Burners` the live `using static` opens.
@@ -689,6 +705,18 @@ an internal `define` or `define-values`, `case-lambda`, a rest-symbol `lambda`, 
 a `:let`, a `reify` or `defrecord` method, `if-let`, `cl-loop`, `condition-case` and
 `handler-case`, and call it after a `#:when`, in a `condition-case` or `handler-case` body and in
 an `if-let` else branch.
+`clojure/src/shop/kettle.clj` and `stale.clj` (#1431) each define a `steep`: `brewer.clj` refers
+the kettle's, `teapot.clj` and `infuser.clj` refer it and define their own (on one line, and with
+the name under `(defn-`), and `strainer.cljc` refers it, and binds an alias, from both namespaces
+in a reader conditional. `infuser.clj`, `common-lisp/kettle.lisp`, `scheme/kettle.rkt` and
+`emacs-lisp/shop-kettle.el` also define a name on the line under its head, and under a head whose
+next line names it only in a comment. What must keep master's answer: `ladler.clj` adds a
+`defmethod` to the kettle's referred `ladle` and lands on its `defmulti`; `sifter.clj` refers a
+`sieve` from outside the project and calls it as `(sieve [x y]`, which answers nothing, not with
+`stale.clj`'s namesake; `scheme/checked.scm` names a `syntax-rules` pattern variable under a lone
+`(define-record-type` of its template, and `scheme/queries/highlights.scm` is a tree-sitter query
+whose `(module` has `(identifier)` under it: neither defines anything. `kettle.rkt` still finds an
+indented `(define-syntax-rule` with its pattern on the next line.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
@@ -792,6 +820,13 @@ still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` 
 `Winnow` of another function, so the one without a method offers a picker. `patched.js` and
 `repatched.js` patch the imported `Winnow.prototype` at the top level: that keeps the local
 function's `this.sieveChaff`, and is no method of a local `function Winnow` that has none.
+
+`typescript/glean/` holds two of the 2026-11-07 hunts. `field.js` and `probe.js` import the `Sheaf`
+of `barn.ts` and declare a `function Sheaf` inside an `if`, `else`, `for`, `try` or one-line block
+of the module (#1420): it is block-scoped there, so a `new Sheaf()` outside the block, above or
+below it, and the method through it, land on the import, while the use inside the block lands on
+the block's function. `stack.ts` and `stack.js` declare methods whose line ends in a `//` or a
+`/* */` comment, or holds one between `{` and `}` (#1433), while the call `knot({ // …` in `stack.js` declares nothing. `hand.js` requires `helper` from `tool.js`: a `function helper()` line inside a template string or a block comment hides nothing, a real one below the use does.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -1161,6 +1196,12 @@ on the imported one's. So does a type written outside the nested class's scope a
 class that has a nested `Decanter` too: `Sommelier` (`Tastevin` in Kotlin) reads a field and a
 return type of `Magnum` (`Bung`) and, in Java, a `Jeroboam extends Decanter`; `Cooper.Inner`
 (`Corkscrew.Inner`) reads its outer class's field.
+
+`Brewery` (Kotlin) and `Stillhouse` (Java) (#1430) do the same for a member reached through the
+type's name: `Funnel.strain()` on a nested `object Funnel`, `Ewer.brim()` on a nested class's
+companion, `Funnel` and `.strain()` over two lines, and `Pipette.dropper()` on a nested static
+class land on the nested type's member; a top-level `spill()` and a `Tapster` beside the class,
+which the nested type does not reach, keep the imported one's.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
