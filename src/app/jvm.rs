@@ -306,7 +306,7 @@ impl App {
                 Some(name) => Reason::Path(name),
                 None => Reason::Local,
             };
-            found = search::jvm_members_of(text, decl, word)
+            found = search::jvm_members_of(here, text, decl, word)
                 .into_iter()
                 .map(|line| candidate(here, &lines, line, reason.clone()))
                 .collect();
@@ -410,7 +410,7 @@ impl App {
         let t = self.text_of(&hit.path)?;
         let lines: Vec<&str> = t.lines().collect();
         Some(
-            search::jvm_members_of(&t, hit.line1, word)
+            search::jvm_members_of(&hit.path, &t, hit.line1, word)
                 .into_iter()
                 .map(|line| Candidate {
                     hit: Hit {
