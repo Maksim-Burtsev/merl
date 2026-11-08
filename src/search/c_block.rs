@@ -1,7 +1,7 @@
 use super::c::{
-    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_body_head, c_class_around, c_code,
-    c_enum_head, c_enumerators, c_innermost_open_brace, c_member_decl, c_type_def, close_or_end,
-    declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
+    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_bindings_at, c_body_head,
+    c_class_around, c_code, c_enum_head, c_enumerators, c_innermost_open_brace, c_member_decl,
+    c_type_def, close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
 };
 use regex::Regex;
 use std::sync::LazyLock;
@@ -135,9 +135,37 @@ static DEFINE: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("the regex is a literal")
 });
-pub fn c_function_macros(text: &str) -> String {
-    (DEFINE.find_iter(text))
-        .flat_map(|m| ["\n", m.as_str()])
+pub fn c_function_macros(text: &str) -> Vec<(String, String)> {
+    (DEFINE.captures_iter(text))
+        .map(|c| (c[1].to_owned(), c[0].to_owned()))
+        .collect()
+}
+pub fn c_calls_taking(text: &str, line1: usize, col: usize, name: &str) -> Vec<String> {
+    static CALL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[;{}])\s*([A-Za-z_]\w*)\s*\(").expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let Some(pos) = starts.get(line1.saturating_sub(1)).map(|s| s + col) else {
+        return Vec::new();
+    };
+    let from = (c_bindings_at(text, line1, Some(col), name).into_iter())
+        .filter_map(|p| Some(starts.get(p.line1.checked_sub(1)?)? + p.byte_col))
+        .filter(|&a| a < pos)
+        .max()
+        .unwrap_or(0);
+    let Some(region) = code.get(from..pos) else {
+        return Vec::new();
+    };
+    (CALL.captures_iter(region))
+        .filter_map(|c| {
+            let open = c.get(0)?.end() - 1;
+            let args = region.get(open + 1..close_or_end(region, open, region.len()))?;
+            (split_top_level(args, ',')
+                .iter()
+                .any(|(_, a)| a.trim() == name))
+            .then(|| c[1].to_owned())
+        })
         .collect()
 }
 pub(super) type Declarer = (String, Vec<usize>);
