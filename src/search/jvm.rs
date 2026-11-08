@@ -1,8 +1,7 @@
 use regex::Regex;
 
 use super::jvm_rebound::{
-    blanked, clause_closed_at, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
-    negated_pattern_exits,
+    blanked, clause_closed_at, lambda_binders, lambda_names, lambda_open_at, negated_pattern_exits,
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
@@ -271,7 +270,7 @@ fn header_lines1_binding(
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*[\w(),\s]*?<-[^{{}}]*?;\s*{n}\s*(?::[^<;]*)?(?:<-|=[^=>])|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
     ));
     let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
         .into_iter()
@@ -313,25 +312,8 @@ fn declares_local(t: &str, name: &str) -> bool {
     .is_ok_and(|re| re.is_match(t))
 }
 
-pub fn jvm_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return Vec::new();
-    };
-    if !matches!(name, "this" | "super" | "it")
-        && blanked(lines[at])
-            .get(..col)
-            .is_some_and(|lead| jvm_declared_before(lead, name))
-    {
-        return vec![Binding {
-            line1,
-            value: Value::Unknown,
-        }];
-    }
-    jvm_bindings(&lines, at, name, Some(col))
-}
-
 pub(super) fn jvm_bindings(
+    path: &std::path::Path,
     lines: &[&str],
     at: usize,
     name: &str,
@@ -345,7 +327,7 @@ pub(super) fn jvm_bindings(
         return Vec::new();
     }
     let text = lines.join("\n");
-    let literal = literal_lines(Kind::Jvm, &text);
+    let literal = path_literal_lines(Kind::Jvm, path, &text);
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -1032,6 +1014,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
 }
 
 pub fn kotlin_lambda_collection(
+    path: &std::path::Path,
     text: &str,
     line1: usize,
     before: &str,
@@ -1054,7 +1037,7 @@ pub fn kotlin_lambda_collection(
     }
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let nearest: Vec<usize> = jvm_bindings(&lines, at, name, None)
+    let nearest: Vec<usize> = jvm_bindings(path, &lines, at, name, None)
         .iter()
         .map(|b| b.line1)
         .collect();

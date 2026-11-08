@@ -53,3 +53,15 @@ pub fn probe_bounded<T: Toaster>(x: T) {
     x.clink();
     //^ d: src/goblets.rs:39
 }
+pub struct Shelf<T> {
+    held: T,
+    cup: Goblet,
+}
+impl<T> Shelf<T> {
+    pub fn probe_field(&self) {
+        self.held.quaff();
+        //        ^ d: src/goblets.rs:3; want none (#1438)
+        self.cup.quaff();
+        //       ^ d: src/goblets.rs:3
+    }
+}

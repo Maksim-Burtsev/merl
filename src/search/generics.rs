@@ -225,6 +225,7 @@ fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize
                 && literal.get(i) != Some(&true)
                 && !continues(t)
                 && !t.starts_with(['{', '}', '#'])
+                && !access_label(kind, t)
                 && indent(lines[i]) < depth
         })?;
     }
@@ -431,4 +432,65 @@ pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
         .ok()?
         .captures(code.trim())
         .map(|c| c[1].to_owned())
+}
+
+pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<super::Binding> {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[^(]*\b(?:struct|class|union|actor)\s+[A-Za-z_]")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(kind, text);
+    let mut k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
+    let parent = loop {
+        let p = (0..k).rev().find(|&i| {
+            let t = uncommented(kind, lines[i]);
+            let t = t.trim();
+            !t.is_empty()
+                && literal.get(i) != Some(&true)
+                && !t.starts_with(['{', '}', '#'])
+                && !access_label(kind, t)
+                && indent(lines[i]) < indent(lines[k])
+        })?;
+        if HEAD.is_match(&coded(kind, lines[p])) {
+            break p;
+        }
+        k = p;
+    };
+    let (outer, base) = (indent(lines[parent]), indent(lines[k]));
+    lines
+        .iter()
+        .enumerate()
+        .skip(parent + 1)
+        .take_while(|(_, l)| {
+            l.trim().is_empty() || access_label(kind, l.trim()) || indent(l) > outer
+        })
+        .filter(|&(i, l)| indent(l) == base && literal.get(i) != Some(&true))
+        .find_map(|(i, l)| {
+            let t = coded(kind, l);
+            let field = match kind {
+                Kind::C => !t.contains('('),
+                _ => t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func "),
+            };
+            Some(super::Binding {
+                line1: i + 1,
+                value: super::Value::Type(declared_type_on(kind, l, name).filter(|_| field)?),
+            })
+        })
+}
+
+pub fn arrow_head(before: &str) -> Option<String> {
+    let head = before.strip_suffix("->")?;
+    let len: usize = (head.chars().rev())
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .map(char::len_utf8)
+        .sum();
+    let (rest, name) = head.split_at_checked(head.len() - len)?;
+    let plain = !rest.trim_end().ends_with(['.', '>', ':', ')', ']', '*']);
+    (plain && name != "this" && name.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+        .then(|| name.to_owned())
+}
+
+fn access_label(kind: Kind, t: &str) -> bool {
+    kind == Kind::C && matches!(t, "public:" | "private:" | "protected:")
 }

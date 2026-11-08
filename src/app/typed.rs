@@ -364,7 +364,8 @@ impl App {
         let (last, before) = chain.split_last()?;
         if before.is_empty() {
             let text = self.buf.lines.join("\n");
-            let bindings = search::bindings_at(kind, &text, self.line + 1, Some(self.col), last);
+            let bindings =
+                search::bindings_at(kind, here, &text, self.line + 1, Some(self.col), last);
             Some((here.to_path_buf(), text, bindings, Vec::new()))
         } else {
             let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
@@ -1207,7 +1208,7 @@ impl App {
     ) -> Vec<search::Binding> {
         let col = (line1 == self.line + 1 && text.lines().nth(self.line) == Some(self.line_str()))
             .then_some(self.col);
-        let mut bindings = search::bindings_at(kind, text, line1, col, name);
+        let mut bindings = search::bindings_at(kind, file, text, line1, col, name);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
                 if let Some(t) = search::jsdoc_binding(text, b.line1, name)
@@ -1476,12 +1477,14 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
-    search::bindings(kind, text, line1, name).iter().any(|b| {
-        lines.get(b.line1 - 1).is_some_and(|l| {
-            !(names_itself(kind, l, name)
-                || search::reads_jsdoc(kind, file) && required.is_match(l))
+    search::path_bindings(kind, file, text, line1, name)
+        .iter()
+        .any(|b| {
+            lines.get(b.line1 - 1).is_some_and(|l| {
+                !(names_itself(kind, l, name)
+                    || search::reads_jsdoc(kind, file) && required.is_match(l))
+            })
         })
-    })
 }
 
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {

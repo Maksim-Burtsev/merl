@@ -252,7 +252,7 @@ impl App {
             }
         }
         let nested_binding = |app: &Self| {
-            search::bindings(kind, &a.text, app.line + 1, a.first())
+            search::path_bindings(kind, &a.here, &a.text, app.line + 1, a.first())
                 .iter()
                 .any(|b| app.buf.lines[b.line1 - 1].starts_with([' ', '\t']))
         };

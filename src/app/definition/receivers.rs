@@ -118,16 +118,45 @@ impl App {
     }
 
     pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
-        let (kind, chain) = (a.kind, a.chain.as_slice());
+        let kind = a.kind;
+        let arrow = (kind == Kind::C)
+            .then(|| search::arrow_head(&a.before))
+            .flatten();
+        let arrowed = arrow.is_some();
+        let chain = arrow.map_or_else(|| a.chain.clone(), |head| vec![head]);
+        let chain = chain.as_slice();
+        let on_this = |f: &str| {
+            (a.before.strip_suffix('.'))
+                .and_then(|b| b.strip_suffix(f))
+                .is_some_and(|b| b.trim_end().ends_with("this->"))
+        };
+        let explicit = match (kind, chain) {
+            (Kind::Swift, [s, f]) if s == "self" => Some(f),
+            (Kind::C, [f]) if on_this(f) => Some(f),
+            _ => None,
+        };
         let reaches = match kind {
             Kind::Go => !chain.is_empty(),
-            Kind::C | Kind::Swift | Kind::Rust => chain.len() == 1,
+            Kind::C | Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
             _ => false,
         };
-        if !a.dotted || !reaches {
+        if !(a.dotted || arrowed) || !reaches {
             return false;
         }
-        let Some((file, text, bindings, _)) = self.last_bindings(kind, &a.here, chain) else {
+        let own = |f: &str| {
+            let field = search::own_field(kind, &a.text, self.line + 1, f)?;
+            Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
+        };
+        let found = match explicit {
+            Some(f) => own(f),
+            None => match self.last_bindings(kind, &a.here, chain) {
+                Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
+                    own(chain.last().map_or("", String::as_str))
+                }
+                found => found,
+            },
+        };
+        let Some((file, text, bindings, _)) = found else {
             return false;
         };
         let last = chain.last().map_or("", String::as_str);

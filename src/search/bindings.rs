@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::path::Path;
 
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
@@ -166,10 +167,14 @@ fn ts_cast(e: &str) -> Option<Value> {
     })
 }
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
-    bindings_at(kind, text, line, None, name)
+    bindings_at(kind, Path::new(""), text, line, None, name)
+}
+pub fn path_bindings(kind: Kind, path: &Path, text: &str, line: usize, name: &str) -> Vec<Binding> {
+    bindings_at(kind, path, text, line, None, name)
 }
 pub fn bindings_at(
     kind: Kind,
+    path: &Path,
     text: &str,
     line: usize,
     col: Option<usize>,
@@ -207,7 +212,7 @@ pub fn bindings_at(
         Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
         Kind::C => c_bindings(text, line, None, name),
-        Kind::Jvm => jvm_bindings(&lines, at, name, None),
+        Kind::Jvm => jvm_bindings(path, &lines, at, name, None),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),

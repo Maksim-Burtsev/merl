@@ -2,7 +2,10 @@ use std::ops::Range;
 
 use regex::Regex;
 
-use super::{Group, Kind, body_of, code, group, indent, literal_lines, split_top, word_at};
+use super::{
+    Group, Kind, body_of, code, group, indent, literal_lines, path_literal_lines, split_top,
+    word_at,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owner {
@@ -37,11 +40,12 @@ const LINES_BACK_TO_THE_BRACKET: usize = 80;
 )]
 pub fn label_at(
     kind: Kind,
-    java: bool,
+    path: &std::path::Path,
     text: &str,
     line0: usize,
     range: Range<usize>,
 ) -> Option<Label> {
+    let java = path.extension().is_some_and(|e| e == "java");
     let lines: Vec<&str> = text.lines().collect();
     let l = *lines.get(line0)?;
     let tight = l.get(range.end..)?;
@@ -60,7 +64,7 @@ pub fn label_at(
     if rest.first() != Some(&sep) || matches!(rest.get(1), Some(b'=' | b'>' | b':')) {
         return None;
     }
-    let literal = literal_lines(kind, text);
+    let literal = path_literal_lines(kind, path, text);
     if kind == Kind::TsJs && sep == b'=' {
         return jsx(kind, &lines, &literal, line0, range.start);
     }
@@ -931,7 +935,7 @@ mod tests {
             .expect("the probe is in the text");
         let start = l.find(probe).unwrap() + probe.find(|c: char| c.is_alphanumeric()).unwrap();
         let (range, _) = word_at(l, start, "").unwrap();
-        label_at(kind, false, text, line, range)
+        label_at(kind, std::path::Path::new(""), text, line, range)
     }
 
     fn owner(kind: Kind, text: &str, probe: &str) -> Option<(String, Owner)> {
@@ -970,14 +974,14 @@ mod tests {
         assert!(label(Kind::CSharp, tuple, "count: n)").is_some());
         let java = "for (i = 0; i < n; i++) {}\n@Size(max = 3)\n";
         assert!(
-            label_at(Kind::Jvm, true, java, 0, 5..6).is_none(),
+            label_at(Kind::Jvm, std::path::Path::new("A.java"), java, 0, 5..6).is_none(),
             "Java has no named arguments"
         );
         assert!(
-            label_at(Kind::Jvm, true, java, 1, 6..9).is_some(),
+            label_at(Kind::Jvm, std::path::Path::new("A.java"), java, 1, 6..9).is_some(),
             "only an annotation's brackets hold labels"
         );
-        assert!(label_at(Kind::Jvm, false, java, 1, 6..9).is_some());
+        assert!(label_at(Kind::Jvm, std::path::Path::new(""), java, 1, 6..9).is_some());
         let swift = "let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)\nlet v = RefreshWindow(interval: 30)\ninit(interval: Double) {}\nlet t = a ? b : c\nx = self.init(name: 1)\n";
         assert_eq!(
             owner(Kind::Swift, swift, "maximumAttempts"),

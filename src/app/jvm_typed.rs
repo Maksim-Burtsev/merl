@@ -191,7 +191,7 @@ impl App {
         }
         let init = search::kotlin_initializer(text, line1, name)?;
         if init.trim() == name
-            && search::bindings(Kind::Jvm, text, line1.checked_sub(1)?, name).is_empty()
+            && search::path_bindings(Kind::Jvm, file, text, line1.checked_sub(1)?, name).is_empty()
         {
             let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
@@ -252,14 +252,14 @@ impl App {
             },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
                 if search::jvm_rebound_before(before, f)
-                    && !search::bindings(Kind::Jvm, text, line, f)
+                    && !search::path_bindings(Kind::Jvm, here, text, line, f)
                         .iter()
                         .any(|b| b.line1 == line)
                 {
                     return None;
                 }
                 if search::scala(here) {
-                    let bound: Vec<usize> = search::jvm_bindings_at(text, line, self.col, f)
+                    let bound: Vec<usize> = search::jvm_bindings_at(here, text, line, self.col, f)
                         .iter()
                         .map(|b| b.line1)
                         .collect();
@@ -270,7 +270,7 @@ impl App {
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
-                        kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
+                        kt.then(|| search::kotlin_lambda_collection(here, text, line, before, f));
                     let lambda = lambda.flatten()?;
                     match lambda.strip_suffix(".entries") {
                         Some(e) => match self.jvm_type_at(here, text, e) {
@@ -503,9 +503,9 @@ impl App {
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
         let cursor_line = line1 == self.line + 1 && lines.get(self.line) == Some(&self.line_str());
         let bindings: Vec<usize> = if cursor_line {
-            search::jvm_bindings_at(text, line1, self.col, name)
+            search::jvm_bindings_at(file, text, line1, self.col, name)
         } else {
-            search::bindings(Kind::Jvm, text, line1, name)
+            search::path_bindings(Kind::Jvm, file, text, line1, name)
         }
         .iter()
         .map(|b| b.line1)
@@ -591,7 +591,7 @@ impl App {
         }
         let (in_file, written) = match (source.receiver, source.call) {
             (Some(r), None) => {
-                let [l] = search::bindings(Kind::Jvm, text, line1, &r)
+                let [l] = search::path_bindings(Kind::Jvm, file, text, line1, &r)
                     .iter()
                     .map(|b| b.line1)
                     .collect::<Vec<_>>()[..]
@@ -680,7 +680,7 @@ impl App {
         name: &str,
         java: bool,
     ) -> Option<String> {
-        let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
+        let mut declared: Vec<usize> = search::path_bindings(Kind::Jvm, file, text, line1, name)
             .iter()
             .map(|b| b.line1)
             .collect();

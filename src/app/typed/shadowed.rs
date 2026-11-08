@@ -89,7 +89,7 @@ fn local_class(
     ))
     .expect("an escaped name keeps the pattern valid");
     let lines: Vec<&str> = text.lines().collect();
-    search::bindings(kind, text, line1, name)
+    search::path_bindings(kind, file, text, line1, name)
         .iter()
         .find(|b| lines.get(b.line1 - 1).is_some_and(|l| class.is_match(l)))
         .map(|b| Typed {
