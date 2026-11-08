@@ -20,3 +20,13 @@ pub fn husk_use() {
     husk_real();
 //  ^ d: src/husks.rs:11
 }
+
+/* x */ pub fn husk_mix() {}
+/* a /* b */ pub fn husk_inline() {} */
+
+pub fn husk_after() {
+    husk_mix();
+//  ^ d: src/husks.rs:24
+    husk_inline();
+//  ^ d: none
+}
