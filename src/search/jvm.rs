@@ -704,7 +704,7 @@ pub fn scala_type_parameter(text: &str, name: &str) -> bool {
 
 pub fn jvm_type_parameter(text: &str, name: &str) -> bool {
     static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:\b(?:class|interface|record)\s+[A-Za-z_]\w*\s*|\bfun\s*|(?:^|[\s(,])\s*)<([^<>]*(?:<[^<>]*>[^<>]*)*)>").expect("the regex is a literal")
+        Regex::new(r"(?:\b(?:class|interface|record|typealias)\s+[A-Za-z_]\w*\s*|\bfun\s*|(?:^|[\s(,])\s*)<([^<>]*(?:<[^<>]*>[^<>]*)*)>").expect("the regex is a literal")
     });
     LIST.captures_iter(text).any(|c| {
         split_top(Kind::Jvm, &c[1], b',').iter().any(|e| {

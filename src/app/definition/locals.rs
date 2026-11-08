@@ -44,12 +44,9 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = locals
-            .is_empty()
-            .then(|| self.type_param(a, &imports))
-            .flatten();
-        if let Some(p) = type_param {
-            locals = vec![p];
+        let type_param = locals.is_empty().then(|| self.type_param(a)).flatten();
+        if let Some(line1) = type_param {
+            locals = vec![line1];
         }
         if !locals.is_empty() || self.def_hides_import(a) {
             imports.retain(|i| i.name != a.first());
@@ -104,15 +101,17 @@ impl App {
         })
     }
 
-    fn type_param(&self, a: &Asked, imports: &[search::Import]) -> Option<usize> {
+    fn type_param(&self, a: &Asked) -> Option<usize> {
         let (kind, word, line1) = (a.kind, &a.word, self.line + 1);
-        if a.dotted || !a.chain.is_empty() || a.before.ends_with("::") {
+        if a.dotted || !a.chain.is_empty() {
             return None;
         }
         match kind {
-            Kind::TsJs if imports.iter().all(|i| i.name != *word) => {
-                search::ts_type_param(&a.text, line1, word).map(|p| p.line1)
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
+            Kind::Jvm | Kind::Dart => {
+                search::generic_param_line(kind, &a.here, &a.text, line1, word)
             }
+            _ if a.before.ends_with("::") => None,
             Kind::CSharp => search::cs_generic_param_line(&a.text, line1, word),
             Kind::Rust if !rust_type_position(a) => None,
             Kind::Rust | Kind::Go | Kind::C => search::type_param_line(kind, &a.text, line1, word),
