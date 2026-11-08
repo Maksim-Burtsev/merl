@@ -109,6 +109,7 @@ impl App {
         let hits = self.project_definitions(Kind::Swift, here, word, pattern);
         let mut ty = own.clone();
         let mut seen = HashSet::from([own.clone()]);
+        let mut nearest: Option<Vec<Candidate>> = None;
         loop {
             let full = format!("{ty}.{word}");
             let found: Vec<Candidate> = hits
@@ -124,13 +125,17 @@ impl App {
                 })
                 .collect();
             if !found.is_empty() {
-                return Some(found);
+                let rows: Vec<Hit> = found.iter().map(|c| c.hit.clone()).collect();
+                if !self.swift_misfit(word, &rows) {
+                    return Some(found);
+                }
+                nearest.get_or_insert(found);
             }
             let next = match (keyword.as_str(), base) {
                 ("class", Some(next)) if seen.insert(next.clone()) => next,
                 _ => {
                     self.truncated.set(cut);
-                    return self.swift_self_default(here, &own, word);
+                    return nearest.or_else(|| self.swift_self_default(here, &own, word));
                 }
             };
             let classes: Vec<_> = self
@@ -153,7 +158,7 @@ impl App {
             ] = classes.as_slice()
             else {
                 self.truncated.set(cut);
-                return self.swift_self_default(here, &own, word);
+                return nearest.or_else(|| self.swift_self_default(here, &own, word));
             };
             (keyword, base, ty) = (k.clone(), b.clone(), next);
         }
