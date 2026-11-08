@@ -51,4 +51,27 @@ module Tea
     Bung.new.seal(1)
     #        ^ d: lib/tea/prepended.rb:3
   end
+
+  module Loud
+    extend ActiveSupport::Concern
+
+    class_methods do
+      def seal(lid)
+        lid
+      end
+    end
+  end
+
+  class Flask
+    prepend Loud
+
+    def seal(lid)
+      lid
+    end
+
+    def run
+      seal(1)
+      # ^ d: lib/tea/prepended.rb:68
+    end
+  end
 end

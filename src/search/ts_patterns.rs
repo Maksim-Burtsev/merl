@@ -569,6 +569,7 @@ fn angle_list(s: &str) -> Option<(&str, &str)> {
     None
 }
 pub(super) fn ts_hoisted_function(
+    text: &str,
     lines: &[&str],
     mut at: usize,
     name: &str,
@@ -583,6 +584,7 @@ pub(super) fn ts_hoisted_function(
         regex::escape(name)
     ))
     .ok()?;
+    let literal = literal_lines(Kind::TsJs, text);
     let mut depth = indent(lines.get(at)?);
     while depth > 0 {
         let header = (0..at).rev().find(|&i| {
@@ -606,7 +608,11 @@ pub(super) fn ts_hoisted_function(
             .map_or(0, |l| indent(l));
         if let Some(i) = body
             .enumerate()
-            .find(|(_, l)| indent(l) == child && declares.is_match(l))
+            .find(|&(i, l)| {
+                indent(l) == child
+                    && !literal.get(header + 1 + i).copied().unwrap_or(false)
+                    && declares.is_match(l)
+            })
             .map(|(i, _)| i)
         {
             return Some((header + 1, header + i + 2));
