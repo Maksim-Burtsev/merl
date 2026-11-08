@@ -460,6 +460,11 @@ master's picker.
 switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
 whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
 `Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
+`csharp/src/Shop/Spout/` (#1436) declares overloads of an inherited `Carafe.Pour(int)` in its
+subclasses that a call cannot take: `Pour(int a, int b)` and `Pour(string s)`, so `this.Pour(1)`,
+a bare `Pour(1)`, a typed receiver and `new Dipper().Pour(2)` reach `Carafe.Pour`, while a call the
+overload takes stays on it, `Pour(long n)` keeps an `int` literal, and a class with no base keeps
+its only overload.
 `csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
 `Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
 there, so `Ignite()` lands on the `Burners` the live `using static` opens.
