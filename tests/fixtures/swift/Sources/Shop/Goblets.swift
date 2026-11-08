@@ -13,7 +13,7 @@ struct Rack<Goblet> {
         x.quaff()
         //^ d: none
         held.quaff()
-        //   ^ d: Sources/Shop/Goblets.swift:2; want none (#1438)
+        //   ^ d: none
     }
 }
 
@@ -48,7 +48,7 @@ struct Rack3<T> {
     var held: T
     func use() {
         self.held.quaff()
-        //        ^ d: Sources/Shop/Goblets.swift:2; want none (#1438)
+        //        ^ d: none
     }
 }
 
@@ -56,6 +56,27 @@ struct Rack4<Goblet> {
     var held: Goblet
     func use() {
         self.held.quaff()
-        //        ^ d: Sources/Shop/Goblets.swift:2; want none (#1438)
+        //        ^ d: none
+    }
+}
+
+struct Rack5<T> {
+    var held: T
+    let cup: Goblet
+    func use(_ held: Goblet) {
+        cup.quaff()
+        //  ^ d: Sources/Shop/Goblets.swift:2
+        self.cup.quaff()
+        //       ^ d: Sources/Shop/Goblets.swift:2
+        held.quaff()
+        //   ^ d: Sources/Shop/Goblets.swift:2
+    }
+}
+
+struct Rack6<T: Toaster> {
+    var held: T
+    func use() {
+        self.held.clink()
+        //        ^ d: picker Sources/Shop/Goblets.swift:3, Sources/Shop/Goblets.swift:7
     }
 }
