@@ -1,8 +1,7 @@
 use regex::Regex;
 
 use super::jvm_rebound::{
-    blanked, clause_closed_at, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
-    negated_pattern_exits,
+    blanked, clause_closed_at, lambda_binders, lambda_names, lambda_open_at, negated_pattern_exits,
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
@@ -311,30 +310,6 @@ fn declares_local(t: &str, name: &str) -> bool {
         r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
     ))
     .is_ok_and(|re| re.is_match(t))
-}
-
-pub fn jvm_bindings_at(
-    path: &std::path::Path,
-    text: &str,
-    line1: usize,
-    col: usize,
-    name: &str,
-) -> Vec<Binding> {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return Vec::new();
-    };
-    if !matches!(name, "this" | "super" | "it")
-        && blanked(lines[at])
-            .get(..col)
-            .is_some_and(|lead| jvm_declared_before(lead, name))
-    {
-        return vec![Binding {
-            line1,
-            value: Value::Unknown,
-        }];
-    }
-    jvm_bindings(path, &lines, at, name, Some(col))
 }
 
 pub(super) fn jvm_bindings(

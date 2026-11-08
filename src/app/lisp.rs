@@ -44,13 +44,13 @@ impl App {
     pub(super) fn binding_lines(
         &self,
         kind: Kind,
-        path: &Path,
         text: &str,
         line: usize,
         col: usize,
         bare: bool,
         name: &str,
     ) -> Vec<usize> {
+        let path = self.buf.path.as_deref().unwrap_or_else(|| Path::new(""));
         let found = if search::lisp(kind) && bare && line == self.line + 1 {
             search::lisp_bindings_at(kind, text, line, col, name)
         } else if let Some(l) = (kind == Kind::Julia && line == self.line + 1)
