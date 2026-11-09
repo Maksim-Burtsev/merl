@@ -58,3 +58,11 @@ class AmphoraWrappedFns {
   //^ d: lib/amphora.dart:1
   ) => x;
 }
+
+class AmphoraCrossBound<
+  T extends Amphora,
+  Amphora
+> {
+  Amphora? held;
+//^ d: lib/amphora_rack.dart:64
+}
