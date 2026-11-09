@@ -541,6 +541,10 @@ parameter (one with a default) or a local after `;`, by a comprehension and a la
 them beside these on the line too: before the lambda, after the comprehension, in its first
 iterable and after a lambda's body, where the outer binding wins; a top-level comprehension's
 variable wins over a later module-level namesake.
+`generic.py` (#1455) puts PEP 695 type-parameter lists on a `def` (with a bound, a constraint
+tuple, a nested subscript), an `async def`, a method, a `class` and a `type` alias: the
+parameters read as without the list, and `T` lands on the list, unless a local rebinds it; a
+function without a list keeps master's picker of the module-level `TypeVar`s.
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under
