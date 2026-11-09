@@ -109,6 +109,107 @@ public class Rack {
     void quotedFor() { use("for (x : es)"); x.decant(); }
     //                                        ^ d: src/main/java/rebound/Flask.java:4
 
+    void declarators() { Ewer e = new Ewer(), x = e; x.decant(); }
+    //                                                 ^ d: src/main/java/rebound/Ewer.java:4
+    void declaratorName() { Ewer e = new Ewer(), x = e; x.decant(); }
+    //                                                  ^ d: src/main/java/rebound/Rack.java:114
+    // status: local
+    void genericDeclarators() { java.util.Map<String, Ewer> m = new java.util.HashMap<>(), x = m; x.size(); }
+    //                                                                                            ^ d: src/main/java/rebound/Rack.java:117
+    // status: local
+    void callDeclarators() { Ewer e = make(1, 2), x = make(3, 4); x.decant(); }
+    //                                                              ^ d: src/main/java/rebound/Ewer.java:4
+    void initializerReads() { Ewer e = new Ewer(), y = x; x.decant(); }
+    //                                                      ^ d: src/main/java/rebound/Flask.java:4
+    void lambdaInitializer() { java.util.function.Function<Ewer, Ewer> f = x -> x, g = null; x.decant(); }
+    //                                                                                         ^ d: src/main/java/rebound/Flask.java:4
+    void quotedDeclarators() { use("Ewer e = new Ewer(), x = e;"); x.decant(); }
+    //                                                               ^ d: src/main/java/rebound/Flask.java:4
+    void closedDeclarators() { { Ewer e = new Ewer(), x = e; } x.decant(); }
+    //                                                           ^ d: src/main/java/rebound/Flask.java:4
+
+    void declaratorLine() {
+        Ewer e = new Ewer(), x = e;
+        x.decant();
+        //^ d: src/main/java/rebound/Ewer.java:4
+    }
+
+    void caseGroups(int k) {
+        switch (k) {
+            case 1:
+                Ewer x = new Ewer();
+                break;
+            case 2:
+                x.decant();
+                //^ d: src/main/java/rebound/Ewer.java:4
+                break;
+        }
+        x.decant();
+        //^ d: src/main/java/rebound/Flask.java:4
+    }
+
+    void caseOneLine(int k) {
+        switch (k) {
+            case 1: Ewer x = new Ewer(); x.decant(); break;
+            //                             ^ d: src/main/java/rebound/Ewer.java:4
+            default: x.decant();
+            //         ^ d: src/main/java/rebound/Ewer.java:4
+        }
+    }
+
+    void caseBlock(int k) {
+        switch (k) {
+            case 1: {
+                Ewer x = new Ewer();
+                break;
+            }
+            case 2:
+                x.decant();
+                //^ d: src/main/java/rebound/Flask.java:4
+        }
+    }
+
+    void caseNested(int k) {
+        switch (k) {
+            case 1:
+                if (k > 0) {
+                    Ewer x = new Ewer();
+                }
+                break;
+            default:
+                x.decant();
+                //^ d: src/main/java/rebound/Flask.java:4
+        }
+    }
+
+    void earlierPattern(Object o) {
+        switch (o) {
+            case Ewer x:
+                switch (1) { default: break; }
+                x.decant();
+                //^ d: src/main/java/rebound/Ewer.java:4
+                break;
+            default:
+                x.decant();
+              // ^ d: src/main/java/rebound/Rack.java:6
+        }
+    }
+
+    void arrowPattern(Object o) {
+        switch (o) {
+            case Ewer x -> {
+                switch (1) { default -> { } }
+                x.decant();
+                //^ d: src/main/java/rebound/Ewer.java:4
+            }
+            default -> { }
+        }
+    }
+
+    Ewer make(int a, int b) {
+        return null;
+    }
+
     void use(String s) {
     }
 }

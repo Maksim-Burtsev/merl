@@ -1296,7 +1296,10 @@ enum where the language lets it (#1448): Swift's `Rookery.swift`, Rust's `rooker
 C++'s `c/src/rookery/`, Dart's `lib/rookery/` and TypeScript's `rookery/`. Each JVM language has
 enums of its own names, since the three share one project. C#'s `Arms.cs` keeps the bare pattern
 of a switch-expression arm from reading as a lambda parameter, beside a declaration pattern and
-lambdas that still bind.
+lambdas that still bind. Java's `Shadow.java` keeps a static import from naming a case the
+enclosing enum declares itself, or a case label in a switch on a type merl cannot read;
+`Stray.java` imports an enum the project does not hold; Kotlin's `Both.kt` has an explicit
+import of a case win over a star import of its namesake's enum.
 
 ### Adding a kind
 
