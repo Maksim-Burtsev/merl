@@ -490,7 +490,14 @@ a `true` that no level takes keeps the nearest, an `override` beside a `String` 
 outside the project keeps the class's own.
 `csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
 `Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
-there, so `Ignite()` lands on the `Burners` the live `using static` opens.
+there, so `Ignite()` lands on the `Burners` the live `using static` opens. `Stool.cs`'s
+`new Beaker()` lands on the one of `Shop.Pricing`, which a `global using` opens, not on the one of
+`Shop.Lab`, whose `using` is commented out (#1452).
+`csharp/src/Shop/Crest/Doors.cs` (#1452), in `Shop.Doors`, writes `[Authorize(Roles = …)]`,
+`[Obsolete]` and `new Authorize()` beside an `Authorize` and an `Obsolete` declared in
+`Shop.Stray`, which no `using` opens: they find nothing. `[ProjectAttr(…)]` and `[Local(…)]` land
+on `ProjectAttrAttribute` and `LocalAttribute` of the `Shop.Crest` it opens, not on the
+`ProjectAttr` of `Shop.Stray`, and their named arguments on the attribute's properties.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
