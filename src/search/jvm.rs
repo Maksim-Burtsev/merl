@@ -375,6 +375,13 @@ pub(super) fn jvm_bindings(
                 .map(binding),
         );
     }
+    if super::scala(path)
+        && let Some(col) = col
+        && let Some(g) = super::scala_rebound::scala_generator_line1(path, lines, at, col, name)
+        && out.iter().all(|b| b.line1 < g)
+    {
+        out = vec![binding(g)];
+    }
     out
 }
 
@@ -411,17 +418,6 @@ pub(super) fn anonymous(line: &str) -> bool {
             .expect("the regex is a literal")
     });
     ANONYMOUS.is_match(line)
-}
-
-pub fn jvm_anonymous_base(line: &str) -> Option<String> {
-    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
-    });
-    if !anonymous(line) {
-        return None;
-    }
-    let c = BASE.captures_iter(line).last()?;
-    c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned())
 }
 
 pub fn jvm_type_name(line: &str) -> Option<String> {
