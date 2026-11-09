@@ -104,3 +104,32 @@ where
         //        ^ d: src/goblets.rs:39
     }
 }
+pub fn probe_below<T>(x: T) -> u8
+where
+    T: Toaster,
+{
+    x.clink();
+    //^ d: src/goblets.rs:39
+    0
+}
+pub fn probe_wrapped<P, T>(
+    &mut self,
+    x: T,
+    y: P,
+) -> u8
+where
+    P: Toaster,
+    T: Toaster,
+{
+    x.clink();
+    //^ d: src/goblets.rs:39
+    0
+}
+pub trait Sip {
+    fn sip_it(&self) {}
+}
+impl<T> Sip for T {}
+pub fn probe_blanket<T>(x: T) {
+    x.sip_it();
+    //^ d: src/goblets.rs:129
+}
