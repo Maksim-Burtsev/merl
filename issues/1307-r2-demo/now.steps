@@ -1,0 +1,13 @@
+# Round 2 today: the agent answered in the chat and deleted the notes file.
+wait unquote_header
+sleep 2
+key c
+sleep 1.2
+key c
+sleep 1.6
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 2
