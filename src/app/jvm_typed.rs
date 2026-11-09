@@ -331,7 +331,12 @@ impl App {
     }
 
     fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
-        if !written.contains('.') {
+        let renamed = || {
+            search::jvm_imports_at(here, text, self.line + 1)
+                .iter()
+                .any(|i| i.bound_name == written && i.path.last().is_some_and(|l| l != written))
+        };
+        if !written.contains('.') && !renamed() {
             let found = self
                 .jvm_members(here, text, "", written)
                 .or_else(|| self.jvm_imported_all(text, &[], written, false))

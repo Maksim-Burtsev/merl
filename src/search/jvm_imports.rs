@@ -42,9 +42,12 @@ fn imports_by_line(path: &Path, text: &str) -> Vec<(usize, JvmImport)> {
         Regex::new(r"^\s*import\s+(?:static\s+)?([\w.]*\w)(\.\*)?(?:\s+as\s+([A-Za-z_]\w*))?\s*;?\s*(?://.*)?$").expect("the regex is a literal")
     });
     let literal = path_literal_lines(Kind::Jvm, path, text);
-    text.lines()
-        .enumerate()
-        .filter(|&(i, _)| !literal.get(i).copied().unwrap_or_default())
+    let lines = || {
+        text.lines()
+            .enumerate()
+            .filter(|&(i, _)| !literal.get(i).copied().unwrap_or_default())
+    };
+    let mut imports: Vec<(usize, JvmImport)> = lines()
         .filter_map(|(i, l)| Some((i, IMPORT.captures(l)?)))
         .map(|(i, c)| {
             let mut path: Vec<String> = c[1].split('.').map(str::to_owned).collect();
@@ -63,6 +66,38 @@ fn imports_by_line(path: &Path, text: &str) -> Vec<(usize, JvmImport)> {
                     path,
                 },
             )
+        })
+        .collect();
+    if super::scala(path) {
+        imports.extend(lines().flat_map(|(i, l)| {
+            scala_renames(l)
+                .into_iter()
+                .map(move |(bound_name, path)| (i, JvmImport { bound_name, path }))
+        }));
+        imports.sort_by_key(|&(i, _)| i);
+    }
+    imports
+}
+
+fn scala_renames(line: &str) -> Vec<(String, Vec<String>)> {
+    static SELECTORS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*import\s+([\w.]*\w)\.\{([^}]*)\}\s*;?\s*(?://.*)?$")
+            .expect("the regex is a literal")
+    });
+    static RENAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(\w+)\s*(?:=>|\bas\b)\s*([A-Za-z]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let Some(c) = SELECTORS.captures(line) else {
+        return Vec::new();
+    };
+    let base: Vec<String> = c[1].split('.').map(str::to_owned).collect();
+    c[2].split(',')
+        .filter_map(|s| RENAME.captures(s))
+        .map(|r| {
+            let mut path = base.clone();
+            path.push(r[1].to_owned());
+            (r[2].to_owned(), path)
         })
         .collect()
 }
