@@ -845,9 +845,11 @@ the block's function. `stack.ts` and `stack.js` declare methods whose line ends 
 
 `typescript/snifter/` declares methods whose body sits on their declaration line (#1454):
 `Snifter.nose`, `breathe` and the `async swirl` that calls `this.nose()`, beside a `Flute.nose` of
-the same shape, so a typed receiver lands on its class's method and an untyped one offers both; a
-class of that shape in a template string declares nothing. A one-line getter is left as it was,
-beside its setter in `coffee/cezve.js`.
+the same shape, so a typed receiver lands on its class's method and an untyped one offers all
+three; a class of that shape in a template string declares nothing. `tray.ts` types a local by the
+`new` a one-line method returns, never by the `return` of the method below it, and `rack.ts`'s
+one-line implementation under its overload signature leaves the jump to the signature. A one-line
+getter is left as it was, beside its setter in `coffee/cezve.js`.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on

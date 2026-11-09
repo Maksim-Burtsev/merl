@@ -17,7 +17,7 @@ export function taste(): number {
 
 export function guess(g) {
   return g.nose();
-  //       ^ d: picker snifter/snifter.ts:2, snifter/tasting.ts:4
+  //       ^ d: picker snifter/snifter.ts:2, snifter/tasting.ts:4, snifter/tray.ts:4
 }
 
 export const card = `

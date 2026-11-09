@@ -50,6 +50,14 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
                 return Some(Value::Type(c[1].to_owned()));
             }
             let expression = after.trim_start().strip_prefix("=>").map(str::trim);
+            let block = expression.is_none_or(|e| e.starts_with('{'));
+            let inline = after.trim_end().strip_suffix('}');
+            if let Some((_, b)) = inline.and_then(|s| s.split_once('{')).filter(|_| block) {
+                return match b.trim().strip_prefix("return ").map(|e| value_of(kind, e)) {
+                    Some(Value::New(t)) => Some(Value::New(t)),
+                    _ => None,
+                };
+            }
             let base = indent(lines[k]);
             let body = end
                 + 1
@@ -57,7 +65,6 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
                     .iter()
                     .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
                     .count();
-            let block = expression.is_none_or(|e| e.starts_with('{'));
             let returned: Vec<(usize, Value)> = match expression {
                 Some(e) if !block => vec![(k, value_of(kind, e))],
                 _ => (end + 1..body)
