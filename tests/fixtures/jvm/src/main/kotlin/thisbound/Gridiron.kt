@@ -21,19 +21,19 @@ class Gridiron(private val griddle: Griddle) {
         val h = griddle.let { it.sear() }
         //                       ^ d: src/main/kotlin/thisbound/Griddle.kt:4
         val i = Griddle().apply { sear() }
-        //                        ^ d: picker src/main/kotlin/thisbound/Gridiron.kt:4, src/main/kotlin/thisbound/Griddle.kt:4
+        //                        ^ d: src/main/kotlin/thisbound/Gridiron.kt:4; want src/main/kotlin/thisbound/Griddle.kt:4 (#1450)
         val j = griddle.run {
             sear()
         //  ^ d: src/main/kotlin/thisbound/Griddle.kt:4
         }
         val k = with(mystery()) { sear() }
-        //                        ^ d: picker src/main/kotlin/thisbound/Gridiron.kt:4, src/main/kotlin/thisbound/Griddle.kt:4
+        //                        ^ d: src/main/kotlin/thisbound/Gridiron.kt:4; want src/main/kotlin/thisbound/Griddle.kt:4 (#1450)
         val l = mystery().run { sear() }
-        //                      ^ d: picker src/main/kotlin/thisbound/Gridiron.kt:4, src/main/kotlin/thisbound/Griddle.kt:4
+        //                      ^ d: src/main/kotlin/thisbound/Gridiron.kt:4; want src/main/kotlin/thisbound/Griddle.kt:4 (#1450)
         val m = griddles.first().apply { sear() }
-        //                               ^ d: picker src/main/kotlin/thisbound/Gridiron.kt:4, src/main/kotlin/thisbound/Griddle.kt:4
+        //                               ^ d: src/main/kotlin/thisbound/Gridiron.kt:4; want src/main/kotlin/thisbound/Griddle.kt:4 (#1450)
         val n = with(Griddle()) { sear() }
-        //                        ^ d: picker src/main/kotlin/thisbound/Gridiron.kt:4, src/main/kotlin/thisbound/Griddle.kt:4
+        //                        ^ d: src/main/kotlin/thisbound/Gridiron.kt:4; want src/main/kotlin/thisbound/Griddle.kt:4 (#1450)
         return a + b.sear() + c + d + e + f.sear() + g + h + i.sear() + j + k + l + m.sear() + n
     }
 

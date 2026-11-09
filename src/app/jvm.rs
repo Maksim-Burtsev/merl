@@ -299,10 +299,9 @@ impl App {
         {
             return Some(found);
         }
-        if (kotlin || search::groovy(here))
+        if search::groovy(here)
             && word.starts_with(|c: char| c.is_ascii_lowercase())
-            && search::jvm_receiver_lambda(text, self.line + 1, before, !kotlin)
-            && !(kotlin && self.kotlin_scope_typed(here, text, before))
+            && search::jvm_receiver_lambda(text, self.line + 1, before)
         {
             return None;
         }
