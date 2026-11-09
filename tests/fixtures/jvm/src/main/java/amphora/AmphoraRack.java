@@ -107,3 +107,11 @@ class AmphoraWrappedOutside {
         return a;
     }
 }
+
+class AmphoraCrossBound<
+        T extends Amphora,
+        Amphora
+> {
+    Amphora held;
+  //^ d: src/main/java/amphora/AmphoraRack.java:113
+}

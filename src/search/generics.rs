@@ -74,9 +74,7 @@ pub fn generic_param_line(
         }
         if let Some(at) = wrapped_list(kind, &lines, &literal, i)
             .filter(|&last| declares(&joined(kind, &lines, i, last)))
-            .and_then(|last| {
-                (i + 1..=last).find(|&j| holds_word(&uncommented(kind, lines[j]), name))
-            })
+            .and_then(|last| param_head_line(kind, &lines, i, last, name))
         {
             return Some(at + 1);
         }
@@ -121,9 +119,51 @@ fn joined(kind: Kind, lines: &[&str], from: usize, to: usize) -> String {
         .join(" ")
 }
 
-pub(super) fn holds_word(code: &str, name: &str) -> bool {
-    code.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
-        .any(|w| w == name)
+pub(super) fn param_head_line(
+    kind: Kind,
+    lines: &[&str],
+    open: usize,
+    last: usize,
+    name: &str,
+) -> Option<usize> {
+    let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'$';
+    let (mut depth, mut head) = (0i32, true);
+    for (j, line) in lines.iter().enumerate().take(last + 1).skip(open + 1) {
+        let l = uncommented(kind, line);
+        let b = l.as_bytes();
+        let mut k = 0;
+        while k < b.len() {
+            let c = b[k];
+            if word(c) || c == b'@' {
+                let end = k + 1 + b[k + 1..].iter().take_while(|&&c| word(c)).count();
+                let w = l.get(k..end).unwrap_or_default();
+                if depth == 0
+                    && head
+                    && c != b'@'
+                    && !matches!(w, "in" | "out" | "reified" | "const")
+                {
+                    if w == name {
+                        return Some(j);
+                    }
+                    head = false;
+                }
+                k = end;
+                continue;
+            }
+            let next = b.get(k + 1).copied();
+            let prev = k.checked_sub(1).map(|p| b[p]);
+            match c {
+                b'<' if matches!(next, Some(b':' | b'%')) => {}
+                b'>' if next == Some(b':') || matches!(prev, Some(b'=' | b'-')) => {}
+                b'(' | b'[' | b'{' | b'<' => depth += 1,
+                b')' | b']' | b'}' | b'>' => depth -= 1,
+                b',' if depth == 0 => head = true,
+                _ => {}
+            }
+            k += 1;
+        }
+    }
+    None
 }
 
 fn dart_declares(t: &str, name: &str) -> bool {
