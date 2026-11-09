@@ -415,14 +415,14 @@ fn php_imports(text: &str, out: &mut Vec<Import>) {
     }
 }
 pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
-        return false;
-    };
     static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?function\b")
             .expect("the regex is a literal")
     });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
+        return false;
+    };
     if FUNCTION.is_match(lines[k]) {
         return true;
     }
