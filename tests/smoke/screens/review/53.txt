@@ -1,0 +1,14 @@
+wait copied
+┌agent/refund ← origin/main──┐  ▎    def find_by_status(self, status: OrderStatus) -> list[Order]:
+│✓   M repos.py        +0 −28│  ▎        return [o for o in self.orders.values() if o.status is status]
+│✓   M service.py      +13 −1│  ▎
+│  ▾ deploy                  │  ▎    def save(self, order: Order) -> None:
+│    ▾ helm                  │  ▎        self.orders[order.id] = order
+│      ▾ orders              │  ▎
+│✓       M values.yaml  +1 −0│  ▎    def delete(self, order_id: int) -> None:
+│  ▾ docs                    │  ▎        self.orders.pop(order_id, None)
+│    M architecture.png   bin│  ▎
+│  ▾ scripts                 │  ▎    def clear(self) -> None:
+└ 8 files · +59 −39 ─────────┘  ▎        self.orders.clear()
+app/repos.py  -59:28  [code]  hunk 1/1  file 2/8  copied 31 lines                                                                                                                  14:32
+cursor (x,y,shown) 60,10,0

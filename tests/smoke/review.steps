@@ -166,3 +166,20 @@ key c
 wait app/refunds.py  18:1
 key c
 wait hunk 0/0  file 6/8
+# In app/repos.py, whose last 28 lines the branch deleted: a selection inside the deleted rows
+# copies those old lines; Ctrl+Home, Ctrl+Shift+End, Ctrl+C copies the file as the branch has it,
+# 31 lines, without the 28 deleted ones (#1265).
+caption a selection inside the deleted rows of repos.py copies the old lines (#1265)
+key o
+type app/repos.py
+key Enter
+wait app/repos.py
+key C-End Up Home S-Down S-End C-c
+wait copied 2 lines
+check $SMOKE_TMUX show-buffer | grep -q 'def clear'
+caption Ctrl+Home, Ctrl+Shift+End, Ctrl+C: the file as the branch has it, not the deleted rows (#1265)
+key C-Home
+wait app/repos.py  1:1
+key C-S-End C-c
+wait copied
+check ! $SMOKE_TMUX show-buffer | grep -q InMemoryOrderRepo
