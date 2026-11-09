@@ -1,0 +1,13 @@
+# Round 2, option B: opens on the thread whose file is gone, above the first file.
+wait Quote helpers
+sleep 3
+key c
+sleep 1.2
+key c
+sleep 1.2
+key c
+sleep 3
+key c
+sleep 1.2
+key c
+sleep 2.6
