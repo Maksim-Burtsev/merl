@@ -261,8 +261,12 @@ fn closes_a_wrapped_header(t: &str) -> bool {
 }
 
 static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").expect("the regex is a literal")
+    Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*(?:\[.*?\]\s*)?\(").expect("the regex is a literal")
 });
+fn def_open(line: &str) -> Option<usize> {
+    let t = line.trim_start();
+    DEF.find(t).map(|m| line.len() - t.len() + m.end() - 1)
+}
 
 fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
     let mut scopes_innermost_first = Vec::new();
@@ -289,7 +293,7 @@ fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
 }
 
 fn python_def_body(lines: &[&str], d: usize, name: &str, out: &mut Vec<Binding>) -> Option<usize> {
-    let open = lines[d].find('(').expect("a def has a parameter list");
+    let open = def_open(lines[d]).expect("a def has a parameter list");
     let Group {
         inner_uncommented: params,
         close_line: end,
@@ -456,7 +460,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
 fn python_header_binds(lines: &[&str], at: usize, t: &str, r: &Rules, name: &str) -> bool {
     let mut params = Vec::new();
     let body = if DEF.is_match(t) {
-        let open = lines[at].find('(').expect("a def has a parameter list");
+        let open = def_open(lines[at]).expect("a def has a parameter list");
         let Some(g) = group(Kind::Python, lines, at, open) else {
             return false;
         };
@@ -593,7 +597,7 @@ pub fn python_binds_around(line: &str, name: &str, col: usize) -> bool {
 fn python_def_line_body(line: &str, name: &str) -> Option<(std::ops::Range<usize>, bool)> {
     let lines = [line];
     let t = uncommented(Kind::Python, line);
-    let open = line.find('(').filter(|_| DEF.is_match(t.trim_start()))?;
+    let open = def_open(line)?;
     let g = group(Kind::Python, &lines, 0, open).filter(|g| g.close_line == 0)?;
     let mut params = Vec::new();
     python_params(&lines, 0, &g.inner_uncommented, name, &mut params);
@@ -733,6 +737,7 @@ fn python_params(
             continue;
         }
         let value = match annotation {
+            Some(t) if names_a_type_param(lines, def_line0, t) => Value::Unknown,
             Some(t) => Value::Type(t.to_owned()),
             None if i == 0 => python_class_of(lines, def_line0)
                 .map_or(Value::Unknown, |decl_line1| Value::Class { decl_line1 }),
@@ -743,6 +748,52 @@ fn python_params(
             value,
         });
     }
+}
+fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &str) -> bool {
+    let headers: Vec<&str> = std::iter::once(def_line0 + 1)
+        .chain(python_class_of(lines, def_line0))
+        .map(|line1| lines[line1 - 1].trim_start())
+        .collect();
+    annotation
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .any(|w| !w.is_empty() && headers.iter().any(|h| super::python_declares(h, w)))
+}
+pub fn python_in_default(text: &str, line1: usize, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let Some((d, open)) = (0..=at)
+        .rev()
+        .find_map(|i| def_open(lines[i]).map(|open| (i, open)))
+    else {
+        return false;
+    };
+    let (mut depth, mut default) = (0i32, false);
+    for (j, l) in lines.iter().enumerate().take(at + 1).skip(d) {
+        let b = l.as_bytes();
+        let from = if j == d { open + 1 } else { 0 };
+        let until = if j == at { col } else { l.len() };
+        for (k, c) in code(Kind::Python, l).filter(|&(k, _)| (from..until).contains(&k)) {
+            let prev = k.checked_sub(1).and_then(|p| b.get(p));
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b',' if depth == 0 => default = false,
+                b'=' if depth == 0
+                    && b.get(k + 1) != Some(&b'=')
+                    && !matches!(prev, Some(b'=' | b'!' | b'<' | b'>' | b':')) =>
+                {
+                    default = true;
+                }
+                _ => {}
+            }
+            if depth < 0 {
+                return false;
+            }
+        }
+    }
+    default
 }
 fn python_class_header(lines: &[&str], at: usize) -> Option<usize> {
     let mut depth = indent(lines[at]);
@@ -856,7 +907,7 @@ pub fn python_in_function(text: &str, line1: usize) -> bool {
 pub fn python_in_function_body(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     python_enclosing_def(text, line1).is_some_and(|d| {
-        lines[d].find('(').is_some_and(|open| {
+        def_open(lines[d]).is_some_and(|open| {
             group(Kind::Python, &lines, d, open).is_some_and(|g| g.close_line + 1 < line1)
         })
     })
@@ -1063,9 +1114,7 @@ fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bo
         inner_uncommented: params,
         close_line,
         ..
-    }) = lines[d]
-        .find('(')
-        .and_then(|open| group(Kind::Python, &lines, d, open))
+    }) = def_open(lines[d]).and_then(|open| group(Kind::Python, &lines, d, open))
     else {
         return false;
     };
@@ -1229,7 +1278,7 @@ pub fn python_patched_param(text: &str, line1: usize, name: &str) -> Option<Vec<
         inner_uncommented: params,
         close_line,
         ..
-    } = group(Kind::Python, &lines, d, lines[d].find('(')?)?;
+    } = group(Kind::Python, &lines, d, def_open(lines[d])?)?;
     let mut written = Vec::new();
     python_params(&lines, d, &params, name, &mut written);
     if close_line < at || !written.iter().any(|b| b.line1 == line1) {

@@ -33,6 +33,23 @@ fn jvm_declares(t: &str, name: &str) -> bool {
     })
 }
 
+pub(super) fn python_declares(t: &str, name: &str) -> bool {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:(?:async\s+)?def|class|type)\s+\w+\s*\[(.*?)\]\s*[(:=]")
+            .expect("the regex is a literal")
+    });
+    HEAD.captures(t).is_some_and(|c| {
+        split_top(Kind::Python, &c[1], b',').iter().any(|p| {
+            p.trim()
+                .trim_start_matches('*')
+                .split([':', '='])
+                .next()
+                .map(str::trim)
+                == Some(name)
+        })
+    })
+}
+
 fn scala_declares(t: &str, name: &str) -> bool {
     static ANONYMOUS_GIVEN: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\bgiven\s+[\w.]+\s*\[[^\]]*\]\s*(?:with\b|=|\{|$)")
@@ -50,6 +67,7 @@ pub fn generic_param_line(
 ) -> Option<usize> {
     let declares = |t: &str| match kind {
         Kind::Dart => dart_declares(t, name),
+        Kind::Python => python_declares(t, name),
         Kind::Jvm if scala(path) => scala_declares(t, name),
         Kind::Jvm => jvm_declares(t, name),
         _ => false,
