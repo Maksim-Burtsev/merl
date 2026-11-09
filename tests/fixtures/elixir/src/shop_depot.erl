@@ -21,3 +21,9 @@ local(G) ->
 retry(G) ->
     missing_mod:local(G).
     %           ^ d: picker src/shop_depot.erl:18, src/shop_parcel.erl:91
+
+note(G) ->
+    io:format("local: ~p~n", [G]).
+    %          ^ d: picker src/shop_depot.erl:18, src/shop_parcel.erl:91
+% local: ships nothing
+% ^ d: picker src/shop_depot.erl:18, src/shop_parcel.erl:91

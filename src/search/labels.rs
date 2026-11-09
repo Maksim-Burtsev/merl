@@ -77,9 +77,15 @@ pub fn label_at(
         kind != Kind::Julia,
     );
     if kind == Kind::Elixir {
-        let keyword = rest.get(1).is_none_or(u8::is_ascii_whitespace)
+        let elixir = path.extension().is_some_and(|e| e == "ex" || e == "exs");
+        let in_code = !literal.get(line0).copied().unwrap_or(true)
+            && code(Kind::Python, l).any(|(i, _)| i == range.start);
+        let keyword = elixir
+            && in_code
+            && rest.get(1).is_none_or(u8::is_ascii_whitespace)
             && opened.as_ref().is_none_or(|o| o.bracket != b'{')
-            && !l.trim_start().starts_with("defstruct");
+            && !l.trim_start().starts_with("defstruct")
+            && !elixir_arities(&lines, l, opened.as_ref());
         return keyword.then_some(Label {
             what: "key",
             owner: None,
@@ -130,6 +136,17 @@ pub fn label_at(
         ) => call_label(kind, java, &lines, &literal, at, open),
         _ => None,
     }
+}
+
+fn elixir_arities(lines: &[&str], l: &str, opened: Option<&OpenBracket>) -> bool {
+    let overridable = |s: &str| s.trim_start().starts_with("defoverridable");
+    overridable(l)
+        || opened.is_some_and(|o| {
+            let before = lines[o.line0].get(..o.byte).unwrap_or_default();
+            let key = before.trim_end();
+            o.bracket == b'['
+                && (key.ends_with("only:") || key.ends_with("except:") || overridable(before))
+        })
 }
 
 fn call_label(

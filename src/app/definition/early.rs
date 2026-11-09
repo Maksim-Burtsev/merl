@@ -169,7 +169,9 @@ impl App {
             && tail.starts_with(['}', ':']);
         if !captured
             && (search::in_string(kind, &text, at)
-                || (kind == Kind::Scheme && search::racket_prose(&here, &text, at)))
+                || (kind == Kind::Scheme
+                    && (search::racket_prose(&here, &text, at)
+                        || search::racket_method_sent(&here, &text, &lead))))
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
         {
             self.message = resolution(&word, None, &[], None, false);
@@ -214,7 +216,6 @@ impl App {
                         .unwrap_or_default(),
                 ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
-            || (kind == Kind::Scheme && search::racket_method_sent(lead))
             || (kind == Kind::Clojure && search::clojure_keyword(lead))
     }
 

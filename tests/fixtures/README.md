@@ -729,7 +729,8 @@ indented `(define-syntax-rule` with its pattern on the next line.
 a block comment, the text of an `at-exp` `@list{…}` and as a method of `send`, which answer
 nothing, binds it by `with-syntax`, and still finds it in `@racket[…]` and under `#;`; `siphoned.rkt`, a
 `.rkt` with no `#lang`, names it in a comment too. The other
-Lisps still look up a name from prose as master does: `emacs-lisp/shop-kettle.el` names its
+Lisps still look up a name from prose as master does: `scheme/decanting.scm`, a plain Scheme
+file, names its `decant` in a comment and as a method of `send`, `emacs-lisp/shop-kettle.el` names its
 functions in a docstring and a comment, `clojure/src/shop/kettle.clj` its `steep` in a docstring.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
