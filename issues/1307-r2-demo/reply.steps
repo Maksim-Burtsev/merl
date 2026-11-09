@@ -1,0 +1,17 @@
+# Round 2: answer the agent once, in its thread; Enter again edits the same answer.
+wait unquote_header
+sleep 0.8
+key c c c c c
+sleep 1.6
+key Enter
+sleep 0.4
+type then say so in its docstring
+sleep 0.5
+key Escape
+sleep 1.2
+key Enter
+sleep 0.4
+type , one line
+sleep 0.4
+key Escape
+sleep 2
