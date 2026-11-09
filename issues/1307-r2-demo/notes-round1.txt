@@ -1,0 +1,26 @@
+# merl notes · agent/unquote ← origin/master · c250c1e
+# The user's review notes, for you. Delete this file when you have dealt with them.
+
+httpx/_utils.py:91
+> def unquote(value: str) -> str:
+rename it to strip_quotes: unquote clashes with urllib's unquote in _urls.py
+
+httpx/_utils.py:92
+>     if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+a string here reads like a typo; use a tuple of the two quotes
+
+httpx/_utils.py:94
+>     return value
+why return it unchanged instead of raising?
+
+httpx/_quoting.py:1
+> """Quote helpers for header values."""
+let's delete this file, it duplicates unquote in _utils.py
+
+tests/test_utils.py:158
+>         ("abc", "abc"),
+add a lone quote: '"' must come back as it is
+
+CHANGELOG.md:16
+> * Digest auth reads single-quoted header values. (#3801)
+is this worth a changelog line?
