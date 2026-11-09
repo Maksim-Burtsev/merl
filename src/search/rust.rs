@@ -395,7 +395,7 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
 }
 pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;")
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)(?:\*|\{\s*(?:self\s*,\s*\*|\*\s*,\s*self)\s*,?\s*\})\s*;")
             .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
