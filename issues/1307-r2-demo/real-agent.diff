@@ -1,0 +1,68 @@
+diff --git a/httpx/_auth.py b/httpx/_auth.py
+index 9f14f76..c39c2e8 100644
+--- a/httpx/_auth.py
++++ b/httpx/_auth.py
+@@ -10,8 +10,7 @@ from urllib.request import parse_http_list
+ 
+ from ._exceptions import ProtocolError
+ from ._models import Cookies, Request, Response
+-from ._quoting import strip_quotes
+-from ._utils import to_bytes, to_str
++from ._utils import strip_quotes, to_bytes, to_str
+ 
+ if typing.TYPE_CHECKING:  # pragma: no cover
+     from hashlib import _Hash
+diff --git a/httpx/_quoting.py b/httpx/_quoting.py
+deleted file mode 100644
+index 3f475fb..0000000
+--- a/httpx/_quoting.py
++++ /dev/null
+@@ -1,9 +0,0 @@
+-"""Quote helpers for header values."""
+-
+-
+-def is_quoted(value: str) -> bool:
+-    return len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'"
+-
+-
+-def strip_quotes(value: str) -> str:
+-    return value[1:-1] if is_quoted(value) else value
+diff --git a/httpx/_utils.py b/httpx/_utils.py
+index a3a0a41..5b26755 100644
+--- a/httpx/_utils.py
++++ b/httpx/_utils.py
+@@ -88,8 +88,8 @@ def to_bytes_or_str(value: str, match_type_of: typing.AnyStr) -> typing.AnyStr:
+     return value if isinstance(match_type_of, str) else value.encode()
+ 
+ 
+-def unquote(value: str) -> str:
+-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
++def strip_quotes(value: str) -> str:
++    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+         return value[1:-1]
+     return value
+ 
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index c0f7e3d..458b815 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -6,7 +6,7 @@ import random
+ import pytest
+ 
+ import httpx
+-from httpx._utils import URLPattern, get_environment_proxies, unquote
++from httpx._utils import URLPattern, get_environment_proxies, strip_quotes
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -156,7 +156,8 @@ def test_pattern_priority():
+         ('"abc"', "abc"),
+         ("'abc'", "abc"),
+         ("abc", "abc"),
++        ('"', '"'),
+     ],
+ )
+-def test_unquote(value, expected):
+-    assert unquote(value) == expected
++def test_strip_quotes(value, expected):
++    assert strip_quotes(value) == expected
