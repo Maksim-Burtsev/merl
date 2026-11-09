@@ -1515,3 +1515,41 @@ fn v_over_a_function_with_deleted_lines_goes_on_to_the_class_body() {
         "{text}"
     );
 }
+
+#[test]
+fn copying_the_whole_file_over_deleted_rows_copies_the_branch_s_file() {
+    let (dir, mut a) = repo_review(
+        "copy-whole",
+        &[("a.txt", "one\ntwo\nthree\nfour\nfive\n")],
+        &[("a.txt", Some("one\nthree\nfive\n"))],
+    );
+    a.jump_to(&dir.join("a.txt"), 1);
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.message.as_str(), a.clipboard.as_deref()),
+        ("copied 3 lines", Some("one\nthree\nfive"))
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn copying_a_selection_inside_deleted_rows_copies_the_old_lines() {
+    let (dir, mut a) = repo_review(
+        "copy-deleted",
+        &[("a.txt", "one\ntwo\nthree\nfour\n")],
+        &[("a.txt", Some("one\nfour\n"))],
+    );
+    a.jump_to(&dir.join("a.txt"), 2);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    assert_eq!(a.at(), Deleted(1, 0));
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
+    assert_eq!(
+        (a.message.as_str(), a.clipboard.as_deref()),
+        ("copied 2 lines", Some("two\nthree\n"))
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

@@ -107,21 +107,38 @@ impl App {
 
     #[expect(
         clippy::string_slice,
-        reason = "selected_bytes and the shown cut are char boundaries of the line"
+        reason = "the selection and the shown cut are char boundaries of the line"
     )]
     pub(super) fn selected_text(&self) -> Option<String> {
-        let (start, end) = self.selection()?;
+        let selected = self.selection()?;
+        let on_file = (self.in_file(selected.0), self.in_file(selected.1));
+        let holds_file = on_file.0 < on_file.1;
+        let (start, end) = if holds_file { on_file } else { selected };
         let lines: Vec<&str> = std::iter::successors(Some(start.0), |&t| self.next_line(t))
             .take_while(|&t| t <= end.0)
+            .filter(|&t| !holds_file || matches!(t, TextLine::File(_)))
             .map(|t| {
                 let line = self.text(t);
                 let cut = shown_str(line).len();
                 let end_of = |col: usize| if col == cut { line.len() } else { col };
-                let r = self.selected_bytes(t).expect("t lies in the selection");
-                &line[end_of(r.start)..end_of(r.end)]
+                let from = if t == start.0 { start.1 } else { 0 };
+                let to = if t == end.0 { end.1 } else { line.len() };
+                &line[end_of(from)..end_of(to)]
             })
             .collect();
         Some(lines.join("\n"))
+    }
+
+    fn in_file(&self, (t, col): (TextLine, usize)) -> (TextLine, usize) {
+        let last = self.buf.lines.len() - 1;
+        match t {
+            TextLine::File(_) => (t, col),
+            TextLine::Deleted(k, _) if k <= last => (TextLine::File(k), 0),
+            TextLine::Deleted(..) => (
+                TextLine::File(last),
+                shown_str(self.text(TextLine::File(last))).len(),
+            ),
+        }
     }
 
     pub(super) fn extend(&mut self, mv: fn(&mut Self)) {
