@@ -3,3 +3,13 @@ class Kwpot {
 
   int kwbrew({int mugful = 2}) => mugful;
 }
+
+class Kwcup {
+  final int mugful;
+  final int size;
+
+  Kwcup.sized({
+    required this.size,
+    this.mugful = 0,
+  });
+}

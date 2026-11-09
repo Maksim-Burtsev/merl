@@ -5,10 +5,10 @@ int serve() {
   final mugful = 5;
   final pot = Kwpot();
   kwbrew(mugful: mugful);
-  //     ^ d: picker lib/kwcafe/uses.dart:5, lib/kwcafe/uses.dart:16, lib/kwcafe/brewer.dart:1, lib/kwcafe/pot.dart:2; want lib/kwcafe/brewer.dart:3 (#1446)
+  //     ^ d: lib/kwcafe/brewer.dart:3
   //             ^ d: lib/kwcafe/uses.dart:5
   pot.kwbrew(mugful: 4);
-  //         ^ d: picker lib/kwcafe/uses.dart:5, lib/kwcafe/uses.dart:16, lib/kwcafe/brewer.dart:1, lib/kwcafe/pot.dart:2; want lib/kwcafe/pot.dart:4 (#1446)
+  //         ^ d: lib/kwcafe/pot.dart:4
   return mugful;
 }
 
@@ -21,4 +21,16 @@ int neighbours(bool flag) {
   kwbrew(mugful: flag ? mugful : 2);
   //                    ^ d: lib/kwcafe/uses.dart:16
   return r.mugful;
+}
+
+int pours() {
+  final mugful = 6;
+  kwpour(1, size: 2, mugful: mugful);
+  //                 ^ d: lib/kwcafe/brewer.dart:5
+  final cup = Kwcup.sized(
+    size: 1,
+    mugful: mugful,
+  //^ d: lib/kwcafe/pot.dart:13
+  );
+  return cup.size;
 }

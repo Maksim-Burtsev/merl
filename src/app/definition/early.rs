@@ -389,6 +389,9 @@ impl App {
                     how => self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, how),
                 })
                 .unwrap_or_default();
+            if found.is_empty() && kind == Kind::Dart {
+                return false;
+            }
             if found.is_empty() {
                 self.message = format!("{}: {}", a.word, label.what);
             } else {
