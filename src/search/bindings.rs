@@ -490,9 +490,21 @@ fn read_statement(
                     statement_bindings(kind, &d.as_own_statement, d.line0 + 1, name, out);
                 }
             }
+            None if kind == Kind::Go && ind > 0 && go_declares_type(t, name) => {
+                out.push(Binding {
+                    line1: i + 1,
+                    value: Value::Unknown,
+                });
+            }
             None => statement_bindings(kind, t, i + 1, name, out),
         },
     }
+}
+fn go_declares_type(t: &str, name: &str) -> bool {
+    t.strip_prefix("type")
+        .filter(|r| r.starts_with(char::is_whitespace))
+        .and_then(|r| r.trim_start().strip_prefix(name))
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 fn header_start(kind: Kind, lines: &[&str], mut i: usize, ind: usize) -> usize {
     while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
@@ -571,8 +583,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
-    let go_local_type = Regex::new(&format!(r"^type\s+{}\b", regex::escape(name)))
-        .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
         let code = uncommented(kind, behind_doc(kind, lines[i]));
@@ -600,12 +610,6 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     &mut first_line_read_whole,
                     &mut out,
                 );
-                if kind == Kind::Go && ind > 0 && go_local_type.is_match(t) {
-                    out.push(Binding {
-                        line1: i + 1,
-                        value: Value::Unknown,
-                    });
-                }
                 if kind == Kind::Go && out.len() > before {
                     if let Some(k) = go_block_statement_at.filter(|&k| k < before) {
                         out.remove(k);
