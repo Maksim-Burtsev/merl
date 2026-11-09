@@ -326,6 +326,12 @@ impl App {
         {
             return None;
         }
+        if let Some(header) = search::jvm_anonymous_header(before) {
+            match self.jvm_anonymous_inherited(here, text, &header, word) {
+                Some(found) if found.is_empty() => {}
+                found => return found,
+            }
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for (i, &decl) in types.iter().enumerate() {
@@ -338,7 +344,7 @@ impl App {
                 .map(|line| candidate(here, &lines, line, reason.clone()))
                 .collect();
             if found.is_empty() && i + 1 < types.len() {
-                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word);
+                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word)?;
             }
             if !found.is_empty() {
                 break;
@@ -394,30 +400,46 @@ impl App {
         header: &str,
         decl: usize,
         word: &str,
-    ) -> Vec<Candidate> {
-        let (ty, name) = match search::jvm_type_name(header) {
-            Some(name) => (
-                Hit {
-                    deleted: None,
-                    path: here.to_path_buf(),
-                    line1: decl,
-                    byte_col: None,
-                    text: header.to_owned(),
-                },
-                name,
-            ),
-            None => match search::jvm_anonymous_base(header)
-                .map(|base| (self.jvm_type_at(here, text, &base), base))
-            {
-                Some((super::jvm_typed::JvmType::Project(b), base)) => (b, base),
-                _ => return Vec::new(),
-            },
+    ) -> Option<Vec<Candidate>> {
+        let Some(name) = search::jvm_type_name(header) else {
+            return self.jvm_anonymous_inherited(here, text, header, word);
         };
-        self.jvm_hierarchy_member(&ty, word, 0, &mut Vec::new())
+        let ty = Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1: decl,
+            byte_col: None,
+            text: header.to_owned(),
+        };
+        Some(self.jvm_hierarchy_found(&ty, &name, word))
+    }
+
+    fn jvm_anonymous_inherited(
+        &self,
+        here: &Path,
+        text: &str,
+        header: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let mut found = Vec::new();
+        let mut known = true;
+        for base in search::jvm_anonymous_bases(header) {
+            match self.jvm_type_at(here, text, &base) {
+                super::jvm_typed::JvmType::Project(b) => {
+                    found.extend(self.jvm_hierarchy_found(&b, &base, word));
+                }
+                _ => known = false,
+            }
+        }
+        (known || !found.is_empty() || !search::scala(here)).then_some(found)
+    }
+
+    fn jvm_hierarchy_found(&self, ty: &Hit, name: &str, word: &str) -> Vec<Candidate> {
+        self.jvm_hierarchy_member(ty, word, 0, &mut Vec::new())
             .into_iter()
             .map(|hit| Candidate {
                 hit,
-                reason: Reason::Path(name.clone()),
+                reason: Reason::Path(name.to_owned()),
             })
             .collect()
     }

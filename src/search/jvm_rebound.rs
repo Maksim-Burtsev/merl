@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::jvm::{ident, jvm_bindings, param_names};
+use super::jvm::{anonymous, ident, jvm_bindings, param_names};
 use super::{Binding, Kind, Value, code, indent, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
@@ -180,12 +180,16 @@ pub(super) fn lambda_open_at(line: &str, at: &std::ops::Range<usize>, col: usize
 }
 
 pub fn jvm_anonymous_open(before: &str) -> bool {
+    jvm_anonymous_header(before).is_some()
+}
+
+pub fn jvm_anonymous_header(before: &str) -> Option<String> {
     static OPENS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>)?\s*(?:\([^{}]*\))?\s*\{|\bobject\s*:[^{}]*\{")
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>|\[[^\]{}]+\])?\s*(?:\([^{}]*\))?(?:\s+with\s+[\w.]+)*\s*\{|\bobject\s*:[^{}]*\{")
             .expect("the regex is a literal")
     });
     let line = blanked(before);
-    OPENS.find_iter(&line).any(|m| {
+    let open = OPENS.find_iter(&line).filter(|m| {
         let mut depth = 0i32;
         line.get(m.end()..).is_some_and(|rest| {
             rest.bytes().all(|b| {
@@ -197,7 +201,9 @@ pub fn jvm_anonymous_open(before: &str) -> bool {
                 depth >= 0
             })
         })
-    })
+    });
+    open.last()
+        .and_then(|m| line.get(..m.end()).map(str::to_owned))
 }
 
 pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
@@ -423,4 +429,30 @@ pub fn jvm_bindings_at(
         }];
     }
     jvm_bindings(path, &lines, at, name, Some(col))
+}
+
+pub fn jvm_anonymous_bases(line: &str) -> Vec<String> {
+    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
+    });
+    static MIXIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bwith\s+([\w.]+)").expect("the regex is a literal")
+    });
+    if !anonymous(line) {
+        return Vec::new();
+    }
+    let Some(c) = BASE.captures_iter(line).last() else {
+        return Vec::new();
+    };
+    let Some(first) = c.get(1).or_else(|| c.get(2)) else {
+        return Vec::new();
+    };
+    std::iter::once(first.as_str())
+        .chain(
+            MIXIN
+                .captures_iter(line.get(first.end()..).unwrap_or_default())
+                .filter_map(|m| m.get(1).map(|w| w.as_str())),
+        )
+        .map(str::to_owned)
+        .collect()
 }
