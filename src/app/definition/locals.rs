@@ -121,7 +121,7 @@ impl App {
                         || ts_type_position(a, self.line_str())
                 })
                 .map(|p| p.line1),
-            Kind::Jvm | Kind::Dart => {
+            Kind::Jvm | Kind::Dart | Kind::Python => {
                 search::generic_param_line(kind, &a.here, &a.text, line1, word)
             }
             _ if a.before.ends_with("::") => None,
