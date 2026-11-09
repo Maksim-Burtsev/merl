@@ -1061,7 +1061,7 @@ fn holes(kind: Kind, b: &[u8]) -> Vec<(usize, usize)> {
                 }
                 b'{' if interp && kind == Kind::CSharp && b.get(i) == Some(&b'{') => i += 1,
                 b'{' if interp && kind == Kind::CSharp => {
-                    stack.push(Frame::Hole { from: i, depth: 0 })
+                    stack.push(Frame::Hole { from: i, depth: 0 });
                 }
                 b'$' if interp && kind == Kind::Julia && b.get(i) == Some(&b'(') => {
                     i += 1;
