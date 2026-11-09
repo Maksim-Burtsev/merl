@@ -557,7 +557,14 @@ impl App {
         self.rust_walked_got(file, text, at, name, false, &w)
     }
 
-    fn rust_let_got(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
+    fn rust_let_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        shadowing: bool,
+    ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
         let Some(init) = let_initializer(&lines, at, name) else {
             let (path, init) = tuple_initializer(&lines, at, name)?;
@@ -576,7 +583,7 @@ impl App {
         if w.links.is_empty() && !assoc {
             return None;
         }
-        self.rust_walked_got(file, text, at, name, true, &w)
+        self.rust_walked_got(file, text, at, name, shadowing, &w)
     }
 
     fn rust_tuple_got(
@@ -892,7 +899,12 @@ impl App {
         name: &str,
     ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
-        if let Some(init) = let_initializer(&lines, at, name)
+        let alone = lines
+            .get(at)?
+            .split_once(';')
+            .is_none_or(|(_, a)| a.trim().is_empty());
+        if alone
+            && let Some(init) = let_initializer(&lines, at, name)
             && init.starts_with(|c: char| c.is_ascii_uppercase())
             && init.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
         {
@@ -907,7 +919,7 @@ impl App {
             });
             return (decl.trim_start() == format!("struct {init};")).then_some(ty);
         }
-        match self.rust_let_got(file, text, at, name)? {
+        match self.rust_let_got(file, text, at, name, alone)? {
             Got::Ty(ty) => Some(ty),
             Got::Written { .. } | Got::Bound(_) => None,
         }
@@ -920,7 +932,7 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<String> {
-        match self.rust_let_got(file, text, at, name)? {
+        match self.rust_let_got(file, text, at, name, true)? {
             Got::Written { written, .. } => rust_bare_type(&written),
             Got::Ty(_) | Got::Bound(_) => None,
         }

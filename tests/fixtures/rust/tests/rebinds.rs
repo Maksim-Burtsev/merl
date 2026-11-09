@@ -111,3 +111,15 @@ pub fn rebind_twice(held: Caps) {
     held.get();
     //   ^ d: tests/rebinds.rs:5
 }
+
+pub fn two_lets_on_a_line(held: Caps) {
+    let held = Caps; let held = held.into_grain();
+    held.get();
+    //   ^ d: !jump
+}
+
+pub fn two_rebinds_on_a_line(held: Caps) {
+    let held = held.into_grain(); let held = Caps;
+    held.get();
+    //   ^ d: !jump
+}
