@@ -189,7 +189,24 @@ impl App {
                 (p, parts.as_slice())
             }
             (None, Some(((name, false), rest))) => {
-                (self.cs_name_type(file, text, line1, name, hops)?, rest)
+                let p = self.cs_name_type(file, text, line1, name, hops);
+                let fresh = || {
+                    if !name.starts_with(|c: char| c.is_ascii_uppercase())
+                        || !rest.first().is_some_and(|(_, call)| *call)
+                    {
+                        return None;
+                    }
+                    let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
+                        return None;
+                    };
+                    Some(Proven {
+                        ty,
+                        link: name.clone(),
+                        written: name.clone(),
+                        from: here.clone(),
+                    })
+                };
+                (p.or_else(fresh)?, rest)
             }
             (None, Some(((name, true), rest))) => {
                 let w = self.cs_call_type(file, text, line1, name, false, hops)?;
