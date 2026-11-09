@@ -104,3 +104,17 @@ func (l Loose[T]) Drop(x T) {
 	x.Pour()
 	//^ d: none
 }
+
+type Cup[T any] struct {
+	held T
+}
+
+func Sip[T Toaster](c Cup[T]) {
+	c.held.Clink()
+	//     ^ d: cart/goblets.go:35; want cart/goblets.go:32 (#1438)
+}
+
+func Inline[T interface{ Clink() }](x T) {
+	x.Clink()
+	//^ d: cart/goblets.go:35; want cart/goblets.go:117 (#1438)
+}

@@ -174,9 +174,18 @@ impl App {
             {
                 return None;
             }
-            let resolves = search::type_param_bound(kind, &text, b.line1, one)?
+            let (scope, line1) = if chain.len() > 1 {
+                (&a.text, self.line + 1)
+            } else {
+                (&text, b.line1)
+            };
+            let resolves = search::type_param_bound(kind, scope, line1, one)?
                 .bound
-                .is_some_and(|w| kind != Kind::Go || self.type_decl(kind, &file, &w).is_some());
+                .is_some_and(|w| {
+                    kind != Kind::Go
+                        || w.starts_with("interface")
+                        || self.type_decl(kind, &file, &w).is_some()
+                });
             (!resolves).then(|| one.clone())
         };
         let Some(Some(param)) = bindings
@@ -187,6 +196,9 @@ impl App {
         else {
             return false;
         };
+        if kind == Kind::Rust && self.rust_blanket_method(&a.word) {
+            return false;
+        }
         self.none_found(format!(
             "no definition for {} in the project (via {}: type parameter {param})",
             a.word,
@@ -595,6 +607,23 @@ impl App {
         };
         let base = t.trim_start_matches(['[', ']', '*', '.']);
         PREDECLARED.split(' ').any(|p| p == base) || self.go_outside(file, text, base)
+    }
+
+    fn rust_blanket_method(&self, word: &str) -> bool {
+        let rs: Vec<_> = (self.files.iter())
+            .filter(|f| f.extension().is_some_and(|e| e == "rs"))
+            .cloned()
+            .collect();
+        let blanket = self.grep_in(search::RUST_BLANKET_IMPL, &rs);
+        let traits: Vec<_> = (blanket.iter())
+            .filter_map(|h| search::rust_blanket_trait(&h.text))
+            .collect();
+        let declared = format!(r"\btrait\s+(?:{})\b", traits.join("|"));
+        !traits.is_empty()
+            && self.grep_in(&declared, &rs).iter().any(|h| {
+                (self.text_of(&h.path))
+                    .is_none_or(|t| search::rust_trait_declares(&t, h.line1, word))
+            })
     }
 
     fn none_found(&mut self, message: String) -> bool {
