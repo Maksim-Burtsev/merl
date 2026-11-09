@@ -553,6 +553,9 @@ Its end (#1459) reads a generic def's return type (`make().sip()`), a constraint
 labels `first`). `generic_typevar.py` (#1459) has a module-level `Leaf = TypeVar("Leaf")` beside
 defs and a class with their own `[Leaf]`: those land on the list, a local in the body still wins,
 and a def without a list keeps the module's `Leaf`.
+`generic.py` also has a `-> Cup` that names the def's own `[Cup]` (a picker, no jump), a parameter named
+like the type parameter in a wrapped parameter list (lands on the parameter), and a constraint tuple
+before a wrapped base list whose class body is still read (`Jar().lid.sip()`).
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under

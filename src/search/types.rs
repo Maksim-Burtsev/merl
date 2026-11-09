@@ -2,8 +2,8 @@ use regex::Regex;
 
 use super::{
     Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, group, indent,
-    literal_lines, member_or_signature, names, python_def_open, python_header, python_header_open,
-    split_top, ts_header, uncommented, value_of,
+    literal_lines, member_or_signature, names, names_a_type_param, python_def_open, python_header,
+    python_header_open, split_top, ts_header, uncommented, value_of,
 };
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
@@ -37,6 +37,7 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
         Kind::Python => {
             let parts = split_top(kind, after, b':');
             match parts[0].trim().strip_prefix("->") {
+                Some(t) if names_a_type_param(&lines, k, t) => None,
                 Some(t) => (parts.len() > 1 && !t.trim().is_empty())
                     .then(|| Value::Type(t.trim().to_owned())),
                 None => python_class_every_return_calls(text, &lines, k, end),

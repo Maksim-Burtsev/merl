@@ -766,7 +766,7 @@ fn python_params(
         });
     }
 }
-fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &str) -> bool {
+pub(super) fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &str) -> bool {
     let headers: Vec<&str> = std::iter::once(def_line0 + 1)
         .chain(python_class_of(lines, def_line0))
         .map(|line1| lines[line1 - 1].trim_start())
@@ -783,10 +783,14 @@ pub fn python_locals_outside(text: &str, header_line1: usize, locals: &[usize]) 
     else {
         return false;
     };
-    let body = super::body_of(Kind::Python, &lines, k);
-    locals
-        .iter()
-        .all(|&l| l != header_line1 && !body.contains(&l.saturating_sub(1)))
+    let depth = indent(lines[k]);
+    locals.iter().all(|&l| {
+        l < header_line1
+            || (l > header_line1
+                && lines
+                    .get(l.saturating_sub(1))
+                    .is_some_and(|t| indent(t) <= depth))
+    })
 }
 pub fn python_in_default(text: &str, line1: usize, col: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
