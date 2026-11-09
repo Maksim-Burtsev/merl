@@ -4,7 +4,7 @@ use super::cs_linq::cs_switch_arm;
 
 use super::{
     Group, Kind, close_of, code, comment, cs_code_lines, cs_generics, cs_mods, cs_namespace,
-    cs_type, cs_using, cs_usings, def_patterns, group, indent, split_top, uncommented,
+    cs_type, cs_using, cs_usings, def_patterns, group, hole_line, indent, split_top, uncommented,
     written_line,
 };
 
@@ -944,6 +944,9 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     let before = line.get(..start)?.trim_end();
     if !(before.is_empty() || before.ends_with(['{', ','])) {
         return None;
+    }
+    if let Some(hole) = hole_line(Kind::CSharp, lines, at, start) {
+        return cs_initialized(&[hole], 0, start, end);
     }
     let from = at.saturating_sub(200);
     let mut prefix = lines[from..at].join("\n");
