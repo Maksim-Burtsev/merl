@@ -112,9 +112,30 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+        let (ty, links) = match self.jvm_static_head(here, text, first, rest) {
+            Some(head) => head,
+            None => self.jvm_chain_head(here, text, before, first, outer)?,
+        };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_static_head(
+        &self,
+        here: &Path,
+        text: &str,
+        first: &str,
+        rest: &[String],
+    ) -> Option<(JvmType, Vec<String>)> {
+        if !first.starts_with(|c: char| c.is_ascii_uppercase())
+            || !rest.first().is_some_and(|l| l.ends_with("()"))
+        {
+            return None;
+        }
+        match self.jvm_type_at(here, text, first) {
+            ty @ JvmType::Project(_) => Some((ty, vec![first.to_owned()])),
+            _ => None,
+        }
     }
 
     fn jvm_follow(
@@ -152,13 +173,15 @@ impl App {
         if c.links.len() > 6 {
             return None;
         }
-        let (ty, links) = match before {
-            _ if c.constructed => (
+        let (ty, links) = if c.constructed {
+            (
                 self.jvm_made(here, text, &c.head, true),
                 vec![format!("{}()", c.head)],
-            ),
-            Some(before) => self.jvm_chain_head(here, text, before, &c.head, None)?,
-            None => return None,
+            )
+        } else if let Some(head) = self.jvm_static_head(here, text, &c.head, &c.links) {
+            head
+        } else {
+            self.jvm_chain_head(here, text, before?, &c.head, None)?
         };
         self.jvm_follow(ty, links, &c.head, &c.links)
     }

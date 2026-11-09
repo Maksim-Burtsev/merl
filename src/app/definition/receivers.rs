@@ -438,7 +438,7 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
-        if matches!(kind, Kind::Go | Kind::Python)
+        if matches!(kind, Kind::Go | Kind::Python | Kind::TsJs)
             && head.is_none()
             && dotted
             && chain.is_empty()
