@@ -126,6 +126,29 @@ impl App {
         }
     }
 
+    pub(super) fn open_batch_picker(&mut self) {
+        let Some((labels, at)) = crate::proto247::picker_labels() else {
+            return;
+        };
+        let items = labels
+            .into_iter()
+            .enumerate()
+            .map(|(n, label)| PickItem {
+                label,
+                path: PathBuf::new(),
+                line: n,
+                col: 0,
+                code_at: None,
+                path_at: None,
+                deleted: false,
+            })
+            .collect();
+        self.show_picker(PickerKind::Batch, items);
+        if let Some(p) = &mut self.picker {
+            p.selected = at;
+        }
+    }
+
     pub fn shown_theme(&self) -> &str {
         match (&self.picker, self.mode) {
             (Some(p), Mode::Picker(PickerKind::Themes)) => p
@@ -170,6 +193,9 @@ impl App {
                     },
                     None => format!("theme {}", self.theme),
                 };
+            }
+            Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Batch) => {
+                crate::proto247::pick(item.line);
             }
             Pick::Accept(item) => self.jump_to_item(&item),
         }

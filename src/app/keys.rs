@@ -54,6 +54,7 @@ impl App {
         if key.kind != KeyEventKind::Press {
             return false;
         }
+        crate::proto247::begin_key();
         let key = match self.plain_key(key) {
             ControlFlow::Continue(key) => key,
             ControlFlow::Break(quit) => return quit,
@@ -304,6 +305,7 @@ impl App {
             KeyCode::Char(']') => self.hist_go(1),
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
+            KeyCode::Char('b') if crate::proto247::on() => self.open_batch_picker(),
             KeyCode::Char('m') => self.toggle_viewed(),
             KeyCode::Char('a') if ctrl && self.focus == Focus::Code => self.select_all(),
             KeyCode::Char('a') if !ctrl && self.notes.on => self.add_note(),

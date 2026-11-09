@@ -220,6 +220,9 @@ impl App {
             }
         }
         self.message = failed.unwrap_or_else(|| {
+            if crate::proto247::on() {
+                return crate::proto247::at_end(dir);
+            }
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
@@ -610,8 +613,9 @@ impl App {
         }
         let at = self.hunk_place(self.at());
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
+        let tail = crate::proto247::branch_label().map_or_else(String::new, |b| format!("  {b}"));
         Some(format!(
-            "hunk {hunk}/{}  file {}/{}",
+            "hunk {hunk}/{}  file {}/{}{tail}",
             self.diff.hunks.len(),
             file + 1,
             r.files.len()

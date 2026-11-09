@@ -195,7 +195,10 @@ pub(super) fn draw_tree(
 fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'static> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
-        Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
+        Some(r) => match crate::proto247::repo_label() {
+            Some(repo) => format!("{repo} \u{b7} {} \u{2190} {}", r.branch, r.base),
+            None => format!("{} \u{2190} {}", r.branch, r.base),
+        },
         None => app.root_name(),
     };
     let mut block = Block::bordered()

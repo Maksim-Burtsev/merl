@@ -12,6 +12,7 @@ mod mermaid;
 mod picker;
 mod picture;
 mod real;
+mod proto247;
 mod reviews;
 mod search;
 mod stats;
@@ -221,18 +222,7 @@ fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn run() -> Result<()> {
-    let cli = Cli::parse();
-    if let Some(text) = report(&cli)? {
-        print_even_to_a_closed_pipe(&text);
-        return Ok(());
-    }
-    let config = theme::config()?;
-    let (theme, name) = match cli.theme.clone() {
-        Some(name) => (theme::load(&name)?, name),
-        None => (theme::load_configured(&config.theme)?, config.theme.clone()),
-    };
-
+fn build(cli: &Cli, config: &theme::Config, name: String) -> Result<(App, live::Project)> {
     let Opened {
         project_root: mut root,
         shallow,
@@ -249,7 +239,7 @@ fn run() -> Result<()> {
         resolve(cli.target.as_deref())?
     };
     let diagrams = mermaid::Diagrams::detect();
-    let (review, pushed_folder) = open_review(&cli, &mut root, &mut file)?;
+    let (review, pushed_folder) = open_review(cli, &mut root, &mut file)?;
     let git_dirs = git::dirs(&root);
     let tree_order = (git_toplevel(&root))
         .zip(git_dirs.clone())
@@ -290,18 +280,46 @@ fn run() -> Result<()> {
     if let Some(r) = review {
         app.start_review(r);
     }
-    configure(&mut app, &config, name);
+    configure(&mut app, config, name);
     if cli.tutor || cli.drill.is_some() {
         start_tutor(&mut app, cli.drill, dir)?;
     }
+    Ok((app, project))
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn run() -> Result<()> {
+    let mut cli = Cli::parse_from(proto247::args()?);
+    if let Some(text) = report(&cli)? {
+        print_even_to_a_closed_pipe(&text);
+        return Ok(());
+    }
+    let config = theme::config()?;
+    let (theme, name) = match cli.theme.clone() {
+        Some(name) => (theme::load(&name)?, name),
+        None => (theme::load_configured(&config.theme)?, config.theme.clone()),
+    };
+    let (mut app, mut project) = build(&cli, &config, name.clone())?;
 
     let (mut terminal, keyboard) = enter_terminal()?;
     mermaid::keep_panics_inside();
     let (tx, rx) = mpsc::channel();
     spawn_key_reader(&keyboard, tx.clone());
     quit_on_signals(tx.clone());
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
-    drop(app.diagrams.clear(&mut stdout()));
+    let result = loop {
+        let result = event_loop(&mut terminal, &mut app, theme.clone(), &rx, tx.clone(), project);
+        drop(app.diagrams.clear(&mut stdout()));
+        record_presses_and_reviews(&mut app);
+        let Some(args) = result.is_ok().then(proto247::next_args).flatten() else {
+            break result;
+        };
+        while rx.try_recv().is_ok() {}
+        cli = Cli::parse_from(args);
+        match build(&cli, &config, name.clone()) {
+            Ok((a, p)) => (app, project) = (a, p),
+            Err(e) => break Err(e),
+        }
+    };
     leave_terminal(&keyboard);
     if let Some(t) = &app.tutor {
         remove_sample_project_and_print_drill(t);
@@ -309,7 +327,6 @@ fn run() -> Result<()> {
     if let Some(line) = app.notes_farewell() {
         println!("{line}");
     }
-    record_presses_and_reviews(&mut app);
     result
 }
 
@@ -639,7 +656,7 @@ fn event_loop(
 
     let mut dirty = true;
     loop {
-        if drill_answered(app) {
+        if drill_answered(app) || proto247::switch_pending() {
             return Ok(());
         }
         if let Some(p) = &mut app.picker {

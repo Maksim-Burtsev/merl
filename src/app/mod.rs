@@ -292,6 +292,7 @@ pub enum PickerKind {
     Usages,
     Symbols,
     Themes,
+    Batch,
 }
 
 impl PickerKind {
@@ -303,6 +304,7 @@ impl PickerKind {
             Self::Usages => "Usages",
             Self::Symbols => "Symbols",
             Self::Themes => "Themes",
+            Self::Batch => "Batch",
         }
     }
 }
