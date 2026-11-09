@@ -1,0 +1,11 @@
+# Round 2 after a real agent: its two answers and a thread of its own.
+wait strip_quotes
+sleep 1.6
+key c
+sleep 4.2
+key c
+sleep 0.9
+key c
+sleep 1.1
+key c
+sleep 3.2
