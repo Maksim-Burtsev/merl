@@ -40,15 +40,15 @@ def _impl(ctx):  # f: 16-41
     return args  # f: 16-41
     # the body's last comment f: 16-41
 
-def shop_library(  # f: 43-45
-        name,  # f: 43-45
-        srcs = SRCS):  # f: 43-45
+def shop_library(  # f: 43-51
+        name,  # f: 43-51
+        srcs = SRCS):  # f: 43-51
     """Defines a library. f: 46-50
 
-    Args: f: 43-45
+    Args: f: 43-51
         name: the name.
-    """  # f: 43-45
-    native.filegroup(name = name, srcs = srcs)  # f: 43-45
+    """  # f: 43-51
+    native.filegroup(name = name, srcs = srcs)  # f: 43-51
 
 shop = rule(  # f: 53-56
     implementation = _impl,  # f: none
