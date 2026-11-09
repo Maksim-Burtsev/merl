@@ -1014,3 +1014,106 @@ pub(super) fn names(s: &str, word: &str) -> bool {
         })
     })
 }
+pub(super) fn hole_line(kind: Kind, line: &str, at: usize) -> Option<String> {
+    if !matches!(kind, Kind::CSharp | Kind::Julia) {
+        return None;
+    }
+    let (from, to) = holes(kind, line.as_bytes())
+        .into_iter()
+        .find(|&(s, e)| s <= at && at < e)?;
+    let mut out = String::with_capacity(line.len());
+    for (i, ch) in line.char_indices() {
+        if (from..to).contains(&i) {
+            out.push(ch);
+        } else {
+            out.extend(std::iter::repeat_n(' ', ch.len_utf8()));
+        }
+    }
+    Some(out)
+}
+enum Frame {
+    Hole {
+        from: usize,
+        depth: usize,
+    },
+    Text {
+        interp: bool,
+        triple: bool,
+        escapes: bool,
+    },
+}
+fn holes(kind: Kind, b: &[u8]) -> Vec<(usize, usize)> {
+    let (mut out, mut stack, mut i) = (Vec::new(), Vec::new(), 0);
+    while let Some(&c) = b.get(i) {
+        i += 1;
+        if let Some(&Frame::Text {
+            interp,
+            triple,
+            escapes,
+        }) = stack.last()
+        {
+            match c {
+                b'\\' if escapes => i += 1,
+                b'"' if !escapes && !triple && b.get(i) == Some(&b'"') => i += 1,
+                b'"' if !triple || b.get(i..i + 2) == Some(b"\"\"") => {
+                    stack.pop();
+                    i += if triple { 2 } else { 0 };
+                }
+                b'{' if interp && kind == Kind::CSharp && b.get(i) == Some(&b'{') => i += 1,
+                b'{' if interp && kind == Kind::CSharp => {
+                    stack.push(Frame::Hole { from: i, depth: 0 })
+                }
+                b'$' if interp && kind == Kind::Julia && b.get(i) == Some(&b'(') => {
+                    i += 1;
+                    stack.push(Frame::Hole { from: i, depth: 0 });
+                }
+                _ => {}
+            }
+            continue;
+        }
+        let close = if kind == Kind::CSharp { b'}' } else { b')' };
+        match c {
+            b'"' => {
+                let lead = &b[..i - 1];
+                let triple = b.get(i..i + 2) == Some(b"\"\"");
+                let prefix = lead.iter().rev().take_while(|p| b"$@".contains(p));
+                let dollars = prefix.clone().filter(|&&p| p == b'$').count();
+                let verbatim = prefix.clone().any(|&p| p == b'@');
+                let (interp, escapes) = if kind == Kind::CSharp {
+                    (dollars == 1, !verbatim && !triple)
+                } else {
+                    (lead.last().is_none_or(|&p| !ident(p)), true)
+                };
+                stack.push(Frame::Text {
+                    interp,
+                    triple,
+                    escapes,
+                });
+                i += if triple { 2 } else { 0 };
+            }
+            b'\'' if kind == Kind::CSharp => {
+                let end = i + 1 + usize::from(b.get(i) == Some(&b'\\'));
+                if b.get(end) == Some(&b'\'') {
+                    i = end + 1;
+                }
+            }
+            b'/' if kind == Kind::CSharp && b.get(i) == Some(&b'/') => break,
+            b'#' if kind == Kind::Julia => break,
+            b'(' | b'[' | b'{' => {
+                if let Some(Frame::Hole { depth, .. }) = stack.last_mut() {
+                    *depth += 1;
+                }
+            }
+            b')' | b']' | b'}' => match stack.last_mut() {
+                Some(Frame::Hole { from, depth: 0 }) if c == close => {
+                    out.push((*from, i - 1));
+                    stack.pop();
+                }
+                Some(Frame::Hole { depth, .. }) => *depth = depth.saturating_sub(1),
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+    out
+}

@@ -44,3 +44,17 @@ function kwtuple(mugful)
     return (b = 1, mugful = 2)
     #              ^ d: none
 end
+
+function kwsaid(mugful)
+    said = "mugful $(kwbrew(; mugful = mugful)) \$(kwbrew(; mugful = 1))"
+    #       ^ d: src/kwcafe/uses.jl:48
+    #                         ^ d: src/kwcafe/brewer.jl:3
+    #                                  ^ d: src/kwcafe/uses.jl:48
+    #                                                       ^ d: src/kwcafe/uses.jl:48
+    told = """$(kwbrew(mugful = 4))"""
+    #                  ^ d: src/kwcafe/brewer.jl:3
+    bare = r"$(kwbrew(; mugful = 1))" * "$(mugful)"
+    #                   ^ d: src/kwcafe/uses.jl:48
+    #                                      ^ d: src/kwcafe/uses.jl:48
+    return said * told * bare
+end

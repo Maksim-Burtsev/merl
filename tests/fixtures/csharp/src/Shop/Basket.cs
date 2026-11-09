@@ -117,6 +117,18 @@ public class Basket
             Checked = !Checked,
         //  ^ d: src/Shop/Warehouse/Courier.cs:25
         };
+        var said = $"Checked {new ScopeView { Checked = Checked }} {{Checked = 1}}";
+        //           ^ d: src/Shop/Basket.cs:110
+        //                                    ^ d: src/Shop/Warehouse/Courier.cs:25
+        //                                              ^ d: src/Shop/Basket.cs:110
+        //                                                           ^ d: src/Shop/Basket.cs:110
+        var told = $@"{new ScopeView { Checked = Checked }}";
+        //                             ^ d: src/Shop/Warehouse/Courier.cs:25
+        var plain = "{new ScopeView { Checked = Checked }}";
+        //                            ^ d: src/Shop/Basket.cs:110
+        var shown = $"{Checked:N2} {(Checked ? '}' : '{')}";
+        //             ^ d: src/Shop/Basket.cs:110
+        //                           ^ d: src/Shop/Basket.cs:110
         return again;
     }
 }

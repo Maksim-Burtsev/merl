@@ -3,8 +3,8 @@ use std::ops::Range;
 use regex::Regex;
 
 use super::{
-    Group, Kind, body_of, code, group, indent, literal_lines, path_literal_lines, split_top,
-    word_at,
+    Group, Kind, body_of, code, group, hole_line, indent, literal_lines, path_literal_lines,
+    split_top, word_at,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +65,15 @@ pub fn label_at(
         return None;
     }
     let literal = path_literal_lines(kind, path, text);
+    if literal.get(line0) == Some(&false)
+        && let Some(hole) = hole_line(kind, l, range.start)
+    {
+        let mut label = label_at(kind, path, &hole, 0, range)?;
+        if let Some(o) = label.owner.as_mut() {
+            o.line0 = line0;
+        }
+        return Some(label);
+    }
     if kind == Kind::TsJs && sep == b'=' {
         return jsx(kind, &lines, &literal, line0, range.start);
     }
