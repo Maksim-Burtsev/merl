@@ -44,10 +44,10 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = locals
-            .is_empty()
+        let type_param = (locals.is_empty() || kind == Kind::Python)
             .then(|| self.type_param(a, &imports))
-            .flatten();
+            .flatten()
+            .filter(|&p| locals.is_empty() || search::python_locals_outside(&a.text, p, &locals));
         if let Some(line1) = type_param {
             locals = vec![line1];
         }

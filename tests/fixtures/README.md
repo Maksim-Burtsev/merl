@@ -548,6 +548,11 @@ function without a list keeps master's picker of the module-level `TypeVar`s. A 
 annotated with a type parameter named like a project class (`def named[Cup](c: Cup)`, and the
 class's `[Cup]` in a method) is no `Cup`, so `c.sip()` keeps the picker. `generic_default.py`
 reads an imported `T` in a default value, which Python evaluates outside the list.
+Its end (#1459) reads a generic def's return type (`make().sip()`), a constraint tuple as no base
+(`class Box[T: (Cup, Mug)]:`, so `Box().sip()` is no `Cup`'s) and as no parameters (`pick(first=..)`
+labels `first`). `generic_typevar.py` (#1459) has a module-level `Leaf = TypeVar("Leaf")` beside
+defs and a class with their own `[Leaf]`: those land on the list, a local in the body still wins,
+and a def without a list keeps the module's `Leaf`.
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under

@@ -2,13 +2,11 @@ use regex::Regex;
 
 use super::{
     Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, group, indent,
-    literal_lines, member_or_signature, names, split_top, ts_header, uncommented, value_of,
+    literal_lines, member_or_signature, names, python_def_open, python_header, python_header_open,
+    split_top, ts_header, uncommented, value_of,
 };
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
-    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").expect("the regex is a literal")
-    });
     static TS_FUNCTION_CONST_OR_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(
         || {
             Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").expect("the regex is a literal")
@@ -24,13 +22,12 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
         });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl_line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let opener = match kind {
-        Kind::Python => &PY_DEF,
-        Kind::TsJs => &TS_FUNCTION_CONST_OR_METHOD,
-        Kind::Go => &GO_FUNC_METHOD_OR_INTERFACE_METHOD,
+    let open = match kind {
+        Kind::Python => python_def_open(lines[k])?,
+        Kind::TsJs => TS_FUNCTION_CONST_OR_METHOD.find(lines[k])?.end() - 1,
+        Kind::Go => GO_FUNC_METHOD_OR_INTERFACE_METHOD.find(lines[k])?.end() - 1,
         _ => return None,
     };
-    let open = opener.find(lines[k])?.end() - 1;
     let Group {
         close_line: end,
         after_close: after,
@@ -230,7 +227,7 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
         Kind::Python => lines[k]
             .trim_start()
             .starts_with("class ")
-            .then(|| lines[k].find('('))
+            .then(|| python_header_open(lines[k]))
             .flatten()
             .and_then(|open| group(kind, &lines, k, open))
             .map_or_else(Vec::new, |g| list(&g.inner_uncommented)),
@@ -337,7 +334,11 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
         .filter(|&(_, c)| c == b'(')
         .map(|(i, _)| i);
     let receiver = kind == Kind::Go && lines[k].trim_start().starts_with("func (");
-    let open = if receiver { opens.nth(1) } else { opens.next() }?;
+    let open = match python_header(lines[k]).filter(|_| kind == Kind::Python) {
+        Some((_, open)) => open?,
+        None if receiver => opens.nth(1)?,
+        None => opens.next()?,
+    };
     let Group {
         inner_uncommented: inner,
         ..
