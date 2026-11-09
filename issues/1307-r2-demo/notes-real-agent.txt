@@ -1,0 +1,17 @@
+# merl notes · agent/unquote ← origin/master · c250c1e
+# The user's review notes, for you. Delete this file when you have dealt with them.
+
+httpx/_utils.py:94
+>     return value
+why return it unchanged instead of raising?
+agent: Unquoted values are legal: RFC 7616 sends algorithm=MD5, stale=FALSE and so on as bare tokens. Raising would break every real server. Kept as is.
+
+CHANGELOG.md:16
+> * Digest auth reads single-quoted header values. (#3801)
+is this worth a changelog line?
+agent: It changes what users see, so a line is fair. But I made up #3801: there's no PR behind it. Drop the number until a PR exists? Also see my note in _auth.py before deciding whether to ship this at all.
+
+httpx/_auth.py:238-239
+>         for field in parse_http_list(fields):
+>             key, value = field.strip().split("=", 1)
+agent: I should have caught this earlier. parse_http_list only understands double quotes, so qop='auth,auth-int' gets split at the comma, and "auth-int'" has no "=", so this line raises ValueError. RFC 7616 only allows double-quoted strings anyway. Single-quote support only works when the value has no comma. Do we keep it with that limit, write our own splitter, or drop the feature?
