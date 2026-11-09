@@ -543,3 +543,32 @@ impl App {
         });
     }
 }
+
+impl App {
+    pub(super) fn swift_attribute_types(here: &Path, text: &str, hits: &mut Vec<Hit>) {
+        static IMPORT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"(?m)^[ \t]*(?:@\w+[ \t]+)*import[ \t]+(?:(?:class|struct|enum|protocol|func|var|let|typealias)[ \t]+)?(\w+)")
+                .expect("the regex is a literal")
+        });
+        let imported: Vec<&str> = IMPORT
+            .captures_iter(text)
+            .filter_map(|c| Some(c.get(1)?.as_str()))
+            .collect();
+        let own = swift_module(here);
+        hits.retain(|h| {
+            search::swift_type_decl(&h.text)
+                && match (own, swift_module(&h.path)) {
+                    (Some(own), Some(m)) if own != m => imported.contains(&m),
+                    _ => true,
+                }
+        });
+    }
+}
+
+fn swift_module(path: &Path) -> Option<&str> {
+    let parts: Vec<&str> = path.iter().filter_map(|c| c.to_str()).collect();
+    parts
+        .windows(3)
+        .find(|w| matches!(w[0], "Sources" | "Tests"))
+        .map(|w| w[1])
+}
