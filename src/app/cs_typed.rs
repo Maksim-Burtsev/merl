@@ -190,23 +190,9 @@ impl App {
             }
             (None, Some(((name, false), rest))) => {
                 let p = self.cs_name_type(file, text, line1, name, hops);
-                let fresh = || {
-                    if !name.starts_with(|c: char| c.is_ascii_uppercase())
-                        || !rest.first().is_some_and(|(_, call)| *call)
-                    {
-                        return None;
-                    }
-                    let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
-                        return None;
-                    };
-                    Some(Proven {
-                        ty,
-                        link: name.clone(),
-                        written: name.clone(),
-                        from: here.clone(),
-                    })
-                };
-                (p.or_else(fresh)?, rest)
+                let called = rest.first().is_some_and(|(_, call)| *call);
+                let p = p.or_else(|| self.cs_static_head(file, text, line1, name, called))?;
+                (p, rest)
             }
             (None, Some(((name, true), rest))) => {
                 let w = self.cs_call_type(file, text, line1, name, false, hops)?;
@@ -246,6 +232,28 @@ impl App {
         }
         p.link = links.join(" \u{2192} ");
         Some(p)
+    }
+
+    fn cs_static_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        called: bool,
+    ) -> Option<Proven> {
+        if !called || !name.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
+            return None;
+        };
+        Some(Proven {
+            ty,
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (file.to_path_buf(), line1),
+        })
     }
 
     fn cs_step(&self, here: &Path, from: &Proven, name: &str, call: bool) -> Option<Proven> {
