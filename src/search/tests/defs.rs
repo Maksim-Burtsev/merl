@@ -1145,3 +1145,15 @@ fn a_typescript_signature_has_no_equals_sign_in_its_return_type() {
     assert!(re.is_match("  next(value: number): number;"));
     assert!(!re.is_match("  next(value: number): number => value;"));
 }
+
+#[test]
+fn a_typescript_method_with_its_body_on_its_line_is_a_declaration() {
+    let members = member_patterns(Kind::TsJs, "nose").unwrap().join("|");
+    let re = Regex::new(&members).unwrap();
+    assert!(re.is_match(r#"  nose(): string { return "oak"; }"#));
+    assert!(re.is_match("  static nose<T>(t: T) { return t; } // aroma"));
+    assert!(!re.is_match("  get nose() { return this._n; }"));
+    assert!(!re.is_match("  nose(a) : { b: 1 }"));
+    assert!(!re.is_match("  nose((): void => { a(); }); // }"));
+    assert!(!re.is_match("  nose(): { a: string }"));
+}

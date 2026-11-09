@@ -244,7 +244,7 @@ pub fn ts_signature(text: &str, line1: usize, word: &str) -> Option<TsSignature>
     let open = head.find(rows.get(at)?)?.end() - 1;
     let g = group(Kind::TsJs, &rows, at, open)?;
     let after = g.after_close.trim_end();
-    let body = after.ends_with('{');
+    let body = after.ends_with('{') || (after.ends_with('}') && after.contains('{'));
     if !body && !after.ends_with(';') {
         return None;
     }
