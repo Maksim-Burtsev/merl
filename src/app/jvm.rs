@@ -72,6 +72,27 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    pub(super) fn jvm_package_sees(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        there: &Path,
+    ) -> bool {
+        let package = |p: &Path| {
+            self.text_of(p)
+                .and_then(|t| search::jvm_package(&t))
+                .unwrap_or_default()
+        };
+        let declared = package(there);
+        there == here
+            || declared == package(here)
+            || search::jvm_imports(here, text).iter().any(|i| {
+                let path = i.path.join(".");
+                path == format!("{declared}.{word}") || path == format!("{declared}.*")
+            })
+    }
+
     pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
         static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r"^\s*(?:def|void)\s+call\s*\(").expect("the regex is a literal")

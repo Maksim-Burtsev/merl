@@ -772,6 +772,12 @@ pub fn label_lines(
         return Vec::new();
     };
     let types_own_name = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
+    if kind == Kind::Jvm
+        && *owner == Owner::Args
+        && let Some(elements) = java_annotation_elements(&lines, k, name, word)
+    {
+        return elements;
+    }
     match (owner, types_own_name.as_deref()) {
         (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
@@ -904,6 +910,30 @@ pub fn object_type(
         None::<usize>
     });
     found
+}
+
+fn java_annotation_elements(
+    lines: &[&str],
+    decl_line0: usize,
+    name: &str,
+    word: &str,
+) -> Option<Vec<usize>> {
+    Regex::new(&format!(r"@interface\s+{}\b", regex::escape(name)))
+        .ok()?
+        .is_match(lines[decl_line0])
+        .then_some(())?;
+    let element = Regex::new(&format!(
+        r"^\s*(?:public\s+|abstract\s+)*[\w.<>\[\]?, ]*[\w>\]]\s+{}\s*\(\s*\)",
+        regex::escape(word)
+    ))
+    .ok()?;
+    Some(
+        members(lines, decl_line0)
+            .into_iter()
+            .filter(|&i| element.is_match(lines[i]))
+            .map(|i| i + 1)
+            .collect(),
+    )
 }
 
 fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
