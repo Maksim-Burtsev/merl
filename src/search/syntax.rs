@@ -1014,13 +1014,23 @@ pub(super) fn names(s: &str, word: &str) -> bool {
         })
     })
 }
-pub(super) fn hole_line(kind: Kind, line: &str, at: usize) -> Option<String> {
+pub(super) fn hole_line<S: AsRef<str>>(
+    kind: Kind,
+    lines: &[S],
+    line0: usize,
+    at: usize,
+) -> Option<String> {
     if !matches!(kind, Kind::CSharp | Kind::Julia) {
         return None;
     }
+    let line = lines.get(line0)?.as_ref();
     let (from, to) = holes(kind, line.as_bytes())
         .into_iter()
         .find(|&(s, e)| s <= at && at < e)?;
+    let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    if literal_lines(kind, &text.join("\n")).get(line0) != Some(&false) {
+        return None;
+    }
     let mut out = String::with_capacity(line.len());
     for (i, ch) in line.char_indices() {
         if (from..to).contains(&i) {
@@ -1098,6 +1108,15 @@ fn holes(kind: Kind, b: &[u8]) -> Vec<(usize, usize)> {
                 }
             }
             b'/' if kind == Kind::CSharp && b.get(i) == Some(&b'/') => break,
+            b'/' if kind == Kind::CSharp && b.get(i) == Some(&b'*') => {
+                match b
+                    .get(i + 1..)
+                    .and_then(|r| r.windows(2).position(|w| w == b"*/"))
+                {
+                    Some(p) => i += p + 3,
+                    None => break,
+                }
+            }
             b'#' if kind == Kind::Julia => break,
             b'(' | b'[' | b'{' => {
                 if let Some(Frame::Hole { depth, .. }) = stack.last_mut() {

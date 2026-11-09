@@ -129,6 +129,13 @@ public class Basket
         var shown = $"{Checked:N2} {(Checked ? '}' : '{')}";
         //             ^ d: src/Shop/Basket.cs:110
         //                           ^ d: src/Shop/Basket.cs:110
+        var price = @"Price:
+in $" + new ScopeView { Checked = Checked };
+        //              ^ d: src/Shop/Warehouse/Courier.cs:25
+        /* $"{new ScopeView { Checked = Checked }}" */
+        //                    ^ d: src/Shop/Basket.cs:110
+        var nested = $"{F('}', $"{new ScopeView { Checked = Checked }}")}";
+        //                                        ^ d: src/Shop/Warehouse/Courier.cs:25
         return again;
     }
 }

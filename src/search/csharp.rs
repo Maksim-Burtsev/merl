@@ -945,7 +945,7 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     if !(before.is_empty() || before.ends_with(['{', ','])) {
         return None;
     }
-    if let Some(hole) = hole_line(Kind::CSharp, line, start) {
+    if let Some(hole) = hole_line(Kind::CSharp, lines, at, start) {
         return cs_initialized(&[hole], 0, start, end);
     }
     let from = at.saturating_sub(200);

@@ -64,16 +64,14 @@ pub fn label_at(
     if rest.first() != Some(&sep) || matches!(rest.get(1), Some(b'=' | b'>' | b':')) {
         return None;
     }
-    let literal = path_literal_lines(kind, path, text);
-    if literal.get(line0) == Some(&false)
-        && let Some(hole) = hole_line(kind, l, range.start)
-    {
+    if let Some(hole) = hole_line(kind, &lines, line0, range.start) {
         let mut label = label_at(kind, path, &hole, 0, range)?;
         if let Some(o) = label.owner.as_mut() {
             o.line0 = line0;
         }
         return Some(label);
     }
+    let literal = path_literal_lines(kind, path, text);
     if kind == Kind::TsJs && sep == b'=' {
         return jsx(kind, &lines, &literal, line0, range.start);
     }
