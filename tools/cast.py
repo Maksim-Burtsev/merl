@@ -168,6 +168,14 @@ def emoji(char, side, cache={}):
     return cache[char, side]
 
 
+def glyph_font(font, char, cache={}):
+    if (font, char) not in cache:
+        box = font.getbbox(char)
+        empty = box[2] <= box[0] or box[3] <= box[1]
+        cache[font, char] = ImageFont.truetype(FONT, font.size) if empty else font
+    return cache[font, char]
+
+
 def render(grid, cursor, fonts, cell):
     cw, ch = cell
     img = Image.new("RGB", (len(grid[0]) * cw, len(grid) * ch), DEFAULT_BG)
@@ -192,7 +200,7 @@ def render(grid, cursor, fonts, cell):
             elif ord(char) >= 0x1F000:
                 emojis.append((emoji(char, side), (x + cw - side // 2, y + (ch - side) // 2)))
             elif char not in (" ", "️"):
-                draw.text((x, y), char, font=fonts[bold + 2 * italic], fill=fg)
+                draw.text((x, y), char, font=glyph_font(fonts[bold + 2 * italic], char), fill=fg)
     for glyph, at in emojis:
         img.paste(glyph, at, glyph)
     return img
@@ -394,6 +402,8 @@ def main():
         for face, size in (("menlo", FONT_SIZE), ("sf-mono", 2 * FONT_SIZE)):
             bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, *load_fonts(face, size))
             assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps in " + face
+            mark = render([[("✎", red, DEFAULT_BG, False, False)]], None, *load_fonts(face, size))
+            assert len(mark.getcolors()) > 1,"the ✎ is blank in " + face
         g = parse("\x1b[48;2;1;2;3mx\ny\n\x1b[34mM", 1, 3)
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
         assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"
