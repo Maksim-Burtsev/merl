@@ -374,8 +374,15 @@ impl App {
             self.ruby_constant_in_scope(&a.here, &a.text, word, &mut hits);
         }
         if kind == Kind::CSharp {
+            let attribute = !dotted && self.cs_attribute_slot();
+            if attribute {
+                hits.extend(self.cs_attribute_types(&a.here, word));
+            }
             let chain = dotted.then_some(chain.as_slice());
             hits = self.cs_reachable(&a.here, word, chain, walk.cs_walked.as_deref(), hits);
+            if attribute || (!dotted && self.cs_new_call()) {
+                hits = self.cs_in_scope(&a.here, word, hits);
+            }
         }
         if kind == Kind::Lua {
             self.lua_hits(a, &mut hits);
