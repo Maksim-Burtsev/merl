@@ -1,0 +1,17 @@
+# Round 2: the rest of the walk, from the tree: the tests and CHANGELOG.md.
+wait unquote_header
+sleep 1
+key Tab
+sleep 0.3
+key Down Down Down
+sleep 0.3
+key Enter
+sleep 1.2
+key c
+sleep 1
+key c
+sleep 2.6
+key c
+sleep 1.2
+key c
+sleep 2.8
