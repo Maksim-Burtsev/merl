@@ -216,8 +216,11 @@ impl App {
                         )
                 });
                 if !declares
-                    && let Some(found) =
-                        self.php_outside_named(&full, short, &word, (member, imported), access)
+                    && let Some(found) = self
+                        .php_outside_named(&full, short, &word, (member, imported), access)
+                        .or_else(|| {
+                            self.php_not_installed(here, text, &full, &written, !member && imported)
+                        })
                 {
                     return Some(found);
                 }
@@ -281,6 +284,33 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    fn php_not_installed(
+        &mut self,
+        here: &Path,
+        text: &str,
+        full: &str,
+        written: &str,
+        named: bool,
+    ) -> Option<Vec<Candidate>> {
+        let (vendor, _) = full.split_once('\\')?;
+        let vendor = vendor.to_ascii_lowercase();
+        let installed = self.external_files(Kind::Php).iter().any(|f| {
+            f.components()
+                .any(|c| c.as_os_str().to_string_lossy().to_ascii_lowercase() == vendor)
+        });
+        let name = written.split('\\').next()?;
+        let line = search::import_line1(Kind::Php, text, name).filter(|_| named && !installed)?;
+        let hit = Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1: line,
+            byte_col: None,
+            text: text.lines().nth(line - 1)?.to_owned(),
+        };
+        let reason = Reason::Import(format!("{} (not installed)", full.replace('\\', "/")));
+        Some(vec![Candidate { hit, reason }])
     }
 
     fn php_outside_named(

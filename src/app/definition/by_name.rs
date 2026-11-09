@@ -81,6 +81,7 @@ impl App {
             self.dart_reachable(&a.here, member, &mut found);
             if !member {
                 self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
+                self.dart_unseen(&a.here, &a.word, &a.before, &mut found);
             }
         }
         if kind == Kind::TsJs && a.dotted {
