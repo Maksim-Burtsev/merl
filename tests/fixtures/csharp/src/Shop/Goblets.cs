@@ -24,6 +24,16 @@ namespace Shop.Goblets
         //                      ^ d: src/Shop/Goblets.cs:3
         public void GobletBound<T>(T x) where T : Goblet { }
         //                                        ^ d: src/Shop/Goblets.cs:3
+        public void GobletSip<Goblet>(Goblet x)
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5; want none (#1438)
+        }
+        public void GobletSipBound<T>(T x) where T : Goblet
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5
+        }
     }
 
     public class GobletServe
