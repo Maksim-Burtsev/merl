@@ -96,3 +96,53 @@ class Beaker[T](Cup):
 
 def one[T: (str, bytes)](first: T) -> T: return first
 #                                               ^ d: tea/generic.py:97
+
+
+def make[T]() -> Cup:
+    return Cup(1)
+
+
+made = make()
+made.sip()
+#    ^ d: tea/brewer.py:37
+
+
+class Mug:
+    pass
+
+
+class Box[T: (Cup, Mug)]:
+    pass
+
+
+Box().sip()
+#     ^ d: none
+
+
+pick(first="a", cup=Cup(1))
+#    ^ d: tea/generic.py:24
+
+
+def back[Cup](c: Cup) -> Cup:
+    return c
+
+
+back(3).sip()
+#       ^ d: picker tea/brewer.py:37, tea/brewer.py:71
+
+
+def wrapped[T](
+    T,
+):
+    return T
+    #      ^ d: tea/generic.py:135
+
+
+class Jar[T: (str, bytes)](
+    Cup,
+):
+    lid = Cup(1)
+
+
+Jar().lid.sip()
+#         ^ d: tea/brewer.py:37

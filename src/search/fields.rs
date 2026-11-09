@@ -5,16 +5,16 @@ use regex::Regex;
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
     element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_rooted, python_statements, returns, split_top, ts_header, type_path, uncommented,
-    value_of,
+    python_header_open, python_rooted, python_statements, returns, split_top, ts_header, type_path,
+    uncommented, value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
-    let start = match (kind, lines[k].find('(')) {
-        (Kind::Python, Some(open)) => {
-            group(kind, lines, k, open).map_or(k + 1, |g| g.close_line + 1)
-        }
-        (Kind::TsJs, _) => ts_header(lines, k).last_line0 + 1,
+    let start = match kind {
+        Kind::Python => python_header_open(lines[k])
+            .and_then(|open| group(kind, lines, k, open))
+            .map_or(k + 1, |g| g.close_line + 1),
+        Kind::TsJs => ts_header(lines, k).last_line0 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);

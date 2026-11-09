@@ -4,7 +4,7 @@ use regex::Regex;
 
 use super::{
     Group, Kind, body_of, code, group, hole_line, indent, literal_lines, path_literal_lines,
-    split_top, word_at,
+    python_header, split_top, word_at,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -927,9 +927,12 @@ fn params(
         "" => 0,
         _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let open = code(kind, lines[decl_line0])
-        .find(|&(i, c)| i >= from && c == b'(')
-        .map(|(i, _)| i)?;
+    let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
+        Some((_, open)) => open?,
+        None => code(kind, lines[decl_line0])
+            .find(|&(i, c)| i >= from && c == b'(')
+            .map(|(i, _)| i)?,
+    };
     let Group {
         inner_uncommented: inner,
         ..
