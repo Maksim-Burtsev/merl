@@ -88,3 +88,11 @@ class PithosWrappedCtor<Pithos>(
     val held: Pithos,
     //        ^ d: src/main/kotlin/pithos/PithosRack.kt:87
 )
+
+class PithosCrossBound<
+    A : Comparable<Pithos>,
+    Pithos,
+> {
+    fun second(x: Pithos): Pithos = x
+    //            ^ d: src/main/kotlin/pithos/PithosRack.kt:94
+}

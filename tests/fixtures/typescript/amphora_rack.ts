@@ -137,3 +137,12 @@ export const amphoraWrappedArrow = <
   Amphora,
 >(x: Amphora): Amphora => x;
 //   ^ d: amphora_rack.ts:137
+
+export function amphoraCrossBound<
+  K extends keyof Amphora,
+  Amphora,
+>(obj: Amphora, k: K): Amphora {
+//     ^ d: amphora_rack.ts:143
+//                 ^ d: amphora_rack.ts:142
+  return obj;
+}

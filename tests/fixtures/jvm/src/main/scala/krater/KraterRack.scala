@@ -69,3 +69,10 @@ object KraterWrappedFns {
   ): Krater = x
   // ^ d: src/main/scala/krater/Krater.scala:3
 }
+
+class KraterCrossBound[
+    A <: Krater,
+    Krater
+](val held: Krater) {
+//          ^ d: src/main/scala/krater/KraterRack.scala:75
+}

@@ -789,3 +789,18 @@ fn ts_alias_literal_member_reads_a_one_line_object_type() {
         "leaves"
     ));
 }
+
+#[test]
+fn ts_type_param_in_a_wrapped_list_is_its_own_line() {
+    let text = "function pick<
+  K extends keyof V,
+  V,
+>(obj: V, k: K) {}
+function keep<A>(x: A, y: Array<
+  number
+>): A {}";
+    let at = |line, name| ts_type_param(text, line, name).map(|p| p.line1);
+    assert_eq!(at(4, "V"), Some(3));
+    assert_eq!(at(4, "K"), Some(2));
+    assert_eq!(at(7, "A"), Some(5));
+}
