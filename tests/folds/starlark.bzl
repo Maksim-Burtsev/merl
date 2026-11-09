@@ -54,3 +54,13 @@ shop = rule(  # f: 53-56
     implementation = _impl,  # f: none
     attrs = {"names": attr.string_list()},
 )  # f: none
+
+def shop_suite(  # f: 58-66
+        name,  # f: 58-66
+):  # f: 58-66
+    def shop_case(  # f: 61-65
+            case,  # f: 61-65
+            size = "small"):  # f: 61-65
+        native.sh_test(name = case, size = size)  # f: 61-65
+        return case  # f: 61-65
+    return shop_case(name)  # f: 58-66
