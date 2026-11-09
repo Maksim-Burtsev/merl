@@ -356,7 +356,6 @@ pub struct App {
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
-    c_defines: HashMap<PathBuf, Vec<(String, String)>>,
     clang_include: std::sync::OnceLock<Option<PathBuf>>,
     c_files: HashMap<CMode, (Paths, Paths)>,
     go_build: search::GoBuild,
@@ -522,7 +521,6 @@ impl App {
             node_modules_of: None,
             otp: None,
             c_includes: HashMap::new(),
-            c_defines: HashMap::new(),
             clang_include: std::sync::OnceLock::new(),
             c_files: HashMap::new(),
             go_build: search::GoBuild::host().env(

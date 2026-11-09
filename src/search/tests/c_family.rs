@@ -2560,3 +2560,37 @@ fn a_typedef_in_scope_at_a_declaration_names_its_type() {
     assert_eq!(at(6), Some(CType::Name("beta".into())));
     assert_eq!(at(7), None);
 }
+
+#[test]
+fn a_header_lends_its_function_macros_with_their_continued_lines() {
+    let text = "#define HSHOW(n) (void)n\n  #  define HDECLARE(T, n) T \\\n    n\n#define PLAIN 1\n// #define NOTE(x) x\n";
+    assert_eq!(
+        c_function_macros(text),
+        vec![
+            ("HSHOW".to_owned(), "#define HSHOW(n) (void)n".to_owned()),
+            (
+                "HDECLARE".to_owned(),
+                "  #  define HDECLARE(T, n) T \\\n    n".to_owned()
+            ),
+        ],
+        "an object-like macro and a commented one lend nothing"
+    );
+}
+
+#[test]
+fn only_statement_calls_that_take_the_receiver_since_its_binding_are_read() {
+    let text = "void f(struct gourd *g) {\n  SEEN(g);\n  /* NOTE(g); */\n  x = f(g);\n  NESTED(h(g));\n  OTHER(h);\n  { TAKEN(int, g); g->slosh = 1; }\n}\nvoid k(struct gourd *g) { BEFORE(g); { struct gourd *g = 0; g->slosh = 1; } }\n";
+    let calls = |line1: usize| {
+        let col = text.lines().nth(line1 - 1).unwrap().find("slosh").unwrap();
+        c_calls_taking(text, line1, col, "g")
+    };
+    assert_eq!(
+        calls(7),
+        vec!["SEEN".to_owned(), "TAKEN".to_owned()],
+        "a comment, an assignment's call, a nested argument and another name are no statement call taking g"
+    );
+    assert!(
+        calls(9).is_empty(),
+        "a call before the receiver's own declaration does not read it"
+    );
+}

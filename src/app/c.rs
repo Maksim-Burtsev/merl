@@ -470,14 +470,10 @@ impl App {
             if !f.is_relative() || f == here {
                 continue;
             }
-            if !self.c_defines.contains_key(&f) {
-                let defines = search::c_function_macros(&self.text_of(&f).unwrap_or_default());
-                self.c_defines.insert(f.clone(), defines);
-            }
-            for (name, define) in &self.c_defines[&f] {
-                if calls.contains(name) {
+            for (name, define) in search::c_function_macros(&self.text_of(&f).unwrap_or_default()) {
+                if calls.contains(&name) {
                     out.push('\n');
-                    out.push_str(define);
+                    out.push_str(&define);
                 }
             }
         }
