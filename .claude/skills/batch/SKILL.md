@@ -118,6 +118,9 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   resolved, runs the two tests that own them and writes and stages the measured values. When
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
+  Once a branch is merged, delete its worktree's `target/` (3–6 GB each): on 2026-11-09 the
+  targets of 17 merged worktrees filled a disk that had 103 GB free at the start, and the
+  epic's final check failed on `No space left on device`.
   Before merging, `git diff --stat EPIC...BRANCH` lists only files the task needs: an agent
   that squashed or rebased on a stale tree can roll other files back without a conflict, and
   on 2026-10-17 a Ruby branch put back `src/git.rs` from before #973's guard against deleting
