@@ -804,6 +804,10 @@ keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the un
 `SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
 `optional`, declared by one, and `type`, declared by each apart, stay pickers. With
 `@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
+`parents` in `rule.js` reads `node.parent`, which no estree interface declares: in an `ObjectPattern`
+and a `"Property:exit"` visitor it jumps to the one `interface NodeParentExtension`, in
+`node_modules/eslint` (#1337); a nested function's own `node` and a `Program` visitor's, whose
+node has no parent, keep today's answer.
 `patterns.js` narrows a JSDoc-typed `Pattern` union by its `type` tag (#1078), as tsserver does:
 inside `switch (pattern.type)`'s `case "ObjectPattern":` after a `return;`, and in the
 consequent of `property.type === "Property" ? property.value`, each of a `for…of` element's
