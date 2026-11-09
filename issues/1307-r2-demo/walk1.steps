@@ -1,0 +1,13 @@
+# Round 2: the review opens on the first file the agent touched; c walks its changes and answers.
+wait unquote_header
+sleep 2.2
+key c
+sleep 2.4
+key c
+sleep 1.2
+key c
+sleep 1.4
+key c
+sleep 2.6
+key c
+sleep 2.8
