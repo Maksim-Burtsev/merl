@@ -2,6 +2,7 @@ use std::cell::OnceCell;
 
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
+mod attributes;
 mod elements;
 mod fits;
 
