@@ -191,6 +191,9 @@ impl App {
             let fields = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
             found.extend(fields);
         }
+        if kind == Kind::Jvm && !a.dotted && a.chain.is_empty() {
+            self.jvm_enum_case(&a.here, &a.text, &a.before, &a.word, found);
+        }
         if kind == Kind::Jvm && found.is_empty() {
             *found = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
             if found.is_empty() && !a.dotted {

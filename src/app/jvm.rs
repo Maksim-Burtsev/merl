@@ -42,21 +42,7 @@ impl App {
         if elsewhere || !sees {
             return Vec::new();
         }
-        let lines: Vec<&str> = text.lines().collect();
-        search::enum_constants(&text, decl.line1)
-            .into_iter()
-            .filter(|c| c.name == word)
-            .map(|search::EnumConstant { line1: line, .. }| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: decl.path.clone(),
-                    line1: line,
-                    byte_col: None,
-                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
-                },
-                reason: Reason::Path(owner.to_owned()),
-            })
-            .collect()
+        self.jvm_enum_constant(decl, word)
     }
 
     pub(super) fn jvm_imported(
