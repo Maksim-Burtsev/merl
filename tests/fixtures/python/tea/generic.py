@@ -80,3 +80,19 @@ class Holder[Cup]:
         for one in c:
             one.sip()
             #   ^ d: picker tea/brewer.py:37, tea/brewer.py:71
+
+
+async def gather[*Ts, **P](*parts: *Ts, call: Callable[P, int]) -> None:
+    #                               ^ d: tea/generic.py:85
+    #                                                  ^ d: tea/generic.py:85
+    return None
+
+
+class Beaker[T](Cup):
+    def fill(self, held: T) -> T:
+        #                ^ d: tea/generic.py:91
+        return held
+
+
+def one[T: (str, bytes)](first: T) -> T: return first
+#                                               ^ d: tea/generic.py:97

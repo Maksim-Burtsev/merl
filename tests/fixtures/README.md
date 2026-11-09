@@ -542,8 +542,8 @@ them beside these on the line too: before the lambda, after the comprehension, i
 iterable and after a lambda's body, where the outer binding wins; a top-level comprehension's
 variable wins over a later module-level namesake.
 `generic.py` (#1455) puts PEP 695 type-parameter lists on a `def` (with a bound, a constraint
-tuple, a nested subscript), an `async def`, a method, a `class` and a `type` alias: the
-parameters read as without the list, and `T` lands on the list, unless a local rebinds it; a
+tuple, a nested subscript, a one-line body), an `async def` with `*Ts` and `**P`, a method, a
+`class` with and without a base and a `type` alias: the parameters read as without the list, and `T` lands on the list, unless a local rebinds it; a
 function without a list keeps master's picker of the module-level `TypeVar`s. A parameter
 annotated with a type parameter named like a project class (`def named[Cup](c: Cup)`, and the
 class's `[Cup]` in a method) is no `Cup`, so `c.sip()` keeps the picker. `generic_default.py`
