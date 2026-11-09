@@ -303,19 +303,6 @@ impl App {
         })
     }
 
-    pub(super) fn kotlin_scope_typed(&self, here: &Path, text: &str, before: &str) -> bool {
-        let line = self.line + 1;
-        search::kotlin_lambda_receiver(text, line, before).is_some_and(|receiver| {
-            matches!(
-                self.jvm_value(here, text, line, &receiver, true, 1),
-                Some(WrittenType {
-                    resolved: JvmType::Project(_),
-                    ..
-                })
-            )
-        })
-    }
-
     pub(super) fn kotlin_scope_member(
         &self,
         here: &Path,

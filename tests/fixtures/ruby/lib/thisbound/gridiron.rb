@@ -21,6 +21,10 @@ class Gridiron
     #               ^ d: lib/thisbound/gridiron.rb:2
     Griddle.new.instance_eval { sear }
     #                           ^ d: picker lib/thisbound/gridiron.rb:2, lib/thisbound/griddle.rb:2
+    Griddle.class_eval { sear }
+    #                    ^ d: picker lib/thisbound/gridiron.rb:2, lib/thisbound/griddle.rb:2
+    Griddle.module_eval { sear }
+    #                     ^ d: picker lib/thisbound/gridiron.rb:2, lib/thisbound/griddle.rb:2
     griddle.tap { sear }
     #             ^ d: lib/thisbound/gridiron.rb:2
   end

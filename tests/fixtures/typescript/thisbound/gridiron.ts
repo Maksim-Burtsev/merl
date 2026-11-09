@@ -38,6 +38,10 @@ export class Gridiron {
       this.sear();
     //     ^ d: thisbound/gridiron.ts:4
     });
+    console.log("seared", { ...this.sear(), at: 1 });
+    //                              ^ d: thisbound/gridiron.ts:4
+    items.map((n) => console.log({ at: n, heat: this.sear() }));
+    //                                               ^ d: thisbound/gridiron.ts:4
     return this.sear();
     //          ^ d: thisbound/gridiron.ts:4
   }

@@ -68,6 +68,7 @@ mod swift_closure;
 mod symbols;
 mod syntax;
 mod ts_patterns;
+mod ts_rebound;
 mod types;
 mod words;
 

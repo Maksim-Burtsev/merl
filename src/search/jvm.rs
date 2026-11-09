@@ -1088,16 +1088,12 @@ pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<
     Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
-pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str, groovy: bool) -> bool {
-    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:\.\s*(?:run|apply)|\bwith\s*\(.*\))\s*\{$").expect("the regex is a literal")
-    });
+pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str) -> bool {
     static GROOVY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\.\s*(?:with|tap)\s*\{$").expect("the regex is a literal")
     });
-    let re = if groovy { &GROOVY } else { &KOTLIN };
     kotlin_lambda_head(text, line1, before)
-        .is_some_and(|(head, bound)| bound == "it" && re.is_match(&head))
+        .is_some_and(|(head, bound)| bound == "it" && GROOVY.is_match(&head))
 }
 
 pub fn kotlin_scope_returned(before: &str) -> Option<String> {
