@@ -725,6 +725,13 @@ next line names it only in a comment. What must keep master's answer: `ladler.cl
 `(define-record-type` of its template, and `scheme/queries/highlights.scm` is a tree-sitter query
 whose `(module` has `(identifier)` under it: neither defines anything. `kettle.rkt` still finds an
 indented `(define-syntax-rule` with its pattern on the next line.
+`scheme/siphoning.rkt` (#1441) names `siphon`, the macro of `siphon.rkt`, in a comment, a string,
+a block comment, the text of an `at-exp` `@list{…}` and as a method of `send`, which answer
+nothing, binds it by `with-syntax`, and still finds it in `@racket[…]` and under `#;`; `siphoned.rkt`, a
+`.rkt` with no `#lang`, names it in a comment too. The other
+Lisps still look up a name from prose as master does: `scheme/decanting.scm`, a plain Scheme
+file, names its `decant` in a comment and as a method of `send`, `emacs-lisp/shop-kettle.el` names its
+functions in a docstring and a comment, `clojure/src/shop/kettle.clj` its `steep` in a docstring.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
@@ -1242,6 +1249,14 @@ and a class opened earlier on the cursor's line and still open there gives the p
 `grinder_uses.rb` holds what that must not reach: an opener closed again before the cursor, and
 a class the project declares once (`Grinder`, `Moka::Mill`). Inside `class Moka::Hopper` Ruby
 does not see `Moka::Mill`; `d` keeps master's jump there, the owner's call.
+
+Two enums sharing a case name, declared in files of their own, with the case written without its
+enum where the language lets it (#1448): Swift's `Rookery.swift`, Rust's `rookery.rs` and
+`board.rs`, `jvm`'s `aviary/` (Java), `gambit/` (Kotlin) and `rookery/` (Scala), C#'s `Rookery/`,
+C++'s `c/src/rookery/`, Dart's `lib/rookery/` and TypeScript's `rookery/`. Each JVM language has
+enums of its own names, since the three share one project. C#'s `Arms.cs` keeps the bare pattern
+of a switch-expression arm from reading as a lambda parameter, beside a declaration pattern and
+lambdas that still bind.
 
 ### Adding a kind
 

@@ -114,3 +114,7 @@ class Rebound(val x: Cup):
   //                                                              ^ d: src/main/scala/rebound/Rebound.scala:3
   def lambdaClosed(ms: List[Mug]): Unit = { ms.foreach(x => x.sip()); x.sip() }
   //                                                                    ^ d: src/main/scala/rebound/Cup.scala:4
+  def genSecond(ms: List[Mug]): Unit = for (m <- ms; x <- List(m)) println(x)
+  //                                                                       ^ d: src/main/scala/rebound/Rebound.scala:117
+  def genSecondClosed(ms: List[Mug]): Unit = { for (m <- ms; x <- List(m)) println(x); println(x) }
+  //                                                                                           ^ d: src/main/scala/rebound/Rebound.scala:3

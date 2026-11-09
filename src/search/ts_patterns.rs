@@ -483,6 +483,7 @@ pub fn ts_narrowed_tag(text: &str, line1: usize, name: &str) -> Option<(String, 
 pub struct TsTypeParam {
     pub line1: usize,
     pub constraint: Option<String>,
+    pub typed: bool,
 }
 
 pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam> {
@@ -501,6 +502,31 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
             continue;
         }
         depth = ind + usize::from(t.starts_with([')', '>']));
+        let last = t
+            .ends_with('<')
+            .then(|| {
+                (i + 1..lines.len().min(i + 16)).find(|&j| {
+                    literal.get(j) != Some(&true)
+                        && uncommented(Kind::TsJs, lines[j])
+                            .trim_start()
+                            .starts_with('>')
+                })
+            })
+            .flatten()
+            .unwrap_or(i);
+        let joined = (i..=last)
+            .map(|j| uncommented(Kind::TsJs, lines[j]).trim().to_owned())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let first_len = t.len();
+        let t = joined.as_str();
+        let alias = {
+            let d = t.strip_prefix("export ").unwrap_or(t).trim_start();
+            d.strip_prefix("declare ")
+                .unwrap_or(d)
+                .trim_start()
+                .starts_with("type ")
+        };
         for c in OPENS.captures_iter(t) {
             let Some(whole) = c.get(0) else {
                 continue;
@@ -534,9 +560,18 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
                     None => (p, None),
                 };
                 if pname == name {
+                    let at = if last > i && whole.end() + params.len() >= first_len {
+                        super::generics::param_head_line(Kind::TsJs, &lines, i, last, name)
+                    } else {
+                        Some(i)
+                    };
+                    let Some(at) = at else {
+                        continue;
+                    };
                     return Some(TsTypeParam {
-                        line1: i + 1,
+                        line1: at + 1,
                         constraint: constraint.map(|c| c.trim().to_owned()),
+                        typed: alias || (i + 1 < line1 && line1 <= last),
                     });
                 }
             }

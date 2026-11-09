@@ -9,3 +9,9 @@
 ;  ^ d: shop-kettle.el:2
   (shop-kettle-cool 2))
 ;  ^ d: shop-kettle.el:4
+(defun shop-kettle-note ()
+  "Boil with `shop-kettle-boil' first."
+;             ^ d: shop-kettle.el:2
+  ;; then `shop-kettle-cool'
+;          ^ d: shop-kettle.el:4
+  nil)

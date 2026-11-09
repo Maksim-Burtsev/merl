@@ -501,6 +501,26 @@ pub fn ruby_on_class(text: &str, line1: usize) -> bool {
             .is_some_and(|&(i, _)| lines[i].trim_start().starts_with("class << self"))
 }
 
+pub fn ruby_self_rebound(text: &str, line1: usize, before: &str) -> bool {
+    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:instance|class|module)_(?:eval|exec)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    if OPENS.is_match(before) {
+        return true;
+    }
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .take_while(|(_, o)| *o != Opens::Gate)
+        .any(|&(i, o)| o == Opens::Block && OPENS.is_match(lines[i].trim_end()))
+}
+
 pub fn ruby_self_is_class(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {

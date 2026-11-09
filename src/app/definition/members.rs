@@ -220,6 +220,7 @@ impl App {
             && near.locals.is_empty()
             && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
             && (!ruby_local || search::ruby_locals(&a.text, self.line + 1, word).is_empty())
+            && !search::ruby_self_rebound(&a.text, self.line + 1, before)
         {
             let found = self.ruby_self_methods(&a.here, &a.text, word);
             if !found.is_empty() {

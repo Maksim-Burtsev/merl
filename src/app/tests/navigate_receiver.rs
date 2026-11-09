@@ -762,3 +762,33 @@ fn a_member_of_a_const_another_module_exports_from_new_lands_in_its_class() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_macro_added_to_a_header_while_merl_runs_is_read_on_the_next_press() {
+    let main = "struct gourd { int slosh; };\nstruct terrine { int slosh; };\n#include \"declare.h\"\nvoid f(struct gourd *g) { { HDECLARE(struct terrine *, g); g->slosh = 1; } }\n";
+    let (dir, mut a) = project_app(
+        "c-header-edited",
+        &[
+            ("src/main.c", main),
+            ("src/declare.h", "#define HSHOW(n) (void)n\n"),
+        ],
+    );
+    a.no_external();
+    d_on(&mut a, "src/main.c", "g->slosh");
+    assert_eq!(
+        shown(&mut a),
+        jump("slosh: via g: gourd", "src/main.c:1"),
+        "an unknown macro declares nothing"
+    );
+    std::fs::write(dir.join("src/declare.h"), "#define HDECLARE(T, n) T n\n").unwrap();
+    d_on(&mut a, "src/main.c", "g->slosh");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "slosh: by name, 2 declarations",
+            &[("slosh", "src/main.c:1"), ("slosh", "src/main.c:2")]
+        ),
+        "the header is read again, so its new declaring macro keeps the outer g out (#1387)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

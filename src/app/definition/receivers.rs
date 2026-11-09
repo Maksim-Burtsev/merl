@@ -117,6 +117,95 @@ impl App {
         false
     }
 
+    pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
+        let kind = a.kind;
+        let chain = a.chain.as_slice();
+        let explicit = match (kind, chain) {
+            (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
+            _ => None,
+        };
+        let reaches = match kind {
+            Kind::Go => !chain.is_empty(),
+            Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
+            _ => false,
+        };
+        if !a.dotted || !reaches {
+            return false;
+        }
+        let own = |f: &str| {
+            let field = if kind == Kind::Rust {
+                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
+                search::Binding {
+                    line1: self.line + 1,
+                    value: search::Value::Type(t),
+                }
+            } else {
+                search::own_field(kind, &a.text, self.line + 1, f)?
+            };
+            Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
+        };
+        let found = match explicit {
+            Some(f) => own(f),
+            None => match self.last_bindings(kind, &a.here, chain) {
+                Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
+                    own(chain.last().map_or("", String::as_str))
+                }
+                found => found,
+            },
+        };
+        let Some((file, text, bindings, _)) = found else {
+            return false;
+        };
+        let last = chain.last().map_or("", String::as_str);
+        let unbound = |b: &search::Binding| {
+            let written = match &b.value {
+                search::Value::Type(t) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
+                search::Value::Unknown if kind != Kind::Go => {
+                    search::declared_type_on(kind, text.lines().nth(b.line1 - 1)?, last)?
+                }
+                _ => return None,
+            };
+            let [one] = &search::type_path(kind, &written)?[..] else {
+                return None;
+            };
+            if chain.len() > 1
+                && (file != a.here
+                    || search::type_param_line(kind, &a.text, self.line + 1, one).is_none())
+            {
+                return None;
+            }
+            let (scope, line1) = if chain.len() > 1 {
+                (&a.text, self.line + 1)
+            } else {
+                (&text, b.line1)
+            };
+            let resolves = search::type_param_bound(kind, scope, line1, one)?
+                .bound
+                .is_some_and(|w| {
+                    kind != Kind::Go
+                        || w.starts_with("interface")
+                        || self.type_decl(kind, &file, &w).is_some()
+                });
+            (!resolves).then(|| one.clone())
+        };
+        let Some(Some(param)) = bindings
+            .iter()
+            .map(unbound)
+            .collect::<Option<Vec<_>>>()
+            .map(|p| p.into_iter().next())
+        else {
+            return false;
+        };
+        if kind == Kind::Rust && self.rust_blanket_method(&a.word) {
+            return false;
+        }
+        self.none_found(format!(
+            "no definition for {} in the project (via {}: type parameter {param})",
+            a.word,
+            chain.join(".")
+        ))
+    }
+
     pub(super) fn declares_here(&self, a: &Asked) -> bool {
         if a.kind == Kind::Swift && search::swift_right_of_binding(&a.lead) {
             return false;
@@ -518,6 +607,23 @@ impl App {
         };
         let base = t.trim_start_matches(['[', ']', '*', '.']);
         PREDECLARED.split(' ').any(|p| p == base) || self.go_outside(file, text, base)
+    }
+
+    fn rust_blanket_method(&self, word: &str) -> bool {
+        let rs: Vec<_> = (self.files.iter())
+            .filter(|f| f.extension().is_some_and(|e| e == "rs"))
+            .cloned()
+            .collect();
+        let blanket = self.grep_in(search::RUST_BLANKET_IMPL, &rs);
+        let traits: Vec<_> = (blanket.iter())
+            .filter_map(|h| search::rust_blanket_trait(&h.text))
+            .collect();
+        let declared = format!(r"\btrait\s+(?:{})\b", traits.join("|"));
+        !traits.is_empty()
+            && self.grep_in(&declared, &rs).iter().any(|h| {
+                (self.text_of(&h.path))
+                    .is_none_or(|t| search::rust_trait_declares(&t, h.line1, word))
+            })
     }
 
     fn none_found(&mut self, message: String) -> bool {

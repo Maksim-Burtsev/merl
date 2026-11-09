@@ -58,7 +58,7 @@ impl App {
         let unbound = kind == Kind::Python
             && !a.dotted
             && a.chain.is_empty()
-            && search::bindings(kind, &a.text, self.line + 1, word).is_empty()
+            && search::path_bindings(kind, &a.here, &a.text, self.line + 1, word).is_empty()
             && !search::python_class_binds(&a.text, self.line + 1, word)
             && !names_itself(kind, self.line_str(), word)
             && !self.offer_only;
@@ -114,13 +114,13 @@ impl App {
             return None;
         }
         match kind {
-            Kind::TsJs
-                if imports.iter().any(|i| i.name == *word)
-                    && !ts_type_position(a, self.line_str()) =>
-            {
-                None
-            }
-            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word)
+                .filter(|p| {
+                    p.typed
+                        || imports.iter().all(|i| i.name != *word)
+                        || ts_type_position(a, self.line_str())
+                })
+                .map(|p| p.line1),
             Kind::Jvm | Kind::Dart => {
                 search::generic_param_line(kind, &a.here, &a.text, line1, word)
             }
@@ -267,7 +267,11 @@ impl App {
                 && after.starts_with(':')
                 && search::dart_label(&a.text, self.line + 1, range.start))
             || (kind == Kind::Solidity
-                && search::solidity_key(&a.text, self.line + 1, before, after));
+                && search::solidity_key(&a.text, self.line + 1, before, after))
+            || (kind == Kind::CSharp
+                && !dotted
+                && search::cs_initialized(&self.buf.lines, self.line, range.start, range.end)
+                    .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust

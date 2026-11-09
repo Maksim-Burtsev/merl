@@ -29,3 +29,14 @@ object Mill {
 //          ^ d: none
   }
 }
+
+object Kiln {
+  def bake: Int = {
+    val loaves = 1
+    /* Scala comments nest: /* this one */ closes only the inner one
+    val loaves = 0
+    */
+    loaves
+//  ^ d: src/main/scala/husk/Bran.scala:35
+  }
+}

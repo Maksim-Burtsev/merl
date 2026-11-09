@@ -64,3 +64,85 @@ export class AmphoraMaker<Amphora> {
     //         ^ d: amphora.ts:1
   }
 }
+
+export class AmphoraWrapped<
+  Amphora,
+//^ d: amphora_rack.ts:69
+> {
+  held: Amphora;
+  //    ^ d: amphora_rack.ts:69
+  take(x: Amphora): Amphora {
+  //      ^ d: amphora_rack.ts:69
+    return x;
+  }
+}
+
+export function amphoraWrappedOne<
+  Amphora,
+>(x: Amphora): Amphora {
+//   ^ d: amphora_rack.ts:81
+//             ^ d: amphora_rack.ts:81
+  return x;
+}
+
+export type AmphoraWrappedPair<
+  Amphora,
+> = [Amphora, Amphora];
+//   ^ d: amphora_rack.ts:89
+//            ^ d: amphora_rack.ts:89
+
+export class AmphoraWrappedHost {
+  own<
+    Amphora,
+  >(x: Amphora): Amphora {
+  //   ^ d: amphora_rack.ts:96
+  //             ^ d: amphora_rack.ts:96
+    return x;
+  }
+  plain(x: Amphora): Amphora {
+  //       ^ d: amphora.ts:1
+    return x;
+  }
+}
+
+export interface AmphoraWrappedBound<
+  K,
+  T extends Amphora,
+//          ^ d: amphora.ts:1
+> {
+  get(k: K): T;
+  //     ^ d: amphora_rack.ts:109
+  //         ^ d: amphora_rack.ts:110
+}
+
+export function amphoraWrappedArgs<Amphora>(
+  x: Amphora,
+  // ^ d: amphora_rack.ts:118
+  y: number,
+): Amphora {
+// ^ d: amphora_rack.ts:118
+  return x;
+}
+
+export function amphoraWrappedCall(x: Amphora): Amphora {
+//                                    ^ d: amphora.ts:1
+  const y = amphoraWrappedOne<
+    Amphora
+  //^ d: amphora.ts:1
+  >(x);
+  return y;
+}
+
+export const amphoraWrappedArrow = <
+  Amphora,
+>(x: Amphora): Amphora => x;
+//   ^ d: amphora_rack.ts:137
+
+export function amphoraCrossBound<
+  K extends keyof Amphora,
+  Amphora,
+>(obj: Amphora, k: K): Amphora {
+//     ^ d: amphora_rack.ts:143
+//                 ^ d: amphora_rack.ts:142
+  return obj;
+}

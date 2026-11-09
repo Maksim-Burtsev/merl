@@ -168,7 +168,10 @@ impl App {
             && !lead.ends_with("{{")
             && tail.starts_with(['}', ':']);
         if !captured
-            && search::in_string(kind, &text, at)
+            && (search::in_string(kind, &text, at)
+                || (kind == Kind::Scheme
+                    && (search::racket_prose(&here, &text, at)
+                        || search::racket_method_sent(&here, &text, &lead))))
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
         {
             self.message = resolution(&word, None, &[], None, false);
@@ -213,6 +216,7 @@ impl App {
                         .unwrap_or_default(),
                 ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
+            || (kind == Kind::Clojure && search::clojure_keyword(lead))
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
@@ -364,8 +368,8 @@ impl App {
             return self.show_found(a, found);
         }
         if self.probe.is_none()
-            && let java = a.here.extension().is_some_and(|e| e == "java")
-            && let Some(label) = search::label_at(kind, java, &a.text, self.line, a.range.clone())
+            && let Some(label) =
+                search::label_at(kind, &a.here, &a.text, self.line, a.range.clone())
         {
             if label.nested && self.answered_by_typed_key(a) {
                 return true;

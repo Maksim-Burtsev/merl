@@ -299,6 +299,12 @@ impl App {
         {
             return Some(found);
         }
+        if search::groovy(here)
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && search::jvm_receiver_lambda(text, self.line + 1, before)
+        {
+            return None;
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for (i, &decl) in types.iter().enumerate() {

@@ -59,6 +59,8 @@ impl App {
             && !line.trim_start().starts_with('#')
         {
             let before = before.to_owned();
+            let with_macros = self.c_with_included_macros(here, text, &before);
+            let text = &*with_macros;
             let mut broke = match self.c_receiver_field(here, text, &before, word) {
                 Ok(Some(found)) => return Some((vec![found], None)),
                 Ok(None) => None,
@@ -448,6 +450,34 @@ impl App {
 
     pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
         self.c_reached_from(here, None)
+    }
+
+    fn c_with_included_macros<'a>(
+        &mut self,
+        here: &Path,
+        text: &'a str,
+        before: &str,
+    ) -> std::borrow::Cow<'a, str> {
+        let Some(head) = search::cpp_receiver(before).map(|r| r.head) else {
+            return text.into();
+        };
+        let calls = search::c_calls_taking(text, self.line + 1, self.col, &head);
+        if calls.is_empty() {
+            return text.into();
+        }
+        let mut out = text.to_owned();
+        for f in self.c_reached(here) {
+            if !f.is_relative() || f == here {
+                continue;
+            }
+            for (name, define) in search::c_function_macros(&self.text_of(&f).unwrap_or_default()) {
+                if calls.contains(&name) {
+                    out.push('\n');
+                    out.push_str(&define);
+                }
+            }
+        }
+        out.into()
     }
 
     pub(super) fn c_clang_redefinition(

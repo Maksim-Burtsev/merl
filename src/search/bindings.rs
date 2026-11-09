@@ -1,13 +1,14 @@
 use regex::Regex;
+use std::path::Path;
 
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
-    cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
-    go_declares_then_uses, haskell_bindings, indent, julia_bindings, jvm_bindings, lisp,
-    lisp_bindings, literal_lines, lua_bindings, names, nix_bindings, powershell_params,
-    python_bindings_at, ruby_bindings, rust_bindings, shell_bindings, solidity_bindings, split_top,
-    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_function,
-    ts_hoisted_vars, ts_params, type_list, uncommented,
+    cs_opener, cs_opener_in, cs_statement, cs_type_decl, dart_bindings, declares_type,
+    gdscript_bindings, go_declares_then_uses, haskell_bindings, indent, julia_bindings,
+    jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names, nix_bindings,
+    powershell_params, python_bindings_at, ruby_bindings, rust_bindings, shell_bindings,
+    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_declares_then_uses,
+    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,10 +167,14 @@ fn ts_cast(e: &str) -> Option<Value> {
     })
 }
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
-    bindings_at(kind, text, line, None, name)
+    bindings_at(kind, Path::new(""), text, line, None, name)
+}
+pub fn path_bindings(kind: Kind, path: &Path, text: &str, line: usize, name: &str) -> Vec<Binding> {
+    bindings_at(kind, path, text, line, None, name)
 }
 pub fn bindings_at(
     kind: Kind,
+    path: &Path,
     text: &str,
     line: usize,
     col: Option<usize>,
@@ -201,13 +206,16 @@ pub fn bindings_at(
             }
             out
         }
+        Kind::TsJs if name == "this" => col
+            .and_then(|c| super::ts_rebound::ts_this_on_line(lines[at], c, line))
+            .map_or_else(|| block_bindings(kind, &lines, at, name), |b| vec![b]),
         Kind::TsJs | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),
         Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
         Kind::C => c_bindings(text, line, None, name),
-        Kind::Jvm => jvm_bindings(&lines, at, name, None),
+        Kind::Jvm => jvm_bindings(path, &lines, at, name, None),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),
@@ -543,7 +551,7 @@ fn go_arm(header: &str, arm: Option<Vec<String>>) -> Option<Vec<String>> {
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
-    if !this && own_line_hides(kind, lines[at], at, name, &mut out) {
+    if !this && own_line_hides(kind, lines, at, name, &mut out) {
         return out;
     }
     let literal = literal_lines(kind, &lines.join("\n"));
@@ -658,16 +666,30 @@ fn go_switch_init(
     out.push(Binding { line1: line, value });
     true
 }
-fn own_line_hides(kind: Kind, line: &str, at: usize, name: &str, out: &mut Vec<Binding>) -> bool {
-    let own = uncommented(kind, line);
-    let own = if kind == Kind::CSharp {
-        own.trim()
-    } else {
-        &own
-    };
-    opener_bindings(kind, own, at + 1, name, out) && kind == Kind::CSharp
+fn own_line_hides(
+    kind: Kind,
+    lines: &[&str],
+    at: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
+    let own = uncommented(kind, lines[at]);
+    if kind == Kind::CSharp {
+        let outer = if own.contains("=>") {
+            lines[..at].join("\n")
+        } else {
+            String::new()
+        };
+        let opener = cs_opener_in(&outer, own.trim(), name);
+        if opener.binds {
+            out.push(unknown(at + 1));
+        }
+        return opener.hides_outer_scopes;
+    }
+    let _ = opener_bindings(kind, &own, at + 1, name, out);
+    false
 }
-fn this_opener(header: &str, line: usize) -> Option<Value> {
+pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b")
             .expect("the regex is a literal")
@@ -1151,7 +1173,7 @@ fn go_constrained(t: &str, type_params: &[(String, String)]) -> String {
             .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '.')
     };
     match type_params.iter().find(|(n, _)| n == base) {
-        Some((_, constraint)) if plain(constraint) => {
+        Some((_, constraint)) if plain(constraint) && constraint != "any" => {
             format!(
                 "{}{constraint}",
                 t.get(..t.len() - base.len()).unwrap_or_default()

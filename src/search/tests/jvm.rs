@@ -424,7 +424,7 @@ fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
 fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
     let text = "fun f(glasses: List<Glass>, n: Map<String, Glass>) {\n    glasses.sumOf { it.dose() }\n    glasses.forEach { g ->\n        g.dose()\n    }\n}\n";
     let at = |line1: usize, before: &str, name: &str| {
-        kotlin_lambda_collection(text, line1, before, name)
+        kotlin_lambda_collection(Path::new("a.kt"), text, line1, before, name)
     };
     assert_eq!(
         at(2, "    glasses.sumOf { ", "it").as_deref(),
@@ -461,7 +461,7 @@ fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
 fn a_kotlin_lambda_parameter_is_read_through_inner_lambdas_and_enum_entries() {
     let text = "fun f(items: List<Wrapped>) {\n    items.forEach { w ->\n        item(key = 1) {\n            Show(\n                name = w.topic,\n            )\n            val w = 2\n            w.x\n        }\n    }\n    Flavor.entries.forEach { flavor ->\n        flavor.suffix\n    }\n}\n";
     let at = |line1: usize, before: &str, name: &str| {
-        kotlin_lambda_collection(text, line1, before, name)
+        kotlin_lambda_collection(Path::new("a.kt"), text, line1, before, name)
     };
     assert_eq!(
         at(5, "                name = w.", "w").as_deref(),
