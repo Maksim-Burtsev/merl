@@ -1,7 +1,8 @@
 use regex::Regex;
 
 use super::jvm_rebound::{
-    blanked, clause_closed_at, lambda_binders, lambda_names, lambda_open_at, negated_pattern_exits,
+    blanked, case_label_end, clause_closed_at, declares_local, lambda_binders, lambda_names,
+    lambda_open_at, later_declarator_type, negated_pattern_exits,
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
@@ -303,15 +304,6 @@ fn header_lines1_binding(
     out
 }
 
-fn declares_local(t: &str, name: &str) -> bool {
-    let n = regex::escape(name);
-    let ret = super::jvm_return_type!();
-    Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
-    ))
-    .is_ok_and(|re| re.is_match(t))
-}
-
 pub(super) fn jvm_bindings(
     path: &std::path::Path,
     lines: &[&str],
@@ -331,13 +323,21 @@ pub(super) fn jvm_bindings(
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
-    let mut i = at;
+    let (mut i, mut own_group) = (at, true);
     while out.is_empty() && depth > 0 && i > 0 {
         i -= 1;
         let t = uncommented(Kind::Jvm, lines[i]);
         let t = t.trim();
         let ind = indent(lines[i]);
         if t.is_empty() || comment(Kind::Jvm, t) || literal[i] || ind > depth {
+            continue;
+        }
+        if ind < depth && case_label_end(t) == t.len() {
+            if own_group {
+                let own = header_lines1_binding(lines, i, i, name, None);
+                out.extend(own.into_iter().map(binding));
+            }
+            own_group = false;
             continue;
         }
         if ind == depth {
@@ -358,6 +358,7 @@ pub(super) fn jvm_bindings(
                 .unwrap_or(i);
         }
         depth = indent(lines[i]);
+        own_group = true;
         if opens_type(lines[i]) {
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
             if member_or_top_level
@@ -674,18 +675,25 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
     } else {
         vec![
             format!(
-                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"
+                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|->|$)"
             ),
             format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
             format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
         ]
     };
-    rules.iter().find_map(|r| {
-        let re = Regex::new(r).ok()?;
-        let c = re.captures(&code)?;
-        let at = c.get(1)?.start();
-        (!code.get(..at)?.ends_with('.')).then(|| c[1].to_owned())
-    })
+    rules
+        .iter()
+        .find_map(|r| {
+            let re = Regex::new(r).ok()?;
+            let c = re.captures(&code)?;
+            let at = c.get(1)?.start();
+            (!code.get(..at)?.ends_with('.')).then(|| c[1].to_owned())
+        })
+        .or_else(|| {
+            (!kotlin)
+                .then(|| later_declarator_type(&code, name))
+                .flatten()
+        })
 }
 
 pub fn scala_type_parameter(text: &str, name: &str) -> bool {
