@@ -920,6 +920,11 @@ top-level `Lid`, computed properties, `pour` overloaded by argument label beside
 self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
+`swift/Sources/Shop/Attributes.swift` (#1452) writes compiler attributes (`@available`,
+`@discardableResult`, `@escaping`) beside project `func`s of their names, and `@MainActor` and
+`@Published` beside types of their names in `Sources/Kit/`, which it does not import: all find
+nothing. `@Glow` lands on the property wrapper, not on a `func Glow`, and `Stamping.swift`'s
+`@Stamped` on the one of `Warehouse`, which it imports.
 `swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
 name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
 in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions
@@ -1140,6 +1145,11 @@ nested and a top-level `Cosy`, a companion object, `it`, a lambda parameter and 
 extension functions (one named like a member) with their implicit and labelled `this`, named and
 default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
 declaration-shaped lines in a KDoc, a raw string and a string template.
+`tea/Colander.java` (#1452) writes the `java.lang` annotations `@Override`, `@Deprecated` and
+`@SuppressWarnings` beside an `Override` and a `Deprecated` declared in `tea.stale`, which it does
+not import: they find nothing, while `tea/stale/Brand.java`, in that package, lands on them. Its
+`@Sieved(gauge = 5, pekoe = …)` lands each name on the element of the `@interface`, not on the
+class's own `gauge()`.
 
 `jvm/src/main/java/getters/` holds chains of getters (#1071): an `Account` whose Lombok `spec`
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`

@@ -76,3 +76,11 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
         .find(|p| p != "object")
 }
+
+pub const JAVA_LANG_ANNOTATIONS: [&str; 5] = [
+    "Override",
+    "Deprecated",
+    "SuppressWarnings",
+    "FunctionalInterface",
+    "SafeVarargs",
+];
