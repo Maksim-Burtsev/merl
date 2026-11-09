@@ -119,6 +119,18 @@ fn python_roots(root: &Path) -> Vec<PathBuf> {
         .collect(),
     }
 }
+pub fn python_module_in(root: &Path, top: &str) -> bool {
+    std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| {
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            name.strip_prefix(top)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('.') || rest == "-stubs")
+        })
+}
 fn rust_roots(root: &Path, home: &Path) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = toolchain_output("rustc", &["--print", "sysroot"])
         .map(|s| PathBuf::from(s.trim()).join("lib/rustlib/src/rust/library"))
