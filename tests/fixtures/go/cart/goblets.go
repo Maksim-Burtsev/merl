@@ -90,12 +90,12 @@ type Jug[T Pourer] struct{}
 
 func (j Jug[T]) Tip(x T) {
 	x.Pour()
-	//^ d: picker cart/goblets.go:87, rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/rival.go:181, rival/twin/twin.go:7; want cart/goblets.go:85 (#1438)
+	//^ d: cart/goblets.go:85
 }
 
 func Tilt[T Pourer](x T) {
 	x.Pour()
-	//^ d: picker cart/goblets.go:87, rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/rival.go:181, rival/twin/twin.go:7; want cart/goblets.go:85 (#1438)
+	//^ d: cart/goblets.go:85
 }
 
 type Loose[T any] struct{}
@@ -117,4 +117,16 @@ func Sip[T Toaster](c Cup[T]) {
 func Inline[T interface{ Clink() }](x T) {
 	x.Clink()
 	//^ d: cart/goblets.go:35; want cart/goblets.go:117 (#1438)
+}
+
+type Spiller interface{ Tip(); Pour() }
+
+func Spill(s Spiller) {
+	s.Pour()
+	//^ d: cart/goblets.go:122
+}
+
+func Ladle[T Spiller](x T) {
+	x.Pour()
+	//^ d: cart/goblets.go:122
 }
