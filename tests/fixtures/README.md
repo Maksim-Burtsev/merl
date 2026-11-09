@@ -544,7 +544,10 @@ variable wins over a later module-level namesake.
 `generic.py` (#1455) puts PEP 695 type-parameter lists on a `def` (with a bound, a constraint
 tuple, a nested subscript), an `async def`, a method, a `class` and a `type` alias: the
 parameters read as without the list, and `T` lands on the list, unless a local rebinds it; a
-function without a list keeps master's picker of the module-level `TypeVar`s.
+function without a list keeps master's picker of the module-level `TypeVar`s. A parameter
+annotated with a type parameter named like a project class (`def named[Cup](c: Cup)`, and the
+class's `[Cup]` in a method) is no `Cup`, so `c.sip()` keeps the picker. `generic_default.py`
+reads an imported `T` in a default value, which Python evaluates outside the list.
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under

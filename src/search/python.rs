@@ -737,6 +737,7 @@ fn python_params(
             continue;
         }
         let value = match annotation {
+            Some(t) if names_a_type_param(lines, def_line0, t) => Value::Unknown,
             Some(t) => Value::Type(t.to_owned()),
             None if i == 0 => python_class_of(lines, def_line0)
                 .map_or(Value::Unknown, |decl_line1| Value::Class { decl_line1 }),
@@ -747,6 +748,52 @@ fn python_params(
             value,
         });
     }
+}
+fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &str) -> bool {
+    let headers: Vec<&str> = std::iter::once(def_line0 + 1)
+        .chain(python_class_of(lines, def_line0))
+        .map(|line1| lines[line1 - 1].trim_start())
+        .collect();
+    annotation
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .any(|w| !w.is_empty() && headers.iter().any(|h| super::python_declares(h, w)))
+}
+pub fn python_in_default(text: &str, line1: usize, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let Some((d, open)) = (0..=at)
+        .rev()
+        .find_map(|i| def_open(lines[i]).map(|open| (i, open)))
+    else {
+        return false;
+    };
+    let (mut depth, mut default) = (0i32, false);
+    for (j, l) in lines.iter().enumerate().take(at + 1).skip(d) {
+        let b = l.as_bytes();
+        let from = if j == d { open + 1 } else { 0 };
+        let until = if j == at { col } else { l.len() };
+        for (k, c) in code(Kind::Python, l).filter(|&(k, _)| (from..until).contains(&k)) {
+            let prev = k.checked_sub(1).and_then(|p| b.get(p));
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b',' if depth == 0 => default = false,
+                b'=' if depth == 0
+                    && b.get(k + 1) != Some(&b'=')
+                    && !matches!(prev, Some(b'=' | b'!' | b'<' | b'>' | b':')) =>
+                {
+                    default = true;
+                }
+                _ => {}
+            }
+            if depth < 0 {
+                return false;
+            }
+        }
+    }
+    default
 }
 fn python_class_header(lines: &[&str], at: usize) -> Option<usize> {
     let mut depth = indent(lines[at]);

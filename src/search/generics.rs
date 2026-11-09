@@ -33,7 +33,7 @@ fn jvm_declares(t: &str, name: &str) -> bool {
     })
 }
 
-fn python_declares(t: &str, name: &str) -> bool {
+pub(super) fn python_declares(t: &str, name: &str) -> bool {
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:(?:async\s+)?def|class|type)\s+\w+\s*\[(.*?)\]\s*[(:=]")
             .expect("the regex is a literal")

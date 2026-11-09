@@ -68,3 +68,15 @@ def shadowed[T](item: T) -> None:
 def unlisted(item: int) -> None:
     print(T)
     #     ^ d: picker chains.py:5, supers.py:6
+
+
+def named[Cup](c: Cup) -> None:
+    c.sip()
+    # ^ d: picker tea/brewer.py:37, tea/brewer.py:71
+
+
+class Holder[Cup]:
+    def put(self, c: list[Cup]) -> None:
+        for one in c:
+            one.sip()
+            #   ^ d: picker tea/brewer.py:37, tea/brewer.py:71
