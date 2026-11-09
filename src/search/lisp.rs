@@ -390,8 +390,12 @@ pub(super) fn lisp_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     lex(kind, text).literal
 }
 
+fn racket(path: &Path, text: &str) -> bool {
+    path.extension().is_some_and(|e| e == "rkt") || text.starts_with("#lang")
+}
+
 pub fn racket_prose(path: &Path, text: &str, at: usize) -> bool {
-    if path.extension().is_none_or(|e| e != "rkt") && !text.starts_with("#lang") {
+    if !racket(path, text) {
         return false;
     }
     let code = lex_keeping(Kind::Scheme, text, true, true).code;
@@ -615,10 +619,10 @@ const DEFINES: &[&str] = &[
     "define/override",
 ];
 
-pub fn racket_method_sent(lead: &str) -> bool {
+pub fn racket_method_sent(path: &Path, text: &str, lead: &str) -> bool {
     static SENT: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\(send\s+[^\s()\[\]]+\s+$").expect("the regex is a literal"));
-    SENT.is_match(lead)
+    SENT.is_match(lead) && racket(path, text)
 }
 
 pub fn clojure_keyword(lead: &str) -> bool {
