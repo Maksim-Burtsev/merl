@@ -390,7 +390,11 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
                 .iter()
                 .any(|m| pre.ends_with(m)));
     (is_class(at, &written)
-        && (used || after.trim_start().starts_with("::") || AFTER.is_match(pre) || typed))
+        && (used
+            || after.trim_start().starts_with("::")
+            || AFTER.is_match(pre)
+            || pre.ends_with("#[")
+            || typed))
         .then(|| {
             if used && !written.starts_with('\\') {
                 format!("\\{written}")

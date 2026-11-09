@@ -62,7 +62,35 @@ impl App {
             let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
+        if a.kind == Kind::Python
+            && let Some(top) = import.and_then(<[String]>::first)
+            && !top.starts_with('.')
+            && !self.files.iter().any(|f| {
+                f.extension().is_some_and(|e| e == "py" || e == "pyi")
+                    && search::in_module(f, std::slice::from_ref(top))
+            })
+            && self
+                .python_roots()
+                .is_some_and(|roots| !roots.iter().any(|r| search::python_module_in(r, top)))
+            && let Some(line) = search::import_line1(a.kind, &a.text, a.first())
+        {
+            let hit = self.line_hit(&a.here, line);
+            let reason = Reason::Import(format!("{top} (not installed)"));
+            return self.show_found(a, vec![Candidate { hit, reason }]);
+        }
         false
+    }
+
+    fn python_roots(&mut self) -> Option<Vec<PathBuf>> {
+        self.external_files(Kind::Python);
+        let (roots, _) = self.external.get(&Kind::Python)?;
+        Some(
+            roots
+                .iter()
+                .cloned()
+                .chain(crate::typeshed::stdlib().map(Path::to_path_buf))
+                .collect(),
+        )
     }
 
     fn ambient_declared(

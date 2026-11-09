@@ -18,9 +18,12 @@ fn a_python_import_of_nothing_installed_finds_nothing_outside() {
         ],
     );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
-    for file in ["app/y.py", "app/x.py"] {
+    for (file, want) in [
+        ("app/y.py", "no definition for thing"),
+        ("app/x.py", "thing: via import missing (not installed)"),
+    ] {
         d_on(&mut a, file, "^thing");
-        assert_eq!(a.message, "no definition for thing", "{file}");
+        assert_eq!(a.message, want, "{file}");
     }
     for d in [dir, site] {
         std::fs::remove_dir_all(d).unwrap();

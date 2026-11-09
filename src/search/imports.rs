@@ -112,6 +112,11 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
         text.into()
     }
 }
+pub fn import_line1(kind: Kind, text: &str, name: &str) -> Option<usize> {
+    text.lines()
+        .position(|l| imports_as_written(kind, l).iter().any(|i| i.name == name))
+        .map(|i| i + 1)
+}
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
     ts_import_lines1(text, name).first().copied()
 }
