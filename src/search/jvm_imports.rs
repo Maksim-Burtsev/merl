@@ -76,3 +76,64 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .map(|c| c[1].to_owned())
         .find(|p| p != "object")
 }
+
+pub const JAVA_LANG_ANNOTATIONS: [&str; 5] = [
+    "Override",
+    "Deprecated",
+    "SuppressWarnings",
+    "FunctionalInterface",
+    "SafeVarargs",
+];
+
+pub struct JvmEnumImport {
+    pub owner: String,
+    pub single: bool,
+}
+
+pub fn jvm_enum_imports(path: &Path, text: &str, word: &str) -> Vec<JvmEnumImport> {
+    let java = path.extension().is_some_and(|e| e == "java");
+    let kotlin = path.extension().is_some_and(|e| e == "kt" || e == "kts");
+    if !java && !kotlin {
+        return Vec::new();
+    }
+    let keyword = if java { r"static\s+" } else { "" };
+    let end = if java { r"\s*;" } else { r"\s*;?" };
+    let Ok(import) = Regex::new(&format!(
+        r"^\s*import\s+{keyword}([\w.]+)\.(\*|{})(?:{end})\s*(?://.*)?$",
+        regex::escape(word)
+    )) else {
+        return Vec::new();
+    };
+    let literal = path_literal_lines(Kind::Jvm, path, text);
+    text.lines()
+        .enumerate()
+        .filter(|&(i, _)| !literal.get(i).copied().unwrap_or_default())
+        .filter_map(|(_, l)| import.captures(l))
+        .filter(|c| {
+            c[1].rsplit('.')
+                .next()
+                .is_some_and(|o| o.starts_with(|c: char| c.is_ascii_uppercase()))
+        })
+        .map(|c| JvmEnumImport {
+            owner: c[1].to_owned(),
+            single: &c[2] != "*",
+        })
+        .collect()
+}
+
+pub fn java_case_label(before: &str) -> bool {
+    static CASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*case\s+(?:\w+\s*,\s*)*$").expect("the regex is a literal")
+    });
+    CASE.is_match(before)
+}
+
+pub fn java_switch_selector(text: &str, line1: usize) -> Option<String> {
+    static SWITCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bswitch\s*\(\s*([A-Za-z_]\w*)\s*\)\s*\{\s*$").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let switch = super::jvm::scope_of(&lines, at)?;
+    Some(SWITCH.captures(lines[switch])?[1].to_owned())
+}

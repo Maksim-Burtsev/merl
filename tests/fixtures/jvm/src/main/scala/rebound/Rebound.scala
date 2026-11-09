@@ -118,3 +118,17 @@ class Rebound(val x: Cup):
   //                                                                       ^ d: src/main/scala/rebound/Rebound.scala:117
   def genSecondClosed(ms: List[Mug]): Unit = { for (m <- ms; x <- List(m)) println(x); println(x) }
   //                                                                                           ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genBraces(ms: List[Mug]): Unit = for { m <- ms; x <- List(m) } println(x)
+  //                                                                         ^ d: src/main/scala/rebound/Rebound.scala:121
+  def genBracesClosed(ms: List[Mug]): Unit = { for { m <- ms; x <- List(m) } println(x); println(x) }
+  //                                                                                             ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genDoSecond(ms: List[Mug]): Unit = for m <- ms; x <- List(m) do println(x)
+  //                                                                          ^ d: src/main/scala/rebound/Rebound.scala:125
+  def genLines(ms: List[Mug]): Unit =
+    for {
+      m <- ms
+      x <- List(m)
+    } println(x)
+    //        ^ d: src/main/scala/rebound/Rebound.scala:130
+    println(x)
+    //      ^ d: src/main/scala/rebound/Rebound.scala:3
