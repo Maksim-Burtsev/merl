@@ -218,17 +218,25 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
     let (at, bound) = type_param(kind, text, line1, name)?;
     let bound = bound?;
     let clause = match kind {
-        Kind::Rust | Kind::Swift => "where",
+        Kind::Rust | Kind::Swift if bound.is_none() => "where",
         _ => return Some(TypeParam { bound }),
     };
-    let clauses = text.lines().take(line1).skip(at - 1).any(|l| {
-        coded(kind, l)
-            .split(|c: char| !c.is_alphanumeric())
-            .any(|w| w == clause)
-    });
-    Some(TypeParam {
-        bound: bound.or_else(|| clauses.then(|| clause.to_owned())),
-    })
+    let mut header = String::new();
+    for (i, l) in text.lines().enumerate().skip(at - 1) {
+        let code = coded(kind, l);
+        let end = code.find(['{', '}']).filter(|_| i + 1 >= line1);
+        header.push_str(code.get(..end.unwrap_or(code.len()))?);
+        header.push(' ');
+        if end.is_some() {
+            let clauses = header
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == clause);
+            return Some(TypeParam {
+                bound: clauses.then(|| clause.to_owned()),
+            });
+        }
+    }
+    None
 }
 
 type Bound = Option<Option<String>>;
@@ -535,4 +543,30 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
         .iter()
         .any(|p| param_name(p, false) == Some(arg))
         .then(|| arg.to_owned())
+}
+
+pub const RUST_BLANKET_IMPL: &str = r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::\s*\?\s*Sized\s*)?>\s*(?:[\w:]+::)?([A-Za-z_]\w*)\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:where\b|\{|$)";
+
+pub fn rust_blanket_trait(line: &str) -> Option<String> {
+    static IMPL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(RUST_BLANKET_IMPL).expect("the regex is a literal"));
+    let c = IMPL.captures(line)?;
+    (c[1] == c[3]).then(|| c[2].to_owned())
+}
+
+pub fn rust_trait_declares(text: &str, line1: usize, word: &str) -> bool {
+    let Ok(method) = Regex::new(&format!(r"\bfn\s+{}\b", regex::escape(word))) else {
+        return true;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(head) = line1.checked_sub(1).and_then(|k| lines.get(k)) else {
+        return true;
+    };
+    let body = lines
+        .iter()
+        .skip(line1)
+        .take_while(|l| l.trim().is_empty() || indent(l) > indent(head));
+    std::iter::once(head)
+        .chain(body)
+        .any(|l| method.is_match(&coded(Kind::Rust, l)))
 }

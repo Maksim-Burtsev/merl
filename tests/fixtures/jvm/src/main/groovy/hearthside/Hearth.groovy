@@ -8,6 +8,8 @@ class Hearth {
     int scoped() {
         skillet.with { scorch() }
         //             ^ d: picker src/main/groovy/hearthside/Hearth.groovy:6, src/main/groovy/hearthside/Skillet.groovy:4
+        skillet.tap { scorch() }
+        //            ^ d: picker src/main/groovy/hearthside/Hearth.groovy:6, src/main/groovy/hearthside/Skillet.groovy:4
         def c = { scorch() }
         //        ^ d: src/main/groovy/hearthside/Hearth.groovy:6; want src/main/groovy/hearthside/Skillet.groovy:4 (#1450)
         c.delegate = skillet

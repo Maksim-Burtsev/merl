@@ -80,3 +80,18 @@ struct Rack6<T: Toaster> {
         //        ^ d: picker Sources/Shop/Goblets.swift:3, Sources/Shop/Goblets.swift:7
     }
 }
+
+func whereBelow<T>(_ x: T)
+    where T: Toaster {
+    x.clink()
+    //^ d: picker Sources/Shop/Goblets.swift:3, Sources/Shop/Goblets.swift:7
+}
+
+func whereWrapped<T>(
+    _ x: T,
+    count: Int
+) -> Int where T: Toaster {
+    x.clink()
+    //^ d: picker Sources/Shop/Goblets.swift:3, Sources/Shop/Goblets.swift:7
+    return count
+}

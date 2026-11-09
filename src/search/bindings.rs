@@ -207,7 +207,7 @@ pub fn bindings_at(
             out
         }
         Kind::TsJs if name == "this" => col
-            .and_then(|c| ts_this_on_line(lines[at], c, line))
+            .and_then(|c| super::ts_rebound::ts_this_on_line(lines[at], c, line))
             .map_or_else(|| block_bindings(kind, &lines, at, name), |b| vec![b]),
         Kind::TsJs | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
@@ -689,33 +689,7 @@ fn own_line_hides(
     let _ = opener_bindings(kind, &own, at + 1, name, out);
     false
 }
-fn ts_this_on_line(code: &str, col: usize, line1: usize) -> Option<Binding> {
-    let prefix = code.get(..col)?;
-    let mut open = Vec::new();
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-    for (i, c) in prefix.char_indices() {
-        match quote {
-            Some(_) if escaped => escaped = false,
-            Some(_) if c == '\\' => escaped = true,
-            Some(q) if c == q => quote = None,
-            Some(_) => {}
-            None => match c {
-                '"' | '\'' | '`' => quote = Some(c),
-                '{' => open.push(i),
-                '}' => {
-                    open.pop();
-                }
-                _ => {}
-            },
-        }
-    }
-    open.iter().rev().find_map(|&i| {
-        let value = this_opener(prefix.get(..=i)?.trim(), line1)?;
-        Some(Binding { line1, value })
-    })
-}
-fn this_opener(header: &str, line: usize) -> Option<Value> {
+pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b")
             .expect("the regex is a literal")
