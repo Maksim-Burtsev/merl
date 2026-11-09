@@ -559,7 +559,8 @@ Its end (#1459) reads a generic def's return type (`make().sip()`), a constraint
 (`class Box[T: (Cup, Mug)]:`, so `Box().sip()` is no `Cup`'s) and as no parameters (`pick(first=..)`
 labels `first`). `generic_typevar.py` (#1459) has a module-level `Leaf = TypeVar("Leaf")` beside
 defs and a class with their own `[Leaf]`: those land on the list, a local in the body still wins,
-and a def without a list keeps the module's `Leaf`.
+and a def without a list keeps the module's `Leaf`. A list wrapped over lines and a `type`
+alias land on their own `[Leaf]` too, and a wrapped def's local or parameter still wins.
 `generic.py` also has a `-> Cup` that names the def's own `[Cup]` (a picker, no jump), a parameter named
 like the type parameter in a wrapped parameter list (lands on the parameter), and a constraint tuple
 before a wrapped base list whose class body is still read (`Jar().lid.sip()`).
