@@ -102,7 +102,7 @@ pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)
         Regex::new(r"\{\s*([^{}]*?)\s*->").expect("the regex is a literal")
     });
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[(,=]|->)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
+        Regex::new(r"(?:^|[(,=]|->|\breturn\b)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
             .expect("the regex is a literal")
     });
     static GROOVY_TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

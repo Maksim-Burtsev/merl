@@ -571,6 +571,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
+    let go_local_type = Regex::new(&format!(r"^type\s+{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
     while i > 0 {
         i -= 1;
         let code = uncommented(kind, behind_doc(kind, lines[i]));
@@ -598,6 +600,12 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     &mut first_line_read_whole,
                     &mut out,
                 );
+                if kind == Kind::Go && ind > 0 && go_local_type.is_match(t) {
+                    out.push(Binding {
+                        line1: i + 1,
+                        value: Value::Unknown,
+                    });
+                }
                 if kind == Kind::Go && out.len() > before {
                     if let Some(k) = go_block_statement_at.filter(|&k| k < before) {
                         out.remove(k);

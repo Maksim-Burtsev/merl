@@ -70,4 +70,18 @@ public class Kettle extends Vessel {
             }
             """;
     }
+
+    public IntUnaryOperator boil() {
+        return spout -> spout * 2;
+        //              ^ d: src/main/java/tea/Kettle.java:75
+    }
+
+    public IntUnaryOperator simmer() {
+        return (spout) -> {
+            int heat = spout * 3;
+            //         ^ d: src/main/java/tea/Kettle.java:80
+            return heat + this.spout;
+            //                 ^ d: src/main/java/tea/Kettle.java:14
+        };
+    }
 }
