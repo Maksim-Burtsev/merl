@@ -843,6 +843,12 @@ below it, and the method through it, land on the import, while the use inside th
 the block's function. `stack.ts` and `stack.js` declare methods whose line ends in a `//` or a
 `/* */` comment, or holds one between `{` and `}` (#1433), while the call `knot({ // …` in `stack.js` declares nothing. `hand.js` requires `helper` from `tool.js`: a `function helper()` line inside a template string or a block comment hides nothing, a real one below the use does.
 
+`typescript/snifter/` declares methods whose body sits on their declaration line (#1454):
+`Snifter.nose`, `breathe` and the `async swirl` that calls `this.nose()`, beside a `Flute.nose` of
+the same shape, so a typed receiver lands on its class's method and an untyped one offers both; a
+class of that shape in a template string declares nothing. A one-line getter is left as it was,
+beside its setter in `coffee/cezve.js`.
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,

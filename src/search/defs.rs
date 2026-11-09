@@ -861,6 +861,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                 format!(
                     r"{mods}{w}\??\s*(?:<.*>)?\((?:[^;{{}}]|\{{[^{{}}]*\}})*\)\s*(?::[^;{{}}]*)?\{{\s*(?:/\*.*\*/\s*)?\}}?\s*(?://.*|/\*.*\*/\s*)?$"
                 ),
+                format!(
+                    r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async)\s+)*{w}\??\s*(?:<.*>)?\((?:[^;{{}}]|\{{[^{{}}]*\}})*\)\s*(?::[^;{{}}]*)?\{{.*\}}\s*(?://.*|/\*.*\*/\s*)?$"
+                ),
                 format!(r"{mods}{w}\??\s*<\s*$"),
                 format!(
                     r"{mods}{w}\s*[?!]?\s*(?::[^=]*)?[=:]\s*(?:async\s+)?(?:function\b|\(|[\w$]+\s*=>)"
