@@ -754,8 +754,52 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
+        self.rust_if_let_header_typed(file, text, at, name, text.lines().nth(at)?.trim())
+    }
+
+    pub(super) fn rust_returns_own(&self, ty: &Typed, f: &str) -> Option<bool> {
+        Some(match <[Hit; 1]>::try_from(self.rust_members(ty, f)) {
+            Ok([decl]) => {
+                let t = self.text_of(&decl.path)?;
+                let l: Vec<&str> = t.lines().collect();
+                let n =
+                    search::rust_type_name(&search::rust_return_type(&l, decl.line1 - 1)?)?.name;
+                n == "Self" || n == ty.name
+            }
+            Err(none) => none.is_empty() && f == "default",
+        })
+    }
+
+    pub(super) fn rust_if_let_then(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        name: &str,
+        col: Option<usize>,
+        bindings: &mut Vec<search::Binding>,
+    ) -> Option<Typed> {
+        if bindings.first().is_none_or(|b| b.line1 != line0 + 1) {
+            return None;
+        }
+        let (header, then) = search::rust_if_let_branch(text.lines().nth(line0)?, name, col?)?;
+        if !then {
+            bindings.retain(|b| b.line1 != line0 + 1);
+            return None;
+        }
+        bindings.clear();
+        self.rust_if_let_header_typed(file, text, line0, name, header)
+    }
+
+    fn rust_if_let_header_typed(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        line: &str,
+    ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
-        let line = lines.get(at)?.trim();
         let header = ["} else if let ", "if let ", "while let ", "let "]
             .iter()
             .find_map(|p| line.strip_prefix(p));
