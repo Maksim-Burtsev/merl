@@ -371,6 +371,14 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
+        let header = uncommented(Kind::Jvm, lines[i]);
+        if scala
+            && header.trim_start().starts_with("def ")
+            && declares_local(header.trim(), name)
+            && scope_of(lines, i).is_some_and(|s| !opens_type(lines[s]))
+        {
+            out.push(binding(i + 1));
+        }
         out.extend(
             header_lines1_binding(lines, i, end, name, None, scala)
                 .into_iter()

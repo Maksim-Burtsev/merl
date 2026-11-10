@@ -31,3 +31,26 @@ object Barn {
   def plain(): Int = winnow()
   //                 ^ d: src/main/scala/husk/Chaff.scala:23
 }
+
+object Granary {
+  def winnow(): Int = 5
+
+  def fact(n: Int): Int = {
+    def winnow(k: Int): Int =
+      if (k == 0) 1 else winnow(k - 1)
+    //                   ^ d: src/main/scala/husk/Chaff.scala:39
+    winnow(n)
+//  ^ d: src/main/scala/husk/Chaff.scala:39
+  }
+
+  def after(): Int = {
+    val n = 2
+    if (n > 1) {
+      def winnow(): Int = 6
+      winnow()
+//    ^ d: src/main/scala/husk/Chaff.scala:49
+    }
+    winnow()
+//  ^ d: src/main/scala/husk/Chaff.scala:36
+  }
+}
