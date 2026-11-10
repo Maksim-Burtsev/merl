@@ -391,7 +391,9 @@ pub(super) fn python_bindings_at(lines: &[&str], at: usize, name: &str) -> Vec<B
     let in_class = python_class_body_above(lines, at, name);
     if in_class.is_empty() {
         let mut out = python_bindings(lines, at, name);
-        if let Some((case, end)) = python_case_around(lines, at, name) {
+        if let Some((case, end)) = python_case_around(lines, at, name)
+            && out.iter().any(|b| (case + 1..=end).contains(&b.line1))
+        {
             out.retain(|b| (case + 1..=end).contains(&b.line1));
         }
         out
@@ -666,21 +668,28 @@ pub fn python_binds_only_inline(line: &str, name: &str) -> bool {
         }
 }
 fn python_case_around(lines: &[&str], at: usize, name: &str) -> Option<(usize, usize)> {
+    if name == "_" {
+        return None;
+    }
+    let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Python, lines[i]).trim().to_owned();
     let mut depth = indent(lines[at]);
     let case = (0..at).rev().find_map(|i| {
         let t = code(i);
-        if t.is_empty() || indent(lines[i]) >= depth {
+        if t.is_empty() || literal[i] || indent(lines[i]) >= depth {
             return None;
         }
         depth = indent(lines[i]);
         if DEF.is_match(&t) || t.starts_with("class ") {
             return Some(None);
         }
-        python_case_binds(&t, name).then_some(Some(i))
+        let header = t.ends_with(':')
+            && t.strip_prefix("case")
+                .is_some_and(|p| !p.trim_start().starts_with('='));
+        (header && python_case_binds(&t, name)).then_some(Some(i))
     })??;
     let end = (case + 1..lines.len())
-        .find(|&i| !code(i).is_empty() && indent(lines[i]) <= indent(lines[case]))
+        .find(|&i| !code(i).is_empty() && !literal[i] && indent(lines[i]) <= indent(lines[case]))
         .unwrap_or(lines.len());
     Some((case, end))
 }

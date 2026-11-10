@@ -40,3 +40,32 @@ def sip(cmd):
         case _:
             return sip_level
             #      ^ d: picker tea/scopes1470.py:35, tea/scopes1470.py:37
+
+
+def render(kind):
+    _ = str
+    match kind:
+        case "a":
+            return _("A")
+        case _:
+            return _("other")
+            #      ^ d: picker tea/scopes1470.py:46, tea/scopes1470.py:50
+
+
+def cases(names):
+    for name in names:
+        case = dict(name,
+            name)
+        #   ^ d: picker tea/scopes1470.py:56, tea/scopes1470.py:57
+
+
+def install():
+    global relish
+
+    def relish():
+        return 3
+
+
+def use_relish():
+    return relish()
+    #      ^ d: picker tea/scopes1470.py:65, tea/relish_other.py:1

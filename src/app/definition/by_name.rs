@@ -600,23 +600,23 @@ impl App {
                 if object_star {
                     return false;
                 }
-                let mut t = lead;
-                while let Some(rest) = ["private ", "internal ", "public ", "inline ", "suspend "]
-                    .iter()
-                    .find_map(|m| t.strip_prefix(m))
-                {
-                    t = rest;
-                }
-                t.strip_prefix("fun ")
-                    .and_then(|t| t.split_once('('))
-                    .is_some_and(|(name, rest)| {
-                        !name.trim().is_empty()
-                            && name.trim().chars().all(is_word)
-                            && rest.contains('=')
-                            && !rest.contains('{')
-                    })
+                let context = (0..self.line)
+                    .rev()
+                    .map(|i| lines[i].trim())
+                    .find(|l| !l.is_empty())
+                    .is_some_and(|l| l.starts_with("context("));
+                !context
+                    && kotlin_unmodified(lead)
+                        .strip_prefix("fun ")
+                        .and_then(|t| t.split_once('('))
+                        .is_some_and(|(name, rest)| {
+                            !name.trim().is_empty()
+                                && name.trim().chars().all(is_word)
+                                && rest.contains('=')
+                                && !rest.contains('{')
+                        })
             }
-            Kind::Ruby => {
+            Kind::Ruby if a.here.extension().is_some_and(|e| e == "rb") => {
                 let Some(header) = (0..=self.line).rev().find(|&i| {
                     lines[i]
                         .chars()
@@ -643,13 +643,27 @@ impl App {
             return;
         }
         let ruby = a.kind == Kind::Ruby;
-        let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
+        let package = |t: &str| {
+            t.lines()
+                .find_map(|l| l.strip_prefix("package "))
+                .map(|p| p.trim().to_owned())
+        };
+        let here = package(&a.text);
+        let top = |c: &Candidate| {
+            plain_top_level(&c.hit.text, &a.word)
+                && (ruby
+                    || self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| package(&t) == here))
+        };
         if found.iter().any(top) {
             found.retain(|c| {
                 top(c)
                     || ruby
                         && self.text_of(&c.hit.path).is_some_and(|t| {
-                            search::ruby_class_path(&t, c.hit.line1).is_empty()
+                            let class = search::ruby_class_path(&t, c.hit.line1);
+                            class.is_empty()
+                                || class == "Object"
                                 || search::ruby_in_module(&t, c.hit.line1)
                         })
             });
@@ -692,7 +706,7 @@ impl App {
         {
             kept.retain(|h| h.path == a.here);
         }
-        if kept.iter().any(|h| !unreachable(h)) {
+        if kept.iter().any(|h| h.path == a.here && !unreachable(h)) {
             kept.retain(|h| !unreachable(h));
         }
         if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
@@ -1189,6 +1203,24 @@ fn required_copy(text: &str, found: &mut Vec<Candidate>) {
         !esm.iter()
             .any(|(p, l)| *p == c.hit.path && *l == c.hit.line1)
     });
+}
+
+fn kotlin_unmodified(mut t: &str) -> &str {
+    while let Some(rest) = ["private ", "internal ", "public ", "inline ", "suspend "]
+        .iter()
+        .find_map(|m| t.strip_prefix(m))
+    {
+        t = rest;
+    }
+    t
+}
+
+fn plain_top_level(text: &str, word: &str) -> bool {
+    kotlin_unmodified(text)
+        .strip_prefix("fun ")
+        .or_else(|| text.strip_prefix("def "))
+        .and_then(|d| d.strip_prefix(word))
+        .is_some_and(|rest| !rest.starts_with(|c: char| is_word(c) || c == '.'))
 }
 
 fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {
