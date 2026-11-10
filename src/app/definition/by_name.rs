@@ -803,10 +803,7 @@ impl App {
     fn jvm_hits(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
         let hits = self.jvm_seen(&a.here, hits, a.dotted || a.before.ends_with("::"));
         let mut hits = self.jvm_use_fit(&a.here, &a.word, a.range.clone(), &a.chain, hits);
-        if a.before.ends_with('@')
-            && a.here.extension().is_some_and(|e| e == "java")
-            && search::JAVA_LANG_ANNOTATIONS.contains(&a.word.as_str())
-        {
+        if search::jvm_builtin_annotation(&a.here, &a.before, &a.word) {
             hits.retain(|h| self.jvm_package_sees(&a.here, &a.text, &a.word, &h.path));
         }
         if matches!(a.word.as_str(), "values" | "valueOf")
