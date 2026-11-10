@@ -372,7 +372,10 @@ impl App {
                 .unwrap_or_default();
             let named =
                 |c: &Candidate| search::jvm_type_name(&c.hit.text).as_deref() == Some(written);
-            if kotlin && !found.iter().all(named) {
+            let alias = |c: &Candidate| {
+                search::kotlin_typealias(&c.hit.text).is_some_and(|(name, _)| name == written)
+            };
+            if kotlin && !found.iter().all(named) && !found.iter().all(alias) {
                 return JvmType::Unknown;
             }
             let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
@@ -929,6 +932,17 @@ impl App {
     }
 
     fn jvm_type_on(&self, file: &Path, text: &str, written: &str, on: Option<usize>) -> JvmType {
+        self.jvm_type_hop(file, text, written, on, true)
+    }
+
+    fn jvm_type_hop(
+        &self,
+        file: &Path,
+        text: &str,
+        written: &str,
+        on: Option<usize>,
+        alias: bool,
+    ) -> JvmType {
         if written.starts_with(|c: char| c.is_ascii_lowercase())
             && written.contains('.')
             && let Some(packages) = self.jvm_packages()
@@ -939,7 +953,7 @@ impl App {
             }
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
-            return match self.jvm_type_on(file, text, outer, on) {
+            return match self.jvm_type_hop(file, text, outer, on, alias) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
                 JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
                 JvmType::Unknown => JvmType::Unknown,
@@ -996,6 +1010,9 @@ impl App {
         if hits.is_empty() {
             return JvmType::Outside(written.to_owned());
         }
+        if alias && let Some(ty) = self.kotlin_aliased(file, text, written, &hits) {
+            return ty;
+        }
         let types: Vec<Hit> = hits.iter().filter(|h| is_type(h)).cloned().collect();
         let others = hits
             .iter()
@@ -1047,6 +1064,39 @@ impl App {
             })
             .find(|found| !found.is_empty())
             .unwrap_or_default()
+    }
+
+    fn kotlin_aliased(
+        &self,
+        file: &Path,
+        here: &str,
+        written: &str,
+        hits: &[Hit],
+    ) -> Option<JvmType> {
+        let aliases: Vec<(&Hit, &str)> = hits
+            .iter()
+            .filter_map(|h| {
+                search::kotlin_typealias(&h.text)
+                    .filter(|(name, _)| *name == written)
+                    .map(|(_, target)| (h, target))
+            })
+            .collect();
+        let [(hit, target)] = aliases.as_slice() else {
+            return None;
+        };
+        let text = self.text_of(&hit.path)?;
+        let package = search::jvm_package(&text);
+        let seen = hit.path == file || (package.is_some() && search::jvm_package(here) == package);
+        let nested = hits
+            .iter()
+            .any(|h| !std::ptr::eq(h, *hit) && (h.path == file || h.path == hit.path));
+        if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
+            return None;
+        }
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
+            JvmType::Project(decl) => Some(JvmType::Project(decl)),
+            _ => None,
+        }
     }
 
     fn jvm_code(&self, h: &Hit) -> bool {
