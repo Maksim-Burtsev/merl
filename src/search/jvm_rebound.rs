@@ -95,11 +95,18 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
         || later_declarator(&blanked(t), name).is_some()
 }
 
+pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str) -> bool {
+    let header = uncommented(Kind::Jvm, lines[i]);
+    header.trim_start().starts_with("def ")
+        && declares_local(header.trim(), name)
+        && super::jvm::scope_of(lines, i).is_some_and(|s| !super::jvm::opens_type(lines[s]))
+}
+
 pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|def\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };

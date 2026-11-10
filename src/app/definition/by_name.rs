@@ -403,6 +403,17 @@ impl App {
             self.swift_scoped(a, near, &mut hits);
             if a.before.ends_with('@') {
                 self.swift_attribute_types(&a.here, &a.text, &mut hits);
+            } else if hits.len() > 1
+                && hits.iter().all(|h| search::swift_type_decl(&h.text))
+                && hits
+                    .iter()
+                    .any(|h| search::swift_alias(&h.text, &a.word).is_some())
+            {
+                let mut seen = hits.clone();
+                self.swift_imported_modules(&a.here, &a.text, &mut seen);
+                if !seen.is_empty() {
+                    hits = seen;
+                }
             }
         }
         match kind {
@@ -638,7 +649,25 @@ impl App {
         }
     }
 
+    fn kotlin_unseen_dropped(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        if a.dotted
+            || !a.chain.is_empty()
+            || a.before.trim_end().ends_with("::")
+            || a.here.extension().is_none_or(|e| e != "kt")
+        {
+            return;
+        }
+        let plain = |c: &Candidate| plain_top_level(&c.hit.text, &a.word);
+        let seen = |c: &Candidate| self.jvm_package_sees(&a.here, &a.text, &a.word, &c.hit.path);
+        if found.iter().any(|c| plain(c) && seen(c)) {
+            found.retain(|c| !plain(c) || seen(c));
+        }
+    }
+
     fn top_level_only(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if a.kind == Kind::Jvm {
+            self.kotlin_unseen_dropped(a, found);
+        }
         if !self.called_from_top_level_def(a, near) {
             return;
         }

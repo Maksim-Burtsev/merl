@@ -1209,6 +1209,9 @@ and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/
 calls through a type's name the extensions declared in another file: on its `Companion`
 (`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
 (`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+Its `Garnish.kt` (#1470) calls a bare `sprinkle()` whose namesake in `smears` is not imported,
+and `jvm/src/main/scala/husk/Thresher.scala` calls a local `def` over a member of its name and
+an object's `def` in another file: on one line, below it, inside its own body and in an `if` block.
 `jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
