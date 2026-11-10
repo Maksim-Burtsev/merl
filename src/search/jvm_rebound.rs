@@ -99,7 +99,7 @@ pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|def\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };

@@ -40,3 +40,7 @@ object Kiln {
 //  ^ d: src/main/scala/husk/Bran.scala:35
   }
 }
+
+object Hopper {
+  def winnow(): Int = 0
+}
