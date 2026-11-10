@@ -401,7 +401,7 @@ impl App {
         if kind == Kind::Swift {
             self.swift_scoped(a, near, &mut hits);
             if a.before.ends_with('@') {
-                Self::swift_attribute_types(&a.here, &a.text, &mut hits);
+                self.swift_attribute_types(&a.here, &a.text, &mut hits);
             }
         }
         match kind {
