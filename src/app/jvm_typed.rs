@@ -994,9 +994,14 @@ impl App {
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };
-            return self
-                .jvm_in_package(&packages, path)
-                .unwrap_or_else(|| JvmType::Outside(written.to_owned()));
+            let ty = self.jvm_in_package(&packages, path);
+            if alias
+                && !matches!(ty, Some(JvmType::Project(_)))
+                && let Some(aliased) = self.kotlin_imported_alias(file, &packages, path)
+            {
+                return aliased;
+            }
+            return ty.unwrap_or_else(|| JvmType::Outside(written.to_owned()));
         }
         let pattern = search::def_patterns(Kind::Jvm, written).join("|");
         let cut = self.truncated.get();
@@ -1093,6 +1098,34 @@ impl App {
         if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
             return None;
         }
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
+            JvmType::Project(decl) => Some(JvmType::Project(decl)),
+            _ => None,
+        }
+    }
+
+    fn kotlin_imported_alias(
+        &self,
+        file: &Path,
+        packages: &HashMap<String, Vec<PathBuf>>,
+        path: &[String],
+    ) -> Option<JvmType> {
+        if !file.extension().is_some_and(|e| e == "kt" || e == "kts") {
+            return None;
+        }
+        let (name, package) = path.split_last()?;
+        let files = packages.get(&package.join("."))?;
+        let hits: Vec<Hit> = self
+            .jvm_declared(files, std::slice::from_ref(name))
+            .into_iter()
+            .map(|c| c.hit)
+            .filter(|h| self.jvm_code(h))
+            .collect();
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        let (_, target) = search::kotlin_typealias(&hit.text).filter(|(n, _)| n == name)?;
+        let text = self.text_of(&hit.path)?;
         match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
             JvmType::Project(decl) => Some(JvmType::Project(decl)),
             _ => None,
