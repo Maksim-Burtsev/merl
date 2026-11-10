@@ -34,5 +34,5 @@ def pour(tall: TallFlask, by_name: dict[str, Flask]) -> int:
     c = Gourd().sized(2).sized(3).tip()
     #                             ^ d: tea/flasks.py:22
     d = by_name["a"].tip()
-    #                ^ d: picker tea/flasks.py:6, tea/flasks.py:17, tea/flasks.py:22; want tea/flasks.py:6 (#1469)
+    #                ^ d: tea/flasks.py:6
     return a + b + c + d

@@ -63,5 +63,5 @@ def sweep_indexed(
     loaded[0].delete_user(user_id + 9)
     repos[-1].delete_user(user_id + 10)
     repos[1:].delete_user(user_id + 11), "a slice is a list again"
-    by_name["a"].delete_user(user_id + 12), "a dict's value is not read"
+    by_name["a"].delete_user(user_id + 12), "a dict is indexed by its value type"
     grid[0][1].delete_user(user_id + 13), "an index of an index is not read"

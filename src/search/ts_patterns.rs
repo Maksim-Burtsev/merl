@@ -415,6 +415,28 @@ pub fn ts_union_names(union: &str) -> Option<Vec<String>> {
     .then_some(arms)
 }
 
+pub fn ts_intersection_names(written: &str) -> Option<Vec<String>> {
+    let arms: Vec<String> = written
+        .split('&')
+        .map(|a| {
+            let a = a.trim();
+            ["Required<", "Partial<", "Readonly<"]
+                .iter()
+                .find_map(|w| a.strip_prefix(w)?.strip_suffix('>'))
+                .unwrap_or(a)
+                .trim()
+                .to_owned()
+        })
+        .collect();
+    (arms.len() > 1
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
+    .then_some(arms)
+}
+
 pub fn ts_type_tag(decl: &str) -> Option<String> {
     static TAG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\s*(?:readonly\s+)?type\s*:\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*[;,]?\s*$"#)

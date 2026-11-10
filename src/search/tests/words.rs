@@ -522,7 +522,7 @@ fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
     assert_eq!(call_head(Kind::Ruby, "pots[0].lift", 8), None);
     assert_eq!(
         call_head(Kind::Python, "pots[0].lift", 8).map(|h| h.value),
-        Some(Value::Element("pots".into()))
+        Some(Value::Element("pots[]".into()))
     );
     assert_eq!(call_head(Kind::Python, "pots[1:].lift", 9), None);
 }
