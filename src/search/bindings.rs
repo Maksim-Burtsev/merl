@@ -500,6 +500,21 @@ fn read_statement(
         },
     }
 }
+pub fn go_names_a_type_here(lead: &str, tail: &str) -> bool {
+    let label = matches!(
+        lead.split_whitespace().last(),
+        Some("break" | "continue" | "goto")
+    );
+    let key = tail.starts_with(':') && !tail.starts_with(":=");
+    let key = key && !lead.trim_start().starts_with("case");
+    let lead = lead.trim_end();
+    let declared = (lead.is_empty() || lead.ends_with(['{', ';']))
+        && tail.starts_with([' ', '\t'])
+        && tail
+            .trim_start()
+            .starts_with(|c: char| c.is_alphanumeric() || "_*[".contains(c));
+    !label && !key && !declared
+}
 fn go_declares_type(t: &str, name: &str) -> bool {
     t.strip_prefix("type")
         .filter(|r| r.starts_with(char::is_whitespace))

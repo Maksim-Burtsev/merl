@@ -265,6 +265,7 @@ fn header_lines1_binding(
     to: usize,
     name: &str,
     cursor: Option<usize>,
+    scala: bool,
 ) -> Vec<usize> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
@@ -280,7 +281,7 @@ fn header_lines1_binding(
         let (lambda, clause) = match cursor {
             Some(col) => {
                 let line = blanked(l);
-                let lambda = lambda_binders(&line)
+                let lambda = lambda_binders(&line, scala)
                     .iter()
                     .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
                 let open = std::iter::successors(clause.find(&line), |m| {
@@ -290,7 +291,7 @@ fn header_lines1_binding(
                 (lambda, open)
             }
             None => (
-                lambda_names(&code).iter().any(|p| p == name),
+                lambda_names(&code, scala).iter().any(|p| p == name),
                 clause.is_match(&code),
             ),
         };
@@ -328,7 +329,8 @@ pub(super) fn jvm_bindings(
     }
     let text = lines.join("\n");
     let literal = path_literal_lines(Kind::Jvm, path, &text);
-    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
+    let scala = super::scala(path);
+    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
     let mut i = at;
@@ -369,7 +371,7 @@ pub(super) fn jvm_bindings(
             continue;
         }
         out.extend(
-            header_lines1_binding(lines, i, end, name, None)
+            header_lines1_binding(lines, i, end, name, None, scala)
                 .into_iter()
                 .map(binding),
         );

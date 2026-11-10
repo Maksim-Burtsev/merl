@@ -83,11 +83,20 @@ pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bo
         .any(|l| EXIT.is_match(&blanked(&uncommented(Kind::Jvm, l))))
 }
 
-pub(super) fn lambda_names(line: &str) -> Vec<String> {
-    lambda_binders(line).into_iter().map(|(n, _)| n).collect()
+pub(super) fn lambda_names(line: &str, scala: bool) -> Vec<String> {
+    let code = blanked(line);
+    lambda_binders(line, scala)
+        .into_iter()
+        .filter(|(_, at)| {
+            let opener = line.get(at.clone());
+            !opener.is_some_and(|o| o.trim_start().starts_with("return"))
+                || code.get(at.clone()) == opener && lambda_open_at(&code, at, code.len())
+        })
+        .map(|(n, _)| n)
+        .collect()
 }
 
-pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)> {
+pub(super) fn lambda_binders(line: &str, scala: bool) -> Vec<(String, std::ops::Range<usize>)> {
     static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[(,{=]|=>)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*=>")
             .expect("the regex is a literal")
@@ -128,7 +137,10 @@ pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)
             out.push((b[1].to_owned(), at.clone()));
         }
     }
-    for c in JAVA.captures_iter(line).chain(SCALA.captures_iter(line)) {
+    let java = JAVA
+        .captures_iter(line)
+        .filter(|c| !scala || !c[0].trim_start().starts_with("return"));
+    for c in java.chain(SCALA.captures_iter(line)) {
         let at = c.get(0).map_or(0..0, |m| m.range());
         match (c.get(1), c.get(2)) {
             (Some(list), _) => {
