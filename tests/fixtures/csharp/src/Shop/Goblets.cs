@@ -160,4 +160,37 @@ namespace Shop.Goblets
             //   ^ d: src/Shop/Goblets.cs:5; want none (#1438)
         }
     }
+
+    public abstract class Decanter
+    {
+        public abstract void Tip<T>(T x) where T : Goblet;
+    }
+
+    public interface ITip
+    {
+        void Tip<T>(T x) where T : Goblet;
+    }
+
+    public class Carafe : Decanter, ITip
+    {
+        public override void Tip<T>(T x)
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5
+        }
+        void ITip.Tip<T>(T x)
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5
+        }
+    }
+
+    public class Jug<T> : ITip
+    {
+        void ITip.Tip<T>(T x)
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5
+        }
+    }
 }

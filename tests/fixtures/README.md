@@ -495,9 +495,17 @@ there, so `Ignite()` lands on the `Burners` the live `using static` opens. `Stoo
 `Shop.Lab`, whose `using` is commented out (#1452).
 `csharp/src/Shop/Crest/Doors.cs` (#1452), in `Shop.Doors`, writes `[Authorize(Roles = …)]`,
 `[Obsolete]` and `new Authorize()` beside an `Authorize` and an `Obsolete` declared in
-`Shop.Stray`, which no `using` opens: they find nothing. `[ProjectAttr(…)]` and `[Local(…)]` land
+`Shop.Stray`, which no `using` opens: with no namesake in scope they keep master's jump there
+(annotated `want none`). `[ProjectAttr(…)]` and `[Local(…)]` land
 on `ProjectAttrAttribute` and `LocalAttribute` of the `Shop.Crest` it opens, not on the
 `ProjectAttr` of `Shop.Stray`, and their named arguments on the attribute's properties.
+`csharp/src/Shop/Hearth/` (#1452) writes `new Brazier()`, `new Tongs()` and `new Poker()` beside
+`Shop.Stray` namesakes: `Brazier` lands in the `Shop.Bellows` that `csharp/Directory.Build.props`
+opens with `<Using Include>`, and `Tongs` and `Poker` in the `Shop.Wares` that `using Wares;`
+opens inside `namespace Shop.Hearth`, block and file-scoped.
+`csharp/src/Shop/Goblets.cs`'s `Carafe` and `Jug` (#1438) call `x.Quaff()` in an `override` and in
+explicit `ITip.Tip<T>` implementations, which inherit `where T : Goblet` unwritten: they keep
+master's jump to `Goblet.Quaff`.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a

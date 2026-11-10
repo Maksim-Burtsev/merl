@@ -13,3 +13,15 @@ public class ProjectAttr
 {
     public string Name { get; set; } = "";
 }
+
+public class Brazier
+{
+}
+
+public class Tongs
+{
+}
+
+public class Poker
+{
+}
