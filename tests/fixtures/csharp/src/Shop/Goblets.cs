@@ -157,7 +157,55 @@ namespace Shop.Goblets
             y.Quaff();
             //^ d: none
             Held.Quaff();
-            //   ^ d: src/Shop/Goblets.cs:5; want none (#1438)
+            //   ^ d: none
+        }
+    }
+
+    public class Ewer<Goblet>
+    {
+        private Goblet made = Make();
+        public Goblet Kept { get => Make(); }
+        public Shop.Goblets.Goblet Cup { get; set; }
+        private Shop.Goblets.Goblet cup = new Shop.Goblets.Goblet();
+        public void Keep()
+        {
+            made.Quaff();
+            //   ^ d: none
+            Kept.Quaff();
+            //   ^ d: none
+            Cup.Quaff();
+            //  ^ d: src/Shop/Goblets.cs:5
+            cup.Quaff();
+            //  ^ d: src/Shop/Goblets.cs:5
+        }
+    }
+
+    public interface IPitcher<in Goblet>
+    {
+        void Tip(Goblet x)
+        {
+            x.Quaff();
+            //^ d: none
+        }
+    }
+
+    public interface IFunnel<out Goblet>
+    {
+        Goblet Make();
+        void Tip()
+        {
+            Goblet y = Make();
+            y.Quaff();
+            //^ d: none
+        }
+    }
+
+    public interface IBounded<in T> where T : Goblet
+    {
+        void Tip(T x)
+        {
+            x.Quaff();
+            //^ d: src/Shop/Goblets.cs:5
         }
     }
 
