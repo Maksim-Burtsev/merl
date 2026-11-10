@@ -360,7 +360,12 @@ impl App {
     }
 
     fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
-        if !written.contains('.') {
+        let renamed = || {
+            search::jvm_imports_at(here, text, self.line + 1)
+                .iter()
+                .any(|i| i.bound_name == written && i.path.last().is_some_and(|l| l != written))
+        };
+        if !written.contains('.') && !renamed() {
             let found = self
                 .jvm_members(here, text, "", written)
                 .or_else(|| self.jvm_imported_all(text, &[], written, false))
@@ -414,6 +419,79 @@ impl App {
             JvmType::Project(decl) => Some(decl),
             _ => None,
         }
+    }
+
+    pub(super) fn jvm_enum_case(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if java && search::java_case_label(before) {
+            if let Some(selector) = search::java_switch_selector(text, self.line + 1)
+                && let Some((JvmType::Project(decl), _)) =
+                    self.jvm_chain_head(here, text, "", &selector, None)
+            {
+                let cases = self.jvm_enum_constant(&decl, word);
+                if !cases.is_empty() {
+                    *found = cases;
+                }
+            }
+            return;
+        }
+        let own = search::jvm_enclosing_types(text, self.line + 1)
+            .into_iter()
+            .any(|d| {
+                search::enum_constants(text, d)
+                    .iter()
+                    .any(|c| c.name == word)
+            });
+        if !found.is_empty() || own {
+            return;
+        }
+        let imports = search::jvm_enum_imports(here, text, word);
+        let single = imports.iter().any(|i| i.single);
+        for import in imports.iter().filter(|i| i.single == single) {
+            if let JvmType::Project(decl) = self.jvm_type_at(here, text, &import.owner) {
+                found.extend(self.jvm_enum_constant(&decl, word));
+            }
+        }
+    }
+
+    pub(super) fn jvm_enum_constant(&self, decl: &Hit, word: &str) -> Vec<Candidate> {
+        let Some(name) = search::jvm_type_name(&decl.text) else {
+            return Vec::new();
+        };
+        let is_enum = Regex::new(&format!(
+            r"\benum\s+(?:class\s+)?{}\b",
+            regex::escape(&name)
+        ))
+        .is_ok_and(|re| re.is_match(&decl.text));
+        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
+            return Vec::new();
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        search::enum_constants(&text, decl.line1)
+            .into_iter()
+            .filter(|c| c.name == word)
+            .map(|c| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: decl.path.clone(),
+                    line1: c.line1,
+                    byte_col: None,
+                    text: lines
+                        .get(c.line1 - 1)
+                        .copied()
+                        .unwrap_or_default()
+                        .to_owned(),
+                },
+                reason: Reason::Path(name.clone()),
+            })
+            .collect()
     }
 
     pub(super) fn jvm_owns(&self, decl: &Hit, hit: &Hit, word: &str) -> bool {

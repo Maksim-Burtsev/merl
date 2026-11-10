@@ -42,21 +42,7 @@ impl App {
         if elsewhere || !sees {
             return Vec::new();
         }
-        let lines: Vec<&str> = text.lines().collect();
-        search::enum_constants(&text, decl.line1)
-            .into_iter()
-            .filter(|c| c.name == word)
-            .map(|search::EnumConstant { line1: line, .. }| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: decl.path.clone(),
-                    line1: line,
-                    byte_col: None,
-                    text: lines.get(line - 1).copied().unwrap_or_default().to_owned(),
-                },
-                reason: Reason::Path(owner.to_owned()),
-            })
-            .collect()
+        self.jvm_enum_constant(decl, word)
     }
 
     pub(super) fn jvm_imported(
@@ -70,6 +56,27 @@ impl App {
         let found = self.jvm_imported_all(text, chain, word, cursor_on_import)?;
         let here = self.rel_current()?;
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
+    }
+
+    pub(super) fn jvm_package_sees(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        there: &Path,
+    ) -> bool {
+        let package = |p: &Path| {
+            self.text_of(p)
+                .and_then(|t| search::jvm_package(&t))
+                .unwrap_or_default()
+        };
+        let declared = package(there);
+        there == here
+            || declared == package(here)
+            || search::jvm_imports(here, text).iter().any(|i| {
+                let path = i.path.join(".");
+                path == format!("{declared}.{word}") || path == format!("{declared}.*")
+            })
     }
 
     pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
@@ -305,6 +312,12 @@ impl App {
         {
             return None;
         }
+        if let Some(header) = search::jvm_anonymous_header(before) {
+            let found = self.jvm_anonymous_inherited(here, text, &header, word);
+            if !found.is_empty() {
+                return Some(found);
+            }
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for (i, &decl) in types.iter().enumerate() {
@@ -374,29 +387,41 @@ impl App {
         decl: usize,
         word: &str,
     ) -> Vec<Candidate> {
-        let (ty, name) = match search::jvm_type_name(header) {
-            Some(name) => (
-                Hit {
-                    deleted: None,
-                    path: here.to_path_buf(),
-                    line1: decl,
-                    byte_col: None,
-                    text: header.to_owned(),
-                },
-                name,
-            ),
-            None => match search::jvm_anonymous_base(header)
-                .map(|base| (self.jvm_type_at(here, text, &base), base))
-            {
-                Some((super::jvm_typed::JvmType::Project(b), base)) => (b, base),
-                _ => return Vec::new(),
-            },
+        let Some(name) = search::jvm_type_name(header) else {
+            return self.jvm_anonymous_inherited(here, text, header, word);
         };
-        self.jvm_hierarchy_member(&ty, word, 0, &mut Vec::new())
+        let ty = Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1: decl,
+            byte_col: None,
+            text: header.to_owned(),
+        };
+        self.jvm_hierarchy_found(&ty, &name, word)
+    }
+
+    fn jvm_anonymous_inherited(
+        &self,
+        here: &Path,
+        text: &str,
+        header: &str,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let mut found = Vec::new();
+        for base in search::jvm_anonymous_bases(header) {
+            if let super::jvm_typed::JvmType::Project(b) = self.jvm_type_at(here, text, &base) {
+                found.extend(self.jvm_hierarchy_found(&b, &base, word));
+            }
+        }
+        found
+    }
+
+    fn jvm_hierarchy_found(&self, ty: &Hit, name: &str, word: &str) -> Vec<Candidate> {
+        self.jvm_hierarchy_member(ty, word, 0, &mut Vec::new())
             .into_iter()
             .map(|hit| Candidate {
                 hit,
-                reason: Reason::Path(name.clone()),
+                reason: Reason::Path(name.to_owned()),
             })
             .collect()
     }

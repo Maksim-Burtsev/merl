@@ -225,6 +225,9 @@ impl App {
         }
         if a.kind == Kind::Elixir {
             a.chain = search::elixir_unalias(&a.text, self.line, std::mem::take(&mut a.chain));
+            if a.chain.is_empty() && self.answered_by_elixir_alias(a) {
+                return true;
+            }
         }
         if a.kind == Kind::Ruby
             && a.dotted
@@ -240,6 +243,31 @@ impl App {
             || self.answered_by_renamed_require(a)
             || self.answered_by_go_key(a)
             || self.answered_by_sigil(a)
+    }
+
+    fn answered_by_elixir_alias(&mut self, a: &Asked) -> bool {
+        let module = search::elixir_unalias(&a.text, self.line, vec![a.word.clone()]);
+        let Some(last) = module.last().filter(|l| **l != a.word) else {
+            return false;
+        };
+        let full = module.join(".");
+        let Ok(named) = regex::Regex::new(&format!(
+            r"^\s*defmodule\s+{}(?:\s|,|$)",
+            regex::escape(&full)
+        )) else {
+            return false;
+        };
+        let pattern = search::def_patterns(a.kind, last).join("|");
+        let found: Vec<Candidate> = self
+            .project_definitions(a.kind, &a.here, last, &pattern)
+            .into_iter()
+            .filter(|h| named.is_match(&h.text))
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Path(full.clone()),
+            })
+            .collect();
+        !found.is_empty() && self.show_found(a, found)
     }
 
     fn answered_by_renamed_require(&mut self, a: &Asked) -> bool {
@@ -389,6 +417,9 @@ impl App {
                     how => self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, how),
                 })
                 .unwrap_or_default();
+            if found.is_empty() && kind == Kind::Dart {
+                return false;
+            }
             if found.is_empty() {
                 self.message = format!("{}: {}", a.word, label.what);
             } else {

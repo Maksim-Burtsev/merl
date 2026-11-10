@@ -4,6 +4,7 @@ use super::{
 };
 
 mod declared;
+mod eslint;
 mod shadowed;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -91,6 +92,7 @@ impl App {
                 });
                 assigned
             })
+            .or_else(|| self.eslint_parent(kind, here, &text, line, chain, word))
             .unwrap_or_default();
         if hits.is_empty()
             && search::reads_jsdoc(kind, here)
@@ -1232,14 +1234,6 @@ impl App {
             }
         }
         bindings
-    }
-    fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
-        self.type_decl(kind, file, written).is_some_and(|ty| {
-            self.is_interface(&ty)
-                || self
-                    .union_arms(kind, &ty)
-                    .is_some_and(|arms| arms.iter().all(|a| self.is_interface(a)))
-        })
     }
 
     fn is_interface(&self, ty: &Typed) -> bool {

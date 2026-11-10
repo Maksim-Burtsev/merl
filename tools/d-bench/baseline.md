@@ -144,13 +144,14 @@ The elisp, racket and scheme rows with #1401's third pass (Racket `match`, `matc
 The dart row with the fourth pass of #1338 (a prefixed import's name looked up through the library's exports, `web_adapter.compute`; a local set to `entry.value` / `.key` of a `MapEntry<K, V>` takes that type argument): over `7c5e6e93e`, 2026-11-07, release build, `vm.loadavg` { 17.26 18.09 18.53 } before the run (the times read high under that load).
 The racket row with racket0207 judged from the code (`define/oc-log`: the `define-syntax-rule` of `module-language.rkt:1066` whose pattern head on the next line binds it, now a direct hit after #1431): `9716e6d6c`, 2026-11-08, release build, `vm.loadavg` { 4.76 6.95 6.76 } after the run.
 The racket row with #1441 (a cursor in a comment, a string or `at-exp` text, and a method name of `send`, answer nothing; a `with-syntax` binding is local; racket0059 and racket0068 no longer jump to a namesake method): over `26f3aca20`, 2026-11-09, release build, `vm.loadavg` { 7.19 7.02 7.05 } before the run, { 7.89 7.17 7.10 } after.
+The ts, js, vue, svelte and astro rows with #1337 (`node.parent` in an ESLint visitor lands on `interface NodeParentExtension`'s `parent`: js0231 and js0268 now direct hits): over `407d933da`, 2026-11-10, release build, `vm.loadavg` { 7.17 7.76 7.76 } before the run, { 6.99 7.72 7.74 } after.
 The go row with #1470 (a `type` declared inside a function or block is local: go0323 `Milestone` in gitea's `v229.go` now jumps to the local type): `d0d59173e`, 2026-11-10, release build, `vm.loadavg` { 6.64 6.77 7.35 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
-| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.3 | 171.2 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 52.5 | 138.4 |
+| js (eslint, uptime-kuma) | 217 | 205 (94%) | 10 (5%) | 0 (0%) | 2 (1%) | 177 | 6 | 39.2 | 212.1 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
@@ -169,9 +170,9 @@ The go row with #1470 (a `type` declared inside a function or block is local: go
 | julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
-| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 31.5 | 178.8 |
-| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
+| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 52.6 | 196.6 |
+| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 36.4 | 194.5 |
+| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 39.6 | 119.2 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
 | elisp (magit) | 39 | 29 (74%) | 4 (10%) | 0 (0%) | 6 (15%) | 41 | 0 | 4.0 | 5.0 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |

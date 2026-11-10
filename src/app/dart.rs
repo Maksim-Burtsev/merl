@@ -194,6 +194,86 @@ impl App {
         });
     }
 
+    pub(super) fn dart_unseen(
+        &mut self,
+        here: &Path,
+        word: &str,
+        before: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let mut missing = Vec::new();
+        let Some(files) = self.dart_visible_walk(here, word, None, &mut missing) else {
+            return;
+        };
+        let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
+        let annotation = before.trim_end().ends_with('@');
+        if annotation && matches!(word, "override" | "deprecated") {
+            found.retain(|c| top(c) && files.contains(&c.hit.path));
+            return;
+        }
+        let unseen = |c: &Candidate| !c.hit.path.is_absolute() && !files.contains(&c.hit.path);
+        if found.iter().all(unseen)
+            && let [d] = &missing[..]
+            && let Some(name) = self.dart_package_missing(&d.uri)
+        {
+            let hit = Hit {
+                deleted: None,
+                path: here.to_path_buf(),
+                line1: d.line1,
+                byte_col: None,
+                text: self.buf.lines[d.line1 - 1].clone(),
+            };
+            let reason = Reason::Import(format!("{name} (not installed)"));
+            *found = if found.iter().any(top) {
+                vec![Candidate { hit, reason }]
+            } else {
+                Vec::new()
+            };
+            return;
+        }
+        let built = format!("{word}.{word}");
+        if annotation
+            && let [a, b] = &found[..]
+            && a.hit.path == b.hit.path
+            && !a.hit.path.is_absolute()
+            && top(a) != top(b)
+            && self.text_of(&a.hit.path).is_some_and(|t| {
+                let made = if top(a) { b } else { a };
+                search::qualified(Kind::Dart, &t, made.hit.line1, word).as_ref() == Some(&built)
+            })
+        {
+            found.retain(top);
+        }
+    }
+
+    fn dart_package_missing(&mut self, uri: &str) -> Option<String> {
+        let name = uri.strip_prefix("package:")?.split('/').next()?.to_owned();
+        let named = |p: &Path| {
+            p.components().any(|c| {
+                let c = c.as_os_str().to_string_lossy();
+                c == name.as_str()
+                    || c.strip_prefix(name.as_str())
+                        .is_some_and(|r| r.starts_with('-'))
+            })
+        };
+        self.external_files(Kind::Dart);
+        let installed = self
+            .external
+            .get(&Kind::Dart)
+            .is_some_and(|(roots, _)| roots.iter().any(|r| named(r)));
+        let own = self
+            .files
+            .iter()
+            .filter(|f| f.file_name().is_some_and(|n| n == "pubspec.yaml"))
+            .filter_map(|f| self.text_of(f))
+            .any(|t| {
+                t.lines()
+                    .find_map(|l| l.strip_prefix("name:"))
+                    .is_some_and(|n| n.trim().trim_matches(['"', '\'']) == name)
+            });
+        (!installed && !own).then_some(name)
+    }
+
     pub(super) fn dart_visible(
         &self,
         here: &Path,
@@ -384,10 +464,23 @@ impl App {
         word: &str,
         prefix: Option<&str>,
     ) -> Option<Vec<PathBuf>> {
+        let mut missing = Vec::new();
+        let files = self.dart_visible_walk(here, word, prefix, &mut missing)?;
+        missing.is_empty().then_some(files)
+    }
+
+    fn dart_visible_walk(
+        &self,
+        here: &Path,
+        word: &str,
+        prefix: Option<&str>,
+        missing: &mut Vec<search::DartDirective>,
+    ) -> Option<Vec<PathBuf>> {
         let sdk = self.dart_sdk();
         let sdk = sdk.as_deref();
         let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
         let from = library[0].clone();
+        let own = from.clone();
         let mut files = if prefix.is_none() {
             library
         } else {
@@ -407,7 +500,13 @@ impl App {
             {
                 continue;
             }
-            let file = search::dart_uri_file(&self.root, &from, &d.uri, sdk)?;
+            let Some(file) = search::dart_uri_file(&self.root, &from, &d.uri, sdk) else {
+                if from == own && d.uri.starts_with("package:") {
+                    missing.push(d);
+                    continue;
+                }
+                return None;
+            };
             if files.contains(&file) {
                 continue;
             }

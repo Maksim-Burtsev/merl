@@ -122,11 +122,12 @@ impl App {
         let chain = a.chain.as_slice();
         let explicit = match (kind, chain) {
             (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
+            (Kind::CSharp, [s, f]) if s == "this" => Some(f),
             _ => None,
         };
         let reaches = match kind {
             Kind::Go => !chain.is_empty(),
-            Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
+            Kind::Swift | Kind::Rust | Kind::CSharp => chain.len() == 1 || explicit.is_some(),
             _ => false,
         };
         if !a.dotted || !reaches {
@@ -150,6 +151,7 @@ impl App {
                 Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
                     own(chain.last().map_or("", String::as_str))
                 }
+                None if kind == Kind::CSharp => own(chain.last().map_or("", String::as_str)),
                 found => found,
             },
         };
@@ -380,7 +382,10 @@ impl App {
             return false;
         }
         let answer = match dotted {
-            false => self.cs_initializer(&a.here, word, &a.range).map(Ok),
+            false => self
+                .cs_attribute_argument(&a.here, word, &a.range)
+                .or_else(|| self.cs_initializer(&a.here, word, &a.range))
+                .map(Ok),
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain, &a.before))
             }
