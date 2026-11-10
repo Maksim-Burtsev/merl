@@ -238,9 +238,10 @@ fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Opt
     {
         return None;
     }
-    let args = match head.ends_with(',') {
-        true => ruby_command_args(kind, lead),
-        false => Some(start),
+    let args = if head.ends_with(',') {
+        ruby_command_args(kind, lead)
+    } else {
+        Some(start)
     };
     let owner = args
         .and_then(|a| callee(kind, line, a))
@@ -1002,17 +1003,16 @@ fn params(
         "" => 0,
         _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let inner = match ruby_bare_params(kind, lines, decl_line0, from) {
-        Some(inner) => inner,
-        None => {
-            let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
-                Some((_, open)) => open?,
-                None => code(kind, lines[decl_line0])
-                    .find(|&(i, c)| i >= from && c == b'(')
-                    .map(|(i, _)| i)?,
-            };
-            group(kind, lines, decl_line0, open)?.inner_uncommented
-        }
+    let inner = if let Some(inner) = ruby_bare_params(kind, lines, decl_line0, from) {
+        inner
+    } else {
+        let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
+            Some((_, open)) => open?,
+            None => code(kind, lines[decl_line0])
+                .find(|&(i, c)| i >= from && c == b'(')
+                .map(|(i, _)| i)?,
+        };
+        group(kind, lines, decl_line0, open)?.inner_uncommented
     };
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',')
