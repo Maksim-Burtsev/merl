@@ -117,6 +117,9 @@ impl App {
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
+        if self.called_from_top_level_def(a, near) {
+            self.top_level_only(&mut found);
+        }
         self.offer_only |= self.template_name_elsewhere(a, near, &found);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
@@ -573,6 +576,79 @@ impl App {
             .is_ok_and(|text| search::table_key(&text, h.line1, &(start..start + word.len())))
     }
 
+    fn called_from_top_level_def(&self, a: &Asked, near: &Near) -> bool {
+        if a.dotted
+            || !a.chain.is_empty()
+            || !a
+                .word
+                .starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
+            || near.imports.iter().any(|i| i.name == a.word)
+        {
+            return false;
+        }
+        let lines = &self.buf.lines;
+        let Some(lead) = self.line_str().get(..a.range.start) else {
+            return false;
+        };
+        let opens_block = |l: &str| l.contains('{') || l.split_whitespace().any(|w| w == "do");
+        match a.kind {
+            Kind::Jvm if a.here.extension().is_some_and(|e| e == "kt") => {
+                let mut t = lead;
+                while let Some(rest) = ["private ", "internal ", "public ", "inline ", "suspend "]
+                    .iter()
+                    .find_map(|m| t.strip_prefix(m))
+                {
+                    t = rest;
+                }
+                t.strip_prefix("fun ")
+                    .and_then(|t| t.split_once('('))
+                    .is_some_and(|(name, rest)| {
+                        !name.trim().is_empty()
+                            && name.trim().chars().all(is_word)
+                            && rest.contains('=')
+                            && !rest.contains('{')
+                    })
+            }
+            Kind::Ruby => {
+                let Some(header) = (0..=self.line).rev().find(|&i| {
+                    lines[i]
+                        .chars()
+                        .next()
+                        .is_some_and(|c| !c.is_whitespace() && c != '#')
+                }) else {
+                    return false;
+                };
+                header < self.line
+                    && lines[header]
+                        .strip_prefix("def ")
+                        .is_some_and(|d| !d.trim_start().starts_with("self."))
+                    && lines[header + 1..=self.line]
+                        .iter()
+                        .all(|l| !opens_block(l))
+                    && search::ruby_class_path(&a.text, self.line + 1).is_empty()
+            }
+            _ => false,
+        }
+    }
+
+    fn top_level_only(&self, found: &mut Vec<Candidate>) {
+        let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
+        if found.iter().any(top) {
+            found.retain(|c| {
+                top(c)
+                    || self
+                        .buf
+                        .path
+                        .as_ref()
+                        .is_some_and(|p| p.extension().is_some_and(|e| e == "rb"))
+                        && self.text_of(&c.hit.path).is_some_and(|t| {
+                            search::ruby_class_path(&t, c.hit.line1).is_empty()
+                                || search::ruby_in_module(&t, c.hit.line1)
+                        })
+            });
+        }
+    }
+
     fn own_hit(&self, a: &Asked) -> Hit {
         Hit {
             path: a.here.clone(),
@@ -608,6 +684,9 @@ impl App {
                 .any(|i| i.name == a.word || i.name == "*")
         {
             kept.retain(|h| h.path == a.here);
+        }
+        if kept.iter().any(|h| !unreachable(h)) {
+            kept.retain(|h| !unreachable(h));
         }
         if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
             *hits = kept;

@@ -640,6 +640,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         line1: i + 1,
                         value,
                     });
+                    break;
                 }
                 if (t.starts_with("switch ") || t.starts_with("select "))
                     && go_switch_init(arm.take(), t, i + 1, name, &mut out)
