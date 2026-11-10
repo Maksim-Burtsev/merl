@@ -632,14 +632,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     go_block_statement_at = Some(out.len() - 1);
                 }
                 if let Some(types) = arm.as_deref().filter(|_| type_switch.is_match(t)) {
-                    let value = match types {
-                        [one] => Value::Type(one.clone()),
-                        _ => Value::Unknown,
-                    };
-                    out.push(Binding {
-                        line1: i + 1,
-                        value,
-                    });
+                    out.push(type_switch_binding(types, i + 1));
                     break;
                 }
                 if (t.starts_with("switch ") || t.starts_with("select "))
@@ -677,6 +670,13 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn type_switch_binding(types: &[String], line1: usize) -> Binding {
+    let value = match types {
+        [one] => Value::Type(one.clone()),
+        _ => Value::Unknown,
+    };
+    Binding { line1, value }
 }
 fn go_switch_init(
     arm: Option<Vec<String>>,

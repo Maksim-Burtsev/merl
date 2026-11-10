@@ -117,9 +117,7 @@ impl App {
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
-        if self.called_from_top_level_def(a, near) {
-            self.top_level_only(kind == Kind::Ruby, &mut found);
-        }
+        self.top_level_only(a, near, &mut found);
         self.offer_only |= self.template_name_elsewhere(a, near, &found);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
@@ -640,7 +638,11 @@ impl App {
         }
     }
 
-    fn top_level_only(&self, ruby: bool, found: &mut Vec<Candidate>) {
+    fn top_level_only(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if !self.called_from_top_level_def(a, near) {
+            return;
+        }
+        let ruby = a.kind == Kind::Ruby;
         let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
         if found.iter().any(top) {
             found.retain(|c| {
