@@ -174,6 +174,12 @@ impl App {
             if kind == Kind::TsJs && written.trim() == "this" {
                 continue;
             }
+            if kind == Kind::Python
+                && written.trim() == "Self"
+                && super::python::imports_typing_self(&text)
+            {
+                continue;
+            }
             match self.annotated_type(kind, &decl.path, &text, 0, &written) {
                 Some(next) => ty = next,
                 None if kind == Kind::Go && self.go_outside(&decl.path, &text, &written) => {
@@ -1049,7 +1055,12 @@ impl App {
             }
             _ => return None,
         };
-        if kind == Kind::TsJs && written.trim() == "this" && hops > 0 && !receiver.is_empty() {
+        let own_type = match kind {
+            Kind::TsJs => written.trim() == "this",
+            Kind::Python => written.trim() == "Self" && super::python::imports_typing_self(&at),
+            _ => false,
+        };
+        if own_type && hops > 0 && !receiver.is_empty() {
             let ProvenType { ty, .. } = self
                 .chain_type(kind, file, text, line1, receiver, hops - 1)
                 .ok()?;

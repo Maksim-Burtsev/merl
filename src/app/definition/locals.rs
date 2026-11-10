@@ -289,7 +289,8 @@ impl App {
         let closure = |n: usize| {
             (kind == Kind::Swift
                 || kind == Kind::Go && search::go_names_a_type_here(&a.lead, &a.tail)
-                || kind == Kind::Python && search::python_in_function(&a.text, n))
+                || kind == Kind::Python && search::python_in_function(&a.text, n)
+                || kind == Kind::Jvm && search::scala(&a.here))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1

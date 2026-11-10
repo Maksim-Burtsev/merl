@@ -25,3 +25,4 @@ pub mod corvid;
 pub mod chessman;
 pub mod rookery;
 pub mod board;
+pub mod flagons;
