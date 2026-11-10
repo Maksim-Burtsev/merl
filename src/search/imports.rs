@@ -117,6 +117,20 @@ pub fn import_line1(kind: Kind, text: &str, name: &str) -> Option<usize> {
         .position(|l| imports_as_written(kind, l).iter().any(|i| i.name == name))
         .map(|i| i + 1)
 }
+pub fn python_bound_once(text: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    let Ok(other) = Regex::new(&format!(
+        r"^\s*(?:(?:async\s+)?(?:def|class)\s+{w}\b|{w}\s*(?::[^=]*)?=(?:[^=]|$))"
+    )) else {
+        return false;
+    };
+    imports(Kind::Python, text)
+        .iter()
+        .filter(|i| i.name == name)
+        .count()
+        == 1
+        && !text.lines().any(|l| other.is_match(l))
+}
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
     ts_import_lines1(text, name).first().copied()
 }

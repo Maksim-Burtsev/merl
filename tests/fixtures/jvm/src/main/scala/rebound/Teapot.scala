@@ -23,7 +23,9 @@ class Teapot:
   def bareOutside(): Unit =
     new Runnable {
       def run(): Unit = boil()
-      //                ^ d: picker src/main/scala/rebound/Teapot.scala:4, …
+      //                ^ d: src/main/scala/rebound/Teapot.scala:4
     }
   def bareMixin(): Unit = new Percolator with Runnable { def run(): Unit = boil() }
   //                                                                       ^ d: src/main/scala/rebound/Percolator.scala:4
+  def bareOutsideLine(): Unit = new Runnable { def run(): Unit = boil() }
+  //                                                             ^ d: src/main/scala/rebound/Teapot.scala:4

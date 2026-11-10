@@ -31,6 +31,55 @@ fn a_python_import_of_nothing_installed_finds_nothing_outside() {
 }
 
 #[test]
+fn a_python_package_the_project_maps_or_an_env_holds_is_never_not_installed() {
+    let site = external_root(
+        "outside-held-site",
+        &[
+            ("site/editable.pth", "../editsrc\n"),
+            ("editsrc/editpkg/__init__.py", "def thing():\n    pass\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-held",
+        &[
+            ("setup.py", "setup(package_dir={\"mylib\": \"lib\"})\n"),
+            ("lib/__init__.py", ""),
+            ("lib/core.py", "def helper():\n    pass\n"),
+            ("app/run.py", "from mylib.core import helper\n\nhelper()\n"),
+            ("app/env.py", "from envpkg import thing\n\nthing()\n"),
+            ("app/edit.py", "from editpkg import thing\n\nthing()\n"),
+            ("app/gone.py", "from gonepkg import thing\n\nthing()\n"),
+            (".gitignore", "venv/\n"),
+            ("venv/pyvenv.cfg", "home = /usr/bin\n"),
+            (
+                "venv/lib/python3.12/site-packages/envpkg/__init__.py",
+                "def thing():\n    pass\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[site.join("site")]);
+    let not_installed = |a: &mut App, file: &str, at: &str| {
+        d_on(a, file, at);
+        a.message.contains("(not installed)")
+    };
+    assert!(not_installed(&mut a, "app/gone.py", "^thing"));
+    for file in ["app/env.py", "app/edit.py"] {
+        assert!(!not_installed(&mut a, file, "^thing"), "{file}");
+    }
+    d_on(&mut a, "app/run.py", "^helper");
+    assert_eq!(
+        shown(&mut a),
+        jump("helper: by name, 1 match", "lib/core.py:1")
+    );
+    let editable = site.join("site/__editable__.gonepkg-1.0.pth");
+    std::fs::write(editable, "import __editable___gonepkg_finder\n").unwrap();
+    assert!(!not_installed(&mut a, "app/gone.py", "^thing"));
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_python_module_relaxed_past_the_import_is_found_by_name() {
     let site = external_root(
         "outside-relax-site",

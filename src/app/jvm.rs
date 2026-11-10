@@ -313,9 +313,9 @@ impl App {
             return None;
         }
         if let Some(header) = search::jvm_anonymous_header(before) {
-            match self.jvm_anonymous_inherited(here, text, &header, word) {
-                Some(found) if found.is_empty() => {}
-                found => return found,
+            let found = self.jvm_anonymous_inherited(here, text, &header, word);
+            if !found.is_empty() {
+                return Some(found);
             }
         }
         let types = search::jvm_enclosing_types(text, self.line + 1);
@@ -330,7 +330,7 @@ impl App {
                 .map(|line| candidate(here, &lines, line, reason.clone()))
                 .collect();
             if found.is_empty() && i + 1 < types.len() {
-                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word)?;
+                found = self.jvm_nested_inherited(here, text, lines[decl - 1], decl, word);
             }
             if !found.is_empty() {
                 break;
@@ -386,7 +386,7 @@ impl App {
         header: &str,
         decl: usize,
         word: &str,
-    ) -> Option<Vec<Candidate>> {
+    ) -> Vec<Candidate> {
         let Some(name) = search::jvm_type_name(header) else {
             return self.jvm_anonymous_inherited(here, text, header, word);
         };
@@ -397,7 +397,7 @@ impl App {
             byte_col: None,
             text: header.to_owned(),
         };
-        Some(self.jvm_hierarchy_found(&ty, &name, word))
+        self.jvm_hierarchy_found(&ty, &name, word)
     }
 
     fn jvm_anonymous_inherited(
@@ -406,18 +406,14 @@ impl App {
         text: &str,
         header: &str,
         word: &str,
-    ) -> Option<Vec<Candidate>> {
+    ) -> Vec<Candidate> {
         let mut found = Vec::new();
-        let mut known = true;
         for base in search::jvm_anonymous_bases(header) {
-            match self.jvm_type_at(here, text, &base) {
-                super::jvm_typed::JvmType::Project(b) => {
-                    found.extend(self.jvm_hierarchy_found(&b, &base, word));
-                }
-                _ => known = false,
+            if let super::jvm_typed::JvmType::Project(b) = self.jvm_type_at(here, text, &base) {
+                found.extend(self.jvm_hierarchy_found(&b, &base, word));
             }
         }
-        (known || !found.is_empty() || !search::scala(here)).then_some(found)
+        found
     }
 
     fn jvm_hierarchy_found(&self, ty: &Hit, name: &str, word: &str) -> Vec<Candidate> {
