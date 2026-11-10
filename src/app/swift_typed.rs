@@ -602,7 +602,7 @@ impl App {
         Some(generics)
     }
 
-    pub(super) fn swift_unshadowed_links(
+    pub(super) fn swift_chain_links(
         &self,
         here: &Path,
         text: &str,
