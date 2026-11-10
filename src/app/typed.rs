@@ -1055,8 +1055,11 @@ impl App {
                 call_signature: Some(signature),
             });
         }
-        let written = search::ts_awaited(kind, text, line1, callee, &written).unwrap_or(written);
-        let ty = self.annotated_type(kind, &decl.path, &at, 0, &written)?;
+        let (written, scope) = match search::ts_awaited(kind, text, line1, callee, &written) {
+            Some(inner) => (inner, decl.line1),
+            None => (written, 0),
+        };
+        let ty = self.annotated_type(kind, &decl.path, &at, scope, &written)?;
         Some(TypeVia {
             ty: self.runtime_class(ty),
             call_signature: Some(signature),

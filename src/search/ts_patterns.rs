@@ -899,24 +899,39 @@ pub fn ts_awaited(
         return None;
     }
     let line = code_only(text.lines().nth(line1.checked_sub(1)?)?);
-    let call = format!("{callee}(");
-    let mut calls = line.match_indices(&call).map(|(i, _)| i).peekable();
-    calls.peek()?;
-    calls
-        .all(|at| {
-            let awaited = line.get(..at).is_some_and(|before| {
-                before.ends_with(char::is_whitespace)
-                    && before.trim_end().strip_suffix("await").is_some_and(|head| {
-                        !head.ends_with(|c: char| c.is_alphanumeric() || "_$.".contains(c))
-                    })
+    let closes_above = line.bytes().try_fold(0usize, |depth, c| match c {
+        b'(' | b'[' | b'{' => Some(depth + 1),
+        b')' | b']' | b'}' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    let method = callee.rsplit('.').next()?;
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut uses = line.match_indices(method).map(|(i, _)| i).filter(|&i| {
+        !line.get(..i).is_some_and(|b| b.ends_with(name))
+            && !line
+                .get(i + method.len()..)
+                .is_some_and(|a| a.starts_with(name))
+    });
+    let (Some(end), None) = (uses.next(), uses.next()) else {
+        return None;
+    };
+    let at = (end + method.len()).checked_sub(callee.len())?;
+    let awaited = line.get(..at).is_some_and(|before| {
+        before.ends_with(char::is_whitespace)
+            && before
+                .trim_end()
+                .strip_suffix("await")
+                .is_some_and(|head| !head.ends_with(|c: char| name(c) || c == '.'))
+    });
+    let ended = line
+        .get(at..)
+        .is_some_and(|l| l.starts_with(&format!("{callee}(")))
+        && close_of(kind, &line, at + callee.len())
+            .and_then(|end| line.get(end..))
+            .is_some_and(|rest| {
+                let rest = rest.trim_start();
+                rest.is_empty() || rest.starts_with([';', ')', ','])
             });
-            let ended = close_of(kind, &line, at + callee.len())
-                .and_then(|end| line.get(end..))
-                .is_some_and(|rest| {
-                    let rest = rest.trim_start();
-                    rest.is_empty() || rest.starts_with([';', ')', ','])
-                });
-            awaited && ended
-        })
-        .then(|| inner.to_owned())
+    let continued = line.trim_start().starts_with('.') || closes_above.is_none();
+    (awaited && ended && !continued).then(|| inner.to_owned())
 }

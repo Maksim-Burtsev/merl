@@ -1,4 +1,4 @@
-import { Kiln, TallKiln, Yard } from './kiln';
+import { Kiln, Shelf, TallKiln, Yard } from './kiln';
 
 class Pot {
   boil(): number {
@@ -6,7 +6,7 @@ class Pot {
   }
 }
 
-export async function fired(yard: Yard, kiln: Kiln, tall: TallKiln) {
+export async function fired(yard: Yard, kiln: Kiln, tall: TallKiln, shelf: Shelf<number>) {
   (await yard.find()).boil();
   //                  ^ d: kiln/kiln.ts:2
   (await yard.fetch()).named('a').boil();
@@ -28,6 +28,14 @@ export async function fired(yard: Yard, kiln: Kiln, tall: TallKiln) {
   //                      ^ d: kiln/kiln.ts:2
   tall.size(2).boil();
   //           ^ d: kiln/kiln.ts:16
+  (await shelf.top()).boil();
+  //                  ^ d: !jump
+  const q = yard.fetch(); const r = await yard.fetch();
+  q.boil();
+  //^ d: !jump
+  yard.fetch()
+    .boil(async () => (await yard.fetch()).boil());
+    //^ d: !jump
   return new Pot().boil();
   //               ^ d: kiln/main.ts:4
 }

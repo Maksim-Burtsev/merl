@@ -35,3 +35,9 @@ export class Yard {
     return (this as any).k;
   }
 }
+
+export class Shelf<Kiln> {
+  async top(): Promise<Kiln> {
+    return (this as any).k;
+  }
+}
