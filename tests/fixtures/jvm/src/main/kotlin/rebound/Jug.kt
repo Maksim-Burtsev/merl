@@ -8,4 +8,15 @@ class Jug {
 
     fun after() { this.glug() }
     //                 ^ d: src/main/kotlin/rebound/Jug.kt:4
+
+    fun bareLine() = object : Flagon() { fun z() { glug() } }
+    //                                                ^ d: src/main/kotlin/rebound/Flagon.kt:4
+
+    fun bareAfter() { object : Flagon() { fun z() {} }; glug() }
+    //                                                   ^ d: src/main/kotlin/rebound/Jug.kt:4
+
+    fun bareLines() = object : Flagon() {
+        fun z() { glug() }
+        //        ^ d: src/main/kotlin/rebound/Flagon.kt:4
+    }
 }
