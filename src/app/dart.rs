@@ -722,7 +722,16 @@ impl App {
         } else {
             match self.dart_bound(here, text, head, depth) {
                 Some(found) => found,
-                None => self.dart_field_type(here, text, head)?,
+                None => match self.dart_field_type(here, text, head) {
+                    Some(found) => found,
+                    None if !plain
+                        && !rest.is_empty()
+                        && head.trim_start_matches('_').starts_with(char::is_uppercase) =>
+                    {
+                        self.dart_call_type(here, text, head)?
+                    }
+                    None => return None,
+                },
             }
         };
         for link in rest {

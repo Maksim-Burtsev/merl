@@ -64,7 +64,10 @@ pub fn kotlin_call_chain(before: &str) -> Option<KotlinCallChain> {
                     return None;
                 }
                 let constructed = call;
-                if !constructed && upper(&full) {
+                if !constructed
+                    && upper(&full)
+                    && (h.ends_with('@') || !links.first().is_some_and(|l| l.ends_with(')')))
+                {
                     return None;
                 }
                 links.iter().any(|l| l.ends_with(')')).then_some(())?;
