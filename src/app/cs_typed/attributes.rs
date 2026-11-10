@@ -28,8 +28,7 @@ impl App {
         };
         let ctor = Regex::new(&search::def_patterns(Kind::CSharp, word)[4])
             .expect("an escaped name keeps the pattern valid");
-        let kept: Vec<Hit> = hits
-            .iter()
+        hits.iter()
             .filter(|h| {
                 let Some(t) = self
                     .text_of(&h.path)
@@ -49,8 +48,7 @@ impl App {
                 h.deleted.is_some() || !top || seen.contains(&ns) || implicit && sdk
             })
             .cloned()
-            .collect();
-        if kept.is_empty() { hits } else { kept }
+            .collect()
     }
 
     fn cs_project_usings(&self) -> Option<(Vec<String>, bool)> {
