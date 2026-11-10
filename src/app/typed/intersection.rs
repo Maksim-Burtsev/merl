@@ -11,6 +11,7 @@ impl App {
         word: &str,
     ) -> Option<(Vec<Hit>, String)> {
         let [name] = chain else { return None };
+
         if !search::reads_jsdoc(kind, here) {
             return None;
         }
@@ -28,7 +29,7 @@ impl App {
         if !search::reads_jsdoc(kind, &decl.path) {
             return None;
         }
-        let written = search::jsdoc_returns(&self.text_of(&decl.path)?, decl.line1)?;
+        let written = search::jsdoc_returns_written(&self.text_of(&decl.path)?, decl.line1)?;
         let mut found = None;
         for arm in search::ts_intersection_names(&written)? {
             let ty = self.type_decl(kind, &decl.path, &arm)?;
