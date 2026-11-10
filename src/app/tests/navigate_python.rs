@@ -1089,9 +1089,9 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
             jump("no definition for yaml", "app/modules.py:5"),
         ),
         (
-            "nothing of the name at the root: no module, and no search by name",
+            "nothing of the name at the root and on disk: the import, as in TypeScript (#1452)",
             "^    yaml|.load",
-            jump("no definition for yaml", "app/modules.py:12"),
+            jump("yaml: via import yaml (not installed)", "app/modules.py:5"),
         ),
         (
             "unchanged: what the import takes",

@@ -2,6 +2,7 @@ use std::cell::OnceCell;
 
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
+mod attributes;
 mod elements;
 mod fits;
 
@@ -189,7 +190,10 @@ impl App {
                 (p, parts.as_slice())
             }
             (None, Some(((name, false), rest))) => {
-                (self.cs_name_type(file, text, line1, name, hops)?, rest)
+                let p = self.cs_name_type(file, text, line1, name, hops);
+                let called = rest.first().is_some_and(|(_, call)| *call);
+                let p = p.or_else(|| self.cs_static_head(file, text, line1, name, called))?;
+                (p, rest)
             }
             (None, Some(((name, true), rest))) => {
                 let w = self.cs_call_type(file, text, line1, name, false, hops)?;

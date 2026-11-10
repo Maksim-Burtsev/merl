@@ -5,7 +5,8 @@ let package = Package(
     name: "Shop",
     targets: [
         .target(name: "Warehouse"),
-        .target(name: "Shop", dependencies: ["Warehouse"]),
+        .target(name: "Core", dependencies: ["Warehouse"], path: "Sources/swift-core"),
+        .target(name: "Shop", dependencies: ["Warehouse", "Core"]),
         .testTarget(name: "ShopTests", dependencies: ["Shop"]),
     ]
 )

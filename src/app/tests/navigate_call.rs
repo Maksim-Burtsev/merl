@@ -180,16 +180,13 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
-            "A call of a call, and a receiver typed `any`",
+            "A call of a call is followed through each declared return type (#1469)",
             "typescript",
             "calls.ts",
             "openDepot().peopleRepo().deleteUser",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via openDepot(): Depot \u{2192} peopleRepo(): UserRepository)",
+                "repos.ts:10",
             ),
         ),
         (

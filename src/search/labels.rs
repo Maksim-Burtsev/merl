@@ -55,7 +55,13 @@ pub fn label_at(
     };
     let sep = match kind {
         Kind::Python | Kind::Jvm | Kind::Julia => b'=',
-        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust | Kind::Elixir => b':',
+        Kind::Swift
+        | Kind::CSharp
+        | Kind::Php
+        | Kind::Ruby
+        | Kind::Rust
+        | Kind::Elixir
+        | Kind::Dart => b':',
         Kind::TsJs if after.starts_with('=') => b'=',
         Kind::TsJs => b':',
         _ => return None,
@@ -131,16 +137,9 @@ pub fn label_at(
                 nested: false,
             })
         }
-        (
-            Kind::Python
-            | Kind::Jvm
-            | Kind::Swift
-            | Kind::CSharp
-            | Kind::Php
-            | Kind::Ruby
-            | Kind::Julia,
-            b'(',
-        ) => call_label(kind, java, &lines, &literal, at, open),
+        (_, b'(') if !matches!(kind, Kind::TsJs | Kind::Rust) => {
+            call_label(kind, java, &lines, &literal, at, open)
+        }
         _ => None,
     }
 }
@@ -772,6 +771,12 @@ pub fn label_lines(
         return Vec::new();
     };
     let types_own_name = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
+    if kind == Kind::Jvm
+        && *owner == Owner::Args
+        && let Some(elements) = java_annotation_elements(&lines, k, name, word)
+    {
+        return elements;
+    }
     match (owner, types_own_name.as_deref()) {
         (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
@@ -821,6 +826,11 @@ pub fn label_lines(
             out
         }
         (Owner::Implicit(_), _) => Vec::new(),
+        (Owner::Args, None)
+            if kind == Kind::Dart && name.starts_with(|c: char| c.is_ascii_uppercase()) =>
+        {
+            Vec::new()
+        }
         (Owner::Args, None) => params(kind, &lines, k, name, |p| param_named(kind, p, word))
             .into_iter()
             .collect(),
@@ -906,6 +916,30 @@ pub fn object_type(
     found
 }
 
+fn java_annotation_elements(
+    lines: &[&str],
+    decl_line0: usize,
+    name: &str,
+    word: &str,
+) -> Option<Vec<usize>> {
+    Regex::new(&format!(r"@interface\s+{}\b", regex::escape(name)))
+        .ok()?
+        .is_match(lines[decl_line0])
+        .then_some(())?;
+    let element = Regex::new(&format!(
+        r"^\s*(?:public\s+|abstract\s+)*[\w.<>\[\]?, ]*[\w>\]]\s+{}\s*\(\s*\)",
+        regex::escape(word)
+    ))
+    .ok()?;
+    Some(
+        members(lines, decl_line0)
+            .into_iter()
+            .filter(|&i| element.is_match(lines[i]))
+            .map(|i| i + 1)
+            .collect(),
+    )
+}
+
 fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
     let member = |i: &usize| !matches!(lines[*i].trim(), "" | "{");
     let body = body_of(Kind::Swift, lines, decl_line0);
@@ -938,10 +972,24 @@ fn params(
         ..
     } = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
-    split_top(kind, &inner, b',').into_iter().find_map(|p| {
-        let at = find(p)? + (p.as_ptr() as usize - base);
-        Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
-    })
+    split_top(kind, &inner, b',')
+        .into_iter()
+        .flat_map(|p| dart_optional(kind, p))
+        .find_map(|p| {
+            let at = find(p)? + (p.as_ptr() as usize - base);
+            Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
+        })
+}
+
+fn dart_optional(kind: Kind, part: &str) -> Vec<&str> {
+    let t = part.trim();
+    match t
+        .strip_prefix(['{', '['])
+        .and_then(|t| t.strip_suffix(['}', ']']))
+    {
+        Some(inner) if kind == Kind::Dart => split_top(kind, inner, b','),
+        _ => vec![part],
+    }
 }
 
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
@@ -961,6 +1009,13 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     let token = match (kind, typed) {
         (Kind::Swift, _) => tokens.next()?,
         _ => tokens.next_back()?,
+    };
+    let token = match kind {
+        Kind::Dart => ["this.", "super."]
+            .iter()
+            .find_map(|p| token.strip_prefix(p))
+            .unwrap_or(token),
+        _ => token,
     };
     let bare = token
         .trim_start_matches(['$', '*', '&', '.'])

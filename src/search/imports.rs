@@ -112,6 +112,25 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
         text.into()
     }
 }
+pub fn import_line1(kind: Kind, text: &str, name: &str) -> Option<usize> {
+    text.lines()
+        .position(|l| imports_as_written(kind, l).iter().any(|i| i.name == name))
+        .map(|i| i + 1)
+}
+pub fn python_bound_once(text: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    let Ok(other) = Regex::new(&format!(
+        r"^\s*(?:(?:async\s+)?(?:def|class)\s+{w}\b|{w}\s*(?::[^=]*)?=(?:[^=]|$))"
+    )) else {
+        return false;
+    };
+    imports(Kind::Python, text)
+        .iter()
+        .filter(|i| i.name == name)
+        .count()
+        == 1
+        && !text.lines().any(|l| other.is_match(l))
+}
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
     ts_import_lines1(text, name).first().copied()
 }
@@ -410,10 +429,17 @@ fn php_imports(text: &str, out: &mut Vec<Import>) {
     }
 }
 pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?function\b")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
+    if FUNCTION.is_match(lines[k]) {
+        return true;
+    }
     let ind = indent(lines[k]);
     let closer = (k + 1..lines.len().min(k + 40))
         .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);

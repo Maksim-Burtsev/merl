@@ -916,27 +916,47 @@ pub fn swift_file_private(line: &str) -> bool {
         })
 }
 pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
-    static FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).expect("the regex is a literal")
-    });
     let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
         return vec![PathBuf::from("Tests")];
     };
-    manifest
-        .match_indices(".testTarget(")
-        .filter_map(|(at, m)| {
-            let open = at + m.len() - 1;
-            let args = manifest.get(open..close_of(Kind::Swift, &manifest, open)?)?;
+    swift_targets(&manifest)
+        .into_iter()
+        .filter(|t| t.test)
+        .map(|t| t.dir)
+        .collect()
+}
+pub struct SwiftTarget {
+    pub name: String,
+    pub dir: PathBuf,
+    pub test: bool,
+}
+pub fn swift_targets(manifest: &str) -> Vec<SwiftTarget> {
+    static TARGET: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\.(target|executableTarget|testTarget|macro)\(")
+            .expect("the regex is a literal")
+    });
+    static FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).expect("the regex is a literal")
+    });
+    TARGET
+        .captures_iter(manifest)
+        .filter_map(|c| {
+            let whole = c.get(0)?;
+            let open = whole.end() - 1;
+            let args = manifest.get(open..close_of(Kind::Swift, manifest, open)?)?;
             let field = |key: &str| {
                 FIELD
                     .captures_iter(args)
                     .find(|c| &c[1] == key)
                     .map(|c| c[2].trim_start_matches("./").to_owned())
             };
-            match field("path") {
-                Some(path) => Some(PathBuf::from(path)),
-                None => field("name").map(|n| Path::new("Tests").join(n)),
-            }
+            let test = &c[1] == "testTarget";
+            let name = field("name")?;
+            let dir = field("path").map_or_else(
+                || Path::new(if test { "Tests" } else { "Sources" }).join(&name),
+                PathBuf::from,
+            );
+            Some(SwiftTarget { name, dir, test })
         })
         .collect()
 }

@@ -30,7 +30,7 @@ class Basket {
     // status: via import courier.dart
     // A member hanging off a call is no name an import binds.
     Tariff.parse('1').weigh(500);
-    //                ^ d: !jump
+    //                ^ d: lib/pricing.dart:60
     final kg = weigh(500);
     //         ^ d: lib/courier.dart:3
     // status: via import courier.dart

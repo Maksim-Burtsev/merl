@@ -50,7 +50,7 @@ fn class_fields(
     }
     let go_field = |t: &str| go_field(t, name);
     if kind == Kind::Go
-        && let Some(body) = go_one_line(lines[k])
+        && let Some(body) = go_one_line(lines[k], "struct")
     {
         return body
             .split(';')
@@ -310,14 +310,25 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
         .filter(|c| c[1].split(',').any(|p| p.trim() == name))
         .map(|c| Value::Type(c[2].to_owned()))
 }
-fn go_one_line(line: &str) -> Option<&str> {
-    let at = line.find("struct")?;
+fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+    let at = line.find(keyword)?;
     let open = at + line.get(at..)?.find('{')?;
     let close = close_of(Kind::Go, line, open)?;
     line.get(open + 1..close - 1)
 }
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
-    go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
+    go_one_line(line, "struct")
+        .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
+}
+pub fn go_one_line_method(line: &str, name: &str) -> bool {
+    line.trim_start().starts_with("type ")
+        && go_one_line(line, "interface").is_some_and(|body| {
+            body.split(';').any(|m| {
+                m.trim()
+                    .strip_prefix(name)
+                    .is_some_and(|rest| rest.trim_start().starts_with('('))
+            })
+        })
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

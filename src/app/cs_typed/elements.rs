@@ -145,7 +145,7 @@ impl App {
         })
     }
 
-    pub(super) fn cs_new_call(&self) -> bool {
+    pub(in crate::app) fn cs_new_call(&self) -> bool {
         let line = self.line_str();
         let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@' || c == '.';
         self.definition_word(Some(Kind::CSharp))

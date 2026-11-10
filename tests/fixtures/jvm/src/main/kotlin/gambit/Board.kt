@@ -4,6 +4,6 @@ import gambit.Caper.*
 
 fun board(piece: Caper): Int = when (piece) {
     LARK -> 1
- // ^ d: none; want src/main/kotlin/gambit/Caper.kt:4 (#1448)
+ // ^ d: src/main/kotlin/gambit/Caper.kt:4
     JEST -> 0
 }
