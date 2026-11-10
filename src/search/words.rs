@@ -790,7 +790,8 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let mut fields = Vec::new();
     let indexed =
         |b: &str| matches!(kind, Kind::TsJs | Kind::Go | Kind::Python) && b.ends_with(']');
-    while !before.ends_with(')') && !indexed(before) {
+    let literal = |b: &str| kind == Kind::Go && b.ends_with('}');
+    while !before.ends_with(')') && !indexed(before) && !literal(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
             return None;
@@ -798,6 +799,25 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
         let (head, field) = before.split_at_checked(start)?;
         fields.insert(0, field.to_owned());
         before = head.strip_suffix('.')?;
+    }
+    if literal(before) {
+        let open = code(kind, before)
+            .filter(|(_, c)| *c == b'{')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+        let head = before.get(..open)?.trim_end();
+        let start = name_start(head, |c| is_name(c) || c == '.');
+        let name = head.get(start..)?;
+        let plain = !name.is_empty()
+            && !name.starts_with('.')
+            && !name.ends_with('.')
+            && name.matches('.').count() < 2
+            && !head.get(..start)?.ends_with([')', ']', '}', '.']);
+        return plain.then(|| CallHead {
+            call_without_arguments: format!("{name}{{}}"),
+            value: Value::New(name.to_owned()),
+            fields_to_word: fields,
+        });
     }
     if indexed(before) {
         let open = code(kind, before)

@@ -546,11 +546,15 @@ impl App {
 
 impl App {
     pub(super) fn swift_attribute_types(&self, here: &Path, text: &str, hits: &mut Vec<Hit>) {
+        hits.retain(|h| search::swift_type_decl(&h.text));
+        self.swift_imported_modules(here, text, hits);
+    }
+
+    pub(super) fn swift_imported_modules(&self, here: &Path, text: &str, hits: &mut Vec<Hit>) {
         static IMPORT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
             regex::Regex::new(r"(?m)^[ \t]*(?:@\w+[ \t]+)*import[ \t]+(?:(?:class|struct|enum|protocol|func|var|let|typealias)[ \t]+)?(\w+)")
                 .expect("the regex is a literal")
         });
-        hits.retain(|h| search::swift_type_decl(&h.text));
         let targets = self.swift_package_targets();
         let module = |p: &Path| {
             let p = p.strip_prefix(&self.root).unwrap_or(p);

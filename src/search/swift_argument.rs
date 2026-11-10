@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods};
+use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods, uncommented};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftCall {
@@ -150,4 +150,33 @@ pub fn swift_call_fields(e: &str) -> Option<(String, Vec<String>)> {
     };
     (fields.iter().all(ident) && matches!(swift_expr(call)?, SwiftExpr::Call(_)))
         .then(|| (call.to_owned(), fields))
+}
+
+pub fn swift_compared(
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    lead: &str,
+) -> Option<String> {
+    static EQUALS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!)\]`])`?([a-z_]\w*)`?\s*(?:==|!=)\s*$")
+            .expect("the regex is a literal")
+    });
+    static ARM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*case\s+(?:\.\w+\s*,\s*)*$").expect("the regex is a literal")
+    });
+    static SUBJECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:return\s+)?switch\s+`?([a-z_]\w*)`?\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let lead = uncommented(Kind::Swift, lead);
+    if let Some(c) = EQUALS.captures(&lead) {
+        return Some(c[1].to_owned());
+    }
+    if !ARM.is_match(&lead) {
+        return None;
+    }
+    let switch = super::swift_switch_of_arm(lines, literal, line1)?;
+    let header = uncommented(Kind::Swift, lines.get(switch - 1)?);
+    Some(SUBJECT.captures(&header)?[1].to_owned())
 }

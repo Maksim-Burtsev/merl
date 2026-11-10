@@ -330,6 +330,9 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
+        if scala && super::jvm_rebound::local_def_header(lines, i, name) {
+            out.push(binding(i + 1));
+        }
         out.extend(
             header_lines1_binding(lines, i, end, name, None, scala)
                 .into_iter()

@@ -160,3 +160,39 @@ export function amphoraArgWrapsA<A>(x: A, y: Array<
 //  ^ d: amphora_rack.ts:157
   return x;
 }
+
+export class AmphoraArgWrapsHost {
+  own<Amphora>(x: Amphora, y: Array<
+    number
+  >): Amphora {
+  //  ^ d: amphora_rack.ts:165
+    return x;
+  }
+  ownA<A>(x: A, y: Array<
+    number
+  >): A {
+  //  ^ d: amphora_rack.ts:171
+    return x;
+  }
+}
+
+export class AmphoraClosesOnLast<
+  K,
+  Amphora> {
+  held: Amphora;
+  //    ^ d: amphora_rack.ts:181
+  key: K;
+  //   ^ d: amphora_rack.ts:180
+}
+
+export function amphoraClosesOnLast<
+  Amphora>(x: Amphora): Amphora {
+  //          ^ d: amphora_rack.ts:189
+  //                    ^ d: amphora_rack.ts:189
+  return x;
+}
+
+export function amphoraOutside(x: Amphora): Amphora {
+//                                ^ d: amphora.ts:1
+  return x;
+}
