@@ -118,7 +118,7 @@ impl App {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
         if self.called_from_top_level_def(a, near) {
-            self.top_level_only(&mut found);
+            self.top_level_only(kind == Kind::Ruby, &mut found);
         }
         self.offer_only |= self.template_name_elsewhere(a, near, &found);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
@@ -593,6 +593,15 @@ impl App {
         let opens_block = |l: &str| l.contains('{') || l.split_whitespace().any(|w| w == "do");
         match a.kind {
             Kind::Jvm if a.here.extension().is_some_and(|e| e == "kt") => {
+                let object_star = a.text.lines().any(|l| {
+                    l.strip_prefix("import ")
+                        .and_then(|i| i.trim_end().strip_suffix(".*"))
+                        .and_then(|i| i.rsplit('.').next())
+                        .is_some_and(|s| s.starts_with(char::is_uppercase))
+                });
+                if object_star {
+                    return false;
+                }
                 let mut t = lead;
                 while let Some(rest) = ["private ", "internal ", "public ", "inline ", "suspend "]
                     .iter()
@@ -631,16 +640,12 @@ impl App {
         }
     }
 
-    fn top_level_only(&self, found: &mut Vec<Candidate>) {
+    fn top_level_only(&self, ruby: bool, found: &mut Vec<Candidate>) {
         let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
         if found.iter().any(top) {
             found.retain(|c| {
                 top(c)
-                    || self
-                        .buf
-                        .path
-                        .as_ref()
-                        .is_some_and(|p| p.extension().is_some_and(|e| e == "rb"))
+                    || ruby
                         && self.text_of(&c.hit.path).is_some_and(|t| {
                             search::ruby_class_path(&t, c.hit.line1).is_empty()
                                 || search::ruby_in_module(&t, c.hit.line1)
