@@ -108,7 +108,9 @@ fn binders(code: &str, name: &str) -> Vec<(usize, Scope)> {
     let arm = rule(format!(
         r"(?:^|[^\w.])(?:{n}\s*(?::[^=;(){{}},]*)?|\([^()]*[(,\s]{n}\b[^()]*\)|\({n}\b[^()]*\))\s*=>"
     ));
-    let generator = rule(format!(r"(?:^|[^\w.]){n}\s*(?::[^<;,()]*)?<-"));
+    let generator = rule(format!(
+        r"(?:(?:^|[^\w.]){n}\s*(?::[^<;,()]*)?|\((?:[^()<;=]*[,\s])?{n}\b[^()<;=]*\))\s*<-"
+    ));
     let block = rule(format!(
         r"\b(?:val|var|given)\s+(?:[^=;]*?[^\w.])?{n}\b[^=;]*=|\bdef\s+{n}\b[^;(]*="
     ));
@@ -185,7 +187,7 @@ fn body_after_close(line: &str) -> bool {
     code.trim_start()
         .strip_prefix(['}', ')'])
         .map(str::trim)
-        .is_some_and(|r| !r.is_empty() && !r.starts_with([';', ',', '.', ')', '}', '{']))
+        .is_some_and(|r| !r.is_empty() && !r.starts_with([';', ',', '.', ')', '}']))
 }
 
 fn covers(
