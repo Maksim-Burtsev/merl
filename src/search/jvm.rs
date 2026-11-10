@@ -1,8 +1,9 @@
 use regex::Regex;
 
+use super::groovy::script_binding;
 use super::jvm_rebound::{
-    blanked, case_label_end, clause_closed_at, declares_local, lambda_binders, lambda_names,
-    lambda_open_at, later_declarator_type, negated_pattern_exits,
+    case_label_end, continued_declarator, declares_local, header_lines1_binding,
+    later_declarator_type, negated_pattern_exits,
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
@@ -225,7 +226,7 @@ pub fn jvm_function(line: &str) -> Option<String> {
     Some(head.get(unnamed.len()..)?.to_owned())
 }
 
-fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<usize> {
+pub(super) fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<usize> {
     static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").expect("the regex is a literal")
     });
@@ -258,51 +259,6 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
         (at, open) = (last, lines[last].len() - scala_next_list.len());
     }
     None
-}
-
-fn header_lines1_binding(
-    lines: &[&str],
-    from: usize,
-    to: usize,
-    name: &str,
-    cursor: Option<usize>,
-    scala: bool,
-) -> Vec<usize> {
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let ret = super::jvm_return_type!();
-    let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*[\w(),\s]*?<-[^{{}}]*?;\s*{n}\s*(?::[^<;]*)?(?:<-|=[^=>])|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
-    ));
-    let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
-        .into_iter()
-        .collect();
-    for (i, l) in lines.iter().enumerate().take(to + 1).skip(from) {
-        let code = uncommented(Kind::Jvm, l);
-        let (lambda, clause) = match cursor {
-            Some(col) => {
-                let line = blanked(l);
-                let lambda = lambda_binders(&line, scala)
-                    .iter()
-                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
-                let open = std::iter::successors(clause.find(&line), |m| {
-                    clause.find_at(&line, m.start() + 1)
-                })
-                .any(|m| !clause_closed_at(&line, m.start(), col));
-                (lambda, open)
-            }
-            None => (
-                lambda_names(&code, scala).iter().any(|p| p == name),
-                clause.is_match(&code),
-            ),
-        };
-        if clause || lambda {
-            out.push(i + 1);
-        }
-    }
-    out.sort_unstable();
-    out.dedup();
-    out
 }
 
 pub(super) fn jvm_bindings(
@@ -348,6 +304,9 @@ pub(super) fn jvm_bindings(
                 && !member_or_top_level
             {
                 out.push(binding(i + 1));
+            } else if !member_or_top_level && let Some(k) = continued_declarator(lines, i, at, name)
+            {
+                out.push(binding(k + 1));
             }
             continue;
         }
@@ -371,11 +330,19 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
+        if scala && super::jvm_rebound::local_def_header(lines, i, name) {
+            out.push(binding(i + 1));
+        }
         out.extend(
             header_lines1_binding(lines, i, end, name, None, scala)
                 .into_iter()
                 .map(binding),
         );
+    }
+    if out.is_empty()
+        && let Some(k) = script_binding(path, lines, &text, &literal, at, name)
+    {
+        out.push(binding(k + 1));
     }
     if super::scala(path)
         && let Some(col) = col

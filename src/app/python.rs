@@ -404,12 +404,8 @@ impl App {
         let says_self = self.hierarchy(Kind::Python, &class, 0, &mut |t| {
             let text = self.text_of(&t.path)?;
             let found = search::field_bindings(Kind::Python, &text, t.line, field);
-            let self_type = search::imports(Kind::Python, &text).iter().any(|i| {
-                i.name == "Self"
-                    && matches!(&i.path[..], [m, s] if s == "Self" && (m == "typing" || m == "typing_extensions"))
-            });
             (!found.is_empty()).then(|| {
-                self_type
+                imports_typing_self(&text)
                     && found
                         .iter()
                         .all(|b| matches!(&b.value, search::Value::Type(s) if s == "Self"))
@@ -716,6 +712,13 @@ impl App {
         };
         self.type_decl(kind, &at, class)
     }
+}
+
+pub(super) fn imports_typing_self(text: &str) -> bool {
+    search::imports(Kind::Python, text).iter().any(|i| {
+        i.name == "Self"
+            && matches!(&i.path[..], [m, s] if s == "Self" && (m == "typing" || m == "typing_extensions"))
+    })
 }
 
 pub(super) fn enclosing_def_lines1(text: &str, line1: usize) -> Vec<usize> {

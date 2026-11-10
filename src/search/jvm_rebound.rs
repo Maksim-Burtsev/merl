@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::jvm::{anonymous, ident, jvm_bindings, param_names};
+use super::jvm::{anonymous, ident, jvm_bindings, param_lists_line1_binding, param_names};
 use super::{Binding, Kind, Value, code, indent, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
@@ -54,7 +54,7 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
             b',' if depth == 0 => {
                 let segment = code.get(i + 1..)?;
                 let at = i + 1 + segment.len() - segment.trim_start().len();
-                let after = code.get(at..)?.strip_prefix(name)?;
+                let after = code.get(at..)?.strip_prefix(name).unwrap_or("_");
                 let tail = after.trim_start();
                 if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
                     && (tail.is_empty()
@@ -70,11 +70,47 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
     None
 }
 
+static FOR: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\bfor\s*\(").expect("the regex is a literal"));
+
 pub(super) fn later_declarator_type(line: &str, name: &str) -> Option<String> {
     let line = blanked(line);
     std::iter::once(0)
         .chain(line.match_indices([';', '{', '}']).map(|(i, _)| i + 1))
+        .chain(FOR.find_iter(&line).map(|m| m.end()))
         .find_map(|s| later_declarator(line.get(s..)?, name).map(|(t, _)| t))
+}
+
+pub(super) fn for_init_declarators(line: &str, name: &str) -> Vec<(usize, usize)> {
+    FOR.find_iter(line)
+        .filter_map(|m| {
+            let (_, at) = later_declarator(line.get(m.end()..)?, name)?;
+            Some((m.start(), m.end() + at))
+        })
+        .collect()
+}
+
+pub(super) fn continued_declarator(
+    lines: &[&str],
+    i: usize,
+    before: usize,
+    name: &str,
+) -> Option<usize> {
+    let head = blanked(&uncommented(Kind::Jvm, lines[i]));
+    if !head.trim_end().ends_with(',') {
+        return None;
+    }
+    let mut joined = head.trim_start().to_owned();
+    let mut starts = vec![(0, i)];
+    for k in (i + 1..before)
+        .take_while(|&k| lines[k].trim().is_empty() || indent(lines[k]) > indent(lines[i]))
+    {
+        joined.push(' ');
+        starts.push((joined.len(), k));
+        joined.push_str(&blanked(&uncommented(Kind::Jvm, lines[k])));
+    }
+    let (_, at) = later_declarator(&joined, name)?;
+    starts.iter().rev().find(|(s, _)| *s <= at).map(|&(_, k)| k)
 }
 
 pub(super) fn case_label_end(t: &str) -> usize {
@@ -95,11 +131,18 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
         || later_declarator(&blanked(t), name).is_some()
 }
 
+pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str) -> bool {
+    let header = uncommented(Kind::Jvm, lines[i]);
+    header.trim_start().starts_with("def ")
+        && declares_local(header.trim(), name)
+        && super::jvm::scope_of(lines, i).is_some_and(|s| !super::jvm::opens_type(lines[s]))
+}
+
 pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|def\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };
@@ -534,4 +577,52 @@ pub fn jvm_anonymous_bases(line: &str) -> Vec<String> {
         )
         .map(str::to_owned)
         .collect()
+}
+
+pub(super) fn header_lines1_binding(
+    lines: &[&str],
+    from: usize,
+    to: usize,
+    name: &str,
+    cursor: Option<usize>,
+    scala: bool,
+) -> Vec<usize> {
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let ret = super::jvm_return_type!();
+    let clause = rule(format!(
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*[\w(),\s]*?<-[^{{}}]*?;\s*{n}\s*(?::[^<;]*)?(?:<-|=[^=>])|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
+    ));
+    let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
+        .into_iter()
+        .collect();
+    for (i, l) in lines.iter().enumerate().take(to + 1).skip(from) {
+        let code = uncommented(Kind::Jvm, l);
+        let (lambda, clause) = match cursor {
+            Some(col) => {
+                let line = blanked(l);
+                let lambda = lambda_binders(&line, scala)
+                    .iter()
+                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
+                let open = std::iter::successors(clause.find(&line), |m| {
+                    clause.find_at(&line, m.start() + 1)
+                })
+                .any(|m| !clause_closed_at(&line, m.start(), col))
+                    || for_init_declarators(&line, name)
+                        .iter()
+                        .any(|&(s, at)| at <= col && !clause_closed_at(&line, s, col));
+                (lambda, open)
+            }
+            None => (
+                lambda_names(&code, scala).iter().any(|p| p == name),
+                clause.is_match(&code) || !for_init_declarators(&blanked(&code), name).is_empty(),
+            ),
+        };
+        if clause || lambda {
+            out.push(i + 1);
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
 }

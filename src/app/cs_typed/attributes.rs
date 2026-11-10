@@ -20,27 +20,39 @@ impl App {
 
     pub(in crate::app) fn cs_in_scope(&self, here: &Path, word: &str, hits: Vec<Hit>) -> Vec<Hit> {
         let text = self.buf.lines.join("\n");
-        if here.extension().is_none_or(|e| e != "cs") || !one_namespace(&text, None) {
+        let blocks = (!one_namespace(&text, None))
+            .then(|| search::cs_namespace_blocks(&text, self.line + 1));
+        if here.extension().is_none_or(|e| e != "cs")
+            || blocks.as_ref().is_some_and(Option::is_none)
+        {
             return hits;
         }
-        let Some((seen, implicit)) = self.cs_namespaces_seen(here, &text, word) else {
+        let Some((seen, implicit)) = self.cs_namespaces_seen(
+            here,
+            &text,
+            word,
+            blocks.as_ref().and_then(|b| b.as_deref()),
+        ) else {
             return hits;
         };
         let ctor = Regex::new(&search::def_patterns(Kind::CSharp, word)[4])
             .expect("an escaped name keeps the pattern valid");
         hits.iter()
             .filter(|h| {
-                let Some(t) = self
-                    .text_of(&h.path)
-                    .filter(|t| one_namespace(t, Some(h.line1)))
-                else {
+                let Some(t) = self.text_of(&h.path) else {
+                    return true;
+                };
+                let ns = if one_namespace(&t, Some(h.line1)) {
+                    search::cs_namespace(&t, h.line1)
+                } else if let Some(b) = search::cs_namespace_blocks(&t, h.line1) {
+                    dotted(&b)
+                } else {
                     return true;
                 };
                 let top = match search::cs_owner(&t, h.line1) {
                     None => search::cs_type_decl(&h.text).is_some(),
                     Some(d) => search::cs_owner(&t, d).is_none() && ctor.is_match(&h.text),
                 };
-                let ns = search::cs_namespace(&t, h.line1);
                 let sdk = ns
                     .split('.')
                     .next()
@@ -109,9 +121,15 @@ impl App {
         here: &Path,
         text: &str,
         word: &str,
+        blocks: Option<&[(usize, String)]>,
     ) -> Option<(Vec<String>, bool)> {
+        let open = |i: usize| match &blocks {
+            None => true,
+            Some(b) => search::cs_namespace_blocks(text, i + 1)
+                .is_some_and(|u| u.iter().all(|n| b.contains(n))),
+        };
         let mut usings: Vec<search::CsUsing> = search::cs_code_lines(text)
-            .filter_map(|(_, l)| search::cs_using(l))
+            .filter_map(|(i, l)| search::cs_using(l).filter(|_| open(i)))
             .collect();
         for h in self.project_grep(Kind::CSharp, here, r"^\u{feff}?\s*global\s+using\s") {
             if self.hidden_now(Kind::CSharp, &h).get(h.line1 - 1) != Some(&true) {
@@ -119,7 +137,7 @@ impl App {
             }
         }
         let (mut seen, implicit) = self.cs_project_usings()?;
-        let mut at = search::cs_namespace(text, self.line + 1);
+        let mut at = blocks.map_or_else(|| search::cs_namespace(text, self.line + 1), dotted);
         let mut around = Vec::new();
         while let Some((outer, _)) = at.rsplit_once('.') {
             let outer = outer.to_owned();
@@ -178,6 +196,11 @@ impl App {
             _ => outside,
         }
     }
+}
+
+fn dotted(blocks: &[(usize, String)]) -> String {
+    let names: Vec<&str> = blocks.iter().map(|(_, n)| n.as_str()).collect();
+    names.join(".")
 }
 
 fn imported(from: &Path, project: &str) -> Option<std::path::PathBuf> {

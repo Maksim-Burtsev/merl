@@ -112,13 +112,63 @@ pub fn jvm_package(text: &str) -> Option<String> {
         .find(|p| p != "object")
 }
 
-pub const JAVA_LANG_ANNOTATIONS: [&str; 5] = [
+const JAVA_LANG_ANNOTATIONS: [&str; 5] = [
     "Override",
     "Deprecated",
     "SuppressWarnings",
     "FunctionalInterface",
     "SafeVarargs",
 ];
+
+const KOTLIN_ANNOTATIONS: [&str; 32] = [
+    "Deprecated",
+    "ReplaceWith",
+    "DeprecatedSinceKotlin",
+    "Suppress",
+    "PublishedApi",
+    "DslMarker",
+    "OptIn",
+    "RequiresOptIn",
+    "SinceKotlin",
+    "UnsafeVariance",
+    "ExtensionFunctionType",
+    "ParameterName",
+    "BuilderInference",
+    "Target",
+    "Retention",
+    "Repeatable",
+    "MustBeDocumented",
+    "JvmStatic",
+    "JvmField",
+    "JvmOverloads",
+    "JvmName",
+    "JvmMultifileClass",
+    "JvmSuppressWildcards",
+    "JvmWildcard",
+    "JvmSynthetic",
+    "JvmInline",
+    "JvmRecord",
+    "Throws",
+    "Synchronized",
+    "Volatile",
+    "Transient",
+    "Strictfp",
+];
+
+pub fn jvm_builtin_annotation(path: &Path, before: &str, word: &str) -> bool {
+    static USE_SITE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"@(?:file|property|field|get|set|receiver|param|setparam|delegate)\s*:$")
+            .expect("the regex is a literal")
+    });
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("java") => before.ends_with('@') && JAVA_LANG_ANNOTATIONS.contains(&word),
+        Some("kt" | "kts") => {
+            (before.ends_with('@') || USE_SITE.is_match(before))
+                && (KOTLIN_ANNOTATIONS.contains(&word) || JAVA_LANG_ANNOTATIONS.contains(&word))
+        }
+        _ => false,
+    }
+}
 
 pub struct JvmEnumImport {
     pub owner: String,

@@ -4,7 +4,7 @@ use regex::Regex;
 
 use super::{
     Group, Kind, body_of, code, group, hole_line, indent, literal_lines, path_literal_lines,
-    python_header, split_top, word_at,
+    python_header, split_top, uncommented, word_at,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,16 +238,58 @@ fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Opt
     {
         return None;
     }
-    let owner = callee(kind, line, start).map(|byte_col| LabelOwner {
-        line0,
-        byte_col,
-        how: Owner::Args,
-    });
+    let args = if head.ends_with(',') {
+        ruby_command_args(kind, lead)
+    } else {
+        Some(start)
+    };
+    let owner = args
+        .and_then(|a| callee(kind, line, a))
+        .map(|byte_col| LabelOwner {
+            line0,
+            byte_col,
+            how: Owner::Args,
+        });
     Some(Label {
         what: "argument label",
         owner,
         nested: false,
     })
+}
+
+fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
+    let first = split_top(kind, lead, b',').into_iter().next()?;
+    let b = first.as_bytes();
+    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let named = |h: &[u8]| match h {
+        [.., p, b'!' | b'?'] | [.., p] => name(*p),
+        [] => false,
+    };
+    let unary = |i: usize| {
+        b.get(i + 1)
+            .is_some_and(|&n| !n.is_ascii_whitespace() && n != b'=')
+    };
+    let mut depth = 0i32;
+    let mut out = None;
+    for (i, c) in code(kind, first) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        let gap = i > 0 && b[i - 1].is_ascii_whitespace();
+        let starts_arg = name(c)
+            || matches!(c, b'@' | b'$' | b'(' | b'[')
+            || (matches!(c, b':' | b'-' | b'*' | b'&' | b'!') && unary(i));
+        if depth == i32::from(matches!(c, b'(' | b'['))
+            && gap
+            && starts_arg
+            && named(first.get(..i)?.trim_end().as_bytes())
+        {
+            out = Some(i);
+        }
+    }
+    out
 }
 
 fn swift_implicit_init(
@@ -961,16 +1003,17 @@ fn params(
         "" => 0,
         _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
-        Some((_, open)) => open?,
-        None => code(kind, lines[decl_line0])
-            .find(|&(i, c)| i >= from && c == b'(')
-            .map(|(i, _)| i)?,
+    let inner = if let Some(inner) = ruby_bare_params(kind, lines, decl_line0, from) {
+        inner
+    } else {
+        let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
+            Some((_, open)) => open?,
+            None => code(kind, lines[decl_line0])
+                .find(|&(i, c)| i >= from && c == b'(')
+                .map(|(i, _)| i)?,
+        };
+        group(kind, lines, decl_line0, open)?.inner_uncommented
     };
-    let Group {
-        inner_uncommented: inner,
-        ..
-    } = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',')
         .into_iter()
@@ -979,6 +1022,37 @@ fn params(
             let at = find(p)? + (p.as_ptr() as usize - base);
             Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
         })
+}
+
+fn ruby_bare_params(kind: Kind, lines: &[&str], decl_line0: usize, from: usize) -> Option<String> {
+    let line = lines[decl_line0];
+    let rest = line.get(from..)?;
+    let def = line
+        .get(..from)?
+        .trim_start()
+        .strip_prefix("def ")
+        .map(str::trim_start);
+    if kind != Kind::Ruby
+        || !def.is_some_and(|d| !d.is_empty() && !d.contains([' ', '(']))
+        || !rest.starts_with([' ', '\t'])
+        || rest.trim_start().starts_with('(')
+    {
+        return None;
+    }
+    let mut out = String::new();
+    for l in std::iter::once(rest).chain(lines.iter().skip(decl_line0 + 1).copied()) {
+        let l = uncommented(kind, l);
+        let end = code(kind, &l)
+            .find(|&(_, c)| c == b';')
+            .map_or(l.len(), |(i, _)| i);
+        let piece = l.get(..end)?;
+        out.push_str(piece);
+        if end < l.len() || !piece.trim_end().ends_with(',') {
+            return Some(out);
+        }
+        out.push('\n');
+    }
+    Some(out)
 }
 
 fn dart_optional(kind: Kind, part: &str) -> Vec<&str> {
@@ -1230,6 +1304,14 @@ mod tests {
             ),
             vec![2]
         );
+        let rb = "class Satchel\n  def initialize(grams:, owner: nil)\n  end\nend\ndef pair cups, mugful: 0, # x\n         pot: nil; cups\nend\ndef bare a: f(mugful: 1)\nend\n";
+        let ruby = |decl, name, word| label_lines(Kind::Ruby, rb, decl, name, word, &Owner::Args);
+        assert_eq!(ruby(1, "Satchel", "owner"), vec![2]);
+        assert_eq!(ruby(2, "new", "owner"), vec![2]);
+        assert_eq!(ruby(5, "pair", "mugful"), vec![5]);
+        assert_eq!(ruby(5, "pair", "pot"), vec![6]);
+        assert_eq!(ruby(5, "pair", "cups"), vec![5]);
+        assert_eq!(ruby(8, "bare", "mugful"), Vec::<usize>::new());
         let php = "function discount(int $total): int\n{\n}\nclass Song {\n    public function __construct(private readonly int $ids) {}\n}\n";
         assert_eq!(
             label_lines(Kind::Php, php, 1, "discount", "total", &Owner::Args),

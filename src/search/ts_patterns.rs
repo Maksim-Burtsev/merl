@@ -526,14 +526,7 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
         depth = ind + usize::from(t.starts_with([')', '>']));
         let last = t
             .ends_with('<')
-            .then(|| {
-                (i + 1..lines.len().min(i + 16)).find(|&j| {
-                    literal.get(j) != Some(&true)
-                        && uncommented(Kind::TsJs, lines[j])
-                            .trim_start()
-                            .starts_with('>')
-                })
-            })
+            .then(|| super::generics::wrapped_list(Kind::TsJs, &lines, &literal, i))
             .flatten()
             .unwrap_or(i);
         let joined = (i..=last)

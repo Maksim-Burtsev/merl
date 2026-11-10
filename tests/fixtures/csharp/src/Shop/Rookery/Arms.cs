@@ -7,11 +7,11 @@ namespace Shop.Rookery;
 public static class Arms
 {
     public static int Inline(Chessman piece) => piece switch { Pawn => 0, Rook => 1, _ => 2 };
-                                                                       // ^ d: none; want src/Shop/Rookery/Chessman.cs:5 (#1448)
+                                                                       // ^ d: src/Shop/Rookery/Chessman.cs:5
     public static int Either(Chessman piece) => piece switch
     {
         Pawn or Rook => 1,
-             // ^ d: none; want src/Shop/Rookery/Chessman.cs:5 (#1448)
+             // ^ d: src/Shop/Rookery/Chessman.cs:5
         _ => 0,
     };
 
