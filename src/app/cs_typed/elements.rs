@@ -1,5 +1,5 @@
 use super::{CsType, CsWrittenType, Proven, one_more, same};
-use crate::app::{App, Hit, Kind, Path, Typed, search};
+use crate::app::{App, Candidate, Hit, Kind, Path, Reason, Typed, search};
 
 impl App {
     pub(super) fn cs_await(&self, p: Proven) -> Option<Proven> {
@@ -219,5 +219,49 @@ impl App {
                         .get(r.end..)
                         .is_some_and(|a| a.trim_start().starts_with('('))
             })
+    }
+
+    pub(in crate::app) fn cs_static_enum_case(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let mut found = Vec::new();
+        for (k, line) in search::cs_code_lines(text) {
+            let Some(u) = (line.contains("using static "))
+                .then(|| search::cs_using(line))
+                .flatten()
+                .filter(|u| u.fixed && u.alias.is_none())
+            else {
+                continue;
+            };
+            let Some(CsType::Project(t)) = self.cs_resolve(here, text, k + 1, &u.target) else {
+                continue;
+            };
+            let Some(owner) = self.text_of(&t.path) else {
+                continue;
+            };
+            let is_enum = (owner.lines().nth(t.line - 1))
+                .and_then(search::cs_type_decl)
+                .is_some_and(|d| d.keyword == "enum");
+            let Some((line1, col)) = is_enum
+                .then(|| search::enum_member(Kind::CSharp, &owner, t.line, word))
+                .flatten()
+            else {
+                continue;
+            };
+            found.push(Candidate {
+                hit: Hit {
+                    deleted: None,
+                    text: owner.lines().nth(line1 - 1).unwrap_or_default().to_owned(),
+                    path: t.path,
+                    line1,
+                    byte_col: Some(col),
+                },
+                reason: Reason::Path(u.target),
+            });
+        }
+        found
     }
 }
