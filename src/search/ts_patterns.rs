@@ -877,3 +877,61 @@ fn code_only(line: &str) -> String {
     }
     String::from_utf8_lossy(&b).into_owned()
 }
+
+pub fn ts_awaited(
+    kind: Kind,
+    text: &str,
+    line1: usize,
+    callee: &str,
+    written: &str,
+) -> Option<String> {
+    let inner = written
+        .trim()
+        .strip_prefix("Promise<")?
+        .strip_suffix('>')?
+        .trim();
+    let nests = inner.chars().try_fold(0usize, |depth, c| match c {
+        '<' => Some(depth + 1),
+        '>' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    if kind != Kind::TsJs || nests != Some(0) {
+        return None;
+    }
+    let line = code_only(text.lines().nth(line1.checked_sub(1)?)?);
+    let closes_above = line.bytes().try_fold(0usize, |depth, c| match c {
+        b'(' | b'[' | b'{' => Some(depth + 1),
+        b')' | b']' | b'}' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    let method = callee.rsplit('.').next()?;
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut uses = line.match_indices(method).map(|(i, _)| i).filter(|&i| {
+        !line.get(..i).is_some_and(|b| b.ends_with(name))
+            && !line
+                .get(i + method.len()..)
+                .is_some_and(|a| a.starts_with(name))
+    });
+    let (Some(end), None) = (uses.next(), uses.next()) else {
+        return None;
+    };
+    let at = (end + method.len()).checked_sub(callee.len())?;
+    let awaited = line.get(..at).is_some_and(|before| {
+        before.ends_with(char::is_whitespace)
+            && before
+                .trim_end()
+                .strip_suffix("await")
+                .is_some_and(|head| !head.ends_with(|c: char| name(c) || c == '.'))
+    });
+    let ended = line
+        .get(at..)
+        .is_some_and(|l| l.starts_with(&format!("{callee}(")))
+        && close_of(kind, &line, at + callee.len())
+            .and_then(|end| line.get(end..))
+            .is_some_and(|rest| {
+                let rest = rest.trim_start();
+                rest.is_empty() || rest.starts_with([';', ')', ','])
+            });
+    let continued = line.trim_start().starts_with('.') || closes_above.is_none();
+    (awaited && ended && !continued).then(|| inner.to_owned())
+}
