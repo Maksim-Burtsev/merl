@@ -393,7 +393,7 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
             Some(r) if r.ends_with(')') => rest = r,
             Some(r) => {
                 static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                    Regex::new(r"(?:^|[^\w.)\]?!$`])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
+                    Regex::new(r"(?:^|[^\w.)\]?!$`])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
                         .expect("the regex is a literal")
                 });
                 let value = VALUE.captures(r)?;

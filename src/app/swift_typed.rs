@@ -616,6 +616,7 @@ impl App {
         let line1 = self.line + 1;
         let unshadowed = match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if name == "self" => true,
+            [] => name.starts_with(char::is_uppercase),
             [b] if b.line1 < line1 => !lines[b.line1..line1 - 1]
                 .iter()
                 .copied()
