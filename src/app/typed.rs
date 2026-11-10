@@ -170,6 +170,9 @@ impl App {
                 return None;
             };
             links.push(signature(kind, method, &written));
+            if kind == Kind::TsJs && written.trim() == "this" {
+                continue;
+            }
             match self.annotated_type(kind, &decl.path, &text, 0, &written) {
                 Some(next) => ty = next,
                 None if kind == Kind::Go && self.go_outside(&decl.path, &text, &written) => {

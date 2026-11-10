@@ -602,8 +602,9 @@ impl App {
         Some(generics)
     }
 
-    pub(super) fn swift_unshadowed_links(
+    pub(super) fn swift_chain_links(
         &self,
+        here: &Path,
         text: &str,
         lead: Option<&str>,
     ) -> Option<Vec<String>> {
@@ -616,6 +617,11 @@ impl App {
         let line1 = self.line + 1;
         let unshadowed = match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if name == "self" => true,
+            [] => {
+                name.starts_with(char::is_uppercase)
+                    && !search::swift_shadows(lead, name)
+                    && self.swift_top_level_head(here, text, line1, name)
+            }
             [b] if b.line1 < line1 => !lines[b.line1..line1 - 1]
                 .iter()
                 .copied()

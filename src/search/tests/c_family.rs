@@ -1427,7 +1427,10 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     assert_eq!(swift_call_links("    .sift(1).finish()."), None);
     assert_eq!(swift_call_links("a[0].sift(1).finish()."), None);
     assert_eq!(swift_call_links("w?.sift(1).finish()."), None);
-    assert_eq!(swift_call_links("Shop.sift(1).finish()."), None);
+    assert_eq!(
+        swift_call_links("Shop.sift(1).finish()."),
+        Some(vec!["Shop.sift".into(), "finish".into()])
+    );
     let lines = [
         "#if os(macOS)",
         "typealias K = A",

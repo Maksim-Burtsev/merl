@@ -92,6 +92,35 @@ impl App {
         out
     }
 
+    pub(super) fn swift_top_level_head(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> bool {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let mut at = search::swift_scope(&lines, &literal, line1).header_line1;
+        while let Some(line) = at.checked_sub(1).and_then(|i| lines.get(i)) {
+            if let Some(t) = search::swift_extended(line)
+                && self
+                    .swift_type(here, &t)
+                    .is_none_or(|t| t.keyword.is_none())
+            {
+                return false;
+            }
+            at = search::swift_scope(&lines, &literal, at).header_line1;
+        }
+        !self
+            .swift_scope_generics(here, text, line1)
+            .iter()
+            .any(|g| g == name)
+            && self
+                .swift_type(here, name)
+                .is_some_and(|t| t.keyword.is_some() && t.owner == name)
+    }
+
     pub(in crate::app) fn swift_by_argument_types(
         &self,
         call: &search::SwiftCall,
