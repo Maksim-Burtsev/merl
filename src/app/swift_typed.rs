@@ -1229,18 +1229,22 @@ impl App {
         let written = match search::swift_called_closure(lead) {
             Some(callee) => {
                 let bound = search::bindings(Kind::Swift, text, line1, &callee);
-                let [b] = bound.as_slice() else {
-                    return None;
-                };
-                let search::SwiftGiven::Type(t) =
-                    search::swift_given(lines.get(b.line1 - 1)?, &callee)?
-                else {
-                    return None;
-                };
-                search::swift_closure_takes(&t)?
+                match bound.as_slice() {
+                    [] => self.swift_free_call_type(here, text, lead)?,
+                    [b] => {
+                        let search::SwiftGiven::Type(t) =
+                            search::swift_given(lines.get(b.line1 - 1)?, &callee)?
+                        else {
+                            return None;
+                        };
+                        search::swift_closure_takes(&t)?
+                    }
+                    _ => return None,
+                }
             }
             None => match search::swift_expected(&lines, &literal, line1, lead)
                 .or_else(|| swift_subject_type(text, &lines, &literal, line1, lead))
+                .or_else(|| self.swift_free_call_type(here, text, lead))
             {
                 Some(w) => w,
                 None => match self.swift_argument_rows(here, lead, word)? {

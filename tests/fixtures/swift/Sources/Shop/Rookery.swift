@@ -21,9 +21,9 @@ func advance(_ piece: Chessman) -> Int {
 
 func roost(bird: Corvid, piece: Chessman) -> Bool {
     _ = perch(.rook)
-            // ^ d: picker Sources/Shop/Chessman.swift:2, Sources/Shop/Corvid.swift:2; want Sources/Shop/Corvid.swift:2 (#1448)
+            // ^ d: Sources/Shop/Corvid.swift:2
     _ = advance(.rook)
-              // ^ d: picker Sources/Shop/Chessman.swift:2, Sources/Shop/Corvid.swift:2; want Sources/Shop/Chessman.swift:2 (#1448)
+              // ^ d: Sources/Shop/Chessman.swift:2
     let held: Corvid = .rook
                      // ^ d: Sources/Shop/Corvid.swift:2
     _ = held
@@ -45,4 +45,30 @@ func perchOver(bird: Corvid, kinds: [Chessman]) -> Bool {
                // ^ d: Sources/Shop/Corvid.swift:2
         return true
     }
+}
+
+func hop(_ bird: Corvid) -> Int { 0 }
+
+struct Hopper {
+    func hop(_ piece: Chessman) -> Int { 1 }
+
+    func land() -> Int {
+        hop(.rook)
+          // ^ d: picker Sources/Shop/Chessman.swift:2, Sources/Shop/Corvid.swift:2
+    }
+}
+
+func preen(_ bird: Corvid) -> Int { 0 }
+
+func flutter() -> Int {
+    let preen = { (piece: Chessman) in 0 }
+    return preen(.rook)
+               // ^ d: picker Sources/Shop/Chessman.swift:2, Sources/Shop/Corvid.swift:2
+}
+
+func nest(depth: Int, piece: Chessman) -> Int { depth }
+
+func alight() -> Int {
+    nest(depth: 1, piece: .rook)
+                         // ^ d: Sources/Shop/Chessman.swift:2
 }

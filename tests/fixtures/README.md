@@ -1332,7 +1332,9 @@ enclosing enum declares itself, or a case label in a switch on a type merl canno
 `Stray.java` imports an enum the project does not hold; Kotlin's `Both.kt` has an explicit
 import of a case win over a star import of its namesake's enum.
 C#'s `Shade.cs` has a member and a parameter named like a case of a `using static` enum keep
-their answer; Swift's `perchOver` switches on a parameter whose namesake a `for` shadows.
+their answer; Swift's `perchOver` switches on a parameter whose namesake a `for` shadows, and
+`Hopper.land` and `flutter` call a top-level function's namesake, a method and a local closure;
+Dart's `shadowed` compares a local that hides a parameter of the other enum.
 
 ### Adding a kind
 

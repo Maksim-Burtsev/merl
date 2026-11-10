@@ -1453,3 +1453,10 @@ pub fn dart_this_super(text: &str, line0: usize, of_super: bool) -> Option<DartT
         constructor: None,
     })
 }
+
+pub fn dart_compared(before: &str) -> Option<String> {
+    static COMPARED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.?!])([a-z_$][\w$]*)\s*[!=]=\s*\.$").expect("the regex is a literal")
+    });
+    Some(COMPARED.captures(before)?[1].to_owned())
+}
