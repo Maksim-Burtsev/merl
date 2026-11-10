@@ -23,12 +23,13 @@ impl App {
         if here.extension().is_none_or(|e| e != "cs") || !one_namespace(&text, None) {
             return hits;
         }
-        let Some(seen) = self.cs_namespaces_seen(here, &text, word) else {
+        let Some((seen, implicit)) = self.cs_namespaces_seen(here, &text, word) else {
             return hits;
         };
         let ctor = Regex::new(&search::def_patterns(Kind::CSharp, word)[4])
             .expect("an escaped name keeps the pattern valid");
-        hits.into_iter()
+        let kept: Vec<Hit> = hits
+            .iter()
             .filter(|h| {
                 let Some(t) = self
                     .text_of(&h.path)
@@ -40,12 +41,94 @@ impl App {
                     None => search::cs_type_decl(&h.text).is_some(),
                     Some(d) => search::cs_owner(&t, d).is_none() && ctor.is_match(&h.text),
                 };
-                h.deleted.is_some() || !top || seen.contains(&search::cs_namespace(&t, h.line1))
+                let ns = search::cs_namespace(&t, h.line1);
+                let sdk = ns
+                    .split('.')
+                    .next()
+                    .is_some_and(|t| t == "System" || t == "Microsoft");
+                h.deleted.is_some() || !top || seen.contains(&ns) || implicit && sdk
             })
-            .collect()
+            .cloned()
+            .collect();
+        if kept.is_empty() { hits } else { kept }
     }
 
-    fn cs_namespaces_seen(&self, here: &Path, text: &str, word: &str) -> Option<Vec<String>> {
+    fn cs_project_usings(&self) -> Option<(Vec<String>, bool)> {
+        static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"<Using\s+(Include|Remove)="([\w.]+)""#).expect("the regex is a literal")
+        });
+        static IMPLICIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"<ImplicitUsings>\s*(\w+)\s*</ImplicitUsings>")
+                .expect("the regex is a literal")
+        });
+        static SDK: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"\bSdk="([^"]*)"|<Sdk\s+Name="([^"]*)""#).expect("the regex is a literal")
+        });
+        static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r#"<Import\s+Project="([^"]*)""#).expect("the regex is a literal")
+        });
+        let msbuild = |p: &Path| {
+            p.extension()
+                .is_some_and(|e| e == "csproj" || e == "props" || e == "targets")
+        };
+        let pattern = r"<Using\b|<Import\b|<Sdk\b|\bSdk=|ImplicitUsings";
+        let (mut seen, mut implicit) = (Vec::new(), false);
+        for h in self.grep(pattern, false, false, msbuild).ok()? {
+            for sdk in SDK.captures_iter(&h.text) {
+                let names = sdk.get(1).or_else(|| sdk.get(2))?.as_str();
+                if !names
+                    .split(';')
+                    .all(|n| n.trim().starts_with("Microsoft.NET.Sdk"))
+                {
+                    return None;
+                }
+            }
+            if h.text.contains("<Using") {
+                let c = INCLUDE
+                    .captures(&h.text)
+                    .filter(|_| !h.text.contains("Alias"))?;
+                if &c[1] == "Include" {
+                    seen.push(c[2].to_owned());
+                }
+            } else if h.text.contains("ImplicitUsings") {
+                match &IMPLICIT.captures(&h.text)?[1] {
+                    "enable" | "true" => implicit = true,
+                    "disable" | "false" => {}
+                    _ => return None,
+                }
+            } else if h.text.contains("<Import") && !h.text.contains("Sdk=") {
+                let to = IMPORT.captures(&h.text)?[1]
+                    .replace("$(MSBuildThisFileDirectory)", "")
+                    .replace('\\', "/");
+                if to.contains(['$', '*', '@', '%']) {
+                    return None;
+                }
+                let mut path = std::path::PathBuf::new();
+                for c in h.path.parent()?.join(to).components() {
+                    match c {
+                        std::path::Component::ParentDir => {
+                            if !path.pop() {
+                                return None;
+                            }
+                        }
+                        std::path::Component::CurDir => {}
+                        c => path.push(c),
+                    }
+                }
+                if !self.files.contains(&path) {
+                    return None;
+                }
+            }
+        }
+        Some((seen, implicit))
+    }
+
+    fn cs_namespaces_seen(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+    ) -> Option<(Vec<String>, bool)> {
         let mut usings: Vec<search::CsUsing> = search::cs_code_lines(text)
             .filter_map(|(_, l)| search::cs_using(l))
             .collect();
@@ -54,31 +137,29 @@ impl App {
                 usings.extend(search::cs_using(&h.text));
             }
         }
-        let csproj = |p: &Path| p.extension().is_some_and(|e| e == "csproj");
-        let mut seen = Vec::new();
-        for h in self.grep(r"<Using\b", false, false, csproj).ok()? {
-            if h.text.contains("Alias") {
-                return None;
-            }
-            seen.extend(search::cs_usings(&h.text));
+        let (mut seen, implicit) = self.cs_project_usings()?;
+        let mut at = search::cs_namespace(text, self.line + 1);
+        let mut around = Vec::new();
+        while let Some((outer, _)) = at.rsplit_once('.') {
+            let outer = outer.to_owned();
+            around.push(std::mem::replace(&mut at, outer));
         }
+        around.push(at);
         let names = [word.to_owned(), format!("{word}Attribute")];
         for u in usings {
             if u.alias.as_ref().is_some_and(|a| names.contains(a)) {
                 return None;
             }
             if u.alias.is_none() && !u.fixed {
-                seen.push(u.target.trim_start_matches("global::").to_owned());
+                let target = u.target.trim_start_matches("global::");
+                let inner = around.iter().filter(|a| !a.is_empty());
+                seen.extend(inner.map(|a| format!("{a}.{target}")));
+                seen.push(target.to_owned());
             }
         }
-        let mut at = search::cs_namespace(text, self.line + 1);
-        while let Some((outer, _)) = at.rsplit_once('.') {
-            let outer = outer.to_owned();
-            seen.push(std::mem::replace(&mut at, outer));
-        }
-        seen.push(at);
+        seen.extend(around);
         seen.push(String::new());
-        Some(seen)
+        Some((seen, implicit))
     }
 
     pub(in crate::app) fn cs_attribute_argument(

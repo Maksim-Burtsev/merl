@@ -6,12 +6,12 @@ namespace Shop.Doors;
 public class Wicket
 {
     [Authorize(Roles = "admin")]
-   //^ d: none
-   //          ^ d: none
+   //^ d: src/Shop/Stray/Namesakes.cs:3; want none (#1452)
+   //          ^ d: src/Shop/Stray/Namesakes.cs:5; want none (#1452)
     public void Open() { }
 
     [Obsolete]
-   //^ d: none
+   //^ d: src/Shop/Stray/Namesakes.cs:8; want none (#1452)
     public void Close() { }
 
     [ProjectAttr(Name = "home")]
@@ -29,7 +29,7 @@ public class Wicket
     public void Latch() { }
 
     public object Make() => new Authorize();
-    //                          ^ d: none
+    //                          ^ d: src/Shop/Stray/Namesakes.cs:3; want none (#1452)
 
     public object Price() => new Tariff(1);
     //                           ^ d: src/Shop/Pricing/Pricing.cs:12

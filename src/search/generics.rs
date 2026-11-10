@@ -350,9 +350,11 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
         Kind::Rust => angled(&RUST),
         Kind::Swift => angled(&SWIFT),
         Kind::CSharp => angled(&CSHARP_TYPE).or_else(|| {
-            csharp_method_list(t)
-                .and_then(|l| named(l, false))
-                .map(|b| (k, b))
+            let (list, inherits) = csharp_method_list(t)?;
+            let inherits = inherits
+                || t.split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == "override");
+            named(list, false).map(|b| (k, b.filter(|_| !inherits)))
         }),
         Kind::Go => {
             let list = |re: &Regex| list_after(t.get(re.find(t)?.end()..)?, b'[', b']');
@@ -382,9 +384,10 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
     }
 }
 
-fn csharp_method_list(t: &str) -> Option<&str> {
+fn csharp_method_list(t: &str) -> Option<(&str, bool)> {
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^([^=(]*[\w>\]?])\s+\w+\s*<").expect("the regex is a literal")
+        Regex::new(r"^([^=(]*[\w>\]?])\s+((?:\w+(?:<[^()]*?>)?\.)*)\w+\s*<")
+            .expect("the regex is a literal")
     });
     const STATEMENTS: [&str; 21] = [
         "return", "await", "new", "throw", "yield", "else", "in", "is", "as", "case", "when",
@@ -399,7 +402,7 @@ fn csharp_method_list(t: &str) -> Option<&str> {
     rest.get(list.len() + 1..)?
         .trim_start()
         .starts_with('(')
-        .then_some(list)
+        .then_some((list, !c[2].is_empty()))
 }
 
 fn go_constrained(list: &str) -> bool {
