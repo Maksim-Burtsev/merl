@@ -108,6 +108,10 @@ impl App {
         line1: usize,
         word: &str,
     ) -> Option<(usize, String)> {
+        let written = |l: &str| l.contains("using") && l.contains(word) && l.contains('=');
+        if !text.lines().any(written) {
+            return None;
+        }
         let mut aliases = search::cs_code_lines(text).filter_map(|(k, l)| {
             let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
             Some((k + 1, u.target))
@@ -120,6 +124,17 @@ impl App {
         {
             return None;
         }
+        (!self.cs_alias_hidden(here, text, line1, word, &target)).then_some((at, target))
+    }
+
+    pub(super) fn cs_alias_hidden(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+        target: &str,
+    ) -> bool {
         let mut levels = vec![String::new()];
         let inside = search::cs_namespace(text, line1);
         let mut level = inside.as_str();
@@ -128,13 +143,14 @@ impl App {
             level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
         }
         let own = target.strip_suffix(word).and_then(|q| q.strip_suffix('.'));
-        for h in self.cs_project_types(here, word) {
-            let ns = search::cs_namespace(&self.text_of(&h.path)?, h.line1);
-            if own != Some(ns.as_str()) && levels.contains(&ns) {
-                return None;
-            }
-        }
-        Some((at, target))
+        self.cs_project_types(here, word).iter().any(|h| {
+            let Some(t) = self.text_of(&h.path) else {
+                return true;
+            };
+            let ns = search::cs_namespace(&t, h.line1);
+            search::cs_owner(&t, h.line1).is_some()
+                || (own != Some(ns.as_str()) && levels.contains(&ns))
+        })
     }
 
     pub(super) fn cs_project_types(&self, here: &Path, name: &str) -> Vec<Hit> {

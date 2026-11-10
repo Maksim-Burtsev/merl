@@ -177,6 +177,10 @@ impl App {
         let (mut p, rest) = match (new, parts.split_first()) {
             (Some(w), _) => {
                 let link = format!("new {}", search::cs_type_name(&w)?);
+                let alias = (text.lines().filter_map(search::cs_using))
+                    .find(|u| !u.fixed && u.alias.as_deref() == Some(w.as_str()))
+                    .filter(|u| !self.cs_alias_hidden(file, text, line1, &w, &u.target));
+                let w = alias.map_or(w, |u| u.target);
                 let ty = self.cs_new_type(file, text, line1, &w)?;
                 let p = Proven {
                     ty,
@@ -758,13 +762,14 @@ impl App {
         if search::cs_generic_param(text, line1, &name) {
             return None;
         }
+        let cut = self.truncated.get();
         if written == name
             && let Some((_, target)) = self.cs_alias_target(file, text, line1, &name)
             && let Some(ty @ CsType::Project(_)) = self.cs_new_type(file, text, line1, &target)
         {
+            self.truncated.set(cut);
             return Some(ty);
         }
-        let cut = self.truncated.get();
         let pattern = search::def_patterns(Kind::CSharp, &name)[..4].join("|");
         let mut hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
         hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
