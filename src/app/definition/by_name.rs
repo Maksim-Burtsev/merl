@@ -638,7 +638,25 @@ impl App {
         }
     }
 
+    fn kotlin_unseen_dropped(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        if a.dotted
+            || !a.chain.is_empty()
+            || a.before.trim_end().ends_with("::")
+            || a.here.extension().is_none_or(|e| e != "kt")
+        {
+            return;
+        }
+        let plain = |c: &Candidate| plain_top_level(&c.hit.text, &a.word);
+        let seen = |c: &Candidate| self.jvm_package_sees(&a.here, &a.text, &a.word, &c.hit.path);
+        if found.iter().any(|c| plain(c) && seen(c)) {
+            found.retain(|c| !plain(c) || seen(c));
+        }
+    }
+
     fn top_level_only(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if a.kind == Kind::Jvm {
+            self.kotlin_unseen_dropped(a, found);
+        }
         if !self.called_from_top_level_def(a, near) {
             return;
         }

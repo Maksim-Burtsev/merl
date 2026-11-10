@@ -35,3 +35,16 @@ fun Sprig.plateExt(): Int = garnish()
 context(Sprig)
 fun plateCtx(): Int = garnish()
 //                    ^ d: !jump
+
+fun plateSprinkle() = sprinkle()
+//                    ^ d: src/main/kotlin/ladle/Spoon.kt:7
+
+fun plateSprinkleBlock(): Int {
+    return sprinkle()
+    //     ^ d: src/main/kotlin/ladle/Spoon.kt:7
+}
+
+class Shaker {
+    fun shake(): Int = sprinkle()
+    //                 ^ d: src/main/kotlin/ladle/Spoon.kt:7
+}
