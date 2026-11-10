@@ -1321,6 +1321,8 @@ lambdas that still bind. Java's `Shadow.java` keeps a static import from naming 
 enclosing enum declares itself, or a case label in a switch on a type merl cannot read;
 `Stray.java` imports an enum the project does not hold; Kotlin's `Both.kt` has an explicit
 import of a case win over a star import of its namesake's enum.
+C#'s `Shade.cs` has a member and a parameter named like a case of a `using static` enum keep
+their answer; Swift's `perchOver` switches on a parameter whose namesake a `for` shadows.
 
 ### Adding a kind
 
