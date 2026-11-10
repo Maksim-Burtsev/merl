@@ -368,14 +368,43 @@ impl App {
         Some(self.rust_got(&decl.path, returns, decl.line1 - 1))
     }
 
-    fn rust_step(&self, got: Got, link: &Link) -> Option<Got> {
+    fn rust_awaited_returns(&self, decl: &Hit, awaited: bool) -> Option<Got> {
+        if awaited && !decl.text.contains("async fn ") {
+            return None;
+        }
+        self.rust_fn_returns(decl)
+    }
+
+    fn rust_links(&self, mut got: Got, links: &[Link]) -> Option<Got> {
+        let awaits = |i: usize| links.get(i).is_some_and(|l| l.name == "await" && !l.call);
+        for (i, link) in links.iter().enumerate() {
+            if awaits(i) {
+                if !i
+                    .checked_sub(1)
+                    .and_then(|p| links.get(p))
+                    .is_some_and(|l| l.call)
+                {
+                    return None;
+                }
+                continue;
+            }
+            got = self.rust_step(got, link, awaits(i + 1))?;
+        }
+        Some(got)
+    }
+
+    fn rust_step(&self, got: Got, link: &Link, awaited: bool) -> Option<Got> {
         let unwraps =
             link.name == "?" || (link.call && matches!(link.name.as_str(), "unwrap" | "expect"));
         match got {
             Got::Ty(ty) if link.call => {
                 let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &link.name)).ok()?;
-                self.rust_fn_returns(&decl)
+                self.rust_awaited_returns(&decl, awaited)
             }
+            Got::Bound(b) if link.call => {
+                self.rust_awaited_returns(&self.rust_bound_method(&b, &link.name)?.0, awaited)
+            }
+            _ if awaited => None,
             Got::Ty(ty) if link.name != "?" => {
                 let (hit, written) = self.rust_field(&ty, &link.name)?;
                 Some(self.rust_got(&ty.path, written, hit.line1 - 1))
@@ -390,9 +419,6 @@ impl App {
                 written,
                 line0,
             } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
-            Got::Bound(b) if link.call => {
-                self.rust_fn_returns(&self.rust_bound_method(&b, &link.name)?.0)
-            }
             _ => None,
         }
     }
@@ -491,11 +517,10 @@ impl App {
         if w.rest != 0 {
             return None;
         }
-        let mut got = self.rust_head(file, text, at, &w, None)?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        let Got::Ty(ty) = got else { return None };
+        let got = self.rust_head(file, text, at, &w, None)?;
+        let Got::Ty(ty) = self.rust_links(got, &w.links)? else {
+            return None;
+        };
         let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &method)).ok()?;
         let t = self.text_of(&decl.path)?;
         let l: Vec<&str> = t.lines().collect();
@@ -637,11 +662,8 @@ impl App {
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, at, w, Some(name))?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        Some(got)
+        let got = self.rust_head(file, text, at, w, Some(name))?;
+        self.rust_links(got, &w.links)
     }
 
     fn rust_match_got(&self, file: &Path, text: &str, arms: &[Arm], name: &str) -> Option<Got> {
@@ -676,9 +698,7 @@ impl App {
             let Some(mut got) = got else {
                 continue;
             };
-            for link in &w.links {
-                got = self.rust_step(got, link)?;
-            }
+            got = self.rust_links(got, &w.links)?;
             match (&agreed, &got) {
                 (None, _) => agreed = Some(got),
                 (Some(Got::Ty(a)), Got::Ty(b)) if (&a.path, a.line) == (&b.path, b.line) => {}
@@ -723,9 +743,7 @@ impl App {
             None if w.head_call => self.rust_std_fn_returns(text, at, &w.head)?,
             None => return None,
         };
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
+        got = self.rust_links(got, &w.links)?;
         self.rust_std_item(got)
     }
 
@@ -856,11 +874,8 @@ impl App {
         if !w.head_call && w.links.is_empty() && adapters.is_empty() {
             return None;
         }
-        let mut got = self.rust_head(file, text, at, &w, None)?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        let Got::Ty(ty) = got else {
+        let got = self.rust_head(file, text, at, &w, None)?;
+        let Got::Ty(ty) = self.rust_links(got, &w.links)? else {
             return None;
         };
         if adapters
@@ -940,11 +955,8 @@ impl App {
         }
         let line = self.line;
         let walked = |a: &Self| {
-            let mut got = a.rust_head(here, text, line, &w, None)?;
-            for link in &w.links {
-                got = a.rust_step(got, link)?;
-            }
-            Some(got)
+            let got = a.rust_head(here, text, line, &w, None)?;
+            a.rust_links(got, &w.links)
         };
         let mut got = walked(self);
         if got.is_none() {
@@ -956,7 +968,7 @@ impl App {
             .links
             .iter()
             .rev()
-            .find(|l| l.name != "?")
+            .find(|l| l.name != "?" && (l.call || l.name != "await"))
             .map_or(&w.head[w.head.len() - 1], |l| &l.name);
         let ty = match got {
             Got::Ty(ty) => ty,
