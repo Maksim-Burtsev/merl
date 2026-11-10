@@ -835,9 +835,14 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             && !list.starts_with('.')
             && !list.ends_with('.')
             && !head.get(..start)?.ends_with([')', ']', '.']);
+        let element = if kind == Kind::Python {
+            format!("{list}[]")
+        } else {
+            list.to_owned()
+        };
         return plain.then(|| CallHead {
             call_without_arguments: format!("{list}[]"),
-            value: Value::Element(list.to_owned()),
+            value: Value::Element(element),
             fields_to_word: fields,
         });
     }
