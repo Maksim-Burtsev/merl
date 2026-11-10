@@ -6,6 +6,7 @@ use super::{
 mod declared;
 mod eslint;
 mod go_argument;
+mod intersection;
 mod shadowed;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -77,7 +78,23 @@ impl App {
         {
             return Ok(found);
         }
-        let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
+        let ProvenType { ty, links } = match self.receiver(kind, here, chain, head) {
+            Ok(proven) => proven,
+            Err(via) => {
+                let (hits, label) = head
+                    .is_none()
+                    .then(|| self.jsdoc_intersection_member(kind, here, &text, line, chain, word))
+                    .flatten()
+                    .ok_or(via)?;
+                return Ok(hits
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(label.clone()),
+                    })
+                    .collect());
+            }
+        };
         let declared = match self.union_arms(kind, &ty) {
             Some(arms) => self.shared_member(kind, &arms, word),
             None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
