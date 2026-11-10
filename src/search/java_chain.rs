@@ -386,7 +386,7 @@ pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
     let head: String = rest.get(start..)?.iter().collect();
     let left = trim_end(rest.get(..start)?);
     let arrow = left.ends_with(&['-', '>']);
-    let plain = head.starts_with(|c: char| c.is_ascii_lowercase())
+    let plain = head.starts_with(|c: char| c.is_ascii_alphabetic())
         && !calls.is_empty()
         && (arrow || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c)));
     plain.then_some((head, calls))

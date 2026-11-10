@@ -221,3 +221,40 @@ func Cups(cups ...Kettle) int {
 	return cups.Pour()
 	//          ^ d: !jump
 }
+
+func Brewed() int {
+	type Kettle struct{ heat int }
+	k := Kettle{heat: 1}
+	//   ^ d: rival/rival.go:226
+	return k.heat
+}
+
+func Stewed(hot bool) int {
+	if hot {
+		type Kettle int
+		var k Kettle = 2
+		//    ^ d: rival/rival.go:234
+		return int(k)
+	}
+	var k Kettle
+	//    ^ d: rival/rival.go:20
+	return k.Spout
+}
+
+func Tabled() int {
+	type Kettle struct{ heat int }
+	cases := []struct{ Kettle Kettle }{}
+	//                 ^ d: rival/rival.go:20; want none (#1470)
+	//                        ^ d: rival/rival.go:245
+	return len(cases)
+}
+
+func Looped() int {
+	type brim int
+brim:
+	for {
+		break brim
+		//    ^ d: !jump
+	}
+	return 0
+}

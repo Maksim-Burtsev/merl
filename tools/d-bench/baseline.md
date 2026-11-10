@@ -145,13 +145,14 @@ The dart row with the fourth pass of #1338 (a prefixed import's name looked up t
 The racket row with racket0207 judged from the code (`define/oc-log`: the `define-syntax-rule` of `module-language.rkt:1066` whose pattern head on the next line binds it, now a direct hit after #1431): `9716e6d6c`, 2026-11-08, release build, `vm.loadavg` { 4.76 6.95 6.76 } after the run.
 The racket row with #1441 (a cursor in a comment, a string or `at-exp` text, and a method name of `send`, answer nothing; a `with-syntax` binding is local; racket0059 and racket0068 no longer jump to a namesake method): over `26f3aca20`, 2026-11-09, release build, `vm.loadavg` { 7.19 7.02 7.05 } before the run, { 7.89 7.17 7.10 } after.
 The ts, js, vue, svelte and astro rows with #1337 (`node.parent` in an ESLint visitor lands on `interface NodeParentExtension`'s `parent`: js0231 and js0268 now direct hits): over `407d933da`, 2026-11-10, release build, `vm.loadavg` { 7.17 7.76 7.76 } before the run, { 6.99 7.72 7.74 } after.
+The go row with #1470 (a `type` declared inside a function or block is local: go0323 `Milestone` in gitea's `v229.go` now jumps to the local type): `d0d59173e`, 2026-11-10, release build, `vm.loadavg` { 6.64 6.77 7.35 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 52.5 | 138.4 |
 | js (eslint, uptime-kuma) | 217 | 205 (94%) | 10 (5%) | 0 (0%) | 2 (1%) | 177 | 6 | 39.2 | 212.1 |
-| go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
+| go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |

@@ -132,3 +132,6 @@ class Rebound(val x: Cup):
     //        ^ d: src/main/scala/rebound/Rebound.scala:130
     println(x)
     //      ^ d: src/main/scala/rebound/Rebound.scala:3
+  def pair(k: String): (String, Int) =
+    return k -> 1
+    //     ^ d: src/main/scala/rebound/Rebound.scala:135

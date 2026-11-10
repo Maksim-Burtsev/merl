@@ -354,7 +354,8 @@ a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or 
 local or parameter named like an import or a field, and declaration-shaped lines in a string and
 a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
 `if` header and a closure re-declaring a local, a promoted method and one an embedding type
-overrides, an interface method, a function-typed field and a generic method, and its `twin`
+overrides, an interface method, a function-typed field and a generic method, a `Kettle` type
+local to a function and one local to an `if` block over the package's `Kettle` (#1470), and its `twin`
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
@@ -1160,7 +1161,7 @@ CTE's outer query binds again to `urns`.
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
 `Kettle` whose field, constructor parameter and local share a name with a field of its base
 `Vessel`, `this.` and `super.`, a static import beside a member of the same name, overloads by
-arity and by type, a lambda parameter hiding a field, a nested `Lid` beside the package's `Lid`,
+arity and by type, a lambda parameter hiding a field (after `return` too, #1470), a nested `Lid` beside the package's `Lid`,
 a `Cart` whose nested `Tray` with two constructors hides the package's `Tray` (#965),
 a namesake `Kettle` in `tea.stale` imported over the package's own, and declaration-shaped lines
 in a Javadoc and a text block. `brew/` has a `Samovar` whose property is initialized from a
