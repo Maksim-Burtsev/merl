@@ -300,7 +300,7 @@ fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
             continue;
         }
         depth = indent(lines[i]);
-        if DEF.is_match(t) {
+        if DEF.is_match(t) || python_def_paren(lines, i).is_some() {
             scopes_innermost_first.push(Scope::Def(i));
         }
     }
@@ -308,14 +308,29 @@ fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
     scopes_innermost_first
 }
 
+fn python_def_paren(lines: &[&str], d: usize) -> Option<(usize, usize)> {
+    let (class, open) = python_header(lines[d])?;
+    if class {
+        return None;
+    }
+    if let Some(open) = open {
+        return Some((d, open));
+    }
+    let bracket = lines[d].find('[')?;
+    let after = group(Kind::Python, lines, d, bracket)?;
+    let rest = after.after_close.trim_start();
+    rest.starts_with('(')
+        .then(|| (after.close_line, lines[after.close_line].len() - rest.len()))
+}
+
 fn python_def_body(lines: &[&str], d: usize, name: &str, out: &mut Vec<Binding>) -> Option<usize> {
-    let open = python_def_open(lines[d])?;
+    let (at, open) = python_def_paren(lines, d)?;
     let Group {
         inner_uncommented: params,
         close_line: end,
         ..
-    } = group(Kind::Python, lines, d, open)?;
-    python_params(lines, d, &params, name, out);
+    } = group(Kind::Python, lines, at, open)?;
+    python_params(lines, at, &params, name, out);
     Some(end + 1)
 }
 
@@ -775,21 +790,26 @@ pub(super) fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &
         .split(|c: char| !(c.is_alphanumeric() || c == '_'))
         .any(|w| !w.is_empty() && headers.iter().any(|h| super::python_declares(h, w)))
 }
-pub fn python_locals_outside(text: &str, header_line1: usize, locals: &[usize]) -> bool {
+pub fn python_locals_outside(text: &str, param_line1: usize, locals: &[usize]) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = header_line1
-        .checked_sub(1)
-        .filter(|&k| lines.get(k).is_some_and(|l| python_header(l).is_some()))
+    let Some(p) = param_line1.checked_sub(1).filter(|&p| p < lines.len()) else {
+        return false;
+    };
+    let header = |l: &str| python_header(l).is_some() || l.trim_start().starts_with("type ");
+    let Some(k) = Some(p)
+        .filter(|&p| header(lines[p]))
+        .or_else(|| (0..p).rev().find(|&k| indent(lines[k]) < indent(lines[p])))
+        .filter(|&k| header(lines[k]))
     else {
         return false;
     };
     let depth = indent(lines[k]);
     locals.iter().all(|&l| {
-        l < header_line1
-            || (l > header_line1
-                && lines
-                    .get(l.saturating_sub(1))
-                    .is_some_and(|t| indent(t) <= depth))
+        l <= k
+            || (l > param_line1
+                && lines.get(l.saturating_sub(1)).is_some_and(|t| {
+                    indent(t) <= depth && !closes_a_wrapped_header(t.trim_start())
+                }))
     })
 }
 pub fn python_in_default(text: &str, line1: usize, col: usize) -> bool {

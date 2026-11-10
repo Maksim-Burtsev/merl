@@ -557,14 +557,7 @@ impl App {
         self.rust_walked_got(file, text, at, name, false, &w)
     }
 
-    fn rust_let_got(
-        &self,
-        file: &Path,
-        text: &str,
-        at: usize,
-        name: &str,
-        shadowing: bool,
-    ) -> Option<Got> {
+    fn rust_let_got(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
         let Some(init) = let_initializer(&lines, at, name) else {
             let (path, init) = tuple_initializer(&lines, at, name)?;
@@ -583,7 +576,7 @@ impl App {
         if w.links.is_empty() && !assoc {
             return None;
         }
-        self.rust_walked_got(file, text, at, name, shadowing, &w)
+        self.rust_walked_got(file, text, at, name, true, &w)
     }
 
     fn rust_tuple_got(
@@ -745,12 +738,17 @@ impl App {
     ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
         let line = lines.get(at)?.trim();
-        let header = ["} else if let ", "if let ", "while let "]
+        let header = ["} else if let ", "if let ", "while let ", "let "]
             .iter()
             .find_map(|p| line.strip_prefix(p));
         let (wrapper, rest) = wrapped_pattern(header.unwrap_or(line), name)?;
         let expr = match (header, rest.strip_prefix("=>")) {
             (None, Some(_)) => match_scrutinee(&lines, at)?,
+            (Some(_), None) if line.starts_with("let ") => {
+                let (expr, after) = rest.strip_prefix('=')?.split_once(" else ")?;
+                (after.trim() == "{" || after.trim_end().ends_with(['}', ';']))
+                    .then(|| expr.to_owned())?
+            }
             (Some(_), None) => if_let_scrutinee(&lines, at, rest.strip_prefix('=')?)?,
             _ => return None,
         };
@@ -893,7 +891,23 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
-        match self.rust_let_got(file, text, at, name, false)? {
+        let lines: Vec<&str> = text.lines().collect();
+        if let Some(init) = let_initializer(&lines, at, name)
+            && init.starts_with(|c: char| c.is_ascii_uppercase())
+            && init.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            let ty = self.rust_resolve(file, &init, at)?;
+            let decl = self.text_of(&ty.path)?;
+            let decl = decl.lines().nth(ty.line - 1)?.trim();
+            let decl = decl.strip_prefix("pub").map_or(decl, |d| {
+                d.trim_start()
+                    .strip_prefix('(')
+                    .and_then(|d| d.split_once(')'))
+                    .map_or(d, |(_, d)| d)
+            });
+            return (decl.trim_start() == format!("struct {init};")).then_some(ty);
+        }
+        match self.rust_let_got(file, text, at, name)? {
             Got::Ty(ty) => Some(ty),
             Got::Written { .. } | Got::Bound(_) => None,
         }
@@ -906,7 +920,7 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<String> {
-        match self.rust_let_got(file, text, at, name, true)? {
+        match self.rust_let_got(file, text, at, name)? {
             Got::Written { written, .. } => rust_bare_type(&written),
             Got::Ty(_) | Got::Bound(_) => None,
         }

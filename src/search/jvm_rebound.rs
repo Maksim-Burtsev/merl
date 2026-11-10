@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::jvm::{ident, jvm_bindings, param_names};
+use super::jvm::{anonymous, ident, jvm_bindings, param_names};
 use super::{Binding, Kind, Value, code, indent, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
@@ -35,28 +35,95 @@ pub fn jvm_rebound_before(before: &str, name: &str) -> bool {
     })
 }
 
+fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"^\s*(?:(?:final|@[\w.]+)\s+)*(",
+            super::jvm_return_type!(),
+            r")\s+[A-Za-z_]\w*\s*(?:=[^=]|,)"
+        ))
+        .expect("the regex is a literal")
+    });
+    let head = HEAD.captures(code)?;
+    let mut depth = 0i32;
+    for (i, b) in code.bytes().enumerate().skip(head.get(0)?.end() - 1) {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' | b';' if depth == 0 => return None,
+            b')' | b']' | b'}' => depth -= 1,
+            b',' if depth == 0 => {
+                let segment = code.get(i + 1..)?;
+                let at = i + 1 + segment.len() - segment.trim_start().len();
+                let after = code.get(at..)?.strip_prefix(name)?;
+                let tail = after.trim_start();
+                if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                    && (tail.is_empty()
+                        || tail.starts_with([',', ';'])
+                        || tail.starts_with('=') && !tail.starts_with("=="))
+                {
+                    return Some((head[1].to_owned(), at));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+pub(super) fn later_declarator_type(line: &str, name: &str) -> Option<String> {
+    let line = blanked(line);
+    std::iter::once(0)
+        .chain(line.match_indices([';', '{', '}']).map(|(i, _)| i + 1))
+        .find_map(|s| later_declarator(line.get(s..)?, name).map(|(t, _)| t))
+}
+
+pub(super) fn case_label_end(t: &str) -> usize {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:case\b[^;{}:]*|default)\s*:").expect("the regex is a literal")
+    });
+    LABEL.find(t).map_or(0, |m| m.end())
+}
+
+pub(super) fn declares_local(t: &str, name: &str) -> bool {
+    let t = t.get(case_label_end(t)..).unwrap_or(t).trim_start();
+    let n = regex::escape(name);
+    let ret = super::jvm_return_type!();
+    Regex::new(&format!(
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
+    ))
+    .is_ok_and(|re| re.is_match(t))
+        || later_declarator(&blanked(t), name).is_some()
+}
+
 pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{])\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };
-    declared.find_iter(lead).any(|m| {
-        let (mut depth, mut ended) = (0i32, false);
-        lead.get(m.end()..).is_some_and(|rest| {
-            rest.bytes().all(|b| {
-                match b {
-                    b'(' | b'[' | b'{' => depth += 1,
-                    b')' | b']' | b'}' => depth -= 1,
-                    b';' if depth == 0 => ended = true,
-                    _ => {}
-                }
-                depth >= 0
-            })
-        }) && ended
-    })
+    let later = std::iter::once(0)
+        .chain(lead.match_indices([';', '{']).map(|(i, _)| i + 1))
+        .filter_map(|s| later_declarator(lead.get(s..)?, name).map(|(_, at)| s + at + name.len()));
+    declared
+        .find_iter(lead)
+        .map(|m| m.end())
+        .chain(later)
+        .any(|end| {
+            let (mut depth, mut ended) = (0i32, false);
+            lead.get(end..).is_some_and(|rest| {
+                rest.bytes().all(|b| {
+                    match b {
+                        b'(' | b'[' | b'{' => depth += 1,
+                        b')' | b']' | b'}' => depth -= 1,
+                        b';' if depth == 0 => ended = true,
+                        _ => {}
+                    }
+                    depth >= 0
+                })
+            }) && ended
+        })
 }
 
 pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bool {
@@ -83,11 +150,20 @@ pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bo
         .any(|l| EXIT.is_match(&blanked(&uncommented(Kind::Jvm, l))))
 }
 
-pub(super) fn lambda_names(line: &str) -> Vec<String> {
-    lambda_binders(line).into_iter().map(|(n, _)| n).collect()
+pub(super) fn lambda_names(line: &str, scala: bool) -> Vec<String> {
+    let code = blanked(line);
+    lambda_binders(line, scala)
+        .into_iter()
+        .filter(|(_, at)| {
+            let opener = line.get(at.clone());
+            !opener.is_some_and(|o| o.trim_start().starts_with("return"))
+                || code.get(at.clone()) == opener && lambda_open_at(&code, at, code.len())
+        })
+        .map(|(n, _)| n)
+        .collect()
 }
 
-pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)> {
+pub(super) fn lambda_binders(line: &str, scala: bool) -> Vec<(String, std::ops::Range<usize>)> {
     static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[(,{=]|=>)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*=>")
             .expect("the regex is a literal")
@@ -102,7 +178,7 @@ pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)
         Regex::new(r"\{\s*([^{}]*?)\s*->").expect("the regex is a literal")
     });
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[(,=]|->)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
+        Regex::new(r"(?:^|[(,=]|->|\breturn\b)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
             .expect("the regex is a literal")
     });
     static GROOVY_TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -128,7 +204,10 @@ pub(super) fn lambda_binders(line: &str) -> Vec<(String, std::ops::Range<usize>)
             out.push((b[1].to_owned(), at.clone()));
         }
     }
-    for c in JAVA.captures_iter(line).chain(SCALA.captures_iter(line)) {
+    let java = JAVA
+        .captures_iter(line)
+        .filter(|c| !scala || !c[0].trim_start().starts_with("return"));
+    for c in java.chain(SCALA.captures_iter(line)) {
         let at = c.get(0).map_or(0..0, |m| m.range());
         match (c.get(1), c.get(2)) {
             (Some(list), _) => {
@@ -180,12 +259,16 @@ pub(super) fn lambda_open_at(line: &str, at: &std::ops::Range<usize>, col: usize
 }
 
 pub fn jvm_anonymous_open(before: &str) -> bool {
+    jvm_anonymous_header(before).is_some()
+}
+
+pub fn jvm_anonymous_header(before: &str) -> Option<String> {
     static OPENS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>)?\s*(?:\([^{}]*\))?\s*\{|\bobject\s*:[^{}]*\{")
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>|\[[^\]{}]+\])?\s*(?:\([^{}]*\))?(?:\s+with\s+[\w.]+)*\s*\{|\bobject\s*:[^{}]*\{")
             .expect("the regex is a literal")
     });
     let line = blanked(before);
-    OPENS.find_iter(&line).any(|m| {
+    let open = OPENS.find_iter(&line).filter(|m| {
         let mut depth = 0i32;
         line.get(m.end()..).is_some_and(|rest| {
             rest.bytes().all(|b| {
@@ -197,7 +280,9 @@ pub fn jvm_anonymous_open(before: &str) -> bool {
                 depth >= 0
             })
         })
-    })
+    });
+    open.last()
+        .and_then(|m| line.get(..m.end()).map(str::to_owned))
 }
 
 pub(super) fn clause_closed_at(line: &str, start: usize, col: usize) -> bool {
@@ -423,4 +508,30 @@ pub fn jvm_bindings_at(
         }];
     }
     jvm_bindings(path, &lines, at, name, Some(col))
+}
+
+pub fn jvm_anonymous_bases(line: &str) -> Vec<String> {
+    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
+    });
+    static MIXIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bwith\s+([\w.]+)").expect("the regex is a literal")
+    });
+    if !anonymous(line) {
+        return Vec::new();
+    }
+    let Some(c) = BASE.captures_iter(line).last() else {
+        return Vec::new();
+    };
+    let Some(first) = c.get(1).or_else(|| c.get(2)) else {
+        return Vec::new();
+    };
+    std::iter::once(first.as_str())
+        .chain(
+            MIXIN
+                .captures_iter(line.get(first.end()..).unwrap_or_default())
+                .filter_map(|m| m.get(1).map(|w| w.as_str())),
+        )
+        .map(str::to_owned)
+        .collect()
 }

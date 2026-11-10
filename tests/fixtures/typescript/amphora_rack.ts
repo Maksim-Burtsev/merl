@@ -146,3 +146,17 @@ export function amphoraCrossBound<
 //                 ^ d: amphora_rack.ts:142
   return obj;
 }
+
+export function amphoraArgWraps<Amphora>(x: Amphora, y: Array<
+  number
+>): Amphora {
+//  ^ d: amphora_rack.ts:150
+  return x;
+}
+
+export function amphoraArgWrapsA<A>(x: A, y: Array<
+  number
+>): A {
+//  ^ d: amphora_rack.ts:157
+  return x;
+}

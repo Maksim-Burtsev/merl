@@ -180,6 +180,14 @@ fn continues(line: &str) -> bool {
     })
 }
 
+fn body_after_close(line: &str) -> bool {
+    let code = blanked(line);
+    code.trim_start()
+        .strip_prefix(['}', ')'])
+        .map(str::trim)
+        .is_some_and(|r| !r.is_empty() && !r.starts_with([';', ',', '.', ')', '}', '{']))
+}
+
 fn covers(
     lines: &[&str],
     literal: &[bool],
@@ -192,7 +200,48 @@ fn covers(
         .all(|k| inside(lines[k]))
 }
 
-fn unread_above(path: &Path, lines: &[&str], at: usize, name: &str) -> Option<usize> {
+pub(super) fn scala_generator_line1(
+    path: &Path,
+    lines: &[&str],
+    at: usize,
+    col: usize,
+    name: &str,
+) -> Option<usize> {
+    let code = blanked(lines.get(at)?);
+    let before = code.get(..col)?;
+    let on_line = binders(before, name)
+        .into_iter()
+        .chain(value_enumerators(before, name))
+        .any(|(end, scope)| {
+            scope == Scope::Generator
+                && open_after(before.get(end..).unwrap_or_default(), Scope::Generator)
+        });
+    if on_line {
+        return Some(at + 1);
+    }
+    unread_above(path, lines, at, name, true)
+}
+
+fn value_enumerators(code: &str, name: &str) -> Vec<(usize, Scope)> {
+    Regex::new(&format!(
+        r"\bfor\b[^;]*<-[^;]*(?:;[^;]*)*;\s*{}\s*=(?:[^=>]|$)",
+        regex::escape(name)
+    ))
+    .map(|re| {
+        re.find_iter(code)
+            .map(|m| (m.end().saturating_sub(1), Scope::Generator))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+fn unread_above(
+    path: &Path,
+    lines: &[&str],
+    at: usize,
+    name: &str,
+    generators: bool,
+) -> Option<usize> {
     let literal = path_literal_lines(Kind::Jvm, path, &lines.join("\n"));
     let n = regex::escape(name);
     let enumerator = Regex::new(&format!(r"^\s*{n}\s*=(?:[^=>]|$)")).ok()?;
@@ -219,11 +268,13 @@ fn unread_above(path: &Path, lines: &[&str], at: usize, name: &str) -> Option<us
             && let Some(head) = head
         {
             let s = indent(lines[head]);
-            if covers(lines, &literal, k, at, |l| indent(l) > s || continues(l)) {
+            if covers(lines, &literal, k, at, |l| {
+                indent(l) > s || continues(l) || (indent(l) == s && body_after_close(l))
+            }) {
                 return Some(k + 1);
             }
         }
-        for (end, scope) in binders(&code, name) {
+        for (end, scope) in binders(&code, name).into_iter().filter(|_| !generators) {
             let local = scope_of(lines, k).is_some_and(|s| !opens_type(lines[s]));
             let found = match scope {
                 Scope::Block => {
@@ -275,5 +326,5 @@ pub fn scala_rebound(
     if open.contains(&true) {
         return true;
     }
-    unread_above(path, &lines, at, name).is_some_and(|l| bound.iter().all(|&b| b < l))
+    unread_above(path, &lines, at, name, false).is_some_and(|l| bound.iter().all(|&b| b < l))
 }

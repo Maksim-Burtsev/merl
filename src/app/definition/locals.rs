@@ -287,7 +287,9 @@ impl App {
             _ => Vec::new(),
         };
         let closure = |n: usize| {
-            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&a.text, n))
+            (kind == Kind::Swift
+                || kind == Kind::Go && search::go_names_a_type_here(&a.lead, &a.tail)
+                || kind == Kind::Python && search::python_in_function(&a.text, n))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1

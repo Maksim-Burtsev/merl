@@ -7,7 +7,7 @@ class Perch {
     int perch(Corvid bird) {
         switch (bird) {
             case ROOK:
-              // ^ d: none; want src/main/java/aviary/Corvid.java:5 (#1448)
+              // ^ d: src/main/java/aviary/Corvid.java:5
                 return 1;
             default:
                 return 0;
@@ -17,7 +17,7 @@ class Perch {
     int arrow(Chessman piece) {
         return switch (piece) {
             case ROOK -> 1;
-              // ^ d: none; want src/main/java/aviary/Chessman.java:4 (#1448)
+              // ^ d: src/main/java/aviary/Chessman.java:4
             case PAWN -> 0;
         };
     }
@@ -26,6 +26,6 @@ class Perch {
         Corvid qualified = Corvid.ROOK;
                                // ^ d: src/main/java/aviary/Corvid.java:5
         return ROOK;
-            // ^ d: none; want src/main/java/aviary/Corvid.java:5 (#1448)
+            // ^ d: src/main/java/aviary/Corvid.java:5
     }
 }
