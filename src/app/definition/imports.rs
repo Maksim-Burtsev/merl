@@ -65,13 +65,16 @@ impl App {
         if a.kind == Kind::Python
             && let Some(top) = import.and_then(<[String]>::first)
             && !top.starts_with('.')
+            && search::python_bound_once(&a.text, a.first())
             && !self.files.iter().any(|f| {
-                f.extension().is_some_and(|e| e == "py" || e == "pyi")
+                f.extension()
+                    .is_some_and(|e| ["py", "pyi", "pyx", "so", "pyd"].iter().any(|x| e == *x))
                     && search::in_module(f, std::slice::from_ref(top))
             })
+            && !self.python_remapped(top)
             && self
                 .python_roots()
-                .is_some_and(|roots| !roots.iter().any(|r| search::python_module_in(r, top)))
+                .is_some_and(|roots| !roots.iter().any(|r| search::python_installed(r, top)))
             && let Some(line) = search::import_line1(a.kind, &a.text, a.first())
         {
             let hit = self.line_hit(&a.here, line);
@@ -81,13 +84,31 @@ impl App {
         false
     }
 
+    fn python_remapped(&self, top: &str) -> bool {
+        let Ok(word) = Regex::new(&format!(r"\b{}\b", regex::escape(top))) else {
+            return true;
+        };
+        self.files
+            .iter()
+            .filter(|f| {
+                f.file_name()
+                    .is_some_and(|n| n == "setup.py" || n == "setup.cfg" || n == "pyproject.toml")
+            })
+            .filter_map(|f| self.text_of(f))
+            .any(|t| {
+                ["package_dir", "package-dir", ".sources]"]
+                    .iter()
+                    .any(|m| t.contains(m))
+                    && word.is_match(&t)
+            })
+    }
+
     fn python_roots(&mut self) -> Option<Vec<PathBuf>> {
         self.external_files(Kind::Python);
         let (roots, _) = self.external.get(&Kind::Python)?;
         Some(
-            roots
-                .iter()
-                .cloned()
+            (roots.iter().cloned())
+                .chain(search::python_local_envs(&self.root))
                 .chain(crate::typeshed::stdlib().map(Path::to_path_buf))
                 .collect(),
         )
