@@ -541,7 +541,13 @@ impl App {
             return Some(vec![found]);
         }
         let mut scope = here.to_path_buf();
+        let compared = search::dart_compared(before).filter(|_| chain.is_empty());
         let ty = match chain {
+            [] if compared.is_some() => {
+                let (ty, s) = self.dart_bound(here, text, compared.as_deref()?, 0)?;
+                scope = s;
+                ty
+            }
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
                 Ok(ty) => ty,
                 Err(name) => {

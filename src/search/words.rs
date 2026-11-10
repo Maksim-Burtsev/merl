@@ -57,8 +57,27 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());
         return (owner != name).then(|| format!("{owner}{sep}{name}"));
     }
+    if kind == Kind::Dart
+        && let Some(owner) = dart_one_line_enum(target, name)
+    {
+        return Some(format!("{owner}{sep}{name}"));
+    }
     qualified_by_owner(kind, text, &lines, line1, name)
         .or_else(|| qualified_by_nesting(kind, text, &lines, line1, name))
+}
+fn dart_one_line_enum(line: &str, name: &str) -> Option<String> {
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*enum\s+(\w+)[^{]*\{([^};]*)").expect("the regex is a literal")
+    });
+    let c = ENUM.captures(line)?;
+    c[2].split(',')
+        .any(|v| {
+            v.trim()
+                .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
+                .next()
+                == Some(name)
+        })
+        .then(|| c[1].to_owned())
 }
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
