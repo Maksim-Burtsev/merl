@@ -942,9 +942,13 @@ property, a one-line closure whose parameter is named like a property, and decla
 lines in a multi-line and a raw string.
 `swift/Sources/Shop/Attributes.swift` (#1452) writes compiler attributes (`@available`,
 `@discardableResult`, `@escaping`) beside project `func`s of their names, and `@MainActor` and
-`@Published` beside types of their names in `Sources/Kit/`, which it does not import: all find
-nothing. `@Glow` lands on the property wrapper, not on a `func Glow`, and `Stamping.swift`'s
-`@Stamped` on the one of `Warehouse`, which it imports.
+`@Published` beside types of their names in the `Core` target (`path: "Sources/swift-core"`),
+which it does not import: all find nothing. `@Glow` lands on the property wrapper, not on a
+`func Glow`, and `Stamping.swift`'s `@Stamped` on the one of `Warehouse`, which it imports.
+A module is only what `Package.swift` declares (#1452 review): `Trunklet.swift` finds `@Wrap`
+through `import Core` although its folder is `swift-core`, and `@Boxed` of `Warehouse`, which
+`Core` re-exports with `@_exported import`; `Sources/Views/Lever.swift`'s `@Clamped` lands in
+`Sources/Utils/`, folders no target declares, as Xcode groups are.
 `swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
 name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
 in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions

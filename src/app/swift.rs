@@ -545,30 +545,52 @@ impl App {
 }
 
 impl App {
-    pub(super) fn swift_attribute_types(here: &Path, text: &str, hits: &mut Vec<Hit>) {
+    pub(super) fn swift_attribute_types(&self, here: &Path, text: &str, hits: &mut Vec<Hit>) {
         static IMPORT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
             regex::Regex::new(r"(?m)^[ \t]*(?:@\w+[ \t]+)*import[ \t]+(?:(?:class|struct|enum|protocol|func|var|let|typealias)[ \t]+)?(\w+)")
                 .expect("the regex is a literal")
         });
+        hits.retain(|h| search::swift_type_decl(&h.text));
+        let targets = self.swift_package_targets();
+        let module = |p: &Path| {
+            let p = p.strip_prefix(&self.root).unwrap_or(p);
+            targets
+                .iter()
+                .filter(|t| p.starts_with(&t.dir))
+                .max_by_key(|t| t.dir.components().count())
+                .map(|t| t.name.as_str())
+                .filter(|n| n.chars().all(|c| c.is_alphanumeric() || c == '_'))
+        };
+        let Some(own) = module(here) else {
+            return;
+        };
         let imported: Vec<&str> = IMPORT
             .captures_iter(text)
             .filter_map(|c| Some(c.get(1)?.as_str()))
             .collect();
-        let own = swift_module(here);
-        hits.retain(|h| {
-            search::swift_type_decl(&h.text)
-                && match (own, swift_module(&h.path)) {
-                    (Some(own), Some(m)) if own != m => imported.contains(&m),
-                    _ => true,
-                }
+        let exported = |m: &str| {
+            self.grep(
+                &format!(r"@_exported\s+import\s+(\w+\s+)?{m}\b"),
+                false,
+                false,
+                |p| p.extension().is_some_and(|e| e == "swift"),
+            )
+            .map_or(true, |found| !found.is_empty())
+        };
+        hits.retain(|h| match module(&h.path) {
+            Some(m) if m != own => imported.contains(&m) || exported(m),
+            _ => true,
         });
     }
-}
 
-fn swift_module(path: &Path) -> Option<&str> {
-    let parts: Vec<&str> = path.iter().filter_map(|c| c.to_str()).collect();
-    parts
-        .windows(3)
-        .find(|w| matches!(w[0], "Sources" | "Tests"))
-        .map(|w| w[1])
+    fn swift_package_targets(&self) -> Vec<search::SwiftTarget> {
+        let xcode = std::fs::read_dir(&self.root).map_or(true, |d| {
+            d.flatten()
+                .any(|e| e.path().extension().is_some_and(|x| x == "xcodeproj"))
+        });
+        match std::fs::read_to_string(self.root.join("Package.swift")) {
+            Ok(manifest) if !xcode => search::swift_targets(&manifest),
+            _ => Vec::new(),
+        }
+    }
 }
