@@ -228,6 +228,12 @@ impl App {
             return Some(WrittenType { resolved, written });
         }
         let chain = search::kotlin_call_chain(&format!("{init}."))?;
+        if !chain.constructed
+            && chain.head.starts_with(|c: char| c.is_ascii_uppercase())
+            && !init.trim_start().starts_with(&format!("{}.", chain.head))
+        {
+            return None;
+        }
         let (resolved, links) = self.kotlin_chain_type(file, text, None, &chain)?;
         let written = links.last()?.rsplit(": ").next()?.to_owned();
         Some(WrittenType { resolved, written })

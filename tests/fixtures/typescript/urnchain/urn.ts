@@ -22,6 +22,10 @@ export class Counter {
   urn(): Urn {
     return new Urn();
   }
+
+  loose() {
+    return (this as any).u;
+  }
 }
 
 export class Shop {

@@ -234,28 +234,6 @@ impl App {
         Some(p)
     }
 
-    fn cs_static_head(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        name: &str,
-        called: bool,
-    ) -> Option<Proven> {
-        if !called || !name.starts_with(|c: char| c.is_ascii_uppercase()) {
-            return None;
-        }
-        let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
-            return None;
-        };
-        Some(Proven {
-            ty,
-            link: name.to_owned(),
-            written: name.to_owned(),
-            from: (file.to_path_buf(), line1),
-        })
-    }
-
     fn cs_step(&self, here: &Path, from: &Proven, name: &str, call: bool) -> Option<Proven> {
         let t = match &from.ty {
             CsType::Project(t) if !call => return self.cs_field_type(t, name),

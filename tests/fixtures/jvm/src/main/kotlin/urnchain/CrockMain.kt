@@ -21,3 +21,15 @@ fun brew() {
     //                ^ d: !jump
     //                        ^ d: !jump
 }
+
+fun stocked() {
+    val b = Crock.builder()
+    b.size(2)
+    //^ d: src/main/kotlin/urnchain/Crock.kt:14
+}
+
+fun mixed(flag: Boolean) {
+    val either = if (flag) Wok() else Crock.builder()
+    either.size(2)
+    //     ^ d: !jump
+}

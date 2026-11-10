@@ -1,5 +1,5 @@
-use super::Up;
-use crate::app::{App, Hit, Kind, Typed, search};
+use super::{CsType, Proven, Up, owner_of};
+use crate::app::{App, Hit, Kind, Path, Typed, search};
 
 impl App {
     pub(super) fn cs_up_call(&self, ty: &Typed, word: &str) -> Up {
@@ -73,6 +73,33 @@ impl App {
         };
         search::literal_overloads(hits, &args, |h| {
             search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)
+        })
+    }
+
+    pub(super) fn cs_static_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        called: bool,
+    ) -> Option<Proven> {
+        if !called
+            || !name.starts_with(|c: char| c.is_ascii_uppercase())
+            || !search::bindings(Kind::CSharp, text, line1, name).is_empty()
+            || owner_of(file, text, line1)
+                .is_some_and(|o| !matches!(self.cs_up(&o, name, 0), Up::Missing { .. }))
+        {
+            return None;
+        }
+        let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
+            return None;
+        };
+        Some(Proven {
+            ty,
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (file.to_path_buf(), line1),
         })
     }
 }

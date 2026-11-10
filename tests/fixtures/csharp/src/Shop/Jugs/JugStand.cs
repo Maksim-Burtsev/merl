@@ -26,3 +26,13 @@ public class JugStand
         //                        ^ d: !jump
     }
 }
+
+public class JugShelf
+{
+    public void Shadowed(System.Func<object> make)
+    {
+        var Jug = make();
+        Jug.Builder().Size(2);
+        //            ^ d: !jump
+    }
+}

@@ -26,3 +26,8 @@ export function run(shop: Shop) {
     //^ d: urnchain/urn.ts:2
   return new Pot().boil();
 }
+
+export function loosely(shop: Shop) {
+  return shop.counter().loose().boil();
+  //                            ^ d: !jump
+}
