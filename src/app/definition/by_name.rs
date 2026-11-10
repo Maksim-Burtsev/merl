@@ -403,6 +403,17 @@ impl App {
             self.swift_scoped(a, near, &mut hits);
             if a.before.ends_with('@') {
                 self.swift_attribute_types(&a.here, &a.text, &mut hits);
+            } else if hits.len() > 1
+                && hits.iter().all(|h| search::swift_type_decl(&h.text))
+                && hits
+                    .iter()
+                    .any(|h| search::swift_alias(&h.text, &a.word).is_some())
+            {
+                let mut seen = hits.clone();
+                self.swift_imported_modules(&a.here, &a.text, &mut seen);
+                if !seen.is_empty() {
+                    hits = seen;
+                }
             }
         }
         match kind {

@@ -945,7 +945,17 @@ impl App {
         let mut decls = Vec::new();
         let mut extended = false;
         let mut aliases = Vec::new();
-        for h in self.project_definitions(Kind::Swift, here, &name, &pattern) {
+        let mut hits = self.project_definitions(Kind::Swift, here, &name, &pattern);
+        if hits.len() > 1
+            && let Some(text) = self.text_of(here)
+        {
+            let mut seen = hits.clone();
+            self.swift_imported_modules(here, &text, &mut seen);
+            if !seen.is_empty() {
+                hits = seen;
+            }
+        }
+        for h in hits {
             if !self.in_code(Kind::Swift, &h) {
                 continue;
             }
