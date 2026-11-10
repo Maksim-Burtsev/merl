@@ -504,6 +504,11 @@ on `ProjectAttrAttribute` and `LocalAttribute` of the `Shop.Crest` it opens, not
 `Shop.Stray` namesakes: `Brazier` lands in the `Shop.Bellows` that `csharp/Directory.Build.props`
 opens with `<Using Include>`, and `Tongs` and `Poker` in the `Shop.Wares` that `using Wares;`
 opens inside `namespace Shop.Hearth`, block and file-scoped.
+`csharp/src/Shop/Gates/Posts.cs` (#1452) holds two block namespaces, each with a `using` of its
+own: in `Shop.Gates`, which opens `Shop.Crest`, `[ProjectAttr(…)]` lands on
+`ProjectAttrAttribute`, while in `Shop.Gates.Back` the same attribute finds nothing, and
+`new Hasp()` lands on the `Shop.Larder` class of `Gates/Kit.cs`, itself a file of two block
+namespaces, only where `using Shop.Larder;` opens it.
 `csharp/src/Shop/Goblets.cs`'s `Carafe` and `Jug` (#1438) call `x.Quaff()` in an `override` and in
 explicit `ITip.Tip<T>` implementations, which inherit `where T : Goblet` unwritten: they keep
 master's jump to `Goblet.Quaff`.
@@ -1175,6 +1180,11 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 not import: they find nothing, while `tea/stale/Brand.java`, in that package, lands on them. Its
 `@Sieved(gauge = 5, pekoe = …)` lands each name on the element of the `@interface`, not on the
 class's own `gauge()`.
+`jvm/src/main/kotlin/gilded/Ledge.kt` (#1452) writes Kotlin's implicitly imported annotations
+(`@Deprecated`, `@JvmStatic`, `@Suppress`, also after `@file:` and `@get:`) beside namesakes
+declared in `gilded.stale`, which it does not import: they find nothing, while `stale/Seen.kt`,
+in that package, `Starred.kt`, importing it with `.*`, and `Pinned.kt`, importing the one name,
+land on them.
 
 `jvm/src/main/java/getters/` holds chains of getters (#1071): an `Account` whose Lombok `spec`
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
