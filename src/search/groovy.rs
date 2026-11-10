@@ -2,7 +2,9 @@ use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use super::{directly_inside, groovy, jvm_enclosing_types, jvm_type_name};
+use super::{
+    Kind, directly_inside, groovy, indent, jvm_enclosing_types, jvm_type_name, uncommented,
+};
 
 static EXT_PROPERTY: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:project\.)?ext\.([A-Za-z_]\w*)\s*=[^=]").expect("the regex is a literal")
@@ -73,4 +75,33 @@ pub fn gradle_global(line: &str) -> bool {
     [&*EXT_PROPERTY, &EXT_MEMBER, &TASK, &REGISTERED]
         .iter()
         .any(|re| re.is_match(line))
+}
+
+pub(super) fn script_binding(
+    path: &Path,
+    lines: &[&str],
+    text: &str,
+    literal: &[bool],
+    at: usize,
+    name: &str,
+) -> Option<usize> {
+    if !groovy(path) || path.extension().is_some_and(|e| e == "gradle") {
+        return None;
+    }
+    let n = regex::escape(name);
+    let ret = super::jvm_return_type!();
+    let assigned = Regex::new(&format!(r"^{n}\s*=[^=~]")).ok()?;
+    let declared = Regex::new(&format!(
+        r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:final\s+)?(?:def|var|{ret})\s+{n}\s*(?:[=;]|$)"
+    ))
+    .ok()?;
+    let top = |k: &usize| !literal.get(*k).copied().unwrap_or(true) && indent(lines[*k]) == 0;
+    let script = |k: usize| uncommented(Kind::Jvm, lines[k]);
+    let first = (0..=at)
+        .filter(top)
+        .find(|&k| assigned.is_match(&script(k)))?;
+    let declared_too = (0..lines.len())
+        .filter(top)
+        .any(|k| declared.is_match(&script(k)));
+    (!declared_too && jvm_enclosing_types(text, at + 1).is_empty()).then_some(first)
 }
