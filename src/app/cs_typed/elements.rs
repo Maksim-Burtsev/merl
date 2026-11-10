@@ -1,5 +1,5 @@
 use super::{CsType, CsWrittenType, Proven, one_more, same};
-use crate::app::{App, Kind, Path, Typed, search};
+use crate::app::{App, Hit, Kind, Path, Typed, search};
 
 impl App {
     pub(super) fn cs_await(&self, p: Proven) -> Option<Proven> {
@@ -99,6 +99,68 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
+    }
+
+    pub(super) fn cs_alias_target(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+    ) -> Option<(usize, String)> {
+        let written = |l: &str| l.contains("using") && l.contains(word) && l.contains('=');
+        if !text.lines().any(written) {
+            return None;
+        }
+        let mut aliases = search::cs_code_lines(text).filter_map(|(k, l)| {
+            let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
+            Some((k + 1, u.target))
+        });
+        let (at, target) = aliases.next()?;
+        let first_namespace = text.lines().position(search::cs_namespace_line);
+        if aliases.next().is_some()
+            || first_namespace.is_some_and(|n| n < at)
+            || !target.contains('.')
+        {
+            return None;
+        }
+        (!self.cs_alias_hidden(here, text, line1, word, &target)).then_some((at, target))
+    }
+
+    pub(super) fn cs_alias_hidden(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+        target: &str,
+    ) -> bool {
+        let mut levels = vec![String::new()];
+        let inside = search::cs_namespace(text, line1);
+        let mut level = inside.as_str();
+        while !level.is_empty() {
+            levels.push(level.to_owned());
+            level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+        let own = target.strip_suffix(word).and_then(|q| q.strip_suffix('.'));
+        self.cs_project_types(here, word).iter().any(|h| {
+            let Some(t) = self.text_of(&h.path) else {
+                return true;
+            };
+            let ns = search::cs_namespace(&t, h.line1);
+            search::cs_owner(&t, h.line1).is_some()
+                || (own != Some(ns.as_str()) && levels.contains(&ns))
+        })
+    }
+
+    pub(super) fn cs_project_types(&self, here: &Path, name: &str) -> Vec<Hit> {
+        let pattern = search::def_patterns(Kind::CSharp, name)[..2].join("|");
+        let mut hits = self.project_definitions(Kind::CSharp, here, name, &pattern);
+        hits.retain(|h| {
+            self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true)
+                && search::cs_type_decl(&h.text).is_some_and(|d| d.name == name)
+        });
+        hits
     }
 
     pub(super) fn cs_bases_in_project(&self, here: &Path) -> bool {

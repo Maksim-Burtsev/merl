@@ -14,7 +14,7 @@ public class Basket
     private int limit = 30;
 
     public Basket(Rates tariff) { _tariff = tariff; }
-    //            ^ d: src/Shop/Basket.cs:4
+    //            ^ d: src/Shop/Pricing/Pricing.cs:12
 
     public int Gross() => Prices.Discount(_tariff.Rate());
     //                    ^ d: src/Shop/Pricing/Pricing.cs:42
