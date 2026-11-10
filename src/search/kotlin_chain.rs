@@ -193,8 +193,10 @@ pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Opt
 
 pub fn kotlin_typealias(line: &str) -> Option<(&str, &str)> {
     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:public|internal|private|actual|expect)\s+)*typealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)\s*$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^(?:(?:public|internal)\s+)*typealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)\s*$",
+        )
+        .expect("the regex is a literal")
     });
     let c = ALIAS.captures(line)?;
     Some((c.get(1)?.as_str(), c.get(2)?.as_str()))

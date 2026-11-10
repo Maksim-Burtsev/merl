@@ -375,7 +375,7 @@ impl App {
             let alias = |c: &Candidate| {
                 search::kotlin_typealias(&c.hit.text).is_some_and(|(name, _)| name == written)
             };
-            if kotlin && !found.iter().all(|c| named(c) || alias(c)) {
+            if kotlin && !found.iter().all(named) && !found.iter().all(alias) {
                 return JvmType::Unknown;
             }
             let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
@@ -1086,10 +1086,11 @@ impl App {
         };
         let text = self.text_of(&hit.path)?;
         let package = search::jvm_package(&text);
-        if hits.len() > 1
-            && hit.path != file
-            && (package.is_none() || search::jvm_package(here) != package)
-        {
+        let seen = hit.path == file || (package.is_some() && search::jvm_package(here) == package);
+        let nested = hits
+            .iter()
+            .any(|h| !std::ptr::eq(h, *hit) && (h.path == file || h.path == hit.path));
+        if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
             return None;
         }
         match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
