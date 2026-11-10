@@ -877,3 +877,46 @@ fn code_only(line: &str) -> String {
     }
     String::from_utf8_lossy(&b).into_owned()
 }
+
+pub fn ts_awaited(
+    kind: Kind,
+    text: &str,
+    line1: usize,
+    callee: &str,
+    written: &str,
+) -> Option<String> {
+    let inner = written
+        .trim()
+        .strip_prefix("Promise<")?
+        .strip_suffix('>')?
+        .trim();
+    let nests = inner.chars().try_fold(0usize, |depth, c| match c {
+        '<' => Some(depth + 1),
+        '>' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    if kind != Kind::TsJs || nests != Some(0) {
+        return None;
+    }
+    let line = code_only(text.lines().nth(line1.checked_sub(1)?)?);
+    let call = format!("{callee}(");
+    let mut calls = line.match_indices(&call).map(|(i, _)| i).peekable();
+    calls.peek()?;
+    calls
+        .all(|at| {
+            let awaited = line.get(..at).is_some_and(|before| {
+                before.ends_with(char::is_whitespace)
+                    && before.trim_end().strip_suffix("await").is_some_and(|head| {
+                        !head.ends_with(|c: char| c.is_alphanumeric() || "_$.".contains(c))
+                    })
+            });
+            let ended = close_of(kind, &line, at + callee.len())
+                .and_then(|end| line.get(end..))
+                .is_some_and(|rest| {
+                    let rest = rest.trim_start();
+                    rest.is_empty() || rest.starts_with([';', ')', ','])
+                });
+            awaited && ended
+        })
+        .then(|| inner.to_owned())
+}
