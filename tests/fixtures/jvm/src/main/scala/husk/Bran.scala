@@ -41,6 +41,6 @@ object Kiln {
   }
 }
 
-object Hopper {
+object Silo {
   def winnow(): Int = 0
 }
