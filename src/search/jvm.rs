@@ -336,7 +336,7 @@ pub(super) fn jvm_bindings(
         }
         if ind < depth && case_label_end(t) == t.len() {
             if own_group {
-                let own = header_lines1_binding(lines, i, i, name, None);
+                let own = header_lines1_binding(lines, i, i, name, None, scala);
                 out.extend(own.into_iter().map(binding));
             }
             own_group = false;
