@@ -97,24 +97,7 @@ impl App {
                     _ => return None,
                 }
             } else if h.text.contains("<Import") && !h.text.contains("Sdk=") {
-                let to = IMPORT.captures(&h.text)?[1]
-                    .replace("$(MSBuildThisFileDirectory)", "")
-                    .replace('\\', "/");
-                if to.contains(['$', '*', '@', '%']) {
-                    return None;
-                }
-                let mut path = std::path::PathBuf::new();
-                for c in h.path.parent()?.join(to).components() {
-                    match c {
-                        std::path::Component::ParentDir => {
-                            if !path.pop() {
-                                return None;
-                            }
-                        }
-                        std::path::Component::CurDir => {}
-                        c => path.push(c),
-                    }
-                }
+                let path = imported(&h.path, &IMPORT.captures(&h.text)?[1])?;
                 if !self.files.contains(&path) {
                     return None;
                 }
@@ -199,6 +182,28 @@ impl App {
     }
 }
 
+fn imported(from: &Path, project: &str) -> Option<std::path::PathBuf> {
+    let to = project
+        .replace("$(MSBuildThisFileDirectory)", "")
+        .replace('\\', "/");
+    if to.contains(['$', '*', '@', '%']) {
+        return None;
+    }
+    let mut path = std::path::PathBuf::new();
+    for c in from.parent()?.join(to).components() {
+        match c {
+            std::path::Component::ParentDir => {
+                if !path.pop() {
+                    return None;
+                }
+            }
+            std::path::Component::CurDir => {}
+            c => path.push(c),
+        }
+    }
+    Some(path)
+}
+
 fn attribute_slot(before: &str) -> bool {
     static SLOT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:\w+\s*:)?(?:[^\[\]]*,)?\s*$").expect("the regex is a literal")
@@ -237,7 +242,24 @@ fn attribute_of_argument(before: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute_of_argument, attribute_slot};
+    use super::{attribute_of_argument, attribute_slot, imported};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn an_msbuild_import_is_read_against_the_importing_file() {
+        let from = Path::new("src/Shop/Directory.Build.props");
+        let at = |p| imported(from, p);
+        assert_eq!(
+            at(r"..\common.props"),
+            Some(PathBuf::from("src/common.props"))
+        );
+        assert_eq!(
+            at("$(MSBuildThisFileDirectory)build/x.targets"),
+            Some(PathBuf::from("src/Shop/build/x.targets"))
+        );
+        assert_eq!(at("../../../outside.props"), None);
+        assert_eq!(at("$(RepoRoot)/x.props"), None);
+    }
 
     #[test]
     fn an_attribute_slot_is_read_from_the_text_before_the_name() {
