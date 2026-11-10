@@ -1239,7 +1239,9 @@ impl App {
                 };
                 search::swift_closure_takes(&t)?
             }
-            None => match search::swift_expected(&lines, &literal, line1, lead) {
+            None => match search::swift_expected(&lines, &literal, line1, lead)
+                .or_else(|| swift_subject_type(text, &lines, &literal, line1, lead))
+            {
                 Some(w) => w,
                 None => match self.swift_argument_rows(here, lead, word)? {
                     Ok(rows) => return Some(rows),
@@ -1460,5 +1462,22 @@ impl App {
                 })
                 .collect(),
         )
+    }
+}
+
+fn swift_subject_type(
+    text: &str,
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    lead: &str,
+) -> Option<String> {
+    let name = search::swift_compared(lines, literal, line1, lead)?;
+    let [b] = search::bindings(Kind::Swift, text, line1, &name)
+        .try_into()
+        .ok()?;
+    match search::swift_given(lines.get(b.line1 - 1)?, &name)? {
+        search::SwiftGiven::Type(t) => Some(t),
+        _ => None,
     }
 }
