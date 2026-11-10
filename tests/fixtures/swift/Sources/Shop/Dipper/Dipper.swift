@@ -35,3 +35,11 @@ class Scoop {
         return self
     }
 }
+
+protocol Pouring {
+    static func builder() -> Scoop
+}
+
+struct Vault<Dipper: Pouring> {
+    let racks: Int
+}

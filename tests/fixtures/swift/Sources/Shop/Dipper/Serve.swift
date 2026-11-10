@@ -13,3 +13,15 @@ func serve() -> Int {
     //                               ^ d: !jump
     //                                       ^ d: !jump
 }
+
+extension Vault {
+    func pour() -> Int {
+        Dipper.builder().size(2).build().dip()
+        //                               ^ d: !jump
+    }
+}
+
+func shadowed(_ scoops: [Scoop]) {
+    scoops.forEach { Dipper in _ = Dipper.size(2).build().dip() }
+    //                                                    ^ d: !jump
+}
