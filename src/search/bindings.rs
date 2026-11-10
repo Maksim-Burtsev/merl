@@ -490,9 +490,36 @@ fn read_statement(
                     statement_bindings(kind, &d.as_own_statement, d.line0 + 1, name, out);
                 }
             }
+            None if kind == Kind::Go && ind > 0 && go_declares_type(t, name) => {
+                out.push(Binding {
+                    line1: i + 1,
+                    value: Value::Unknown,
+                });
+            }
             None => statement_bindings(kind, t, i + 1, name, out),
         },
     }
+}
+pub fn go_names_a_type_here(lead: &str, tail: &str) -> bool {
+    let label = matches!(
+        lead.split_whitespace().last(),
+        Some("break" | "continue" | "goto")
+    );
+    let key = tail.starts_with(':') && !tail.starts_with(":=");
+    let key = key && !lead.trim_start().starts_with("case");
+    let lead = lead.trim_end();
+    let declared = (lead.is_empty() || lead.ends_with(['{', ';']))
+        && tail.starts_with([' ', '\t'])
+        && tail
+            .trim_start()
+            .starts_with(|c: char| c.is_alphanumeric() || "_*[".contains(c));
+    !label && !key && !declared
+}
+fn go_declares_type(t: &str, name: &str) -> bool {
+    t.strip_prefix("type")
+        .filter(|r| r.starts_with(char::is_whitespace))
+        .and_then(|r| r.trim_start().strip_prefix(name))
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 fn header_start(kind: Kind, lines: &[&str], mut i: usize, ind: usize) -> usize {
     while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
