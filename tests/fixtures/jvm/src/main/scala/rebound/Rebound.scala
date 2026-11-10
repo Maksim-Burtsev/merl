@@ -135,3 +135,56 @@ class Rebound(val x: Cup):
   def pair(k: String): (String, Int) =
     return k -> 1
     //     ^ d: src/main/scala/rebound/Rebound.scala:135
+  def genTuple(ms: List[Mug]): Unit = for { m <- ms; (n, x) <- List((1, m)) } println(x)
+  //                                                                                  ^ d: src/main/scala/rebound/Rebound.scala:138
+  def genTupleSip(ms: List[Mug]): Unit = for { m <- ms; (n, x) <- List((1, m)) } x.sip()
+  //                                                                                 ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+  def genZip(ms: List[Mug]): Unit = for ((m, x) <- ms.zip(ms)) println(x)
+  //                                                                   ^ d: src/main/scala/rebound/Rebound.scala:142
+  def genZipBraces(ms: List[Mug]): Unit = for { (m, x) <- ms.zip(ms) } println(x)
+  //                                                                           ^ d: src/main/scala/rebound/Rebound.scala:144
+  def genZipSecond(ms: List[Mug]): Unit = for (m <- ms; (n, x) <- List((1, m))) println(x)
+  //                                                                                    ^ d: src/main/scala/rebound/Rebound.scala:146
+  def genZipClosed(ms: List[Mug]): Unit = { for { (m, x) <- ms.zip(ms) } println(x); println(x) }
+  //                                                                                         ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genZipOther(ms: List[Mug]): Unit = for { (m, n) <- ms.zip(ms) } println(x)
+  //                                                                          ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genTupleLines(ms: List[Mug]): Unit =
+    for {
+      m <- ms
+      (n, x) <- List((1, m))
+    } println(x)
+    //        ^ d: src/main/scala/rebound/Rebound.scala:155
+  def genBodyBrace(ms: List[Mug]): Unit =
+    for {
+      m <- ms
+      x <- List(m)
+    } {
+      println(x)
+      //      ^ d: src/main/scala/rebound/Rebound.scala:161
+    }
+    println(x)
+    //      ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genParenBody(ms: List[Mug]): Unit =
+    for (
+      x <- ms
+    ) {
+      x.sip()
+      //^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+    }
+  def genTupleFirst(ms: List[Mug]): Unit = for { (x, n) <- ms.zip(ms) } x.sip()
+  //                                                                       ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+  def genTupleTyped(ms: List[(Int, Mug)]): Unit = for { (n, x: Mug) <- ms } println(x)
+  //                                                                                ^ d: src/main/scala/rebound/Rebound.scala:177
+  def genTupleNamesake(ms: List[(Mug, Mug)]): Unit = for { (m, xs) <- ms } println(x)
+  //                                                                               ^ d: src/main/scala/rebound/Rebound.scala:3
+  def curried(ms: List[Mug]): Unit =
+    for {
+      x <- ms
+    } yield x
+    wrap {
+      ()
+    } {
+      println(x)
+      //      ^ d: src/main/scala/rebound/Rebound.scala:3
+    }
