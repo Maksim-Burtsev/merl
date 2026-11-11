@@ -8,6 +8,7 @@ mod declared;
 mod eslint;
 mod go_argument;
 mod intersection;
+mod positions;
 mod shadowed;
 
 use declared::declared_name;
@@ -818,41 +819,15 @@ impl App {
             search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
                 self.assigned_calls_type(kind, file, text, b.line1)
             }
+            search::Value::Position { .. } if hops > 0 => {
+                self.call_position_type(kind, file, text, b, hops)
+            }
             search::Value::Name(_)
             | search::Value::Element(_)
             | search::Value::Field { .. }
+            | search::Value::Position { .. }
             | search::Value::Unknown => None,
         }
-    }
-
-    fn dict_value(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        receiver: &str,
-        method: &str,
-    ) -> Option<TypeVia> {
-        let kind = Kind::Python;
-        let mut found: Option<TypeVia> = None;
-        for b in self.bindings_of(kind, file, text, line1, receiver) {
-            let search::Value::Type(written) = &b.value else {
-                return None;
-            };
-            let value = search::python_dict_value(written)?;
-            let ty = self.annotated_type(kind, file, text, b.line1, &value)?;
-            match &found {
-                Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => return None,
-                Some(_) => {}
-                None => {
-                    found = Some(TypeVia {
-                        ty,
-                        call_signature: Some(format!("{receiver}.{method}() -> {value}")),
-                    });
-                }
-            }
-        }
-        found
     }
 
     fn element_binding_type(
