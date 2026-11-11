@@ -224,7 +224,11 @@ pub fn bindings_at(
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
-            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], col, name) {
+            let own = out.iter().any(|b| b.line1 == line);
+            if col.is_some() && own && go_declares_then_uses(lines[at], col, name) {
+                return out.into_iter().filter(|b| b.line1 == line).collect();
+            }
+            if !own && go_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
             out
