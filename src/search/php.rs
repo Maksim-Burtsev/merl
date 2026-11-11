@@ -172,7 +172,11 @@ pub fn php_access_patterns(word: &str, access: PhpAccess) -> Vec<String> {
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
     match access {
-        PhpAccess::Call => vec![php_method(&w), method_tag],
+        PhpAccess::Call => {
+            let method = php_method(&w);
+            let one_line = one_line_body(Kind::Php, std::slice::from_ref(&method));
+            [vec![method, method_tag], one_line].concat()
+        }
         PhpAccess::Property => vec![property, promoted, property_tag],
         PhpAccess::Constant => php_constants(&w).into(),
     }
@@ -227,6 +231,7 @@ pub fn php_class_members<S: AsRef<str>>(lines: &[S], class: usize, re: &Regex) -
     (0..lines.len())
         .filter(|&i| re.is_match(lines[i].as_ref()))
         .filter(|&i| match php_outer_line(lines, i) {
+            _ if i == class => true,
             Some(o) if o == class => true,
             Some(o) if CONSTRUCTOR.is_match(lines[o].as_ref()) => {
                 php_outer_line(lines, o) == Some(class)

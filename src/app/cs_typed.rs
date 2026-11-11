@@ -539,7 +539,10 @@ impl App {
             .filter(|&(i, l)| {
                 literal.get(i) != Some(&true)
                     && re.is_match(l)
-                    && search::cs_owner(&text, i + 1) == Some(ty.line)
+                    && (search::cs_owner(&text, i + 1) == Some(ty.line)
+                        || (i + 1 == ty.line
+                            && search::one_line_owner(Kind::CSharp, l, word).as_deref()
+                                == Some(ty.name.as_str())))
                     && !matches!(
                         search::cs_place(&text, i + 1, word),
                         search::CsPlace::Local { .. }
