@@ -305,14 +305,8 @@ impl App {
         if let Some(payload) = lead.and_then(|l| search::swift_case_payload(l, name)) {
             return self.swift_payload_value(here, file, text, line1, &payload, hops);
         }
-        let mut bound = search::bindings(Kind::Swift, text, line1, name);
-        if bound.is_empty()
-            && around.is_none()
-            && let Some(b) = search::swift_top_level(&lines, &literal, line1, name)
-        {
-            bound.push(b);
-        }
-        match bound.as_slice() {
+        let top = around.is_none().then_some(literal.as_slice());
+        match search::swift_bindings_or_top(text, &lines, top, line1, name).as_slice() {
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
