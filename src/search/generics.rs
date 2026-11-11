@@ -585,7 +585,12 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         })
 }
 
-pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
+pub fn rust_impl_field(
+    text: &str,
+    line1: usize,
+    name: &str,
+    elsewhere: impl FnOnce(&str, usize) -> Option<(String, usize)>,
+) -> Option<String> {
     fn angled(s: &str) -> Option<Vec<&str>> {
         Some(top_parts(list_after(
             s.get(s.find('<')? + 1..)?,
@@ -595,7 +600,10 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
     }
     let lines: Vec<&str> = text.lines().collect();
     let owner = super::rust_self_type(&lines, line1.checked_sub(1)?)?;
-    let head = coded(Kind::Rust, lines[owner.impl_line0]);
+    let head = coded(
+        Kind::Rust,
+        &super::rust_impl_header(&lines, owner.impl_line0),
+    );
     let head_trimmed = head.trim();
     let generics = head_trimmed
         .strip_prefix("unsafe")
@@ -606,7 +614,16 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
     let args = angled(head.get(head.rfind(&format!("{}<", owner.written))?..)?)?;
     let decl = Regex::new(&super::rust_type_decl_pattern(&owner.written)).ok()?;
     let mut decls = (0..lines.len()).filter(|&i| decl.is_match(lines[i]));
-    let s = decls.next().filter(|_| decls.next().is_none())?;
+    let far;
+    let (lines, s) = match (decls.next(), decls.next()) {
+        (Some(s), None) => (lines, s),
+        (None, _) => {
+            let (t, s) = elsewhere(&owner.written, owner.impl_line0)?;
+            far = t;
+            (far.lines().collect(), s)
+        }
+        _ => return None,
+    };
     let written = super::rust_struct_field(&lines, s, name)?.written_type;
     let i = angled(&coded(Kind::Rust, lines[s]))?
         .iter()

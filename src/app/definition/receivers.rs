@@ -130,7 +130,10 @@ impl App {
         let (kind, chain) = (a.kind, a.chain.as_slice());
         let own = |f: &str| {
             let field = if kind == Kind::Rust {
-                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
+                let t = search::rust_impl_field(&a.text, self.line + 1, f, |written, line0| {
+                    let ty = self.rust_resolve(&a.here, written, line0)?;
+                    Some((self.text_of(&ty.path)?, ty.line.checked_sub(1)?))
+                })?;
                 search::Binding {
                     line1: self.line + 1,
                     value: search::Value::Type(t),
