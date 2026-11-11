@@ -117,6 +117,41 @@ impl App {
         false
     }
 
+    fn type_param_bindings(
+        &self,
+        a: &Asked,
+        explicit: Option<&String>,
+    ) -> Option<(
+        std::path::PathBuf,
+        String,
+        Vec<search::Binding>,
+        Vec<String>,
+    )> {
+        let (kind, chain) = (a.kind, a.chain.as_slice());
+        let own = |f: &str| {
+            let field = if kind == Kind::Rust {
+                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
+                search::Binding {
+                    line1: self.line + 1,
+                    value: search::Value::Type(t),
+                }
+            } else {
+                search::own_field(kind, &a.text, self.line + 1, f)?
+            };
+            Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
+        };
+        match explicit {
+            Some(f) => own(f),
+            None => match self.last_bindings(kind, &a.here, chain) {
+                Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
+                    own(chain.last().map_or("", String::as_str))
+                }
+                None if kind == Kind::CSharp => own(chain.last().map_or("", String::as_str)),
+                found => found,
+            },
+        }
+    }
+
     pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
         let kind = a.kind;
         let chain = a.chain.as_slice();
@@ -133,29 +168,7 @@ impl App {
         if !a.dotted || !reaches {
             return false;
         }
-        let own = |f: &str| {
-            let field = if kind == Kind::Rust {
-                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
-                search::Binding {
-                    line1: self.line + 1,
-                    value: search::Value::Type(t),
-                }
-            } else {
-                search::own_field(kind, &a.text, self.line + 1, f)?
-            };
-            Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
-        };
-        let found = match explicit {
-            Some(f) => own(f),
-            None => match self.last_bindings(kind, &a.here, chain) {
-                Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
-                    own(chain.last().map_or("", String::as_str))
-                }
-                None if kind == Kind::CSharp => own(chain.last().map_or("", String::as_str)),
-                found => found,
-            },
-        };
-        let Some((file, text, bindings, _)) = found else {
+        let Some((file, text, bindings, _)) = self.type_param_bindings(a, explicit) else {
             return false;
         };
         let last = chain.last().map_or("", String::as_str);
