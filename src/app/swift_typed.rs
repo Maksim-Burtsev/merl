@@ -183,7 +183,10 @@ impl App {
     ) -> Option<SwiftChain> {
         let (first, skip) = match self.swift_value(here, file, text, line1, &names[0], hops) {
             Some(v) => (v, 1),
-            None => (self.swift_enum_case(here, text, line1, names)?, 2),
+            None => self.swift_enum_case(here, text, line1, names).or_else(|| {
+                self.swift_static_field(here, text, line1, names, hops)
+                    .map(|v| (v, 2))
+            })?,
         };
         let WrittenVia {
             mut written,
@@ -249,25 +252,48 @@ impl App {
         text: &str,
         line1: usize,
         names: &[String],
-    ) -> Option<WrittenVia> {
-        let [own, case, ..] = names else {
-            return None;
-        };
+    ) -> Option<(WrittenVia, usize)> {
+        let own = names.first()?;
         if !search::bindings(Kind::Swift, text, line1, own).is_empty() {
             return None;
         }
-        let ty = self.swift_type(here, own)?;
-        if ty.keyword.as_deref() != Some("enum") {
-            return None;
-        }
-        let rows = self.swift_member_rows(here, &ty, case)?;
-        let [row] = rows.as_slice() else {
+        (2..=3).find_map(|skip| {
+            let case = names.get(skip - 1)?;
+            let written = names.get(..skip - 1)?.join(".");
+            let ty = self.swift_type(here, &written)?;
+            if ty.keyword.as_deref() != Some("enum") {
+                return None;
+            }
+            let rows = self.swift_member_rows(here, &ty, case)?;
+            let [row] = rows.as_slice() else {
+                return None;
+            };
+            search::swift_case(&row.text).then(|| {
+                let via = WrittenVia {
+                    call_signature: Some(format!("{written}.{case}: {}", ty.name)),
+                    written: ty.name,
+                };
+                (via, skip)
+            })
+        })
+    }
+
+    fn swift_static_field(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        names: &[String],
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let [own, field, ..] = names else {
             return None;
         };
-        search::swift_case(&row.text).then(|| WrittenVia {
-            call_signature: Some(format!("{own}.{case}: {}", ty.name)),
-            written: ty.name,
-        })
+        let (ty, rows) = self.swift_static_rows(here, text, line1, own, field)?;
+        let [_] = rows.as_slice() else {
+            return None;
+        };
+        self.swift_field(here, &ty, field, hops)
     }
 
     fn swift_value(
