@@ -23,4 +23,8 @@ public class Use {
     //                              ^ d: !jump
     void i() { c.fill(); }
     //           ^ d: src/main/java/ladle/Mug.java:4
+    void k(List<Mug> cups) { this.cups.forEach(x -> x.fill()); }
+    //                                                ^ d: src/main/java/ladle/Cup.java:4
+    void l(List<Mug> cups) { cups.forEach(x -> x.fill()); }
+    //                                           ^ d: src/main/java/ladle/Mug.java:4
 }
