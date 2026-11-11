@@ -84,10 +84,8 @@ impl App {
                     let (ty, links) = self.kotlin_chain_type(here, text, Some(before), &c)?;
                     return self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word);
                 }
-                if safe.is_empty()
-                    && let Some(found) = self.scala_static_chain(here, text, &plain, word)
-                {
-                    return found;
+                if safe.is_empty() {
+                    return self.scala_static_chain(here, text, &plain, word);
                 }
                 &safe[..]
             }
@@ -147,16 +145,12 @@ impl App {
         text: &str,
         plain: &str,
         word: &str,
-    ) -> Option<Option<Vec<Candidate>>> {
+    ) -> Option<Vec<Candidate>> {
         let c =
             search::kotlin_call_chain(plain).filter(|c| search::scala(here) && !c.constructed)?;
         let (ty, links, rest) = self.jvm_static_head(here, text, &c.head, &c.links)?;
-        Some(
-            self.jvm_follow(ty, links, &c.head, rest)
-                .and_then(|(ty, links)| {
-                    self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
-                }),
-        )
+        let (ty, links) = self.jvm_follow(ty, links, &c.head, rest)?;
+        self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
     }
 
     fn java_bare_chain(&self, here: &Path, text: &str, before: &str) -> Option<Vec<String>> {
