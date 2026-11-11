@@ -36,6 +36,22 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     }
 }
 
+pub(super) fn ts_callback_element(before: &str, params: &str, name: &str) -> Option<Value> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])((?:this\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\.\s*(map|forEach|filter|find|findLast|findIndex|findLastIndex|some|every|flatMap|sort|toSorted)\s*\(\s*(?:async\s+)?(?:function\s*)?$")
+            .expect("the regex is a literal")
+    });
+    let c = CALL.captures(before.trim_end())?;
+    let params: Vec<&str> = split_top(Kind::TsJs, params, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let at = params.iter().position(|p| *p == name)?;
+    let sort = matches!(&c[2], "sort" | "toSorted");
+    let element = if sort { params.len() == 2 } else { at == 0 };
+    element.then(|| Value::Element(c[1].to_owned()))
+}
+
 fn typed_pattern(p: &str, name: &str) -> Option<Value> {
     let close = close_of(Kind::TsJs, p, 0).filter(|_| p.starts_with('{'))?;
     let written = p.get(close..)?.trim_start().strip_prefix(':')?;

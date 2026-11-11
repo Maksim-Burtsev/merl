@@ -49,6 +49,7 @@ mod objc;
 mod perl;
 mod php;
 mod powershell;
+mod py_lambda;
 mod python;
 mod r;
 mod razor;
