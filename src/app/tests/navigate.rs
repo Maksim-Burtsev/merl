@@ -2098,6 +2098,32 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
 }
 
 #[test]
+fn a_python_ordered_dict_is_indexed_by_its_value_type() {
+    let (dir, mut a) = project_app(
+        "py-ordered-dict",
+        &[
+            (
+                "models.py",
+                "class Foo:\n    def run(self) -> None:\n        pass\n\n\nclass Bar:\n    def run(self) -> None:\n        pass\n",
+            ),
+            (
+                "use.py",
+                "from collections import OrderedDict\n\nfrom models import Foo\n\n\ndef f(o: OrderedDict[str, Foo]) -> None:\n    o[\"a\"].run()\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "use.py", "o[\"a\"].|run");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "run \u{2192} Foo.run (via o: OrderedDict[str, Foo])",
+            "models.py:2"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn an_elixir_as_alias_of_a_nested_module_is_never_called_outside_the_project() {
     let (dir, mut a) = project_app(
         "d-1466-nested",
