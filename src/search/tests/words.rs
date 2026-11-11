@@ -513,7 +513,7 @@ fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
         head("return this.pots[0].lid.lift"),
         Some(CallHead {
             call_without_arguments: "this.pots[]".into(),
-            value: Value::Element("this.pots".into()),
+            value: Value::Element("this.pots[]".into()),
             fields_to_word: vec!["lid".into()],
         })
     );
