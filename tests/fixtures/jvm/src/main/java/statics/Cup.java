@@ -15,4 +15,5 @@ public class Cup {
         public void grow() {
         }
     }
+    public static final Cup SHARED = new Cup();
 }
