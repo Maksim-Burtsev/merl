@@ -76,7 +76,12 @@ pub(super) fn forget_swapped(
             .and_then(|l| assigned_names(l))
             .is_some_and(|lhs| {
                 let lhs = lhs.trim_start().split(':').next().unwrap_or_default();
-                lhs.contains([',', '[']) && !lhs.get(1..).unwrap_or_default().contains('(')
+                let object = ["let ", "const ", "var "].iter().any(|k| {
+                    lhs.strip_prefix(k)
+                        .is_some_and(|r| r.trim_start().starts_with('{'))
+                });
+                (object || lhs.contains([',', '[']))
+                    && !lhs.get(1..).unwrap_or_default().contains('(')
             });
         let again = || {
             lines
