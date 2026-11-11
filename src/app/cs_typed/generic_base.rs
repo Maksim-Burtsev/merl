@@ -1,4 +1,5 @@
-use super::{App, CsType, Hit, Kind, Path, PathBuf, Typed, search};
+use super::super::typed::{Base, base_argument};
+use super::{App, CsType, Hit, Kind, PathBuf, Typed, search};
 
 impl App {
     pub(super) fn cs_substituted(
@@ -25,46 +26,26 @@ impl App {
         let name = search::cs_type_decl(at.lines().nth(holder - 1)?)?.name;
         let params = search::generic_header(Kind::CSharp, &at, holder, &name)?.params;
         let index = params.iter().position(|p| p == written)?;
-        self.cs_base_argument(owner, (&hit.path, holder, params.len()), index, 0)
-    }
-
-    fn cs_base_argument(
-        &self,
-        t: &Typed,
-        holder: (&Path, usize, usize),
-        index: usize,
-        depth: usize,
-    ) -> Option<(PathBuf, usize, String)> {
-        if depth > 8 {
-            return None;
-        }
-        let text = self.text_of(&t.path)?;
-        let params = search::generic_header(Kind::CSharp, &text, t.line, &t.name)?.params;
-        let mut found = None;
-        for entry in search::cs_bases(&text, t.line) {
-            let Some(CsType::Project(b)) = self.cs_resolve(&t.path, &text, t.line, &entry) else {
-                continue;
-            };
-            let got = if (b.path.as_path(), b.line) == (holder.0, holder.1) {
-                let args = search::base_arguments(&entry, &search::cs_type_name(&entry)?)?;
-                let arg = args.get(index).filter(|_| args.len() == holder.2)?;
-                let own = arg
-                    .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                    .any(|w| params.iter().any(|p| p == w));
-                if own || arg.is_empty() {
-                    return None;
-                }
-                Some((t.path.clone(), t.line, arg.clone()))
-            } else {
-                self.cs_base_argument(&b, holder, index, depth + 1)
-            };
-            if got.is_some() {
-                if found.is_some() {
-                    return None;
-                }
-                found = got;
-            }
-        }
-        found
+        let (t, arg) = base_argument(owner, (index, params.len()), 0, &|t: &Typed| {
+            let text = self.text_of(&t.path)?;
+            let params = search::generic_header(Kind::CSharp, &text, t.line, &t.name)?.params;
+            let bases = search::cs_bases(&text, t.line)
+                .into_iter()
+                .filter_map(|entry| {
+                    let Some(CsType::Project(b)) = self.cs_resolve(&t.path, &text, t.line, &entry)
+                    else {
+                        return None;
+                    };
+                    Some(if (&b.path, b.line) == (&hit.path, holder) {
+                        let name = search::cs_type_name(&entry);
+                        Base::Holder(name.and_then(|n| search::base_arguments(&entry, &n)))
+                    } else {
+                        Base::Other(b)
+                    })
+                })
+                .collect();
+            Some((params, bases))
+        })?;
+        Some((t.path, t.line, arg))
     }
 }

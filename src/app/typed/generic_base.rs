@@ -75,49 +75,68 @@ impl App {
             None => search::own_type_parameters(kind, &text, holder.line)?,
         };
         let index = params.iter().position(|p| p == written.trim())?;
-        self.base_argument(kind, ty, holder, (index, params.len()), 0)
+        let (sub, arg) = base_argument(ty, (index, params.len()), 0, &|t: &Typed| {
+            let text = self.text_of(&t.path)?;
+            let own = search::own_type_parameters(kind, &text, t.line).unwrap_or_default();
+            let bases = search::bases(kind, &text, t.line)
+                .into_iter()
+                .filter_map(|base| {
+                    let b = self.type_decl(kind, &t.path, &base)?;
+                    if (&b.path, b.line) != (&holder.path, holder.line) {
+                        return Some(Base::Other(b));
+                    }
+                    let args = search::written_arguments(kind, &text, t.line, &base);
+                    Some(Base::Holder(args.map(|args| {
+                        args.into_iter()
+                            .map(|a| match a.strip_prefix('*') {
+                                Some(a) if kind == Kind::Go => a.to_owned(),
+                                _ => a,
+                            })
+                            .collect()
+                    })))
+                })
+                .collect();
+            Some((own, bases))
+        })?;
+        self.type_decl(kind, &sub.path, &arg)
     }
+}
 
-    fn base_argument(
-        &self,
-        kind: Kind,
-        ty: &Typed,
-        holder: &Typed,
-        at: (usize, usize),
-        depth: usize,
-    ) -> Option<Typed> {
-        let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
-        let own = search::own_type_parameters(kind, &text, ty.line).unwrap_or_default();
-        let mut found = None;
-        for base in search::bases(kind, &text, ty.line) {
-            let Some(b) = self.type_decl(kind, &ty.path, &base) else {
-                continue;
-            };
-            let got = if (&b.path, b.line) == (&holder.path, holder.line) {
-                let args = search::written_arguments(kind, &text, ty.line, &base)?;
-                let arg = args.get(at.0).filter(|_| args.len() == at.1)?;
-                let arg = arg
-                    .strip_prefix('*')
-                    .filter(|_| kind == Kind::Go)
-                    .unwrap_or(arg);
+pub(in crate::app) enum Base<T> {
+    Holder(Option<Vec<String>>),
+    Other(T),
+}
+
+pub(in crate::app) fn base_argument<T: Clone>(
+    sub: &T,
+    (index, count): (usize, usize),
+    depth: usize,
+    bases: &impl Fn(&T) -> Option<(Vec<String>, Vec<Base<T>>)>,
+) -> Option<(T, String)> {
+    let (own, bases_of_sub) = bases(sub).filter(|_| depth < 8)?;
+    let mut found = None;
+    for base in bases_of_sub {
+        let got = match base {
+            Base::Holder(args) => {
+                let args = args?;
+                let arg = args.get(index).filter(|_| args.len() == count)?;
                 let plain = !arg.is_empty()
                     && arg
                         .chars()
                         .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$' | '.'));
-                if !plain || own.iter().any(|p| p == arg) {
+                if !plain || arg.split('.').any(|w| own.iter().any(|p| p == w)) {
                     return None;
                 }
-                Some(self.type_decl(kind, &ty.path, arg)?)
-            } else {
-                self.base_argument(kind, &b, holder, at, depth + 1)
-            };
-            if got.is_some() {
-                if found.is_some() {
-                    return None;
-                }
-                found = got;
+                Some((sub.clone(), arg.clone()))
             }
+            Base::Other(b) => base_argument(&b, (index, count), depth + 1, bases),
+        };
+        if got.is_some() {
+            if found.is_some() {
+                return None;
+            }
+            found = got;
         }
-        found
     }
+    found
 }
