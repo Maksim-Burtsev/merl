@@ -8,7 +8,8 @@ use super::{
     jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names, nix_bindings,
     powershell_params, python_bindings_at, ruby_bindings, rust_bindings, shell_bindings,
     solidity_bindings, split_top, swift_bindings, ts_declarators, ts_declares_then_uses,
-    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, type_list, uncommented,
+    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, ts_tuple_destructured,
+    type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,11 @@ pub enum Value {
         field: String,
     },
     Member(Box<Self>, String),
+    Position {
+        of: Box<Self>,
+        at: usize,
+        count: usize,
+    },
     Struct(usize),
     Unknown,
 }
@@ -1299,6 +1305,8 @@ pub(super) fn statement_bindings(
                 declared_value(c)
             } else if let Some(field) = ts_destructured(t, name) {
                 field
+            } else if let Some(element) = ts_tuple_destructured(t, name) {
+                element
             } else if let Some(value) = listed() {
                 value
             } else if named.is_match(t)
@@ -1343,15 +1351,24 @@ fn go_statement_value(t: &str, line: usize, name: &str) -> Option<Value> {
             value_of(Kind::Go, e)
         }
     };
+    let assigned = |names: &str, values: &str, at: usize| match go_assigned(names, values, at) {
+        Some(v) => value(v),
+        None if split_top(Kind::Go, values, b',').len() == 1 => Value::Position {
+            of: Box::new(value_of(Kind::Go, values)),
+            at,
+            count: names.split(',').count(),
+        },
+        None => Value::Unknown,
+    };
     if let Some(c) = GO_SHORT.captures(t) {
         let at = list(&c[1]).iter().position(|p| p == name)?;
-        Some(go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, value))
+        Some(assigned(&c[1], &c[2], at))
     } else if let Some(c) = GO_VAR.captures(t) {
         let at = list(&c[1]).iter().position(|p| p == name)?;
         Some(match (c.get(2), c.get(3)) {
             (Some(ty), _) if anonymous(ty.as_str()) => Value::Struct(line),
             (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-            (None, Some(v)) => go_assigned(&c[1], v.as_str(), at).map_or(Value::Unknown, value),
+            (None, Some(v)) => assigned(&c[1], v.as_str(), at),
             (None, None) => Value::Unknown,
         })
     } else {

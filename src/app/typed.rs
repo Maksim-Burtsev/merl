@@ -814,9 +814,29 @@ impl App {
             search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
                 self.assigned_calls_type(kind, file, text, b.line1)
             }
+            search::Value::Position { of, at, count } if hops > 0 => {
+                let search::Value::Call(callee) = &**of else {
+                    return None;
+                };
+                let decl = self.callee_decl(kind, file, text, b.line1, callee, hops)?;
+                if search::declares_type(kind, &decl.text) {
+                    return None;
+                }
+                let src = self.text_of(&decl.path)?;
+                let written = search::returned_element(kind, &src, decl.line1, *at, *count)?;
+                if search::go_result_type_param(&decl.text, &written).is_some() {
+                    return None;
+                }
+                let ty = self.annotated_type(kind, &decl.path, &src, decl.line1, &written)?;
+                Some(TypeVia {
+                    ty: self.runtime_class(ty),
+                    call_signature: Some(signature(kind, callee, &written)),
+                })
+            }
             search::Value::Name(_)
             | search::Value::Element(_)
             | search::Value::Field { .. }
+            | search::Value::Position { .. }
             | search::Value::Unknown => None,
         }
     }
