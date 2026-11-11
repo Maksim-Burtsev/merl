@@ -5,6 +5,7 @@ use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, sear
 mod attributes;
 mod elements;
 mod fits;
+mod generic_base;
 
 #[derive(Debug, Clone)]
 enum CsType {
@@ -288,14 +289,15 @@ impl App {
         let mut found: Option<Proven> = None;
         for hit in hits {
             let w = search::cs_returns(&hit.text, name)?;
-            let at = self.text_of(&hit.path)?;
-            let ty = self.cs_resolve(&hit.path, &at, hit.line1, &w)?;
+            let (path, line, w) = self.cs_substituted(t, &hit, w);
+            let at = self.text_of(&path)?;
+            let ty = self.cs_resolve(&path, &at, line, &w)?;
             let link = format!("{name}(): {}", search::cs_type_name(&w)?);
             let next = Proven {
                 ty,
                 link,
                 written: w,
-                from: (hit.path.clone(), hit.line1),
+                from: (path, line),
             };
             one_more(&mut found, next)?;
         }
@@ -566,14 +568,15 @@ impl App {
         let search::CsValue::Type(written) = search::cs_declared(&hit.text, field) else {
             return None;
         };
-        let text = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
+        let (path, line, written) = self.cs_substituted(ty, hit, written);
+        let text = self.text_of(&path)?;
+        let ty = self.cs_resolve(&path, &text, line, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
         Some(Proven {
             ty,
             link,
             written,
-            from: (hit.path.clone(), hit.line1),
+            from: (path, line),
         })
     }
 
@@ -748,12 +751,13 @@ impl App {
         } else {
             written
         };
-        let at = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;
+        let (path, line, written) = self.cs_substituted(&owner, hit, written);
+        let at = self.text_of(&path)?;
+        let ty = self.cs_resolve(&path, &at, line, &written)?;
         Some(CsWrittenType {
             ty,
             written,
-            from: (hit.path.clone(), hit.line1),
+            from: (path, line),
         })
     }
 

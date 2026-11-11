@@ -80,6 +80,7 @@ impl App {
                             let calls = calls.into_iter().map(|c| format!("{c}()"));
                             std::iter::once(head).chain(calls).collect()
                         })
+                        .or_else(|| self.java_bare_chain(here, text, before))
                         .unwrap_or_default(),
                     c => c,
                 };
@@ -118,6 +119,17 @@ impl App {
         };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn java_bare_chain(&self, here: &Path, text: &str, before: &str) -> Option<Vec<String>> {
+        let calls = search::java_bare_chain(before)?;
+        let line = self.line + 1;
+        let innermost = *search::jvm_enclosing_types(text, line).first()?;
+        search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        let first = self.jvm_returned(here, text, line, None, calls.first()?, false)?;
+        matches!(first.resolved, JvmType::Project(_)).then_some(())?;
+        let calls = calls.into_iter().map(|c| format!("{c}()"));
+        Some(std::iter::once("this".to_owned()).chain(calls).collect())
     }
 
     fn jvm_static_head(
@@ -857,7 +869,7 @@ impl App {
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
         })?;
-        Some(TypedField { hit, written })
+        Some(self.jvm_substituted(decl, hit, written))
     }
 
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {
@@ -866,7 +878,74 @@ impl App {
         let [hit] = java_shaped(found, |h| h, field, false).try_into().ok()?;
         let kotlin = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_declared_type(&hit.text, field, kotlin)?;
-        Some(TypedField { hit, written })
+        Some(self.jvm_substituted(decl, hit, written))
+    }
+
+    fn jvm_substituted(&self, decl: &Hit, hit: Hit, written: String) -> TypedField {
+        self.jvm_class_argument(decl, &hit, &written)
+            .unwrap_or(TypedField { hit, written })
+    }
+
+    fn jvm_class_argument(&self, decl: &Hit, member: &Hit, written: &str) -> Option<TypedField> {
+        if search::scala(&member.path) || search::jvm_type_parameter(&member.text, written) {
+            return None;
+        }
+        let text = self.text_of(&member.path)?;
+        let holder = search::jvm_enclosing_types(&text, member.line1)
+            .into_iter()
+            .next()?;
+        let name = search::jvm_type_name(text.lines().nth(holder - 1)?)?;
+        let params = search::generic_header(Kind::Jvm, &text, holder, &name)?.params;
+        let index = params.iter().position(|p| p == written)?;
+        let holder = (member.path.as_path(), holder, params.len());
+        self.jvm_base_argument(decl, holder, index, 0)
+    }
+
+    fn jvm_base_argument(
+        &self,
+        decl: &Hit,
+        holder: (&Path, usize, usize),
+        index: usize,
+        depth: usize,
+    ) -> Option<TypedField> {
+        if depth > 8 || search::scala(&decl.path) {
+            return None;
+        }
+        let text = self.text_of(&decl.path)?;
+        let name = search::jvm_type_name(&decl.text)?;
+        let header = search::generic_header(Kind::Jvm, &text, decl.line1, &name)?;
+        let mut bases = search::jvm_bases(&text, decl.line1, false);
+        bases.extend(search::java_implements(&text, decl.line1));
+        let mut found = None;
+        for base in bases {
+            let JvmType::Project(b) = self.jvm_type_on(&decl.path, &text, &base, Some(decl.line1))
+            else {
+                continue;
+            };
+            let got = if (b.path.as_path(), b.line1) == (holder.0, holder.1) {
+                let args = search::base_arguments(&header.rest, &base)?;
+                let arg = args.get(index).filter(|_| args.len() == holder.2)?;
+                let own = arg
+                    .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .any(|w| header.params.iter().any(|p| p == w));
+                if own || arg.is_empty() {
+                    return None;
+                }
+                Some(TypedField {
+                    hit: decl.clone(),
+                    written: arg.clone(),
+                })
+            } else {
+                self.jvm_base_argument(&b, holder, index, depth + 1)
+            };
+            if got.is_some() {
+                if found.is_some() {
+                    return None;
+                }
+                found = got;
+            }
+        }
+        found
     }
 
     pub(super) fn jvm_hierarchy_member(
