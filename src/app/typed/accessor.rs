@@ -114,7 +114,7 @@ impl App {
             if c.is_whitespace() {
                 continue;
             }
-            if target && ASSIGNS.is_match(&code[i..]) {
+            if target && code.get(i..).is_some_and(|r| ASSIGNS.is_match(r)) {
                 return true;
             }
             target = false;
