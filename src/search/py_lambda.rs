@@ -62,7 +62,9 @@ pub(super) fn python_lambda_value(line: &str, col: usize, name: &str) -> Option<
         return None;
     }
     if let Some(c) = OVER.captures(before) {
-        return Some(Value::Element(c.get(1).or(c.get(2))?.as_str().to_owned()));
+        return Some(Value::Element(
+            c.get(1).or_else(|| c.get(2))?.as_str().to_owned(),
+        ));
     }
     let over = ITERABLE.captures(line.get(end..)?)?;
     MAPPED
