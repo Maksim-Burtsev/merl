@@ -15,4 +15,16 @@ public class Shade
 
     public Chessman Lone() => Pawn;
                            // ^ d: src/Shop/Rookery/Chessman.cs:6
+
+    public object Named(object o)
+    {
+        var t = (Knight: 1, Pawn: 2);
+                         // ^ d: none
+        var n = new { Pawn = 1 };
+                   // ^ d: none
+        var b = o is System.Version { Pawn: > 0 };
+                                   // ^ d: none
+        return (Pawn: 1, t);
+             // ^ d: none
+    }
 }
