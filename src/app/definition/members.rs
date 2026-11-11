@@ -269,3 +269,76 @@ impl App {
         })
     }
 }
+
+impl App {
+    pub(super) fn statics_through_type(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {
+        if !matches!(kind, Kind::Jvm | Kind::CSharp | Kind::TsJs) || found.len() < 2 {
+            return;
+        }
+        let line = self.line_str();
+        let Some((r, w)) = search::definition_word(Some(kind), line, self.col) else {
+            return;
+        };
+        let qualifier = line
+            .get(..r.start)
+            .and_then(|b| b.strip_suffix('.'))
+            .map(|b| {
+                let start = b
+                    .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                    .map_or(0, |i| i + 1);
+                &b[start..]
+            });
+        let Some(qualifier) = qualifier.filter(|q| w == word && q.starts_with(char::is_uppercase))
+        else {
+            return;
+        };
+        let owned: Option<Vec<bool>> = found
+            .iter()
+            .map(|c| {
+                let text = self.text_of(&c.hit.path)?;
+                let (stat, name) = static_owner(kind, &text, c.hit.line1, word)?;
+                (name == qualifier).then_some(stat)
+            })
+            .collect();
+        let Some(owned) = owned else { return };
+        if owned.iter().any(|s| *s) && owned.iter().any(|s| !*s) {
+            let mut kept = owned.into_iter();
+            found.retain(|_| kept.next().unwrap_or(false));
+        }
+    }
+}
+
+fn static_owner(kind: Kind, text: &str, line1: usize, word: &str) -> Option<(bool, String)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let decl = lines.get(line1.checked_sub(1)?)?;
+    let written_static = decl
+        .find(word)
+        .and_then(|at| decl.get(..at))
+        .is_some_and(|head| head.split_whitespace().any(|t| t == "static"));
+    match kind {
+        Kind::Jvm => {
+            let owners = search::jvm_enclosing_types(text, line1);
+            let first = lines.get(owners.first()?.checked_sub(1)?)?;
+            if first.contains("companion object") {
+                let outer = lines.get(owners.get(1)?.checked_sub(1)?)?;
+                return Some((true, search::jvm_type_name(outer)?));
+            }
+            let object = first.split_whitespace().any(|t| t == "object");
+            Some((written_static || object, search::jvm_type_name(first)?))
+        }
+        Kind::CSharp => {
+            let owner = search::cs_owner(text, line1)?;
+            Some((
+                written_static,
+                search::cs_type_decl(lines.get(owner - 1)?)?.name,
+            ))
+        }
+        _ => {
+            let owner = search::owner_decl(kind, text, line1)?;
+            Some((
+                written_static,
+                search::type_name(kind, lines.get(owner - 1)?)?,
+            ))
+        }
+    }
+}
