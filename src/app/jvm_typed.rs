@@ -114,9 +114,11 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let (ty, links) = match self.jvm_static_head(here, text, first, rest) {
-            Some(head) => head,
-            None => self.jvm_chain_head(here, text, before, first, outer)?,
+        let (ty, links, rest) = if let Some(head) = self.jvm_static_head(here, text, first, rest) {
+            head
+        } else {
+            let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+            (ty, links, rest)
         };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
@@ -134,22 +136,52 @@ impl App {
         Some(std::iter::once("this".to_owned()).chain(calls).collect())
     }
 
-    fn jvm_static_head(
+    fn jvm_static_head<'r>(
         &self,
         here: &Path,
         text: &str,
         first: &str,
-        rest: &[String],
-    ) -> Option<(JvmType, Vec<String>)> {
-        if !first.starts_with(|c: char| c.is_ascii_uppercase())
-            || !rest.first().is_some_and(|l| l.ends_with("()"))
+        rest: &'r [String],
+    ) -> Option<(JvmType, Vec<String>, &'r [String])> {
+        let upper = |n: &str| n.starts_with(|c: char| c.is_ascii_uppercase());
+        let (mut decl, mut links, mut rest) = if upper(first) {
+            let JvmType::Project(decl) = self.jvm_type_at(here, text, first) else {
+                return None;
+            };
+            (decl, vec![first.to_owned()], rest)
+        } else {
+            let n = rest.iter().position(|l| upper(l))?;
+            let path: Vec<String> = std::iter::once(first)
+                .chain(rest.get(..=n)?.iter().map(String::as_str))
+                .map(str::to_owned)
+                .collect();
+            (!path.iter().any(|l| l.ends_with("()"))).then_some(())?;
+            let decl = self.jvm_packaged_type(here, text, &path)?;
+            (decl, vec![path.join(".")], rest.get(n + 1..)?)
+        };
+        while let Some((link, more)) = rest.split_first()
+            && upper(link)
+            && !link.ends_with("()")
+            && let JvmType::Project(inner) = self.jvm_nested(&decl, link)
         {
-            return None;
+            decl = inner;
+            links.push(link.clone());
+            rest = more;
         }
-        match self.jvm_type_at(here, text, first) {
-            ty @ JvmType::Project(_) => Some((ty, vec![first.to_owned()])),
-            _ => None,
+        let next = rest.first()?;
+        if !next.ends_with("()") {
+            search::path_bindings(Kind::Jvm, here, text, self.line + 1, first)
+                .is_empty()
+                .then_some(())?;
+            let field = self.jvm_field_type(&decl, next)?;
+            field
+                .hit
+                .text
+                .split_whitespace()
+                .any(|t| t == "static")
+                .then_some(())?;
         }
+        Some((JvmType::Project(decl), links, rest))
     }
 
     fn jvm_follow(
@@ -187,17 +219,19 @@ impl App {
         if c.links.len() > 6 {
             return None;
         }
-        let (ty, links) = if c.constructed {
+        let (ty, links, rest) = if c.constructed {
             (
                 self.jvm_made(here, text, &c.head, true),
                 vec![format!("{}()", c.head)],
+                &c.links[..],
             )
         } else if let Some(head) = self.jvm_static_head(here, text, &c.head, &c.links) {
             head
         } else {
-            self.jvm_chain_head(here, text, before?, &c.head, None)?
+            let (ty, links) = self.jvm_chain_head(here, text, before?, &c.head, None)?;
+            (ty, links, &c.links[..])
         };
-        self.jvm_follow(ty, links, &c.head, &c.links)
+        self.jvm_follow(ty, links, &c.head, rest)
     }
 
     fn kotlin_initialized(
@@ -433,6 +467,33 @@ impl App {
             return None;
         }
         match self.jvm_type_at(here, text, owner) {
+            JvmType::Project(decl) => Some(decl),
+            _ => None,
+        }
+    }
+
+    pub(super) fn jvm_packaged_type(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+    ) -> Option<Hit> {
+        let (owner, package) = chain.split_last()?;
+        let first = package.first()?;
+        let line1 = self.line + 1;
+        if !owner.starts_with(|c: char| c.is_ascii_uppercase())
+            || !package
+                .iter()
+                .all(|p| p.starts_with(|c: char| c.is_ascii_lowercase()))
+            || !search::path_bindings(Kind::Jvm, here, text, line1, first).is_empty()
+            || search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .any(|d| !search::jvm_members_of(here, text, d, first).is_empty())
+        {
+            return None;
+        }
+        let packages = self.jvm_packages()?;
+        match self.jvm_in_package(&packages, chain)? {
             JvmType::Project(decl) => Some(decl),
             _ => None,
         }
