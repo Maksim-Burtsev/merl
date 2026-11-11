@@ -135,8 +135,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   shows a red one: a fixer agent pushes the fix to its branch. The finders run as
   `merl-finder` in the foreground inside the implementer (`run_in_background: false`), so the
   review comes back to it and not to you.
-- **The epic PR.** First the full `tools/heavy tools/ci-local` on the epic: its tasks ran only
-  `clippy tests`. Then one PR into master, a section per issue (before, after, the test that
+- **The epic PR.** First merge `origin/master` into the epic, then the full `tools/heavy
+  tools/ci-local` on it: its tasks ran only `clippy tests`, and nothing merges into that
+  worktree while the check runs. On 2026-11-10 a merge during the check spoiled it, and two
+  own PRs merged into master that night broke the epic's build and a fixture only together. Then one PR into master, a section per issue (before, after, the test that
   catches it): `.claude/skills/batch/bin/epic-body [RUN_DIR]` drafts `epic-body.md` and
   `squash-msg.txt` in the run's folder from the ledger's merged `epic` rows, each
   implementer's report and `COMMON.md`'s trailers; read every section, merge the ones of one

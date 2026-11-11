@@ -103,7 +103,12 @@ pub fn generic_param_line(
     None
 }
 
-fn wrapped_list(kind: Kind, lines: &[&str], literal: &[bool], i: usize) -> Option<usize> {
+pub(super) fn wrapped_list(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    i: usize,
+) -> Option<usize> {
     let (open, close) = match uncommented(kind, lines[i]).trim_end().chars().last()? {
         '<' => ('<', '>'),
         '[' => ('[', ']'),
@@ -335,9 +340,17 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
     let t = line.trim();
     let named = |list: &str, last: bool| {
         let parts = top_parts(list);
-        let i = parts
-            .iter()
-            .position(|p| param_name(p, last) == Some(name))?;
+        let i = parts.iter().position(|p| {
+            let p = p.trim_start();
+            let p = match kind {
+                Kind::CSharp => p
+                    .strip_prefix("out ")
+                    .or_else(|| p.strip_prefix("in "))
+                    .unwrap_or(p),
+                _ => p,
+            };
+            param_name(p, last) == Some(name)
+        })?;
         Some(Some(param_bound(kind, &parts, i)))
     };
     let angled = |re: &Regex| {
@@ -518,7 +531,7 @@ pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
         Kind::Rust | Kind::Swift => format!(
             r"(?:^|[^\w.])(?:_\s+)?{n}\s*:\s*(?:&\s*)?(?:mut\s+|inout\s+)?([A-Za-z_]\w*)[?!]?\s*(?:[,)=;{{]|$)"
         ),
-        Kind::CSharp => format!(r"(?:^|[\s(,])([A-Za-z_]\w*)\s+{n}\s*(?:[,)=;]|$)"),
+        Kind::CSharp => format!(r"(?:^|[\s(,])([A-Za-z_]\w*)\s+{n}\s*(?:[,)=;{{]|$)"),
         _ => return None,
     };
     let code = coded(kind, line);
@@ -561,7 +574,7 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         .find_map(|(i, l)| {
             let t = coded(kind, l);
             let field = if kind == Kind::CSharp {
-                !t.contains('(')
+                !t.split(['=', '{']).next().unwrap_or_default().contains('(')
             } else {
                 t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func ")
             };

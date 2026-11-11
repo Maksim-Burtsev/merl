@@ -123,3 +123,61 @@ pub fn two_rebinds_on_a_line(held: Caps) {
     held.get();
     //   ^ d: !jump
 }
+
+pub fn closure_untyped(held: Caps, v: Vec<Grain>) {
+    v.iter().for_each(|held| {
+        held.get();
+        //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    });
+}
+
+pub fn closure_bare(held: Caps) {
+    let f = |held| held.get();
+    //                  ^ d: !jump
+}
+
+pub fn closure_wrapped(held: Caps, v: Vec<Grain>) {
+    v.iter().for_each(
+        |held| {
+            held.get();
+            //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+        },
+    );
+}
+
+pub fn for_chain(held: Caps, v: Vec<Grain>) {
+    for held in v.iter().filter(|g| g.get() > 0) {
+        held.get();
+        //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    }
+}
+
+pub fn if_let_else(held: Caps) {
+    let n = if let Some(held) = grain() { 0 } else { held.get() };
+    //                                                    ^ d: tests/rebinds.rs:5
+}
+
+pub fn if_let_then(held: Caps) {
+    let n = if let Some(held) = grain() { held.get() } else { 0 };
+    //                                         ^ d: tests/rebinds.rs:14
+}
+
+pub fn if_let_wrong_wrapper(held: Caps) {
+    let n = if let Some(held) = caps() { held.get() } else { 0 };
+    //                                        ^ d: !jump
+}
+
+pub fn if_let_after_else(held: Caps) {
+    let n = if let Some(held) = grain() { 0 } else { 1 } + held.get();
+    //                                                          ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+}
+
+pub fn if_let_else_if(held: Caps) {
+    let n = if let Some(held) = grain() { 0 } else if true { held.get() } else { 1 };
+    //                                                            ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+}
+
+pub fn if_let_else_rebinds(held: Caps) {
+    let n = if let Some(held) = grain() { 0 } else { let held = Grain; held.get() };
+    //                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}

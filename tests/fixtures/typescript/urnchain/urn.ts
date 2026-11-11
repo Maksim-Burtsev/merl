@@ -37,3 +37,33 @@ export class Shop {
     return (this as any).k;
   }
 }
+
+export class Ewer {
+  boil(): number {
+    return 3;
+  }
+
+  size(n: number): this {
+    return this;
+  }
+
+  named(s: string): Ewer {
+    return this;
+  }
+}
+
+export class TallEwer extends Ewer {
+  boil(): number {
+    return 4;
+  }
+}
+
+export class Stall {
+  maybeCounter(): Counter | undefined {
+    return undefined;
+  }
+
+  maybe(): Ewer | undefined {
+    return undefined;
+  }
+}
