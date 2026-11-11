@@ -212,8 +212,7 @@ impl App {
         let lower =
             kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
         if kind == Kind::Ruby && (dotted || lower) {
-            let assignment = search::ruby_assignment(word);
-            patterns.retain(|p| *p != assignment);
+            search::cut_def_patterns(kind, &mut patterns, &[search::ruby_assignment(word)]);
         }
         let ruby_local = lower && !a.tail.starts_with('(');
         if lower

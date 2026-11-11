@@ -7,7 +7,7 @@ use regex::Regex;
 use super::symbols::php_mods;
 use super::syntax::{close_of, literal_lines};
 use super::words::steps_over;
-use super::{Kind, indent, one_line_body};
+use super::{Kind, cut_def_patterns, indent, one_line_body};
 
 pub(super) fn php_method(w: &str) -> String {
     format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
@@ -75,7 +75,7 @@ pub(super) fn php_bare_word_cut(patterns: &mut Vec<String>, line: &str, range: R
         cut.extend(php_properties(&w));
         cut.push(php_tags(&w)[0].clone());
     }
-    patterns.retain(|p| !cut.contains(p));
+    cut_def_patterns(Kind::Php, patterns, &cut);
 }
 
 const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
@@ -131,12 +131,12 @@ pub fn php_namespace_patterns(
         return;
     };
     let generic = php_namespace_line(&regex::escape(word));
-    let Some(at) = patterns.iter().position(|p| *p == generic) else {
+    if !patterns.contains(&generic) {
         return;
-    };
+    }
     if !after.starts_with('\\') {
         if !(ON_NAMESPACE.is_match(before) && after.trim_start().starts_with([';', '{'])) {
-            patterns.remove(at);
+            cut_def_patterns(Kind::Php, patterns, std::slice::from_ref(&generic));
         }
         return;
     }
