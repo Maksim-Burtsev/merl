@@ -7,9 +7,9 @@ use super::{
     gdscript_bindings, go_declares_then_uses, go_statement_value, haskell_bindings, indent,
     julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names,
     nix_bindings, powershell_params, python_bindings_at, ruby_bindings, rust_bindings,
-    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
-    ts_declares_then_uses, ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params,
-    ts_tuple_destructured, type_list, uncommented,
+    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_callback_element,
+    ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_function, ts_hoisted_vars,
+    ts_params, ts_tuple_destructured, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -191,9 +191,22 @@ pub fn bindings_at(
         return Vec::new();
     };
     match kind {
-        Kind::Python | Kind::Starlark => python_bindings_at(&lines, at, name),
+        Kind::Python => {
+            match col.and_then(|c| super::py_lambda::python_lambda_value(lines[at], c, name)) {
+                Some(value) => vec![Binding { line1: line, value }],
+                None => python_bindings_at(&lines, at, name),
+            }
+        }
+        Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
+            if col.is_some_and(|c| ts_arrow_binds(lines[at], name, c))
+                && let Some(b) = out
+                    .iter()
+                    .find(|b| b.line1 == line && matches!(b.value, Value::Element(_)))
+            {
+                return vec![b.clone()];
+            }
             if out.iter().all(|b| b.line1 != line) && ts_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
@@ -971,6 +984,11 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
             let count = out.len();
             if let Some(params) = header.get(open + 1..close - 1) {
                 ts_params(params, line, name, out);
+                if let (Some(value), [.., Binding { value: last, .. }]) =
+                    (ts_callback_element(before, params, name), &mut out[count..])
+                {
+                    *last = value;
+                }
             }
             binds_for_body |= out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
         }
@@ -985,7 +1003,12 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
             .get(..c.get(0).map_or(0, |m| m.start()))
             .is_some_and(|h| !return_type(h))
     }) {
-        out.push(unknown(line));
+        let value = c
+            .get(0)
+            .and_then(|m| header.get(..m.start() + m.as_str().find(name)?))
+            .and_then(|before| ts_callback_element(before, name, name))
+            .unwrap_or(Value::Unknown);
+        out.push(Binding { line1: line, value });
         binds_for_body |= c.get(1).is_some();
     }
     binds_for_body

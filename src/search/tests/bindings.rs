@@ -309,12 +309,12 @@ fn what_a_header_binds_for_another_body_hides_nothing() {
     );
     assert_eq!(
         at(6),
-        [(5, Value::Unknown), (1, new("AuditLog"))],
+        [(5, Value::Element("repos".into())), (1, new("AuditLog"))],
         "so with a one-name arrow on the line that opens another callback"
     );
     assert_eq!(
         at(9),
-        [(8, Value::Unknown)],
+        [(8, Value::Element("repos".into()))],
         "the arrow whose body the line opens is the cursor's own"
     );
     let go = "func f() {\n\trepo := NewAudit()\n\tif ok {\n\t\tconst doc = `\n\t\trepo := NewRepo()\n\t\t`\n\t\trepo.Go(doc)\n\t}\n}\n";
