@@ -72,10 +72,10 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
             repo("twinRepo: UserRepository"),
         ),
         (
-            "Two files that agree, and two of which one cannot be read",
+            "Two files that agree, one by the second result of a call",
             "globals.go",
             "mixedRepo.DeleteUser",
-            picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            repo("pair() *UserRepository"),
         ),
         (
             "",

@@ -4,12 +4,12 @@ use std::path::Path;
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
     cs_opener, cs_opener_in, cs_statement, cs_type_decl, dart_bindings, declares_type,
-    gdscript_bindings, go_declares_then_uses, haskell_bindings, indent, julia_bindings,
-    jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names, nix_bindings,
-    powershell_params, python_bindings_at, ruby_bindings, rust_bindings, shell_bindings,
-    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_declares_then_uses,
-    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, ts_tuple_destructured,
-    type_list, uncommented,
+    gdscript_bindings, go_declares_then_uses, go_statement_value, haskell_bindings, indent,
+    julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names,
+    nix_bindings, powershell_params, python_bindings_at, ruby_bindings, rust_bindings,
+    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
+    ts_declares_then_uses, ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params,
+    ts_tuple_destructured, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1153,7 +1153,7 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
-static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+pub(super) static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
         .expect("the regex is a literal")
 });
@@ -1176,7 +1176,7 @@ fn go_header_init(header: &str, name: &str) -> Option<Value> {
     };
     Some(value_of(Kind::Go, e))
 }
-fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
+pub(super) fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
     let parts = split_top(Kind::Go, values, b',');
     match parts.get(at) {
         Some(v) if parts.len() == names.split(',').count() => Some(v),
@@ -1329,53 +1329,6 @@ pub(super) fn statement_bindings(
         _ => return,
     };
     out.push(Binding { line1: line, value });
-}
-fn go_statement_value(t: &str, line: usize, name: &str) -> Option<Value> {
-    static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
-        )
-        .expect("the regex is a literal")
-    });
-    let list = |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
-    let anonymous = |e: &str| {
-        e.trim_start()
-            .trim_start_matches('&')
-            .strip_prefix("struct")
-            .is_some_and(|r| r.trim_start().starts_with('{'))
-    };
-    let value = |e: &str| {
-        if anonymous(e) {
-            Value::Struct(line)
-        } else {
-            value_of(Kind::Go, e)
-        }
-    };
-    let assigned = |names: &str, values: &str, at: usize| match go_assigned(names, values, at) {
-        Some(v) => value(v),
-        None if split_top(Kind::Go, values, b',').len() == 1 => Value::Position {
-            of: Box::new(value_of(Kind::Go, values)),
-            at,
-            count: names.split(',').count(),
-        },
-        None => Value::Unknown,
-    };
-    if let Some(c) = GO_SHORT.captures(t) {
-        let at = list(&c[1]).iter().position(|p| p == name)?;
-        Some(assigned(&c[1], &c[2], at))
-    } else if let Some(c) = GO_VAR.captures(t) {
-        let at = list(&c[1]).iter().position(|p| p == name)?;
-        Some(match (c.get(2), c.get(3)) {
-            (Some(ty), _) if anonymous(ty.as_str()) => Value::Struct(line),
-            (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-            (None, Some(v)) => assigned(&c[1], v.as_str(), at),
-            (None, None) => Value::Unknown,
-        })
-    } else {
-        t.strip_prefix("const ")
-            .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
-            .then_some(Value::Unknown)
-    }
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct TsHeader {
