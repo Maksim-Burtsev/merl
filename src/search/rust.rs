@@ -1204,16 +1204,31 @@ fn self_owner(lines: &[&str], line0: usize) -> Option<usize> {
             continue;
         }
         depth = indent(lines[i]);
-        if TRAIT_LINE.is_match(lines[i]) || rust_impl_type(lines[i]).is_some() {
+        if TRAIT_LINE.is_match(lines[i]) || rust_impl_type(&rust_impl_header(lines, i)).is_some() {
             return Some(i);
         }
     }
     None
 }
+pub fn rust_impl_header(lines: &[&str], i: usize) -> String {
+    let mut header = String::new();
+    for l in lines.iter().skip(i).take(8) {
+        let t = l.trim();
+        if !header.is_empty() && (t.is_empty() || t.starts_with("where")) {
+            break;
+        }
+        header.push_str(t);
+        header.push(' ');
+        if t.contains(['{', ';']) {
+            break;
+        }
+    }
+    header
+}
 pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     let i = self_owner(lines, line0)?;
     Some(RustSelfType {
-        written: rust_impl_type(lines[i])?,
+        written: rust_impl_type(&rust_impl_header(lines, i))?,
         impl_line0: i,
     })
 }
