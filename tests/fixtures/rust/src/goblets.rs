@@ -153,7 +153,7 @@ impl<T>
 {
     pub fn probe_wrapped_impl(&self) {
         self.held.quaff();
-        //        ^ d: src/goblets.rs:3; want none (#1438)
+        //        ^ d: none
     }
 }
 pub struct Carafe<T> {
@@ -166,5 +166,24 @@ unsafe impl<T> Decant for Carafe<T> {
     fn decant(&self) {
         self.held.quaff();
         //        ^ d: none
+    }
+}
+pub trait Siphon {
+    fn siphon(&self);
+}
+impl<T> Siphon
+    for Decanter<T>
+{
+    fn siphon(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+impl<
+    T: Toaster,
+> Carafe<T> {
+    pub fn probe_wrapped_params(&self) {
+        self.held.clink();
+        //        ^ d: src/goblets.rs:39
     }
 }

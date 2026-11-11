@@ -102,7 +102,7 @@ pub fn let_else_own_line(held: Caps) {
         return;
     };
     held.get();
-    //   ^ d: !jump
+    //   ^ d: tests/rebinds.rs:14
 }
 
 pub fn rebind_twice(held: Caps) {
@@ -180,4 +180,54 @@ pub fn if_let_else_if(held: Caps) {
 pub fn if_let_else_rebinds(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else { let held = Grain; held.get() };
     //                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}
+
+pub struct Sack {
+    grains: Vec<Grain>,
+}
+
+impl Sack {
+    pub fn first(&self) -> Option<Grain> {
+        None
+    }
+    pub fn raw(&self) -> Result<Grain, ()> {
+        Ok(Grain)
+    }
+}
+
+pub fn let_else_wrapped_scrutinee(held: Caps, sack: Sack) {
+    let Some(held) = sack
+        .first()
+    else {
+        return;
+    };
+    held.get();
+    //   ^ d: tests/rebinds.rs:14
+}
+
+pub fn let_else_own_line_one(held: Caps) {
+    let Some(held) = grain()
+    else { return };
+    held.get();
+    //   ^ d: tests/rebinds.rs:14
+}
+
+pub fn let_else_own_line_wrong_wrapper(held: Caps, sack: Sack) {
+    let Some(held) = sack.raw()
+    else {
+        return;
+    };
+    held.get();
+    //   ^ d: !jump
+}
+
+pub fn let_else_closure_scrutinee(held: Caps, sack: Sack) {
+    let Some(held) = sack.first().or_else(|| {
+        None
+    })
+    else {
+        return;
+    };
+    held.get();
+    //   ^ d: !jump
 }

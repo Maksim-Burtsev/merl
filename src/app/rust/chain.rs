@@ -248,6 +248,26 @@ pub(super) fn arm_hides(line: &str, name: &str, col: usize) -> bool {
         .is_some_and(|body| col >= line.len() - body.len())
 }
 
+fn let_else_scrutinee(lines: &[&str], at: usize, rest: &str) -> Option<(String, String)> {
+    if let Some((expr, after)) = rest.split_once(" else ") {
+        return Some((expr.to_owned(), after.to_owned()));
+    }
+    if rest.contains([';', '{', '}']) {
+        return None;
+    }
+    let mut expr = rest.trim().to_owned();
+    for next in lines.iter().skip(at + 1).take(5).map(|l| l.trim()) {
+        if let Some(after) = next.strip_prefix("else ") {
+            return Some((expr, after.to_owned()));
+        }
+        if next.contains([';', '{', '}']) || next.starts_with("//") {
+            return None;
+        }
+        expr = format!("{expr} {next}");
+    }
+    None
+}
+
 fn if_let_scrutinee(lines: &[&str], at: usize, rest: &str) -> Option<String> {
     let mut expr = rest.trim().to_owned();
     let mut i = at;
@@ -807,9 +827,8 @@ impl App {
         let expr = match (header, rest.strip_prefix("=>")) {
             (None, Some(_)) => match_scrutinee(&lines, at)?,
             (Some(_), None) if line.starts_with("let ") => {
-                let (expr, after) = rest.strip_prefix('=')?.split_once(" else ")?;
-                (after.trim() == "{" || after.trim_end().ends_with(['}', ';']))
-                    .then(|| expr.to_owned())?
+                let (expr, after) = let_else_scrutinee(&lines, at, rest.strip_prefix('=')?)?;
+                (after.trim() == "{" || after.trim_end().ends_with(['}', ';'])).then_some(expr)?
             }
             (Some(_), None) => if_let_scrutinee(&lines, at, rest.strip_prefix('=')?)?,
             _ => return None,
