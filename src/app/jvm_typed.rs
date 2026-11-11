@@ -713,11 +713,25 @@ impl App {
         }
         let (in_file, written) = match (source.receiver, source.call) {
             (Some(r), None) => {
-                let [l] = search::path_bindings(Kind::Jvm, file, text, line1, &r)
-                    .iter()
-                    .map(|b| b.line1)
-                    .collect::<Vec<_>>()[..]
-                else {
+                let (own, r) = match r.strip_prefix("this.") {
+                    Some(field) => (true, field.to_owned()),
+                    None => (false, r),
+                };
+                let mut bindings: Vec<usize> = if own {
+                    Vec::new()
+                } else {
+                    search::path_bindings(Kind::Jvm, file, text, line1, &r)
+                        .iter()
+                        .map(|b| b.line1)
+                        .collect()
+                };
+                if bindings.is_empty() {
+                    bindings = search::jvm_enclosing_types(text, line1)
+                        .into_iter()
+                        .map(|d| search::jvm_members_of(file, text, d, &r))
+                        .find(|m| !m.is_empty())?;
+                }
+                let [l] = bindings[..] else {
                     return None;
                 };
                 let at = text.lines().nth(l.checked_sub(1)?)?;
