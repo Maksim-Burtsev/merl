@@ -5,6 +5,7 @@ use super::{
 
 mod declared;
 mod eslint;
+mod generic_base;
 mod go_argument;
 mod intersection;
 mod shadowed;
@@ -176,9 +177,9 @@ impl App {
         let head = search::call_head(kind, line, end)?;
         let ProvenType { mut ty, mut links } = self.receiver(kind, here, &[], Some(&head)).ok()?;
         for method in &methods {
-            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+            let (holder, found) = self.hierarchy(kind, &ty, 0, &mut |t| {
                 let members = self.members_of(kind, t, method);
-                (!members.is_empty()).then_some(members)
+                (!members.is_empty()).then(|| (t.clone(), members))
             })?;
             let [decl] = <[Hit; 1]>::try_from(found).ok()?;
             let text = self.text_of(&decl.path)?;
@@ -197,7 +198,14 @@ impl App {
             {
                 continue;
             }
-            match self.annotated_type(kind, &decl.path, &text, 0, &written) {
+            let member = (
+                text.lines().nth(decl.line1 - 1).unwrap_or(""),
+                method.as_str(),
+            );
+            match self
+                .generic_base_type(kind, &ty, &holder, member, &written)
+                .or_else(|| self.annotated_type(kind, &decl.path, &text, 0, &written))
+            {
                 Some(next) => ty = next,
                 None if kind == Kind::Go && self.go_outside(&decl.path, &text, &written) => {
                     return Some(Err(links.join(" \u{2192} ")));
@@ -670,6 +678,7 @@ impl App {
     fn typed_field(&self, kind: Kind, ty: &Typed, field: &str) -> Option<TypeVia> {
         self.hierarchy(kind, ty, 0, &mut |t| self.field_type(kind, t, field))
             .and_then(DeclaredField::typed)
+            .or_else(|| self.generic_base_field(kind, ty, field))
             .or_else(|| {
                 (kind == Kind::Python && self.stub_returns_self(ty, field)).then(|| TypeVia {
                     ty: ty.clone(),
@@ -1083,6 +1092,14 @@ impl App {
             let ProvenType { ty, .. } = self
                 .chain_type(kind, file, text, line1, receiver, hops - 1)
                 .ok()?;
+            return Some(TypeVia {
+                ty,
+                call_signature: Some(signature),
+            });
+        }
+        if let Some(ty) =
+            self.generic_call_type(kind, (file, text, line1), receiver, method, &written, hops)
+        {
             return Some(TypeVia {
                 ty,
                 call_signature: Some(signature),
