@@ -195,7 +195,12 @@ impl App {
         if kind == Kind::Jvm && !a.dotted && a.chain.is_empty() {
             self.jvm_enum_case(&a.here, &a.text, &a.before, &a.word, found);
         }
-        if kind == Kind::CSharp && !a.dotted && a.chain.is_empty() && found.is_empty() {
+        if kind == Kind::CSharp
+            && !a.dotted
+            && a.chain.is_empty()
+            && found.is_empty()
+            && !cs_named_slot(&a.lead, &a.tail)
+        {
             *found = self.cs_static_enum_case(&a.here, &a.text, &a.word);
         }
         if kind == Kind::Jvm && found.is_empty() {
@@ -1298,4 +1303,14 @@ fn julia_base_module(text: &str, found: &mut Vec<Candidate>) {
     {
         found.retain(module);
     }
+}
+
+fn cs_named_slot(lead: &str, tail: &str) -> bool {
+    let tail = tail.trim_start();
+    let lead = lead.trim_end();
+    let named = tail.strip_prefix(':').is_some_and(|r| !r.starts_with(':'))
+        || tail
+            .strip_prefix('=')
+            .is_some_and(|r| !r.starts_with(['=', '>']));
+    named && (lead.is_empty() || lead.ends_with(['(', ',', '{']))
 }
