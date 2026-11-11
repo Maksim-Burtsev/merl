@@ -75,7 +75,7 @@ pub(super) fn forget_swapped(
             .get(b.line1.wrapping_sub(1))
             .and_then(|l| assigned_names(l))
             .is_some_and(|lhs| {
-                let lhs = lhs.trim_start();
+                let lhs = lhs.trim_start().split(':').next().unwrap_or_default();
                 lhs.contains([',', '[']) && !lhs.get(1..).unwrap_or_default().contains('(')
             });
         let again = || {

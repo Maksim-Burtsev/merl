@@ -43,4 +43,10 @@ export function unpack(): void {
   [h, k] = [k, h];
   h.dollop();
   //^ d: !jump
+  let crowd: Platter[] = [];
+  crowd = [new Platter()];
+  for (const each of crowd) {
+    each.dollop();
+    //   ^ d: shop/servings.ts:2
+  }
 }
