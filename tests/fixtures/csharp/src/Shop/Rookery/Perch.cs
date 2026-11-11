@@ -10,7 +10,7 @@ public static class Perch
         switch (bird)
         {
             case Rook:
-              // ^ d: none; want src/Shop/Rookery/Corvid.cs:6 (#1448)
+              // ^ d: src/Shop/Rookery/Corvid.cs:6
                 return 1;
             case Corvid.Raven:
                 return 0;
@@ -26,5 +26,5 @@ public static class Perch
     };
 
     public static Corvid Plain() => Rook;
-                                 // ^ d: none; want src/Shop/Rookery/Corvid.cs:6 (#1448)
+                                 // ^ d: src/Shop/Rookery/Corvid.cs:6
 }

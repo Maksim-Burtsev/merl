@@ -433,6 +433,10 @@ pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
         Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?function\b")
             .expect("the regex is a literal")
     });
+    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?#?[\w$]+\s*<[^()]*>\s*\(")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
@@ -443,9 +447,15 @@ pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
     let ind = indent(lines[k]);
     let closer = (k + 1..lines.len().min(k + 40))
         .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);
-    let Some(i) = closer.filter(|&i| lines[i].trim_start().starts_with(">(")) else {
+    let Some(i) = closer else {
         return false;
     };
+    if let Some(rest) = lines[i].trim_start().strip_prefix(">)") {
+        return METHOD.is_match(lines[k]) && rest.trim_start().starts_with([':', '{']);
+    }
+    if !lines[i].trim_start().starts_with(">(") {
+        return false;
+    }
     let open = lines[i].find('(').unwrap_or(0);
     group(Kind::TsJs, &lines, i, open).is_some_and(
         |Group {

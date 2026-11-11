@@ -57,8 +57,27 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());
         return (owner != name).then(|| format!("{owner}{sep}{name}"));
     }
+    if kind == Kind::Dart
+        && let Some(owner) = dart_one_line_enum(target, name)
+    {
+        return Some(format!("{owner}{sep}{name}"));
+    }
     qualified_by_owner(kind, text, &lines, line1, name)
         .or_else(|| qualified_by_nesting(kind, text, &lines, line1, name))
+}
+fn dart_one_line_enum(line: &str, name: &str) -> Option<String> {
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*enum\s+(\w+)[^{]*\{([^};]*)").expect("the regex is a literal")
+    });
+    let c = ENUM.captures(line)?;
+    c[2].split(',')
+        .any(|v| {
+            v.trim()
+                .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
+                .next()
+                == Some(name)
+        })
+        .then(|| c[1].to_owned())
 }
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
@@ -790,7 +809,8 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let mut fields = Vec::new();
     let indexed =
         |b: &str| matches!(kind, Kind::TsJs | Kind::Go | Kind::Python) && b.ends_with(']');
-    while !before.ends_with(')') && !indexed(before) {
+    let literal = |b: &str| kind == Kind::Go && b.ends_with('}');
+    while !before.ends_with(')') && !indexed(before) && !literal(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
             return None;
@@ -798,6 +818,25 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
         let (head, field) = before.split_at_checked(start)?;
         fields.insert(0, field.to_owned());
         before = head.strip_suffix('.')?;
+    }
+    if literal(before) {
+        let open = code(kind, before)
+            .filter(|(_, c)| *c == b'{')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+        let head = before.get(..open)?.trim_end();
+        let start = name_start(head, |c| is_name(c) || c == '.');
+        let name = head.get(start..)?;
+        let plain = !name.is_empty()
+            && !name.starts_with('.')
+            && !name.ends_with('.')
+            && name.matches('.').count() < 2
+            && !head.get(..start)?.ends_with([')', ']', '}', '.']);
+        return plain.then(|| CallHead {
+            call_without_arguments: format!("{name}{{}}"),
+            value: Value::New(name.to_owned()),
+            fields_to_word: fields,
+        });
     }
     if indexed(before) {
         let open = code(kind, before)
@@ -815,9 +854,14 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             && !list.starts_with('.')
             && !list.ends_with('.')
             && !head.get(..start)?.ends_with([')', ']', '.']);
+        let element = if kind == Kind::Python {
+            format!("{list}[]")
+        } else {
+            list.to_owned()
+        };
         return plain.then(|| CallHead {
             call_without_arguments: format!("{list}[]"),
-            value: Value::Element(list.to_owned()),
+            value: Value::Element(element),
             fields_to_word: fields,
         });
     }

@@ -6,6 +6,7 @@ use super::{
 mod declared;
 mod eslint;
 mod go_argument;
+mod intersection;
 mod shadowed;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -77,7 +78,23 @@ impl App {
         {
             return Ok(found);
         }
-        let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
+        let ProvenType { ty, links } = match self.receiver(kind, here, chain, head) {
+            Ok(proven) => proven,
+            Err(via) => {
+                let (hits, label) = head
+                    .is_none()
+                    .then(|| self.jsdoc_intersection_member(kind, here, &text, line, chain, word))
+                    .flatten()
+                    .ok_or(via)?;
+                return Ok(hits
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(label.clone()),
+                    })
+                    .collect());
+            }
+        };
         let declared = match self.union_arms(kind, &ty) {
             Some(arms) => self.shared_member(kind, &arms, word),
             None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
@@ -172,6 +189,12 @@ impl App {
             };
             links.push(signature(kind, method, &written));
             if kind == Kind::TsJs && written.trim() == "this" {
+                continue;
+            }
+            if kind == Kind::Python
+                && written.trim() == "Self"
+                && super::python::imports_typing_self(&text)
+            {
                 continue;
             }
             match self.annotated_type(kind, &decl.path, &text, 0, &written) {
@@ -840,6 +863,7 @@ impl App {
         let (n, values) = n
             .strip_suffix(".values()")
             .map_or((n, false), |base| (base, true));
+        let (n, indexed) = n.strip_suffix("[]").map_or((n, false), |base| (base, true));
         let (file, text, bindings) = match n.rsplit_once('.') {
             None => (
                 file.to_path_buf(),
@@ -879,6 +903,7 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
+                None if indexed => (search::python_dict_value(&written)?, at.clone()),
                 None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
@@ -1049,7 +1074,12 @@ impl App {
             }
             _ => return None,
         };
-        if kind == Kind::TsJs && written.trim() == "this" && hops > 0 && !receiver.is_empty() {
+        let own_type = match kind {
+            Kind::TsJs => written.trim() == "this",
+            Kind::Python => written.trim() == "Self" && super::python::imports_typing_self(&at),
+            _ => false,
+        };
+        if own_type && hops > 0 && !receiver.is_empty() {
             let ProvenType { ty, .. } = self
                 .chain_type(kind, file, text, line1, receiver, hops - 1)
                 .ok()?;

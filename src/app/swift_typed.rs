@@ -945,7 +945,17 @@ impl App {
         let mut decls = Vec::new();
         let mut extended = false;
         let mut aliases = Vec::new();
-        for h in self.project_definitions(Kind::Swift, here, &name, &pattern) {
+        let mut hits = self.project_definitions(Kind::Swift, here, &name, &pattern);
+        if hits.len() > 1
+            && let Some(text) = self.text_of(here)
+        {
+            let mut seen = hits.clone();
+            self.swift_imported_modules(here, &text, &mut seen);
+            if !seen.is_empty() {
+                hits = seen;
+            }
+        }
+        for h in hits {
             if !self.in_code(Kind::Swift, &h) {
                 continue;
             }
@@ -1219,17 +1229,23 @@ impl App {
         let written = match search::swift_called_closure(lead) {
             Some(callee) => {
                 let bound = search::bindings(Kind::Swift, text, line1, &callee);
-                let [b] = bound.as_slice() else {
-                    return None;
-                };
-                let search::SwiftGiven::Type(t) =
-                    search::swift_given(lines.get(b.line1 - 1)?, &callee)?
-                else {
-                    return None;
-                };
-                search::swift_closure_takes(&t)?
+                match bound.as_slice() {
+                    [] => self.swift_free_call_type(here, text, lead)?,
+                    [b] => {
+                        let search::SwiftGiven::Type(t) =
+                            search::swift_given(lines.get(b.line1 - 1)?, &callee)?
+                        else {
+                            return None;
+                        };
+                        search::swift_closure_takes(&t)?
+                    }
+                    _ => return None,
+                }
             }
-            None => match search::swift_expected(&lines, &literal, line1, lead) {
+            None => match search::swift_expected(&lines, &literal, line1, lead)
+                .or_else(|| swift_subject_type(text, &lines, &literal, line1, lead))
+                .or_else(|| self.swift_free_call_type(here, text, lead))
+            {
                 Some(w) => w,
                 None => match self.swift_argument_rows(here, lead, word)? {
                     Ok(rows) => return Some(rows),
@@ -1450,5 +1466,22 @@ impl App {
                 })
                 .collect(),
         )
+    }
+}
+
+fn swift_subject_type(
+    text: &str,
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    lead: &str,
+) -> Option<String> {
+    let name = search::swift_compared(lines, literal, line1, lead)?;
+    let [b] = search::bindings(Kind::Swift, text, line1, &name)
+        .try_into()
+        .ok()?;
+    match search::swift_given(lines.get(b.line1 - 1)?, &name)? {
+        search::SwiftGiven::Type(t) => Some(t),
+        _ => None,
     }
 }

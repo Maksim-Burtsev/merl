@@ -195,6 +195,14 @@ impl App {
         if kind == Kind::Jvm && !a.dotted && a.chain.is_empty() {
             self.jvm_enum_case(&a.here, &a.text, &a.before, &a.word, found);
         }
+        if kind == Kind::CSharp
+            && !a.dotted
+            && a.chain.is_empty()
+            && found.is_empty()
+            && !cs_named_slot(&a.lead, &a.tail)
+        {
+            *found = self.cs_static_enum_case(&a.here, &a.text, &a.word);
+        }
         if kind == Kind::Jvm && found.is_empty() {
             *found = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
             if found.is_empty() && !a.dotted {
@@ -403,6 +411,17 @@ impl App {
             self.swift_scoped(a, near, &mut hits);
             if a.before.ends_with('@') {
                 self.swift_attribute_types(&a.here, &a.text, &mut hits);
+            } else if hits.len() > 1
+                && hits.iter().all(|h| search::swift_type_decl(&h.text))
+                && hits
+                    .iter()
+                    .any(|h| search::swift_alias(&h.text, &a.word).is_some())
+            {
+                let mut seen = hits.clone();
+                self.swift_imported_modules(&a.here, &a.text, &mut seen);
+                if !seen.is_empty() {
+                    hits = seen;
+                }
             }
         }
         match kind {
@@ -638,7 +657,25 @@ impl App {
         }
     }
 
+    fn kotlin_unseen_dropped(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        if a.dotted
+            || !a.chain.is_empty()
+            || a.before.trim_end().ends_with("::")
+            || a.here.extension().is_none_or(|e| e != "kt")
+        {
+            return;
+        }
+        let plain = |c: &Candidate| plain_top_level(&c.hit.text, &a.word);
+        let seen = |c: &Candidate| self.jvm_package_sees(&a.here, &a.text, &a.word, &c.hit.path);
+        if found.iter().any(|c| plain(c) && seen(c)) {
+            found.retain(|c| !plain(c) || seen(c));
+        }
+    }
+
     fn top_level_only(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if a.kind == Kind::Jvm {
+            self.kotlin_unseen_dropped(a, found);
+        }
         if !self.called_from_top_level_def(a, near) {
             return;
         }
@@ -803,10 +840,7 @@ impl App {
     fn jvm_hits(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
         let hits = self.jvm_seen(&a.here, hits, a.dotted || a.before.ends_with("::"));
         let mut hits = self.jvm_use_fit(&a.here, &a.word, a.range.clone(), &a.chain, hits);
-        if a.before.ends_with('@')
-            && a.here.extension().is_some_and(|e| e == "java")
-            && search::JAVA_LANG_ANNOTATIONS.contains(&a.word.as_str())
-        {
+        if search::jvm_builtin_annotation(&a.here, &a.before, &a.word) {
             hits.retain(|h| self.jvm_package_sees(&a.here, &a.text, &a.word, &h.path));
         }
         if matches!(a.word.as_str(), "values" | "valueOf")
@@ -1269,4 +1303,14 @@ fn julia_base_module(text: &str, found: &mut Vec<Candidate>) {
     {
         found.retain(module);
     }
+}
+
+fn cs_named_slot(lead: &str, tail: &str) -> bool {
+    let tail = tail.trim_start();
+    let lead = lead.trim_end();
+    let named = tail.strip_prefix(':').is_some_and(|r| !r.starts_with(':'))
+        || tail
+            .strip_prefix('=')
+            .is_some_and(|r| !r.starts_with(['=', '>']));
+    named && (lead.is_empty() || lead.ends_with(['(', ',', '{']))
 }

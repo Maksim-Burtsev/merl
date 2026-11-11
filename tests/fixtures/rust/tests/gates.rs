@@ -94,7 +94,7 @@ pub fn wrappers() -> usize {
         //   ^ d: !jump
     }
     if let Some(held) = grain() { held.get(); }
-    //                                 ^ d: !jump
+    //                                 ^ d: tests/gates.rs:11
     held.get()
     //   ^ d: tests/gates.rs:5
 }

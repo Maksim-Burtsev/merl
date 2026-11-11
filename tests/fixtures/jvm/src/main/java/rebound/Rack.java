@@ -206,6 +206,34 @@ public class Rack {
         }
     }
 
+    void forInit() { for (Ewer d = new Ewer(), x = d; ; ) { x.decant(); } }
+    //                                                      ^ d: src/main/java/rebound/Rack.java:209
+    //                                                        ^ d: src/main/java/rebound/Ewer.java:4
+
+    void forInitClosed() { for (Ewer d = new Ewer(), x = d; ; ) { } x.decant(); }
+    //                                                              ^ d: src/main/java/rebound/Rack.java:6
+
+    void forInitAbove() {
+        for (Ewer d = new Ewer(), x = d; ; ) {
+            x.decant();
+            //^ d: src/main/java/rebound/Ewer.java:4
+        }
+    }
+
+    void continued() {
+        Ewer d = new Ewer(),
+            x = d;
+        x.decant();
+      //^ d: src/main/java/rebound/Rack.java:225
+    }
+
+    void continuedRead() {
+        Ewer d = make(1,
+            2), e = x;
+        x.decant();
+      //^ d: src/main/java/rebound/Rack.java:6
+    }
+
     Ewer make(int a, int b) {
         return null;
     }
