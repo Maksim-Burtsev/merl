@@ -70,7 +70,10 @@ impl App {
             return None;
         }
         let text = self.text_of(&holder.path)?;
-        let params = search::own_type_parameters(kind, &text, holder.line)?;
+        let params = match search::go_receiver_parameters(member).filter(|_| kind == Kind::Go) {
+            Some(params) => params,
+            None => search::own_type_parameters(kind, &text, holder.line)?,
+        };
         let index = params.iter().position(|p| p == written.trim())?;
         self.base_argument(kind, ty, holder, (index, params.len()), 0)
     }

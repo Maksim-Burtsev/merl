@@ -17,3 +17,16 @@ export class Crate {
 export class Barrel {
   fill(): void {}
 }
+
+export class Pair<K, V> {
+  right(): V {
+    return undefined as V;
+  }
+}
+
+export class Twin extends Pair<Barrel, Crate> {}
+
+export function paired(tw: Twin): void {
+  tw.right().fill();
+  //         ^ d: gantry/gantry.ts:14
+}

@@ -194,3 +194,12 @@ fn bracket_group(inner: &str, open: char, close: char) -> Option<(String, String
     }
     None
 }
+
+pub fn go_receiver_parameters(member: &str) -> Option<Vec<String>> {
+    let open = Regex::new(r"^\s*func\s*\(\s*\w*\s*\*?\w+\s*\[")
+        .ok()?
+        .find(member)?
+        .end();
+    let (list, _) = bracket_group(member.get(open..)?, '[', ']')?;
+    Some(top_commas(&list))
+}

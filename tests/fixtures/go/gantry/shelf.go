@@ -35,3 +35,10 @@ func Use(t Tall, d Deep) {
 	t.Wipe()
 	//^ d: gantry/gantry.go:17
 }
+
+func NewShelf() *Shelf { return &Shelf{} }
+
+func Made() {
+	NewShelf().First().Fill()
+	//                 ^ d: gantry/gantry.go:5
+}

@@ -33,10 +33,3 @@ export function use(s: Shelf, t: Tall): void {
   s.grab(new Barrel()).fill();
   //                   ^ d: picker gantry/gantry.ts:14, gantry/gantry.ts:18
 }
-
-declare function shelf(): Shelf;
-
-export function made(): void {
-  shelf().first().fill();
-  //              ^ d: gantry/gantry.ts:14
-}
