@@ -159,10 +159,17 @@ impl App {
             return false;
         };
         let last = chain.last().map_or("", String::as_str);
-        let unbound = |b: &search::Binding| {
-            let written = match &b.value {
-                search::Value::Type(t) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
-                search::Value::Unknown if kind != Kind::Go => {
+        let mapped = match chain {
+            [var, field] if kind == Kind::Go => {
+                self.go_field_argument(&a.here, &a.text, self.line + 1, (var, field))
+            }
+            _ => None,
+        };
+        let param = |b: &search::Binding| {
+            let written = match (&mapped, &b.value) {
+                (Some(arg), _) => arg.clone(),
+                (None, search::Value::Type(t)) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
+                (None, search::Value::Unknown) if kind != Kind::Go => {
                     search::declared_type_on(kind, text.lines().nth(b.line1 - 1)?, last)?
                 }
                 _ => return None,
@@ -171,7 +178,7 @@ impl App {
                 return None;
             };
             if chain.len() > 1
-                && (file != a.here
+                && ((file != a.here && mapped.is_none())
                     || search::type_param_line(kind, &a.text, self.line + 1, one).is_none())
             {
                 return None;
@@ -181,14 +188,28 @@ impl App {
             } else {
                 (&text, b.line1)
             };
-            let resolves = search::type_param_bound(kind, scope, line1, one)?
-                .bound
-                .is_some_and(|w| {
-                    kind != Kind::Go
-                        || w.starts_with("interface")
-                        || self.type_decl(kind, &file, &w).is_some()
-                });
-            (!resolves).then(|| one.clone())
+            let bound = search::type_param_bound(kind, scope, line1, one)?.bound;
+            Some((one.clone(), bound, scope, line1))
+        };
+        if kind == Kind::Go
+            && file == a.here
+            && let [b] = bindings.as_slice()
+            && let Some((one, Some(bound), scope, line1)) = param(b)
+            && search::go_interface_declares(&bound, &a.word)
+            && let Some(at) = search::type_param_line(kind, scope, line1, &one)
+        {
+            let via = format!("{}: type parameter {one}", chain.join("."));
+            let found = self.lines_here(a, [at], &super::Reason::Receiver(via));
+            return self.show_found(a, found);
+        }
+        let unbound = |b: &search::Binding| {
+            let (one, bound, ..) = param(b)?;
+            let resolves = bound.is_some_and(|w| {
+                kind != Kind::Go
+                    || w.starts_with("interface")
+                    || self.type_decl(kind, &file, &w).is_some()
+            });
+            (!resolves).then_some(one)
         };
         let Some(Some(param)) = bindings
             .iter()

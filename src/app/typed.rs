@@ -495,6 +495,16 @@ impl App {
         chain: &[String],
         hops: usize,
     ) -> Result<ProvenType, String> {
+        if kind == Kind::Go
+            && let [var, field, rest @ ..] = chain
+            && let Some(arg) = self.go_field_argument(file, text, line1, (var, field))
+        {
+            let value = search::Value::Type(arg);
+            let start = self
+                .binding_type(kind, file, text, &search::Binding { line1, value }, hops)
+                .ok_or_else(|| field.clone())?;
+            return self.follow(kind, start, &format!("{var}.{field}"), false, rest);
+        }
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;

@@ -356,14 +356,16 @@ pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
         .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 pub fn go_one_line_method(line: &str, name: &str) -> bool {
-    line.trim_start().starts_with("type ")
-        && go_one_line(line, "interface").is_some_and(|body| {
-            body.split(';').any(|m| {
-                m.trim()
-                    .strip_prefix(name)
-                    .is_some_and(|rest| rest.trim_start().starts_with('('))
-            })
+    line.trim_start().starts_with("type ") && go_interface_declares(line, name)
+}
+pub fn go_interface_declares(t: &str, name: &str) -> bool {
+    go_one_line(t, "interface").is_some_and(|body| {
+        body.split(';').any(|m| {
+            m.trim()
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.trim_start().starts_with('('))
         })
+    })
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
