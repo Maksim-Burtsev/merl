@@ -857,7 +857,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             && !list.starts_with('.')
             && !list.ends_with('.')
             && !head.get(..start)?.ends_with([')', ']', '.']);
-        let element = if kind == Kind::Python {
+        let element = if matches!(kind, Kind::Python | Kind::TsJs) {
             format!("{list}[]")
         } else {
             list.to_owned()

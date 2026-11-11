@@ -267,7 +267,11 @@ impl App {
                 reason: Reason::Path(full.clone()),
             })
             .collect();
-        !found.is_empty() && self.show_found(a, found)
+        if found.is_empty() {
+            self.message = format!("no definition for {} in the project (via {full})", a.word);
+            return true;
+        }
+        self.show_found(a, found)
     }
 
     fn answered_by_renamed_require(&mut self, a: &Asked) -> bool {

@@ -829,7 +829,9 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
-                None if indexed => (search::python_dict_value(&written)?, at.clone()),
+                None if indexed && self.type_decl(kind, &at, &written).is_none() => {
+                    (search::indexed_value(kind, &written)?, at.clone())
+                }
                 None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {

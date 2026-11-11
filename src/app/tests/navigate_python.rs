@@ -783,16 +783,13 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
-            "",
+            "a name the barrel imports and lists in `export { }`, not the namesake in fakes.ts",
             "typescript",
             "jobs.ts",
             "  openSession",
-            picker(
-                "openSession: by name, 2 declarations",
-                &[
-                    ("openSession", "fakes.ts:5"),
-                    ("openSession", "store/sessions.ts:15"),
-                ],
+            jump(
+                "openSession: via import store/sessions.ts",
+                "store/sessions.ts:15",
             ),
         ),
         (
