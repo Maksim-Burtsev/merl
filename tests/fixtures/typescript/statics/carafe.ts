@@ -7,4 +7,10 @@ export class Carafe {
   }
   swirl(): void {
   }
+  static tip(): Carafe {
+    return new Carafe();
+  }
+  tip(n: number): number {
+    return n;
+  }
 }

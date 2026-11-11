@@ -285,6 +285,7 @@ impl App {
         let Some((r, w)) = search::definition_word(Some(kind), line, self.col) else {
             return;
         };
+        let text = self.buf.lines.join("\n");
         let qualifier = line
             .get(..r.start)
             .and_then(|b| b.strip_suffix('.'))
@@ -292,13 +293,25 @@ impl App {
                 let start = b
                     .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
                     .map_or(0, |i| i + 1);
-                (!b.get(..start).is_some_and(|h| h.ends_with('.'))).then(|| b.get(start..))?
+                let (head, name) = (b.get(..start)?, b.get(start..)?);
+                let packaged = || {
+                    let head = head.strip_suffix('.')?;
+                    let from = head
+                        .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '.'))
+                        .map_or(0, |i| i + 1);
+                    let mut chain: Vec<String> =
+                        head.get(from..)?.split('.').map(str::to_owned).collect();
+                    chain.push(name.to_owned());
+                    (kind == Kind::Jvm)
+                        .then(|| self.jvm_packaged_type(here, &text, &chain))
+                        .flatten()
+                };
+                (!head.ends_with('.') || packaged().is_some()).then_some(name)
             });
         let Some(qualifier) = qualifier.filter(|q| w == word && q.starts_with(char::is_uppercase))
         else {
             return;
         };
-        let text = self.buf.lines.join("\n");
         let line1 = self.line + 1;
         if !search::path_bindings(kind, here, &text, line1, qualifier).is_empty()
             || (kind == Kind::Jvm
