@@ -43,3 +43,4 @@ pub fn rinse_all() {
     //^ d: src/ewers.rs:8
     let _ = Laver;
 }
+pub mod servings;
