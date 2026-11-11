@@ -410,6 +410,7 @@ impl App {
     ) {
         let anonymous = self.anonymous_named.take();
         self.keep_shown(kind, word, &mut found);
+        self.statics_through_type(kind, word, here, &mut found);
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {

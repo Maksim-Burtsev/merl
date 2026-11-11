@@ -529,12 +529,45 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else if let Some(c) = r.assigned.captures(s) {
         Some(value_of(Kind::Python, &c[1]))
     } else {
-        TUPLE_TARGET
+        let c = TUPLE_TARGET
             .captures(s)
-            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())
-            .map(|c| top_level_targets(&c[1]))
-            .filter(|t| t.contains(',') && names(t, name))
-            .map(|_| Value::Unknown)
+            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())?;
+        let t = top_level_targets(&c[1]);
+        let target = c.get(1)?;
+        let value = s
+            .get(target.end()..)
+            .and_then(|r| r.trim_start().strip_prefix('='))
+            .and_then(|value| python_position(target.as_str(), value, name));
+        (t.contains(',') && names(&t, name)).then(|| value.unwrap_or(Value::Unknown))
+    }
+}
+fn python_position(target: &str, value: &str, name: &str) -> Option<Value> {
+    let target = target.trim();
+    let target = match target.strip_prefix(['(', '[']) {
+        Some(inner) if close_of(Kind::Python, target, 0) == Some(target.len()) => {
+            inner.get(..inner.len() - 1)?
+        }
+        Some(_) => return None,
+        None => target,
+    };
+    let items: Vec<&str> = target.split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && i.chars().all(|c| c.is_alphanumeric() || c == '_')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    let values = split_top(Kind::Python, value, b',');
+    match values.len() {
+        1 => Some(Value::Position {
+            of: Box::new(value_of(Kind::Python, value)),
+            at,
+            count: items.len(),
+        }),
+        n if n == items.len() => Some(value_of(Kind::Python, values[at])),
+        _ => None,
     }
 }
 fn top_level_targets(target: &str) -> String {
