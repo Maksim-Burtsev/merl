@@ -36,7 +36,7 @@ export function unpack(): void {
   const [one, two, three] = servePair();
   two.dollop();
   //  ^ d: !jump
-  const [maybe, perhaps] = serveMaybe() ?? [];
+  const [maybe, perhaps] = serveMaybe();
   perhaps.dollop();
   //      ^ d: !jump
   let [h, k] = servePair();
