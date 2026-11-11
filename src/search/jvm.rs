@@ -340,7 +340,7 @@ pub(super) fn jvm_bindings(
         );
     }
     if out.is_empty()
-        && let Some(k) = script_binding(path, lines, &text, &literal, at, name)
+        && let Some(k) = script_binding(path, lines, &text, &literal, at, col, name)
     {
         out.push(binding(k + 1));
     }
