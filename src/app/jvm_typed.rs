@@ -1160,7 +1160,7 @@ impl App {
     }
 
     fn jvm_type_on(&self, file: &Path, text: &str, written: &str, on: Option<usize>) -> JvmType {
-        self.jvm_type_hop(file, text, written, on, true)
+        self.jvm_type_hop(file, text, written, on, 8)
     }
 
     fn jvm_type_hop(
@@ -1169,13 +1169,13 @@ impl App {
         text: &str,
         written: &str,
         on: Option<usize>,
-        alias: bool,
+        hops: usize,
     ) -> JvmType {
         if let Some(ty) = self.jvm_written_package(file, text, written, on) {
             return ty;
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
-            return match self.jvm_type_hop(file, text, outer, on, alias) {
+            return match self.jvm_type_hop(file, text, outer, on, hops) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
                 JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
                 JvmType::Unknown => JvmType::Unknown,
@@ -1217,9 +1217,9 @@ impl App {
                 return JvmType::Unknown;
             };
             let ty = self.jvm_in_package(&packages, path);
-            if alias
+            if hops > 0
                 && !matches!(ty, Some(JvmType::Project(_)))
-                && let Some(aliased) = self.kotlin_imported_alias(file, &packages, path)
+                && let Some(aliased) = self.kotlin_imported_alias(file, &packages, path, hops - 1)
             {
                 return aliased;
             }
@@ -1237,7 +1237,9 @@ impl App {
         if hits.is_empty() {
             return JvmType::Outside(written.to_owned());
         }
-        if alias && let Some(ty) = self.kotlin_aliased(file, text, written, &hits) {
+        if hops > 0
+            && let Some(ty) = self.kotlin_aliased(file, text, written, &hits, hops - 1)
+        {
             return ty;
         }
         let types: Vec<Hit> = hits.iter().filter(|h| is_type(h)).cloned().collect();
@@ -1299,6 +1301,7 @@ impl App {
         here: &str,
         written: &str,
         hits: &[Hit],
+        hops: usize,
     ) -> Option<JvmType> {
         let aliases: Vec<(&Hit, &str)> = hits
             .iter()
@@ -1320,7 +1323,7 @@ impl App {
         if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
             return None;
         }
-        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
             JvmType::Project(decl) => Some(JvmType::Project(decl)),
             _ => None,
         }
@@ -1331,6 +1334,7 @@ impl App {
         file: &Path,
         packages: &HashMap<String, Vec<PathBuf>>,
         path: &[String],
+        hops: usize,
     ) -> Option<JvmType> {
         if !file.extension().is_some_and(|e| e == "kt" || e == "kts") {
             return None;
@@ -1348,7 +1352,7 @@ impl App {
         };
         let (_, target) = search::kotlin_typealias(&hit.text).filter(|(n, _)| n == name)?;
         let text = self.text_of(&hit.path)?;
-        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), false) {
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
             JvmType::Project(decl) => Some(JvmType::Project(decl)),
             _ => None,
         }
