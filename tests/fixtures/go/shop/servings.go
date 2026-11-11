@@ -31,4 +31,9 @@ func unpack() {
 	_ = ok
 	got.Dollop()
 	//  ^ d: picker shop/servings.go:6, shop/servings.go:7
+	h, k := servePair()
+	h, k = k, h
+	h.Dollop()
+	//^ d: !jump
+	_ = k
 }

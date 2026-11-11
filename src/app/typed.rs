@@ -1140,6 +1140,7 @@ impl App {
         let col = (line1 == self.line + 1 && text.lines().nth(self.line) == Some(self.line_str()))
             .then_some(self.col);
         let mut bindings = search::bindings_at(kind, file, text, line1, col, name);
+        positions::forget_swapped(text, line1, name, &mut bindings);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
                 if let Some(t) = search::jsdoc_binding(text, b.line1, name)

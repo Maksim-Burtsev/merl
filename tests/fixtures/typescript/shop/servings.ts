@@ -12,6 +12,10 @@ export function serveRest(): [Platter, ...Saucepan[]] {
   return [new Platter()];
 }
 
+export function serveMaybe(): [Platter, Saucepan] | undefined {
+  return undefined;
+}
+
 export function unpack(): void {
   const [plate, pan] = servePair();
   pan.dollop();
@@ -29,4 +33,20 @@ export function unpack(): void {
   const [head, tail] = serveRest();
   tail.dollop();
   //   ^ d: !jump
+  const [one, two, three] = servePair();
+  two.dollop();
+  //  ^ d: !jump
+  const [maybe, perhaps] = serveMaybe();
+  perhaps.dollop();
+  //      ^ d: !jump
+  let [h, k] = servePair();
+  [h, k] = [k, h];
+  h.dollop();
+  //^ d: !jump
+  let crowd: Platter[] = [];
+  crowd = [new Platter()];
+  for (const each of crowd) {
+    each.dollop();
+    //   ^ d: shop/servings.ts:2
+  }
 }
