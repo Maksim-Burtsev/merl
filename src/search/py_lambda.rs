@@ -1,8 +1,8 @@
 use regex::Regex;
 
-use super::{Kind, Value, code, split_top, uncommented};
+use super::{Kind, Value, code, imports, split_top, uncommented};
 
-pub(super) fn python_lambda_value(line: &str, col: usize, name: &str) -> Option<Value> {
+pub(super) fn python_lambda_value(text: &str, line: &str, col: usize, name: &str) -> Option<Value> {
     static LAMBDA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\blambda\b([^:]*):").expect("the regex is a literal")
     });
@@ -13,11 +13,11 @@ pub(super) fn python_lambda_value(line: &str, col: usize, name: &str) -> Option<
         .expect("the regex is a literal")
     });
     static OVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.])(?:(?:sorted|max|min)\s*\(\s*([A-Za-z_][\w.]*)\s*,\s*|([A-Za-z_][\w.]*)\s*\.\s*sort\s*\(\s*)key\s*=$")
+        Regex::new(r"(?:^|[^\w.])(?:(sorted|max|min)\s*\(\s*([A-Za-z_][\w.]*)\s*,\s*|([A-Za-z_][\w.]*)\s*\.\s*sort\s*\(\s*)key\s*=$")
             .expect("the regex is a literal")
     });
     static MAPPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.])(?:map|filter)\s*\($").expect("the regex is a literal")
+        Regex::new(r"(?:^|[^\w.])(map|filter)\s*\($").expect("the regex is a literal")
     });
     static ITERABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*,\s*([A-Za-z_][\w.]*)\s*\)").expect("the regex is a literal")
@@ -48,7 +48,7 @@ pub(super) fn python_lambda_value(line: &str, col: usize, name: &str) -> Option<
             _ => false,
         })
         .map_or(line.len(), |(i, _)| whole.end() + i);
-    if col >= end {
+    if col >= end || rebinds(line.get(whole.end()..end)?, name) {
         return None;
     }
     let before = line.get(..whole.start())?.trim_end();
@@ -62,12 +62,35 @@ pub(super) fn python_lambda_value(line: &str, col: usize, name: &str) -> Option<
         return None;
     }
     if let Some(c) = OVER.captures(before) {
+        if c.get(1).is_some_and(|f| shadowed(text, f.as_str())) {
+            return None;
+        }
         return Some(Value::Element(
-            c.get(1).or_else(|| c.get(2))?.as_str().to_owned(),
+            c.get(2).or_else(|| c.get(3))?.as_str().to_owned(),
         ));
     }
     let over = ITERABLE.captures(line.get(end..)?)?;
-    MAPPED
-        .is_match(before)
-        .then(|| Value::Element(over[1].to_owned()))
+    let f = MAPPED.captures(before)?;
+    (!shadowed(text, &f[1])).then(|| Value::Element(over[1].to_owned()))
+}
+
+fn rebinds(body: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    Regex::new(&format!(
+        r"\bfor\s[\w\s,()\[\]*]*\b{n}\b[\w\s,()\[\]*]*\sin\b|\b{n}\s*:=|\blambda\b[^:]*\b{n}\b"
+    ))
+    .ok()
+    .is_none_or(|r| r.is_match(body))
+}
+
+fn shadowed(text: &str, builtin: &str) -> bool {
+    let b = regex::escape(builtin);
+    Regex::new(&format!(
+        r"(?m)^\s*(?:(?:async\s+)?def|class)\s+{b}\b|^\s*{b}\s*(?::[^=\n]*)?=[^=]"
+    ))
+    .ok()
+    .is_none_or(|r| r.is_match(text))
+        || imports(Kind::Python, text)
+            .iter()
+            .any(|i| i.name == builtin || i.name == "*")
 }
