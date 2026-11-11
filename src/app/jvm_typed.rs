@@ -715,11 +715,27 @@ impl App {
         }
         let (in_file, written) = match (source.receiver, source.call) {
             (Some(r), None) => {
-                let [l] = search::path_bindings(Kind::Jvm, file, text, line1, &r)
-                    .iter()
-                    .map(|b| b.line1)
-                    .collect::<Vec<_>>()[..]
-                else {
+                let (own, r) = match r.strip_prefix("this.") {
+                    Some(field) => (true, field.to_owned()),
+                    None => (false, r),
+                };
+                let mut bindings: Vec<usize> = if own {
+                    Vec::new()
+                } else {
+                    search::path_bindings(Kind::Jvm, file, text, line1, &r)
+                        .iter()
+                        .map(|b| b.line1)
+                        .collect()
+                };
+                if bindings.is_empty() {
+                    let inner = *search::jvm_enclosing_types(text, line1).first()?;
+                    search::jvm_type_name(text.lines().nth(inner.checked_sub(1)?)?)?;
+                    let here = text.lines().nth(line1.checked_sub(1)?)?;
+                    (!search::java_new_between(text, line1, here, inner)).then_some(())?;
+                    (own || !search::java_local_above(text, line1, inner, &r)).then_some(())?;
+                    bindings = search::jvm_members_of(file, text, inner, &r);
+                }
+                let [l] = bindings[..] else {
                     return None;
                 };
                 let at = text.lines().nth(l.checked_sub(1)?)?;
@@ -862,7 +878,24 @@ impl App {
 
     fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
         let found = self.jvm_hierarchy_member(decl, call, 0, &mut Vec::new());
-        let [hit] = java_shaped(found, |h| h, call, true).try_into().ok()?;
+        let found = java_shaped(found, |h| h, call, true);
+        if let [one, more @ ..] = found.as_slice()
+            && !more.is_empty()
+            && !search::scala(&one.path)
+        {
+            let mk = one.path.extension().is_none_or(|e| e != "java");
+            let returned = |h: &Hit| {
+                (h.path == one.path)
+                    .then(|| search::jvm_return_type(&h.text, call, mk))
+                    .flatten()
+            };
+            let written = returned(one)?;
+            more.iter()
+                .all(|h| returned(h).as_ref() == Some(&written))
+                .then_some(())?;
+            return Some(self.jvm_substituted(decl, one.clone(), written));
+        }
+        let [hit] = found.try_into().ok()?;
         let mk = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
             let getter = search::jvm_accessor(call).filter(|a| !a.setter)?;
