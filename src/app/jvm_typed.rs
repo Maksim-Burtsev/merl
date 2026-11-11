@@ -126,6 +126,7 @@ impl App {
         let line = self.line + 1;
         let innermost = *search::jvm_enclosing_types(text, line).first()?;
         search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        (!search::java_new_between(text, line, before, innermost)).then_some(())?;
         let first = self.jvm_returned(here, text, line, None, calls.first()?, false)?;
         matches!(first.resolved, JvmType::Project(_)).then_some(())?;
         let calls = calls.into_iter().map(|c| format!("{c}()"));
