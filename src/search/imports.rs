@@ -655,6 +655,24 @@ pub fn exported_as(text: &str, name: &str) -> Option<String> {
             })
         })
 }
+pub fn listed_import(text: &str, name: &str) -> Option<Vec<String>> {
+    static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*export\s*\{([^}]*)\}\s*(from\b)?").expect("the regex is a literal")
+    });
+    let local = EXPORT
+        .captures_iter(text)
+        .filter(|c| c.get(2).is_none())
+        .find_map(|c| {
+            c[1].split(',').find_map(|item| {
+                let (local, exported) = item.split_once(" as ").unwrap_or((item, item));
+                (exported.trim() == name).then(|| local.trim().to_owned())
+            })
+        })?;
+    imports(Kind::TsJs, text)
+        .into_iter()
+        .find(|i| i.name == local)
+        .map(|i| i.path)
+}
 pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
     reexported(text, name)
         .into_iter()
