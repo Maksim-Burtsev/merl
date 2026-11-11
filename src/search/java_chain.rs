@@ -394,17 +394,16 @@ fn fluent(before: &str) -> Option<(Option<String>, Vec<String>)> {
         }
         calls.insert(0, method);
         let left = trim_end(named.get(..start)?);
-        match left.strip_suffix(&['.']) {
-            Some(r) => rest = r,
-            None => {
-                let new = left.ends_with(&['n', 'e', 'w'])
-                    && !left
-                        .len()
-                        .checked_sub(4)
-                        .and_then(|i| left.get(i))
-                        .is_some_and(|&c| ident(c));
-                return (plain_left(left) && !new).then_some((None, calls));
-            }
+        if let Some(r) = left.strip_suffix(&['.']) {
+            rest = r;
+        } else {
+            let new = left.ends_with(&['n', 'e', 'w'])
+                && !left
+                    .len()
+                    .checked_sub(4)
+                    .and_then(|i| left.get(i))
+                    .is_some_and(|&c| ident(c));
+            return (plain_left(left) && !new).then_some((None, calls));
         }
     }
     let start = rest.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);

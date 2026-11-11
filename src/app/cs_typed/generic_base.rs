@@ -7,11 +7,8 @@ impl App {
         hit: &Hit,
         written: String,
     ) -> (PathBuf, usize, String) {
-        self.cs_class_argument(owner, hit, &written).unwrap_or((
-            hit.path.clone(),
-            hit.line1,
-            written,
-        ))
+        self.cs_class_argument(owner, hit, &written)
+            .unwrap_or_else(|| (hit.path.clone(), hit.line1, written))
     }
 
     fn cs_class_argument(

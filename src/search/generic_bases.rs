@@ -80,9 +80,7 @@ pub fn base_arguments(rest: &str, base: &str) -> Option<Vec<String>> {
                 && !chars.get(i + name.len()).copied().is_some_and(word) =>
             {
                 let after: String = chars.get(i + name.len()..)?.iter().collect();
-                let Some(inner) = after.trim_start().strip_prefix('<') else {
-                    return None;
-                };
+                let inner = after.trim_start().strip_prefix('<')?;
                 if found.is_some() {
                     return None;
                 }
