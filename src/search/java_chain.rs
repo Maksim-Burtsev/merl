@@ -397,6 +397,26 @@ pub fn java_new_between(text: &str, line1: usize, before: &str, type_line1: usiz
     NEW.is_match(&uncommented(Kind::Jvm, before)) || scopes.iter().any(|l| NEW.is_match(l))
 }
 
+pub fn java_local_above(text: &str, line1: usize, type_line1: usize, name: &str) -> bool {
+    let Ok(local) = Regex::new(&format!(
+        r"(?:^|[^.\w$]){}\s*(?:=[^=]|=$|[;,):]|->|$)",
+        regex::escape(name)
+    )) else {
+        return true;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(cursor) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return true;
+    };
+    let mut from = cursor;
+    while let Some(s) = super::jvm::scope_of(&lines, from).filter(|&s| s + 1 > type_line1) {
+        from = s;
+    }
+    lines[from..=cursor]
+        .iter()
+        .any(|l| local.is_match(&uncommented(Kind::Jvm, l)))
+}
+
 fn fluent(before: &str) -> Option<(Option<String>, Vec<String>)> {
     let chars: Vec<char> = before.chars().collect();
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';

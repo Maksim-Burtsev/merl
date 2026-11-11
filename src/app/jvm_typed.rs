@@ -728,10 +728,12 @@ impl App {
                         .collect()
                 };
                 if bindings.is_empty() {
-                    bindings = search::jvm_enclosing_types(text, line1)
-                        .into_iter()
-                        .map(|d| search::jvm_members_of(file, text, d, &r))
-                        .find(|m| !m.is_empty())?;
+                    let inner = *search::jvm_enclosing_types(text, line1).first()?;
+                    search::jvm_type_name(text.lines().nth(inner.checked_sub(1)?)?)?;
+                    let here = text.lines().nth(line1.checked_sub(1)?)?;
+                    (!search::java_new_between(text, line1, here, inner)).then_some(())?;
+                    (own || !search::java_local_above(text, line1, inner, &r)).then_some(())?;
+                    bindings = search::jvm_members_of(file, text, inner, &r);
                 }
                 let [l] = bindings[..] else {
                     return None;
