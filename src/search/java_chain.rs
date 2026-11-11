@@ -377,8 +377,10 @@ pub fn java_new_between(text: &str, line1: usize, before: &str, type_line1: usiz
         Regex::new(r"\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
+    let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return true;
+    };
     let mut scopes = Vec::new();
-    let mut at = line1.saturating_sub(1).min(lines.len().saturating_sub(1));
     while let Some(s) = super::jvm::scope_of(&lines, at).filter(|&s| s + 1 > type_line1) {
         scopes.push(uncommented(Kind::Jvm, lines[s]));
         at = s;
