@@ -504,6 +504,11 @@ on `ProjectAttrAttribute` and `LocalAttribute` of the `Shop.Crest` it opens, not
 `Shop.Stray` namesakes: `Brazier` lands in the `Shop.Bellows` that `csharp/Directory.Build.props`
 opens with `<Using Include>`, and `Tongs` and `Poker` in the `Shop.Wares` that `using Wares;`
 opens inside `namespace Shop.Hearth`, block and file-scoped.
+`csharp/src/Shop/Gates/Posts.cs` (#1452) holds two block namespaces, each with a `using` of its
+own: in `Shop.Gates`, which opens `Shop.Crest`, `[ProjectAttr(…)]` lands on
+`ProjectAttrAttribute`, while in `Shop.Gates.Back` the same attribute finds nothing, and
+`new Hasp()` lands on the `Shop.Larder` class of `Gates/Kit.cs`, itself a file of two block
+namespaces, only where `using Shop.Larder;` opens it.
 `csharp/src/Shop/Goblets.cs`'s `Carafe` and `Jug` (#1438) call `x.Quaff()` in an `override` and in
 explicit `ITip.Tip<T>` implementations, which inherit `where T : Goblet` unwritten: they keep
 master's jump to `Goblet.Quaff`.
@@ -1175,6 +1180,11 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 not import: they find nothing, while `tea/stale/Brand.java`, in that package, lands on them. Its
 `@Sieved(gauge = 5, pekoe = …)` lands each name on the element of the `@interface`, not on the
 class's own `gauge()`.
+`jvm/src/main/kotlin/gilded/Ledge.kt` (#1452) writes Kotlin's implicitly imported annotations
+(`@Deprecated`, `@JvmStatic`, `@Suppress`, also after `@file:` and `@get:`) beside namesakes
+declared in `gilded.stale`, which it does not import: they find nothing, while `stale/Seen.kt`,
+in that package, `Starred.kt`, importing it with `.*`, and `Pinned.kt`, importing the one name,
+land on them.
 
 `jvm/src/main/java/getters/` holds chains of getters (#1071): an `Account` whose Lombok `spec`
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
@@ -1199,6 +1209,9 @@ and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/
 calls through a type's name the extensions declared in another file: on its `Companion`
 (`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
 (`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+Its `Garnish.kt` (#1470) calls a bare `sprinkle()` whose namesake in `smears` is not imported,
+and `jvm/src/main/scala/husk/Thresher.scala` calls a local `def` over a member of its name and
+an object's `def` in another file: on one line, below it, inside its own body and in an `if` block.
 `jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
@@ -1318,6 +1331,10 @@ lambdas that still bind. Java's `Shadow.java` keeps a static import from naming 
 enclosing enum declares itself, or a case label in a switch on a type merl cannot read;
 `Stray.java` imports an enum the project does not hold; Kotlin's `Both.kt` has an explicit
 import of a case win over a star import of its namesake's enum.
+C#'s `Shade.cs` has a member and a parameter named like a case of a `using static` enum keep
+their answer; Swift's `perchOver` switches on a parameter whose namesake a `for` shadows, and
+`Hopper.land` and `flutter` call a top-level function's namesake, a method and a local closure;
+Dart's `shadowed` compares a local that hides a parameter of the other enum.
 
 ### Adding a kind
 

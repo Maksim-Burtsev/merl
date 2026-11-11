@@ -309,7 +309,7 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = self.swift_unshadowed_links(&a.text, a.written.get(..a.start))
+            && let Some(links) = self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,

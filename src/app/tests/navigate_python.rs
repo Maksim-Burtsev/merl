@@ -1853,7 +1853,7 @@ fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target
 }
 
 #[test]
-fn an_indexed_python_list_is_its_element_and_a_slice_is_not() {
+fn an_indexed_python_list_or_dict_is_its_element_and_a_slice_is_not() {
     let both = || {
         picker(
             "delete_user: by name, 2 declarations",
@@ -1892,7 +1892,10 @@ fn an_indexed_python_list_is_its_element_and_a_slice_is_not() {
             "a dict's value",
             "elements.py",
             "by_name[\"a\"].delete_user",
-            both(),
+            jump(
+                "delete_user \u{2192} UserRepository.delete_user (via by_name: dict[str, UserRepository])",
+                "repos.py:8",
+            ),
         ),
         (
             "an index of an index",

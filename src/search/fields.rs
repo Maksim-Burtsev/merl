@@ -537,6 +537,36 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
         .last()
         .map_or_else(String::new, |c| c[1].to_owned())
 }
+pub fn cs_namespace_blocks(text: &str, line: usize) -> Option<Vec<(usize, String)>> {
+    static NS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)\s*\{?\s*$").expect("the regex is a literal")
+    });
+    let code: Vec<(usize, &str)> = cs_code_lines(text)
+        .filter(|(_, l)| {
+            let t = l.trim();
+            !(t.is_empty() || t == "{" || comment(Kind::CSharp, t) || t.starts_with('#'))
+        })
+        .collect();
+    for (n, &(_, l)) in code.iter().enumerate() {
+        if super::cs_namespace_line(l)
+            && (!NS.is_match(l) || code.get(n + 1).is_none_or(|&(_, b)| indent(b) <= indent(l)))
+        {
+            return None;
+        }
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut blocks = Vec::new();
+    while let Some(e) = super::csharp::cs_enclosing(&lines, k) {
+        if let Some(c) = NS.captures(lines[e]) {
+            blocks.push((e, c[1].to_owned()));
+        }
+        k = e;
+    }
+    blocks.reverse();
+    Some(blocks)
+}
+
 pub struct CsUsing {
     pub fixed: bool,
     pub alias: Option<String>,

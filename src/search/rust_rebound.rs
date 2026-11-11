@@ -149,3 +149,40 @@ pub fn rust_rebound_before(line: &str, name: &str, at: usize) -> bool {
         }
     })
 }
+pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<(&'a str, bool)> {
+    let code: Vec<(usize, u8)> = code(Kind::Rust, line).collect();
+    let start = line
+        .get(..at)?
+        .rmatch_indices("if let ")
+        .map(|(i, _)| i)
+        .find(|i| code.iter().any(|&(j, _)| j == *i))?;
+    let (mut depth, mut open, mut blocks) = (0i32, 0, Vec::new());
+    for &(i, b) in code.iter().filter(|&&(i, _)| i >= start) {
+        match b {
+            b'{' if depth == 0 => (depth, open) = (1, i),
+            b'(' | b'[' | b'{' => depth += 1,
+            b'}' if depth == 1 => {
+                depth = 0;
+                blocks.push((open, i));
+            }
+            b')' | b']' | b'}' => depth -= 1,
+            b';' | b',' if depth == 0 => break,
+            _ => {}
+        }
+        if depth < 0 || blocks.len() == 2 {
+            break;
+        }
+    }
+    let &(then_open, then_close) = blocks.first()?;
+    let header = line.get(start..=then_open)?;
+    let pat = header.get(7..)?.split(" = ").next()?;
+    if !binds(pat, name) {
+        return None;
+    }
+    if then_open < at && at < then_close {
+        return Some((header, true));
+    }
+    let &(else_open, else_close) = blocks.get(1)?;
+    (line.get(then_close + 1..else_open)?.trim() == "else" && else_open < at && at < else_close)
+        .then_some((header, false))
+}
