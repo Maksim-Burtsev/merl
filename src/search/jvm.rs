@@ -1152,13 +1152,21 @@ pub fn java_element_access(before: &str) -> Option<String> {
     Some(ACCESS.captures(before)?[1].to_owned())
 }
 
-pub fn java_element_type(line: &str, name: &str) -> Option<String> {
+pub fn java_element_type(line: &str, name: &str) -> Option<(String, String)> {
     let re = Regex::new(&format!(
-        r"(?:^|[\s(,])(?:List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional|PriorityQueue|BlockingQueue)<\s*(?:\?\s+extends\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)",
+        concat!(
+            r"(?:^|[\s(,])(?:(List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional",
+            r"|PriorityQueue|BlockingQueue)<|(Map|HashMap|LinkedHashMap|TreeMap|SortedMap|NavigableMap",
+            r"|ConcurrentMap|ConcurrentHashMap)<\s*[A-Z][\w.]*\s*,)\s*(?:\?\s+extends\s+)?",
+            r"([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)"
+        ),
         regex::escape(name)
     ))
     .ok()?;
-    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    let container = c.get(1).or_else(|| c.get(2))?.as_str().to_owned();
+    Some((container, c[3].to_owned()))
 }
 
 pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
