@@ -87,7 +87,7 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
             "",
             "globals.go",
             "sharedAudit.DeleteUser|(id + 16",
-            picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            repo("pair() *UserRepository"),
         ),
         (
             "Locals the scope walk does not read: nothing is proven from their absence",
