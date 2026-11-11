@@ -12,6 +12,19 @@ export function hoisted(h: Hoist) {
   //^ d: winch/winch.ts:27
   h.rope += 'x';
   //^ d: picker winch/winch.ts:23, winch/winch.ts:27
+  h.rope ||= 'x';
+  //^ d: picker winch/winch.ts:23, winch/winch.ts:27
+  h.rope &&= 'x';
+  //^ d: picker winch/winch.ts:23, winch/winch.ts:27
+  h.rope || 'x';
+  //^ d: winch/winch.ts:23
+  ({
+    a: h.rope,
+    //   ^ d: picker winch/winch.ts:23, winch/winch.ts:27
+  } = { a: 'x' });
+  h.rope
+    //^ d: picker winch/winch.ts:23, winch/winch.ts:27
+    = 'x';
   const { rope } = h;
   return {
     rope: h.rope,

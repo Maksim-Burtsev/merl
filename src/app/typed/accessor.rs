@@ -12,9 +12,11 @@ enum Side {
 static WRITTEN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*=(?:[^=>]|$)").expect("the regex is a literal"));
 static READ: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:$|[.);\[]|\?\.|[!=]==?[^=]|&&|\|\||:\s*(?:#.*)?$)")
+    Regex::new(r"^\s*(?:$|[.);\[]|\?\.|[!=]==?[^=]|(?:&&|\|\|)(?:[^=]|$)|:\s*(?:#.*)?$)")
         .expect("the regex is a literal")
 });
+static ASSIGNS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[-+*/%&|^<>?]*=(?:[^=>]|$)").expect("the regex is a literal"));
 
 impl App {
     pub(super) fn accessor_side(&self, kind: Kind, word: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
@@ -92,7 +94,42 @@ impl App {
             && operand.strip_suffix(':').is_some_and(|k| {
                 !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || "_$".contains(c))
             });
+        let open = kind == Kind::TsJs && matches!(tail.trim(), "" | ",");
+        if open && (self.deleted.is_some() || self.assigned_later(tail)) {
+            return None;
+        }
         ((READ.is_match(tail) || keyed) && !changed).then_some(Side::Get)
+    }
+
+    fn assigned_later(&self, tail: &str) -> bool {
+        let next = self.buf.lines.iter().skip(self.line + 1).take(50);
+        let code = std::iter::once(tail)
+            .chain(next.map(String::as_str))
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut depth = 0i32;
+        let mut target = true;
+        for (i, c) in code.char_indices() {
+            if c.is_whitespace() {
+                continue;
+            }
+            if target && ASSIGNS.is_match(&code[i..]) {
+                return true;
+            }
+            target = false;
+            match c {
+                '{' | '[' | '(' => depth += 1,
+                '}' | ']' => {
+                    depth -= 1;
+                    target = depth < 0;
+                }
+                ')' | ';' if depth <= 0 => return false,
+                ')' => depth -= 1,
+                _ => {}
+            }
+        }
+        false
     }
 }
 

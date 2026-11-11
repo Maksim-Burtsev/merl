@@ -4,4 +4,5 @@ class Pawl {
 
 class Spool {
   void click() {}
+  int slack = 0;
 }

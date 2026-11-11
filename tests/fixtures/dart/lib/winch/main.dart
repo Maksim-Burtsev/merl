@@ -17,3 +17,8 @@ void run(Winch w) {
   w.loose.click();
 //        ^ d: picker lib/winch/pawl.dart:2, lib/winch/pawl.dart:6
 }
+
+void lift(Crane c) {
+  c.w.slack = Pawl();
+//    ^ d: lib/winch/winch.dart:7
+}
