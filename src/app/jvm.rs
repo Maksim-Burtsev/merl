@@ -231,8 +231,16 @@ impl App {
             {
                 return None;
             }
-            let Some((files, mut names)) = longest_project_package_and_rest(path) else {
-                return Some(Vec::new());
+            let scala = search::scala(&here);
+            let package = (packages.get(&path.join(".")))
+                .filter(|_| scala)
+                .map(|files| (files, Vec::new()));
+            let Some((files, mut names)) =
+                package.or_else(|| longest_project_package_and_rest(path))
+            else {
+                let relative =
+                    (path.first()).is_some_and(|p| p.starts_with(|c: char| c.is_ascii_uppercase()));
+                return (!(scala && relative)).then(Vec::new);
             };
             if !chain.is_empty() {
                 names.extend(chain[1..].iter().cloned());
@@ -957,5 +965,116 @@ mod tests {
             arguments(&lines(&["f(\"\"\"", "  text", "  \"\"\")"]), 0, 1),
             Some((1, false))
         );
+    }
+}
+
+impl App {
+    pub(super) fn scala_enum_case(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        if found.is_empty() {
+            *found = self.scala_imported_case(here, text, word);
+            return;
+        }
+        let Some(enums) = found
+            .iter()
+            .map(|c| self.scala_enum_of_case(&c.hit, word))
+            .collect::<Option<Vec<(PathBuf, usize)>>>()
+        else {
+            return;
+        };
+        let imports = search::jvm_enum_imports(here, text, word);
+        let single = imports.iter().any(|i| i.single);
+        let Some(imported) = imports
+            .iter()
+            .filter(|i| i.single == single)
+            .map(|i| match self.jvm_type_at(here, text, &i.owner) {
+                super::jvm_typed::JvmType::Project(decl) => Some((decl.path, decl.line1)),
+                _ => None,
+            })
+            .collect::<Option<Vec<(PathBuf, usize)>>>()
+        else {
+            return;
+        };
+        let keep: Vec<bool> = enums.iter().map(|e| imported.contains(e)).collect();
+        if keep.contains(&true) {
+            let mut keep = keep.into_iter();
+            found.retain(|_| keep.next().unwrap_or_default());
+        }
+    }
+
+    fn scala_imported_case(&self, here: &Path, text: &str, word: &str) -> Vec<Candidate> {
+        let mut out = Vec::new();
+        for import in search::jvm_enum_imports(here, text, word) {
+            let super::jvm_typed::JvmType::Project(decl) =
+                self.jvm_type_at(here, text, &import.owner)
+            else {
+                continue;
+            };
+            let Some(body) = self.text_of(&decl.path).filter(|_| import.single) else {
+                continue;
+            };
+            let target = Some((decl.path.clone(), decl.line1));
+            out.extend(body.lines().enumerate().filter_map(|(i, l)| {
+                let hit = Hit {
+                    deleted: None,
+                    path: decl.path.clone(),
+                    line1: i + 1,
+                    byte_col: None,
+                    text: l.to_owned(),
+                };
+                (self.scala_enum_of_case(&hit, word) == target).then(|| Candidate {
+                    hit,
+                    reason: Reason::Path(import.owner.clone()),
+                })
+            }));
+        }
+        out
+    }
+
+    fn scala_enum_of_case(&self, hit: &Hit, word: &str) -> Option<(PathBuf, usize)> {
+        static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"\benum\s+[A-Za-z_]\w*").expect("the regex is a literal")
+        });
+        let case = Regex::new(&format!(
+            r"^\s*case\s+(?:\w+\s*,\s*)*{}\b",
+            regex::escape(word)
+        ))
+        .ok()?;
+        if !search::scala(&hit.path) || !case.is_match(&hit.text) {
+            return None;
+        }
+        let text = self.text_of(&hit.path)?;
+        let &decl = search::jvm_enclosing_types(&text, hit.line1).first()?;
+        ENUM.is_match(text.lines().nth(decl - 1)?)
+            .then(|| (hit.path.clone(), decl))
+    }
+}
+
+impl App {
+    pub(super) fn scala_package_alias(
+        &self,
+        file: &Path,
+        text: &str,
+        written: &str,
+        on: Option<usize>,
+    ) -> Option<super::jvm_typed::JvmType> {
+        let (head, rest) = written.split_once('.')?;
+        if !search::scala(file) || !head.starts_with(|c: char| c.is_ascii_lowercase()) {
+            return None;
+        }
+        let imports = on.map_or_else(
+            || search::jvm_imports(file, text),
+            |line1| search::jvm_imports_at(file, text, line1),
+        );
+        let import = imports.iter().find(|i| i.bound_name == head)?;
+        let path: Vec<String> = (import.path.iter().cloned())
+            .chain(rest.split('.').map(str::to_owned))
+            .collect();
+        self.jvm_in_package(&self.jvm_packages()?, &path)
     }
 }

@@ -47,7 +47,12 @@ impl App {
             let ty = self.jvm_type_at(here, text, &cast);
             return self.jvm_typed_member(here, ty, &cast, word);
         }
-        if let ([], Some(made)) = (chain, search::jvm_constructed_receiver(before, kotlin)) {
+        let made = search::jvm_constructed_receiver(before, kotlin).or_else(|| {
+            search::scala(here)
+                .then(|| search::scala_packaged_construction(before))
+                .flatten()
+        });
+        if let ([], Some(made)) = (chain, made) {
             return match self.jvm_made(here, text, &made, kotlin) {
                 ty @ JvmType::Project(_) => self.jvm_typed_member(here, ty, &made, word),
                 _ => None,
@@ -518,6 +523,10 @@ impl App {
                     *found = cases;
                 }
             }
+            return;
+        }
+        if search::scala(here) {
+            self.scala_enum_case(here, text, word, found);
             return;
         }
         let own = search::jvm_enclosing_types(text, self.line + 1)
@@ -1094,6 +1103,9 @@ impl App {
         on: Option<usize>,
         alias: bool,
     ) -> JvmType {
+        if let Some(ty) = self.scala_package_alias(file, text, written, on) {
+            return ty;
+        }
         if written.starts_with(|c: char| c.is_ascii_lowercase())
             && written.contains('.')
             && let Some(packages) = self.jvm_packages()
@@ -1292,7 +1304,7 @@ impl App {
         })
     }
 
-    fn jvm_in_package(
+    pub(super) fn jvm_in_package(
         &self,
         packages: &HashMap<String, Vec<PathBuf>>,
         path: &[String],
