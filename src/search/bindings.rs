@@ -202,7 +202,7 @@ pub fn bindings_at(
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
             if let Some(c) = col.filter(|&c| ts_arrow_binds(lines[at], name, c)) {
-                if let Some(value) = ts_arrow_element(lines[at], name, c) {
+                if let Some(value) = ts_arrow_element(text, lines[at], name, c) {
                     return vec![Binding { line1: line, value }];
                 }
                 for b in out.iter_mut().filter(|b| b.line1 == line) {
