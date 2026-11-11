@@ -54,7 +54,16 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
             b',' if depth == 0 => {
                 let segment = code.get(i + 1..)?;
                 let at = i + 1 + segment.len() - segment.trim_start().len();
-                let after = code.get(at..)?.strip_prefix(name).unwrap_or("_");
+                let rest = code.get(at..)?;
+                let Some(after) = rest.strip_prefix(name) else {
+                    let init = rest
+                        .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+                        .trim_start();
+                    if init.starts_with('=') && !init.starts_with("==") {
+                        continue;
+                    }
+                    return None;
+                };
                 let tail = after.trim_start();
                 if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
                     && (tail.is_empty()
