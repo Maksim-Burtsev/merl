@@ -281,7 +281,7 @@ impl App {
                     return None;
                 }
                 Some(Owned {
-                    class: search::ruby_class_path(&t, h.line1),
+                    class: search::ruby_member_class(&t, h.line1, word),
                     on_class: search::ruby_on_class(&t, h.line1),
                     in_block: search::ruby_in_block(&t, h.line1),
                     module_method_on_both_sides: search::ruby_singleton(&t, h.line1),

@@ -4,13 +4,13 @@ public class Feast
     {
         var c = new Kylix();
         c.Libate();
-        //^ d: picker src/Shop/Kylix.cs:1, src/Shop/Vessels.cs:1, src/Shop/Vessels.cs:2, src/Shop/Vessels.cs:5; want src/Shop/Kylix.cs:1 (#1486)
+        //^ d: src/Shop/Kylix.cs:1
         var s = new Skyphos();
         s.Libate();
-        //^ d: picker src/Shop/Kylix.cs:1, src/Shop/Vessels.cs:1, src/Shop/Vessels.cs:2, src/Shop/Vessels.cs:5; want src/Shop/Vessels.cs:1 (#1486)
+        //^ d: src/Shop/Vessels.cs:1
         var r = new Rhyton();
         r.Libate();
-        //^ d: picker src/Shop/Kylix.cs:1, src/Shop/Vessels.cs:1, src/Shop/Vessels.cs:2, src/Shop/Vessels.cs:5; want src/Shop/Vessels.cs:2 (#1486)
+        //^ d: src/Shop/Vessels.cs:2
         var k = new Kantharos();
         k.Libate();
         //^ d: src/Shop/Vessels.cs:5
