@@ -246,14 +246,14 @@ impl App {
     }
 
     fn answered_by_elixir_alias(&mut self, a: &Asked) -> bool {
-        let module = search::elixir_unalias(&a.text, self.line, vec![a.word.clone()]);
-        let Some(last) = module.last().filter(|l| **l != a.word) else {
-            return false;
-        };
         static DEFMODULE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
             regex::Regex::new(r"^\s*defmodule\s+([\w.]+)(?:\s|,|$)")
                 .expect("the regex is a literal")
         });
+        let module = search::elixir_unalias(&a.text, self.line, vec![a.word.clone()]);
+        let Some(last) = module.last().filter(|l| **l != a.word) else {
+            return false;
+        };
         let full = module.join(".");
         let pattern = search::def_patterns(a.kind, last).join("|");
         let modules: Vec<(Hit, String)> = self
