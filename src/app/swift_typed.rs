@@ -2,6 +2,7 @@ use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 mod defaults;
 mod generic;
+mod generic_base;
 mod key_path;
 mod overload;
 mod payload;
@@ -781,9 +782,19 @@ impl App {
                     _ => return None,
                 },
             };
-            return self.swift_overloads_returning(&rows, &ty.name, &callee);
+            return self
+                .swift_overloads_returning(&rows, &ty.name, &callee)
+                .or_else(|| self.swift_base_returning(here, &ty.name, &rows, &callee));
         };
-        self.swift_returning(&decl, owner, &callee)
+        self.swift_returning(&decl, owner.clone(), &callee)
+            .or_else(|| {
+                self.swift_base_returning(
+                    here,
+                    owner.as_deref()?,
+                    std::slice::from_ref(&decl),
+                    &callee,
+                )
+            })
     }
 
     fn swift_array_call(
