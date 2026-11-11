@@ -330,7 +330,10 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
-        if scala && super::jvm_rebound::local_def_header(lines, i, name) {
+        let keyword = if scala { "def " } else { "fun " };
+        if (scala || super::kotlin(path))
+            && super::jvm_rebound::local_def_header(lines, i, name, keyword)
+        {
             out.push(binding(i + 1));
         }
         out.extend(
