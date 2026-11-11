@@ -652,6 +652,31 @@ pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
         .filter(|&at| at < lines.len())
         .is_some_and(|at| swift_walk(&lines, at, name).is_some_and(|b| b.is_empty()))
 }
+pub fn swift_top_level(
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    name: &str,
+) -> Option<Binding> {
+    if indent(lines.get(line1.checked_sub(1)?)?) > 0 {
+        return None;
+    }
+    let word = Regex::new(&format!(r"(?:^|[^\w.]){}\b", regex::escape(name))).ok()?;
+    let mut bound = (0..lines.len())
+        .filter(|&i| i + 1 != line1 && indent(lines[i]) == 0 && swift_code(lines, literal, i))
+        .filter_map(
+            |i| match swift_statement_binds(lines, line1 - 1, i, name, &word) {
+                (Binds::Name, line) => Some(Some(line)),
+                (Binds::UnreadablePatternMentionsName, _) => Some(None),
+                (Binds::Nothing, _) => None,
+            },
+        );
+    let line = bound.next()??;
+    (bound.next().is_none() && line < line1).then_some(Binding {
+        line1: line,
+        value: Value::Unknown,
+    })
+}
 fn swift_text(lines: &[&str], i: usize) -> String {
     uncommented(Kind::Swift, lines[i]).trim().to_owned()
 }

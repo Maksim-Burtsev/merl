@@ -25,3 +25,9 @@ pub fn by_lowercase_path() {
     e.swill();
     //^ d: picker src/ewers.rs:4, src/ewers.rs:8
 }
+
+pub fn by_a_path_it_is_not_in() {
+    let e = crate::tea::Laver;
+    e.swill();
+    //^ d: picker src/ewers.rs:4, src/ewers.rs:8
+}
