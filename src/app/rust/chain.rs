@@ -159,6 +159,52 @@ fn tuple_initializer(
     Some((path, init))
 }
 
+fn struct_pattern<'a>(line: &'a str, name: &str) -> Option<(&'a str, String)> {
+    static PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^let\s+((?:\w+::)*[A-Z]\w*)\s*(?:\{([^{}()\[\]&|]*)\}|\(([^{}()\[\]&|]*)\))\s*=[^=]",
+        )
+        .expect("the regex is a literal")
+    });
+    let t = line.trim();
+    let c = PATTERN.captures(t)?;
+    let owner = c.get(1)?.as_str();
+    let enum_variant = owner
+        .rsplit("::")
+        .nth(1)
+        .is_some_and(|s| s.starts_with(|c: char| c.is_ascii_uppercase()));
+    if owner == "Self" || enum_variant || t.contains(" else ") || t.ends_with(" else") {
+        return None;
+    }
+    let bare = |s: &str| {
+        let s = s.trim();
+        let s = s.strip_prefix("ref ").unwrap_or(s).trim_start();
+        plain_name(s).map(str::to_owned)
+    };
+    if let Some(fields) = c.get(2) {
+        let mut found = None;
+        for part in fields.as_str().split(',').map(str::trim) {
+            if part.is_empty() || part == ".." {
+                continue;
+            }
+            let (field, bound) = part.split_once(':').unwrap_or((part, part));
+            let (field, bound) = (bare(field)?, bare(bound)?);
+            if bound == name {
+                found.get_or_insert(field);
+            }
+        }
+        return found.map(|f| (owner, f));
+    }
+    let parts: Vec<&str> = c.get(3)?.as_str().split(',').map(str::trim).collect();
+    if parts.contains(&"..") {
+        return None;
+    }
+    let at = parts
+        .iter()
+        .position(|p| bare(p).as_deref() == Some(name))?;
+    Some((owner, at.to_string()))
+}
+
 fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
     let mut lines = text.lines().skip(at);
     let line = lines.next()?.trim();
@@ -605,6 +651,11 @@ impl App {
     fn rust_let_got(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
         let Some(init) = let_initializer(&lines, at, name) else {
+            if let Some((owner, field)) = struct_pattern(lines.get(at)?, name) {
+                let ty = self.rust_resolve(file, owner, at)?;
+                let (hit, written) = self.rust_field(&ty, &field)?;
+                return Some(self.rust_got(&ty.path, written, hit.line1 - 1));
+            }
             let (path, init) = tuple_initializer(&lines, at, name)?;
             return self.rust_tuple_got(file, text, at, name, &path, &init);
         };
