@@ -26,3 +26,23 @@ mugs.filter(c => c.slosh());
 //                 ^ d: ladle/mug.ts:2
 cups.map((c, i) => i.slosh());
 //                   ^ d: !jump
+cups.forEach(c => c.slosh()); mugs.forEach(c => c.heft());
+//                  ^ d: ladle/cup.ts:2
+cups.forEach(c => c.slosh()); mugs.forEach(c => c.heft());
+//                                                ^ d: ladle/mug.ts:3
+cups.forEach((c) => c.slosh()); mugs.forEach((c) => c.heft());
+//                    ^ d: ladle/cup.ts:2
+cups.map((c) => c.jars.map(c => c.slosh()));
+//                                ^ d: !jump
+cups.map(c => mugs.reduce((n, c) => n + c.heft(), 0));
+//                                        ^ d: !jump
+mugs.forEach(c => cups.forEach(d => c.slosh()));
+//                                    ^ d: ladle/mug.ts:2
+cups.forEach((c) => c.slosh()); mugs.forEach((c) => {
+  c.heft();
+//  ^ d: !jump
+});
+cups.forEach(c => c.slosh()); mugs.forEach(c => {
+  c.heft();
+//  ^ d: ladle/mug.ts:3
+});
