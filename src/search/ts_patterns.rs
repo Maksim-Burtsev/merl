@@ -77,6 +77,38 @@ pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     }
 }
 
+pub(super) fn ts_tuple_destructured(t: &str, name: &str) -> Option<Value> {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:export\s+)?(?:const|let|var)\s*\[([^\[\]{}=.]*)\]\s*(?::\s*(.+?))?\s*=\s*(.+?)\s*;?$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = SHAPE.captures(t)?;
+    let items: Vec<&str> = c[1].split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.chars()
+            .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '$')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    match c.get(2) {
+        Some(written) => {
+            super::written_element(Kind::TsJs, written.as_str(), at, items.len()).map(Value::Type)
+        }
+        None => match value_of(Kind::TsJs, &c[3]) {
+            call @ Value::Call(_) => Some(Value::Position {
+                of: Box::new(call),
+                at,
+                count: items.len(),
+            }),
+            _ => None,
+        },
+    }
+}
+
 pub fn ts_literal_member(
     text: &str,
     line: usize,

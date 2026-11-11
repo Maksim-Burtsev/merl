@@ -122,7 +122,11 @@ import os.path, store.sessions as sessions
         [(26, Value::Unknown)],
         "unknown where it is written, it hides the module's `repo` and proves nothing"
     );
-    assert_eq!(at(29, "a"), [(27, Value::Unknown)], "a tuple is unknown");
+    assert_eq!(
+        at(29, "a"),
+        [(27, position(Value::Name("items".into()), 0, 2))],
+        "a tuple target takes its position of the value"
+    );
     assert_eq!(at(29, "fh"), [(28, Value::Unknown)], "so is `as`");
     assert_eq!(at(30, "level"), [], "a keyword argument is no binding");
     assert_eq!(
@@ -355,8 +359,11 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(21, "made"), [(7, Value::Call("NewRepo".into()))]);
     assert_eq!(
         at(21, "err"),
-        [(7, Value::Unknown), (5, ty("error"))],
-        "the second name of a `:=` is not the call's first result"
+        [
+            (7, position(Value::Call("NewRepo".into()), 1, 2)),
+            (5, ty("error"))
+        ],
+        "the second name of a `:=` is the call's second result"
     );
     assert_eq!(at(21, "typed"), [(8, ty("store.Session"))]);
     assert_eq!(at(21, "built"), [(9, new("Repo"))]);
@@ -365,7 +372,10 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
     assert_eq!(at(15, "r"), [(14, ty("*Repo"))]);
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
-    assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
+    assert_eq!(
+        at(21, "other"),
+        [(20, position(Value::Call("pair".into()), 1, 2))]
+    );
 }
 
 #[test]
@@ -383,7 +393,7 @@ fn each_name_of_a_go_multi_value_declaration_takes_its_own_value() {
     assert_eq!(at("u"), [(4, new("Urn"))]);
     assert_eq!(at("w"), [(4, new("Cup"))]);
     assert_eq!(at("x"), [(5, Value::Call("pair".into()))]);
-    assert_eq!(at("y"), [(5, Value::Unknown)]);
+    assert_eq!(at("y"), [(5, position(Value::Call("pair".into()), 1, 2))]);
 }
 
 #[test]
@@ -985,4 +995,12 @@ fn a_ts_header_ends_at_its_brace_or_with_its_declaration() {
         },
         "the `>` of a `=>` closes no type parameter"
     );
+}
+
+fn position(of: Value, at: usize, count: usize) -> Value {
+    Value::Position {
+        of: Box::new(of),
+        at,
+        count,
+    }
 }

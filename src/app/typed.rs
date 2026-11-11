@@ -3,13 +3,17 @@ use super::{
     signature,
 };
 
+mod accessor;
 mod calls;
 mod declared;
 mod eslint;
 mod generic_base;
 mod go_argument;
 mod intersection;
+mod positions;
 mod shadowed;
+
+use declared::declared_name;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
@@ -102,6 +106,7 @@ impl App {
             None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
         };
         let hits = declared
+            .map(|hits| self.accessor_side(kind, word, hits))
             .or_else(|| {
                 let mut assigned = None;
                 self.hierarchy(kind, &ty, 0, &mut |t| {
@@ -750,41 +755,15 @@ impl App {
             search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
                 self.assigned_calls_type(kind, file, text, b.line1)
             }
+            search::Value::Position { .. } if hops > 0 => {
+                self.call_position_type(kind, file, text, b, hops)
+            }
             search::Value::Name(_)
             | search::Value::Element(_)
             | search::Value::Field { .. }
+            | search::Value::Position { .. }
             | search::Value::Unknown => None,
         }
-    }
-
-    fn dict_value(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        receiver: &str,
-        method: &str,
-    ) -> Option<TypeVia> {
-        let kind = Kind::Python;
-        let mut found: Option<TypeVia> = None;
-        for b in self.bindings_of(kind, file, text, line1, receiver) {
-            let search::Value::Type(written) = &b.value else {
-                return None;
-            };
-            let value = search::python_dict_value(written)?;
-            let ty = self.annotated_type(kind, file, text, b.line1, &value)?;
-            match &found {
-                Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => return None,
-                Some(_) => {}
-                None => {
-                    found = Some(TypeVia {
-                        ty,
-                        call_signature: Some(format!("{receiver}.{method}() -> {value}")),
-                    });
-                }
-            }
-        }
-        found
     }
 
     fn element_binding_type(
@@ -1433,11 +1412,4 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
     search::reads_jsdoc(kind, file)
         && (search::js_constructor(line).is_some() || search::js_exported_class(line))
-}
-
-fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
-    search::type_name(kind, decl)
-        .filter(|_| matches!(kind, Kind::Python | Kind::TsJs))
-        .or_else(|| parts.last().cloned())
-        .unwrap_or_default()
 }
