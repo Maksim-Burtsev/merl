@@ -4,9 +4,9 @@ use regex::Regex;
 
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
-    element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_header_open, python_rooted, python_statements, returns, split_top, ts_header, type_path,
-    uncommented, value_of,
+    element_type, group, in_method, indent, jsdoc_getter_type, jsdoc_owner, jsdoc_properties,
+    literal_lines, python_header_open, python_rooted, python_statements, returns, split_top,
+    ts_header, type_path, uncommented, value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -276,7 +276,9 @@ fn ts_fields(
             push(
                 i,
                 c.get(1)
-                    .map_or(Value::Unknown, |ty| Value::Type(ty.as_str().to_owned())),
+                    .map(|ty| ty.as_str().to_owned())
+                    .or_else(|| jsdoc_getter_type(text, i + 1))
+                    .map_or(Value::Unknown, Value::Type),
             );
         } else if let Some(c) = member.captures(t).filter(|_| ind == base) {
             push(
