@@ -77,15 +77,33 @@ pub fn gradle_global(line: &str) -> bool {
         .any(|re| re.is_match(line))
 }
 
+fn labelled(line: &str, col: usize) -> bool {
+    let Some((r, _)) = super::word_at(line, col, "") else {
+        return false;
+    };
+    let (Some(lead), Some(tail)) = (line.get(..r.start), line.get(r.end..)) else {
+        return false;
+    };
+    let (lead, tail) = (lead.trim_end(), tail.trim_start());
+    tail.starts_with(':')
+        && !tail.starts_with("::")
+        && !lead.ends_with('?')
+        && !lead.ends_with("case")
+}
+
 pub(super) fn script_binding(
     path: &Path,
     lines: &[&str],
     text: &str,
     literal: &[bool],
     at: usize,
+    col: Option<usize>,
     name: &str,
 ) -> Option<usize> {
-    if !groovy(path) || path.extension().is_some_and(|e| e == "gradle") {
+    if !groovy(path)
+        || path.extension().is_some_and(|e| e == "gradle")
+        || col.is_some_and(|c| labelled(lines[at], c))
+    {
         return None;
     }
     let n = regex::escape(name);

@@ -3,12 +3,15 @@ use super::{
     signature,
 };
 
+mod accessor;
 mod declared;
 mod eslint;
 mod go_argument;
 mod intersection;
 mod positions;
 mod shadowed;
+
+use declared::declared_name;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
@@ -101,6 +104,7 @@ impl App {
             None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
         };
         let hits = declared
+            .map(|hits| self.accessor_side(kind, word, hits))
             .or_else(|| {
                 let mut assigned = None;
                 self.hierarchy(kind, &ty, 0, &mut |t| {
@@ -1464,11 +1468,4 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
     search::reads_jsdoc(kind, file)
         && (search::js_constructor(line).is_some() || search::js_exported_class(line))
-}
-
-fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
-    search::type_name(kind, decl)
-        .filter(|_| matches!(kind, Kind::Python | Kind::TsJs))
-        .or_else(|| parts.last().cloned())
-        .unwrap_or_default()
 }

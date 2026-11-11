@@ -934,7 +934,7 @@ impl App {
     }
 }
 
-fn ts_modifiers(line: &str) -> Vec<&str> {
+pub(super) fn ts_modifiers(line: &str) -> Vec<&str> {
     let words: Vec<&str> = line.split_whitespace().collect();
     words
         .windows(2)
