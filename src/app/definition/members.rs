@@ -282,11 +282,11 @@ impl App {
         let qualifier = line
             .get(..r.start)
             .and_then(|b| b.strip_suffix('.'))
-            .map(|b| {
+            .and_then(|b| {
                 let start = b
                     .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
                     .map_or(0, |i| i + 1);
-                &b[start..]
+                b.get(start..)
             });
         let Some(qualifier) = qualifier.filter(|q| w == word && q.starts_with(char::is_uppercase))
         else {
