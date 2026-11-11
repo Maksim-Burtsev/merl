@@ -6,6 +6,8 @@ use super::{
     Binding, Kind, SwiftCall, Value, close_of, code, comment, group, indent, literal_lines, names,
     split_top, swift_mods, uncommented,
 };
+mod top;
+pub use top::swift_bindings_or_top;
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(

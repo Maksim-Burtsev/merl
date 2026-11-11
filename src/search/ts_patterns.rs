@@ -36,6 +36,22 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     }
 }
 
+pub(super) fn ts_callback_element(before: &str, params: &str, name: &str) -> Option<Value> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])((?:this\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\.\s*(map|forEach|filter|find|findLast|findIndex|findLastIndex|some|every|flatMap|sort|toSorted)\s*\(\s*(?:async\s+)?(?:function\s*)?$")
+            .expect("the regex is a literal")
+    });
+    let c = CALL.captures(before.trim_end())?;
+    let params: Vec<&str> = split_top(Kind::TsJs, params, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let at = params.iter().position(|p| *p == name)?;
+    let sort = matches!(&c[2], "sort" | "toSorted");
+    let element = if sort { params.len() == 2 } else { at == 0 };
+    element.then(|| Value::Element(c[1].to_owned()))
+}
+
 fn typed_pattern(p: &str, name: &str) -> Option<Value> {
     let close = close_of(Kind::TsJs, p, 0).filter(|_| p.starts_with('{'))?;
     let written = p.get(close..)?.trim_start().strip_prefix(':')?;
@@ -74,6 +90,38 @@ pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     match value_of(Kind::TsJs, &c[2]) {
         call @ Value::Call(_) => Some(Value::Member(Box::new(call), field)),
         _ => None,
+    }
+}
+
+pub(super) fn ts_tuple_destructured(t: &str, name: &str) -> Option<Value> {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:export\s+)?(?:const|let|var)\s*\[([^\[\]{}=.]*)\]\s*(?::\s*(.+?))?\s*=\s*(.+?)\s*;?$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = SHAPE.captures(t)?;
+    let items: Vec<&str> = c[1].split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.chars()
+            .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '$')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    match c.get(2) {
+        Some(written) => {
+            super::written_element(Kind::TsJs, written.as_str(), at, items.len()).map(Value::Type)
+        }
+        None => match value_of(Kind::TsJs, &c[3]) {
+            call @ Value::Call(_) => Some(Value::Position {
+                of: Box::new(call),
+                at,
+                count: items.len(),
+            }),
+            _ => None,
+        },
     }
 }
 

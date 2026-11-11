@@ -258,3 +258,10 @@ impl App {
         Some(hit)
     }
 }
+
+pub(super) fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
+    search::type_name(kind, decl)
+        .filter(|_| matches!(kind, Kind::Python | Kind::TsJs))
+        .or_else(|| parts.last().cloned())
+        .unwrap_or_default()
+}
