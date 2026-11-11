@@ -28,11 +28,27 @@ class Grate {
 
 fun stoke() {
     Brazier.Fuel.COAL.smoulder()
-//                    ^ d: picker src/main/kotlin/kstatics/Brazier.kt:6, src/main/kotlin/kstatics/Brazier.kt:22; want src/main/kotlin/kstatics/Brazier.kt:6 (#1489)
+//                    ^ d: src/main/kotlin/kstatics/Brazier.kt:6
     Brazier.Fuel.COAL
-//               ^ d: none; want src/main/kotlin/kstatics/Brazier.kt:5 (#1489)
+//               ^ d: src/main/kotlin/kstatics/Brazier.kt:5
     Brazier.shared.light()
-//                 ^ d: picker src/main/kotlin/kstatics/Brazier.kt:9, src/main/kotlin/kstatics/Brazier.kt:25; want src/main/kotlin/kstatics/Brazier.kt:9 (#1489)
+//                 ^ d: src/main/kotlin/kstatics/Brazier.kt:9
     Brazier.make().light()
 //                 ^ d: src/main/kotlin/kstatics/Brazier.kt:9
+}
+
+object Hearth {
+    val shared = Brazier()
+    val ash = Grate()
+}
+
+fun rake() {
+    Grate.Fuel.COAL.smoulder()
+//                  ^ d: src/main/kotlin/kstatics/Brazier.kt:22
+    Grate.Fuel.COAL
+//             ^ d: src/main/kotlin/kstatics/Brazier.kt:21
+    Hearth.shared.light()
+//                ^ d: src/main/kotlin/kstatics/Brazier.kt:9
+    Hearth.ash.light()
+//             ^ d: src/main/kotlin/kstatics/Brazier.kt:25
 }
