@@ -111,12 +111,12 @@ type Cup[T any] struct {
 
 func Sip[T Toaster](c Cup[T]) {
 	c.held.Clink()
-	//     ^ d: cart/goblets.go:35; want cart/goblets.go:32 (#1438)
+	//     ^ d: cart/goblets.go:32
 }
 
 func Inline[T interface{ Clink() }](x T) {
 	x.Clink()
-	//^ d: cart/goblets.go:35; want cart/goblets.go:117 (#1438)
+	//^ d: cart/goblets.go:117
 }
 
 type Spiller interface{ Tip(); Pour() }
@@ -129,4 +129,41 @@ func Spill(s Spiller) {
 func Ladle[T Spiller](x T) {
 	x.Pour()
 	//^ d: cart/goblets.go:122
+}
+
+func Swap[U Toaster, T any](c Cup[U]) {
+	c.held.Clink()
+	//     ^ d: cart/goblets.go:32
+}
+
+func Spare[U any](c Cup[U]) {
+	c.held.Clink()
+	//     ^ d: none
+}
+
+func Concrete(c Cup[Goblet]) {
+	c.held.Clink()
+	//     ^ d: cart/goblets.go:35
+}
+
+func Pointed[T Toaster](c *Cup[T]) {
+	c.held.Clink()
+	//     ^ d: cart/goblets.go:32
+}
+
+type Pair[A any, B any] struct {
+	first  A
+	second B
+}
+
+func Pick[T Toaster](p Pair[Goblet, T]) {
+	p.second.Clink()
+	//       ^ d: cart/goblets.go:32
+	p.first.Clink()
+	//      ^ d: cart/goblets.go:35
+}
+
+func Held[T interface{ Clink() }](c Cup[T]) {
+	c.held.Clink()
+	//     ^ d: cart/goblets.go:166
 }
