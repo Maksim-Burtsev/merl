@@ -69,6 +69,10 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
     }
     patterns
 }
+pub fn cut_def_patterns(kind: Kind, patterns: &mut Vec<String>, cut: &[String]) {
+    let copies = one_line_body(kind, cut);
+    patterns.retain(|p| !cut.contains(p) && !copies.contains(p));
+}
 const ONE_LINE_TYPE: &str = r"^\s*(?:[\w@]+(?:\([^)]*\))?\s+)*(?:class|struct|interface|trait|enum|record|object|mixin|protocol|actor|extension|impl)\b";
 pub(super) fn one_line_body(kind: Kind, patterns: &[String]) -> Vec<String> {
     let head = match kind {

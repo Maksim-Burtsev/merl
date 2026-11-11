@@ -1,3 +1,4 @@
+use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 struct WrittenType {
@@ -126,6 +127,7 @@ impl App {
         let line = self.line + 1;
         let innermost = *search::jvm_enclosing_types(text, line).first()?;
         search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        (!search::java_new_between(text, line, before, innermost)).then_some(())?;
         let first = self.jvm_returned(here, text, line, None, calls.first()?, false)?;
         matches!(first.resolved, JvmType::Project(_)).then_some(())?;
         let calls = calls.into_iter().map(|c| format!("{c}()"));
@@ -928,55 +930,31 @@ impl App {
         let name = search::jvm_type_name(text.lines().nth(holder - 1)?)?;
         let params = search::generic_header(Kind::Jvm, &text, holder, &name)?.params;
         let index = params.iter().position(|p| p == written)?;
-        let holder = (member.path.as_path(), holder, params.len());
-        self.jvm_base_argument(decl, holder, index, 0)
-    }
-
-    fn jvm_base_argument(
-        &self,
-        decl: &Hit,
-        holder: (&Path, usize, usize),
-        index: usize,
-        depth: usize,
-    ) -> Option<TypedField> {
-        if depth > 8 || search::scala(&decl.path) {
-            return None;
-        }
-        let text = self.text_of(&decl.path)?;
-        let name = search::jvm_type_name(&decl.text)?;
-        let header = search::generic_header(Kind::Jvm, &text, decl.line1, &name)?;
-        let mut bases = search::jvm_bases(&text, decl.line1, false);
-        bases.extend(search::java_implements(&text, decl.line1));
-        let mut found = None;
-        for base in bases {
-            let JvmType::Project(b) = self.jvm_type_on(&decl.path, &text, &base, Some(decl.line1))
-            else {
-                continue;
-            };
-            let got = if (b.path.as_path(), b.line1) == (holder.0, holder.1) {
-                let args = search::base_arguments(&header.rest, &base)?;
-                let arg = args.get(index).filter(|_| args.len() == holder.2)?;
-                let own = arg
-                    .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                    .any(|w| header.params.iter().any(|p| p == w));
-                if own || arg.is_empty() {
-                    return None;
-                }
-                Some(TypedField {
-                    hit: decl.clone(),
-                    written: arg.clone(),
-                })
-            } else {
-                self.jvm_base_argument(&b, holder, index, depth + 1)
-            };
-            if got.is_some() {
-                if found.is_some() {
-                    return None;
-                }
-                found = got;
-            }
-        }
-        found
+        let (hit, written) =
+            super::typed::base_argument(decl, (index, params.len()), 0, &|d: &Hit| {
+                let text = self.text_of(&d.path).filter(|_| !search::scala(&d.path))?;
+                let name = search::jvm_type_name(&d.text)?;
+                let header = search::generic_header(Kind::Jvm, &text, d.line1, &name)?;
+                let mut bases = search::jvm_bases(&text, d.line1, false);
+                bases.extend(search::java_implements(&text, d.line1));
+                let bases = bases
+                    .into_iter()
+                    .filter_map(|base| {
+                        let JvmType::Project(b) =
+                            self.jvm_type_on(&d.path, &text, &base, Some(d.line1))
+                        else {
+                            return None;
+                        };
+                        Some(if (&b.path, b.line1) == (&member.path, holder) {
+                            Base::Holder(search::base_arguments(&header.rest, &base))
+                        } else {
+                            Base::Other(b)
+                        })
+                    })
+                    .collect();
+                Some((header.params, bases))
+            })?;
+        Some(TypedField { hit, written })
     }
 
     pub(super) fn jvm_hierarchy_member(

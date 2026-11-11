@@ -62,3 +62,48 @@ impl App {
         found
     }
 }
+
+pub(super) fn forget_swapped(
+    text: &str,
+    line1: usize,
+    name: &str,
+    bindings: &mut [search::Binding],
+) {
+    let lines: Vec<&str> = text.lines().collect();
+    for b in bindings {
+        let unpacked = lines
+            .get(b.line1.wrapping_sub(1))
+            .and_then(|l| assigned_names(l))
+            .is_some_and(|lhs| {
+                let lhs = lhs.trim_start().split(':').next().unwrap_or_default();
+                lhs.contains([',', '[']) && !lhs.get(1..).unwrap_or_default().contains('(')
+            });
+        let again = || {
+            lines
+                .get(b.line1..line1.saturating_sub(1))
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|l| assigned_names(l))
+                .any(|lhs| {
+                    lhs.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                        .any(|w| w == name)
+                })
+        };
+        if unpacked && again() {
+            b.value = search::Value::Unknown;
+        }
+    }
+}
+
+fn assigned_names(line: &str) -> Option<&str> {
+    let bytes = line.as_bytes();
+    let at = (0..bytes.len()).find(|&i| {
+        bytes[i] == b'='
+            && !matches!(bytes.get(i + 1), Some(b'=' | b'>'))
+            && !matches!(
+                i.checked_sub(1).map(|p| bytes[p]),
+                Some(b'=' | b'!' | b'<' | b'>')
+            )
+    })?;
+    line.get(..at)
+}

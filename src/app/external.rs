@@ -224,8 +224,7 @@ impl App {
         let mut patterns = search::def_patterns(kind, word);
         self.spelling_cut(kind, word, &mut patterns);
         if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
-            let assignment = search::ruby_assignment(word);
-            patterns.retain(|p| *p != assignment);
+            search::cut_def_patterns(kind, &mut patterns, &[search::ruby_assignment(word)]);
         }
         patterns.join("|")
     }

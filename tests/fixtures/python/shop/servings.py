@@ -29,6 +29,10 @@ def serve_bare():
     return Platter(), Saucepan()
 
 
+def serve_maybe() -> tuple[Platter, Saucepan] | None:
+    return None
+
+
 def unpack():
     first, second = serve_two()
     first.dollop()
@@ -56,3 +60,13 @@ def unsure(other: Cauldron):
     spare, other = serve_two()
     other.dollop()
     #     ^ d: !jump
+    one, two, three = serve_two()
+    two.dollop()
+    #   ^ d: !jump
+    maybe, perhaps = serve_maybe()
+    perhaps.dollop()
+    #       ^ d: !jump
+    h, k = serve_two()
+    h, k = k, h
+    h.dollop()
+    # ^ d: !jump

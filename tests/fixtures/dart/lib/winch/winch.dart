@@ -15,3 +15,9 @@ class Winch {
 //  ^ d: lib/winch/winch.dart:7
   }
 }
+
+class Crane {
+  Winch _w = Winch();
+  Winch get w => _w;
+  set w(Winch v) => _w = v;
+}
