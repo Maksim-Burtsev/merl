@@ -892,6 +892,12 @@ three; a class of that shape in a template string declares nothing. `tray.ts` ty
 one-line implementation under its overload signature leaves the jump to the signature. A one-line
 getter is left as it was, beside its setter in `coffee/cezve.js`.
 
+`kylix/` (TypeScript, Rust, Swift, C#, PHP, Dart and Ruby, each in its own fixture) declares
+classes whose whole body sits on their declaration line (#1486): `Kylix` alone in its file,
+`Skyphos` (two members) and `Rhyton` above a multi-line `Kantharos` in another, each with a
+`libate`, so `d` on `libate` through a value of each lands on its own class's, never on the
+multi-line namesake.
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
