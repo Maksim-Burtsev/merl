@@ -372,6 +372,22 @@ pub fn java_bare_chain(before: &str) -> Option<Vec<String>> {
     head.is_none().then_some(calls)
 }
 
+pub fn java_new_between(text: &str, line1: usize, before: &str, type_line1: usize) -> bool {
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return true;
+    };
+    let mut scopes = Vec::new();
+    while let Some(s) = super::jvm::scope_of(&lines, at).filter(|&s| s + 1 > type_line1) {
+        scopes.push(uncommented(Kind::Jvm, lines[s]));
+        at = s;
+    }
+    NEW.is_match(&uncommented(Kind::Jvm, before)) || scopes.iter().any(|l| NEW.is_match(l))
+}
+
 fn fluent(before: &str) -> Option<(Option<String>, Vec<String>)> {
     let chars: Vec<char> = before.chars().collect();
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';

@@ -269,8 +269,7 @@ impl App {
         on_class: bool,
     ) -> Vec<Candidate> {
         let mut patterns = search::def_patterns(Kind::Ruby, word);
-        let assignment = search::ruby_assignment(word);
-        patterns.retain(|p| *p != assignment);
+        search::cut_def_patterns(Kind::Ruby, &mut patterns, &[search::ruby_assignment(word)]);
         let owned: Vec<Owned> = self
             .project_definitions(Kind::Ruby, here, word, &patterns.join("|"))
             .into_iter()

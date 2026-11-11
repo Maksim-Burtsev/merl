@@ -30,3 +30,10 @@ export function paired(tw: Twin): void {
   tw.right().fill();
   //         ^ d: gantry/gantry.ts:14
 }
+
+export class Odd extends Pair<Barrel, Crate, Barrel> {}
+
+export function odd(o: Odd): void {
+  o.right().fill();
+  //        ^ d: picker gantry/gantry.ts:14, gantry/gantry.ts:18
+}

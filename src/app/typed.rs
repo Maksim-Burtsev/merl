@@ -14,6 +14,7 @@ mod positions;
 mod shadowed;
 
 use declared::declared_name;
+pub(super) use generic_base::{Base, base_argument};
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
