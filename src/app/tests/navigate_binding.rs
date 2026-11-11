@@ -217,16 +217,13 @@ fn the_innermost_binding_wins() {
             ),
         ),
         (
-            "The second name of a `:=` is unknown and hides the package's",
+            "The second name of a `:=` takes the call's second result and hides the package's",
             "go",
             "scopes.go",
             "ledger.DeleteUser|(id + 4)",
-            picker(
-                "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+            jump(
+                "DeleteUser \u{2192} UserRepository.DeleteUser (via pair() *UserRepository)",
+                "repos.go:15",
             ),
         ),
         (
