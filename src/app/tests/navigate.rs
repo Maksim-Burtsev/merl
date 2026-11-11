@@ -2098,6 +2098,26 @@ fn an_elixir_call_is_no_attribute_and_an_import_leaves_it_to_the_search() {
 }
 
 #[test]
+fn an_elixir_as_alias_of_a_nested_module_is_never_called_outside_the_project() {
+    let (dir, mut a) = project_app(
+        "d-1466-nested",
+        &[
+            (
+                "lib/my_app.ex",
+                "defmodule MyApp do\n  defmodule Helpers do\n    def go, do: 1\n  end\nend\n",
+            ),
+            (
+                "lib/use.ex",
+                "defmodule Use do\n  alias MyApp.Helpers, as: H\n  def run, do: H.go()\nend\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "lib/use.ex", "do: |H.go");
+    assert!(!a.message.contains("in the project"), "{}", a.message);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn php_names_resolve_through_use_namespace_and_psr4() {
     let method = |ns: &str, class: &str, m: &str| {
         format!(

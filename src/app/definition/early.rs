@@ -250,23 +250,34 @@ impl App {
         let Some(last) = module.last().filter(|l| **l != a.word) else {
             return false;
         };
+        static DEFMODULE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*defmodule\s+([\w.]+)(?:\s|,|$)")
+                .expect("the regex is a literal")
+        });
         let full = module.join(".");
-        let Ok(named) = regex::Regex::new(&format!(
-            r"^\s*defmodule\s+{}(?:\s|,|$)",
-            regex::escape(&full)
-        )) else {
-            return false;
-        };
         let pattern = search::def_patterns(a.kind, last).join("|");
-        let found: Vec<Candidate> = self
+        let modules: Vec<(Hit, String)> = self
             .project_definitions(a.kind, &a.here, last, &pattern)
             .into_iter()
-            .filter(|h| named.is_match(&h.text))
-            .map(|hit| Candidate {
+            .filter_map(|h| {
+                let name = DEFMODULE.captures(&h.text)?[1].to_owned();
+                Some((h, name))
+            })
+            .collect();
+        let nested = modules
+            .iter()
+            .any(|(_, n)| full.ends_with(&format!(".{n}")));
+        let found: Vec<Candidate> = modules
+            .into_iter()
+            .filter(|(_, n)| *n == full)
+            .map(|(hit, _)| Candidate {
                 hit,
                 reason: Reason::Path(full.clone()),
             })
             .collect();
+        if found.is_empty() && nested {
+            return false;
+        }
         if found.is_empty() {
             self.message = format!("no definition for {} in the project (via {full})", a.word);
             return true;

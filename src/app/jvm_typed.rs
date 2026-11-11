@@ -61,10 +61,9 @@ impl App {
         if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
             let line = Self::jvm_declared_line(here, text, self.line + 1, &source)?;
             let (container, element) = search::java_element_type(line, &source)?;
-            if matches!(
-                self.jvm_type_at(here, text, &container),
-                JvmType::Project(_)
-            ) {
+            if let JvmType::Project(hit) = self.jvm_type_at(here, text, &container)
+                && self.jvm_sees(here, text, &container, &hit)
+            {
                 return None;
             }
             let ty = self.jvm_type_at(here, text, &element);
@@ -1091,6 +1090,23 @@ impl App {
             }
         }
         out
+    }
+
+    fn jvm_sees(&self, file: &Path, text: &str, written: &str, decl: &Hit) -> bool {
+        if written.contains('.') || decl.path == file {
+            return true;
+        }
+        let package = self
+            .text_of(&decl.path)
+            .and_then(|t| search::jvm_package(&t));
+        package == search::jvm_package(text)
+            || search::jvm_imports(file, text).iter().any(|i| {
+                i.bound_name == written
+                    || (i.bound_name == "*"
+                        && i.path.split_last().is_some_and(|(_, base)| {
+                            package.as_deref() == Some(base.join(".").as_str())
+                        }))
+            })
     }
 
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
