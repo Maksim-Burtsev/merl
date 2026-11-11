@@ -196,7 +196,7 @@ func Union[T Stove | Mug](t T) int {
 
 func Literal[T interface{ Sip() int }](t T) int {
 	return t.Sip()
-	//       ^ d: !jump
+	//       ^ d: infuse/tasting.go:197
 }
 
 func Anything[T any](t T) int {
