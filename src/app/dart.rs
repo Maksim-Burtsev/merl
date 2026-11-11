@@ -845,6 +845,7 @@ impl App {
             if rows.is_empty() {
                 rows = self.dart_inherited(&file, &ty.class, link, 0);
             }
+            without_setter(&mut rows, link);
             let [row] = rows.as_slice() else {
                 return None;
             };
@@ -1016,7 +1017,13 @@ impl App {
         field: &str,
     ) -> Option<(search::DartType, PathBuf)> {
         let c = self.dart_field_row(here, text, field)?;
-        let ty = search::dart_typed(&c.hit.text, "", field)?;
+        let getter = Regex::new(&format!(r"\bget\s+{}\b", regex::escape(field)))
+            .is_ok_and(|g| g.is_match(&c.hit.text));
+        let ty = search::dart_typed(&c.hit.text, "", field).or_else(|| {
+            getter
+                .then(|| search::dart_returns(&c.hit.text, field))
+                .flatten()
+        })?;
         Some((ty, c.hit.path))
     }
 
@@ -1036,6 +1043,7 @@ impl App {
                 found.retain(|c| library.contains(&c.hit.path));
             }
         }
+        without_setter(&mut found, field);
         let [c] = found.try_into().ok()?;
         Some(c)
     }
@@ -1169,4 +1177,13 @@ fn line_offset(text: &str, line1: usize) -> usize {
         .take(line1.saturating_sub(1))
         .map(str::len)
         .sum()
+}
+
+fn without_setter(rows: &mut Vec<Candidate>, name: &str) {
+    let Ok(setter) = Regex::new(&format!(r"(?:^|\s)set\s+{}\s*\(", regex::escape(name))) else {
+        return;
+    };
+    if rows.iter().any(|r| !setter.is_match(&r.hit.text)) {
+        rows.retain(|r| !setter.is_match(&r.hit.text));
+    }
 }

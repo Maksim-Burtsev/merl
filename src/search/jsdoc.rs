@@ -505,3 +505,17 @@ pub fn ts_object_type_key(object: &str, key: &str) -> Option<String> {
     let one = found.next()?;
     (found.next().is_none() && TYPE.is_match(one)).then(|| one.to_owned())
 }
+
+pub fn jsdoc_getter_type(text: &str, decl_line1: usize) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
+    let tags = tags(&lines[block]);
+    let mut typed = tags
+        .iter()
+        .filter(|t| t.name == "type" || t.name == "returns" || t.name == "return");
+    let one = typed.next()?;
+    if typed.next().is_some() {
+        return None;
+    }
+    jsdoc_type(&one.braced_type)
+}

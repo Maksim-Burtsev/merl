@@ -631,7 +631,7 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
             return None;
         }
         vec![
-            format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{)"),
+            format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{|get\s*\()"),
             format!(
                 r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
             ),

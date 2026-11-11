@@ -575,6 +575,22 @@ impl App {
         {
             return self.show_found(a, found);
         }
+        if a.kind == Kind::Jvm
+            && a.word == "field"
+            && !a.dotted
+            && a.here.extension().is_some_and(|e| e == "kt" || e == "kts")
+            && let Some(line1) =
+                search::kotlin_backing_property(&a.text, self.line + 1, a.range.start)
+        {
+            let hit = self.line_hit(&a.here, line1);
+            return self.show_found(
+                a,
+                vec![Candidate {
+                    hit,
+                    reason: Reason::Receiver(String::from("field")),
+                }],
+            );
+        }
         false
     }
 }
