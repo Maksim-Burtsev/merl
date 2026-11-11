@@ -951,25 +951,79 @@ impl App {
         name: &str,
     ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
-        if let Some(init) = let_initializer(&lines, at, name)
-            && init.starts_with(|c: char| c.is_ascii_uppercase())
-            && init.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        {
-            let ty = self.rust_resolve(file, &init, at)?;
-            let decl = self.text_of(&ty.path)?;
-            let decl = decl.lines().nth(ty.line - 1)?.trim();
-            let decl = decl.strip_prefix("pub").map_or(decl, |d| {
-                d.trim_start()
-                    .strip_prefix('(')
-                    .and_then(|d| d.split_once(')'))
-                    .map_or(d, |(_, d)| d)
-            });
-            return (decl.trim_start() == format!("struct {init};")).then_some(ty);
+        let unit = |s: &str| {
+            s.starts_with(|c: char| c.is_ascii_uppercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        };
+        let module = |s: &str| {
+            s.starts_with(|c: char| c.is_ascii_lowercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        };
+        if let Some(init) = let_initializer(&lines, at, name) {
+            if unit(&init) {
+                return self.rust_unit_struct(file, at, &init);
+            }
+            if let Some((head, last)) = init.rsplit_once("::")
+                && unit(last)
+                && head.split("::").all(module)
+                && let Some(ty) = self.rust_unit_struct(file, at, last)
+                && self.rust_unit_path(file, text, at, head, &ty)
+            {
+                return Some(ty);
+            }
         }
         match self.rust_let_got(file, text, at, name)? {
             Got::Ty(ty) => Some(ty),
             Got::Written { .. } | Got::Bound(_) => None,
         }
+    }
+
+    fn rust_unit_struct(&self, file: &Path, at: usize, init: &str) -> Option<Typed> {
+        let ty = self.rust_resolve(file, init, at)?;
+        let decl = self.text_of(&ty.path)?;
+        let decl = decl.lines().nth(ty.line - 1)?.trim();
+        let decl = decl.strip_prefix("pub").map_or(decl, |d| {
+            d.trim_start()
+                .strip_prefix('(')
+                .and_then(|d| d.split_once(')'))
+                .map_or(d, |(_, d)| d)
+        });
+        (decl.trim_start() == format!("struct {init};")).then_some(ty)
+    }
+
+    fn rust_unit_path(&self, file: &Path, text: &str, at: usize, head: &str, ty: &Typed) -> bool {
+        let module_of = |p: &Path| search::rust_module_of(&self.files, p, |f| self.text_of(f));
+        let (Some(here), Some(there), Some(decl)) =
+            (module_of(file), module_of(&ty.path), self.text_of(&ty.path))
+        else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let decl: Vec<&str> = decl.lines().collect();
+        if here.crate_src != there.crate_src
+            || search::rust_inline_mod(&lines, at).is_some()
+            || search::rust_inline_mod(&decl, ty.line - 1).is_some()
+        {
+            return false;
+        }
+        let mut parts = head.split("::");
+        let mut want = match parts.next() {
+            Some("crate") => Vec::new(),
+            Some("self") => here.path,
+            Some("super") if !here.path.is_empty() => {
+                let mut up = here.path;
+                up.pop();
+                up
+            }
+            Some(m) if super::declares_mod(text, m) => {
+                let mut down = here.path;
+                down.push(m.to_owned());
+                down
+            }
+            _ => return false,
+        };
+        want.extend(parts.map(str::to_owned));
+        want == there.path
     }
 
     pub(super) fn rust_let_written(
