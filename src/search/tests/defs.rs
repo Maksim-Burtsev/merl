@@ -1157,3 +1157,17 @@ fn a_typescript_method_with_its_body_on_its_line_is_a_declaration() {
     assert!(!re.is_match("  nose((): void => { a(); }); // }"));
     assert!(!re.is_match("  nose(): { a: string }"));
 }
+
+#[test]
+fn a_cut_pattern_leaves_with_its_one_line_class_copy() {
+    let line = "class Pot { $steep = 1; }";
+    let mut php = def_patterns(Kind::Php, "steep");
+    assert!(Regex::new(&php.join("|")).unwrap().is_match(line));
+    narrow_patterns(Kind::Php, &mut php, "", 0, "steep();", 0..5);
+    assert!(!Regex::new(&php.join("|")).unwrap().is_match(line));
+    let line = "class Pot; steep = 1; end";
+    let mut ruby = def_patterns(Kind::Ruby, "steep");
+    assert!(Regex::new(&ruby.join("|")).unwrap().is_match(line));
+    cut_def_patterns(Kind::Ruby, &mut ruby, &[ruby_assignment("steep")]);
+    assert!(!Regex::new(&ruby.join("|")).unwrap().is_match(line));
+}

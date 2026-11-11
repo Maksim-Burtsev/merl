@@ -1,3 +1,4 @@
+use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 struct WrittenType {
@@ -80,6 +81,7 @@ impl App {
                             let calls = calls.into_iter().map(|c| format!("{c}()"));
                             std::iter::once(head).chain(calls).collect()
                         })
+                        .or_else(|| self.java_bare_chain(here, text, before))
                         .unwrap_or_default(),
                     c => c,
                 };
@@ -118,6 +120,18 @@ impl App {
         };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn java_bare_chain(&self, here: &Path, text: &str, before: &str) -> Option<Vec<String>> {
+        let calls = search::java_bare_chain(before)?;
+        let line = self.line + 1;
+        let innermost = *search::jvm_enclosing_types(text, line).first()?;
+        search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        (!search::java_new_between(text, line, before, innermost)).then_some(())?;
+        let first = self.jvm_returned(here, text, line, None, calls.first()?, false)?;
+        matches!(first.resolved, JvmType::Project(_)).then_some(())?;
+        let calls = calls.into_iter().map(|c| format!("{c}()"));
+        Some(std::iter::once("this".to_owned()).chain(calls).collect())
     }
 
     fn jvm_static_head(
@@ -857,7 +871,7 @@ impl App {
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
         })?;
-        Some(TypedField { hit, written })
+        Some(self.jvm_substituted(decl, hit, written))
     }
 
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {
@@ -866,6 +880,49 @@ impl App {
         let [hit] = java_shaped(found, |h| h, field, false).try_into().ok()?;
         let kotlin = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_declared_type(&hit.text, field, kotlin)?;
+        Some(self.jvm_substituted(decl, hit, written))
+    }
+
+    fn jvm_substituted(&self, decl: &Hit, hit: Hit, written: String) -> TypedField {
+        self.jvm_class_argument(decl, &hit, &written)
+            .unwrap_or(TypedField { hit, written })
+    }
+
+    fn jvm_class_argument(&self, decl: &Hit, member: &Hit, written: &str) -> Option<TypedField> {
+        if search::scala(&member.path) || search::jvm_type_parameter(&member.text, written) {
+            return None;
+        }
+        let text = self.text_of(&member.path)?;
+        let holder = search::jvm_enclosing_types(&text, member.line1)
+            .into_iter()
+            .next()?;
+        let name = search::jvm_type_name(text.lines().nth(holder - 1)?)?;
+        let params = search::generic_header(Kind::Jvm, &text, holder, &name)?.params;
+        let index = params.iter().position(|p| p == written)?;
+        let (hit, written) =
+            super::typed::base_argument(decl, (index, params.len()), 0, &|d: &Hit| {
+                let text = self.text_of(&d.path).filter(|_| !search::scala(&d.path))?;
+                let name = search::jvm_type_name(&d.text)?;
+                let header = search::generic_header(Kind::Jvm, &text, d.line1, &name)?;
+                let mut bases = search::jvm_bases(&text, d.line1, false);
+                bases.extend(search::java_implements(&text, d.line1));
+                let bases = bases
+                    .into_iter()
+                    .filter_map(|base| {
+                        let JvmType::Project(b) =
+                            self.jvm_type_on(&d.path, &text, &base, Some(d.line1))
+                        else {
+                            return None;
+                        };
+                        Some(if (&b.path, b.line1) == (&member.path, holder) {
+                            Base::Holder(search::base_arguments(&header.rest, &base))
+                        } else {
+                            Base::Other(b)
+                        })
+                    })
+                    .collect();
+                Some((header.params, bases))
+            })?;
         Some(TypedField { hit, written })
     }
 

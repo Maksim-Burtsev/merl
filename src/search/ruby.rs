@@ -128,6 +128,31 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
         .join("::")
 }
 
+pub fn ruby_member_class(text: &str, line1: usize, word: &str) -> String {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*class\s+((?:::)?[A-Z][\w:]*)(?:\s*<\s*[\w:]+)?\s*;")
+            .expect("the regex is a literal")
+    });
+    static OPENER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:class|module)\b").expect("the regex is a literal"));
+    let outer = ruby_class_path(text, line1);
+    let line = text
+        .lines()
+        .nth(line1.saturating_sub(1))
+        .unwrap_or_default();
+    let own = Regex::new(&format!(r";\s*def\s+{}(?:[\s;(]|$)", regex::escape(word)));
+    let name = HEAD
+        .captures(line)
+        .filter(|_| OPENER.find_iter(line).count() == 1)
+        .filter(|_| own.is_ok_and(|re| re.is_match(line)))
+        .and_then(|c| c.get(1));
+    match name.map(|m| m.as_str()) {
+        Some(n) if n.starts_with("::") || outer.is_empty() => n.trim_start_matches(':').to_owned(),
+        Some(n) => format!("{outer}::{n}"),
+        None => outer,
+    }
+}
+
 pub fn ruby_opens_inline(before_cursor: &str) -> bool {
     static WORD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(class|module|def|do|begin|case|if|unless|while|until|end)\b")
