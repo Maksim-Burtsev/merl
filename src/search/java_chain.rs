@@ -363,8 +363,21 @@ pub fn java_declared_element(line: &str, name: &str) -> Option<String> {
 }
 
 pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
+    let (head, calls) = fluent(before)?;
+    Some((head?, calls))
+}
+
+pub fn java_bare_chain(before: &str) -> Option<Vec<String>> {
+    let (head, calls) = fluent(before)?;
+    head.is_none().then_some(calls)
+}
+
+fn fluent(before: &str) -> Option<(Option<String>, Vec<String>)> {
     let chars: Vec<char> = before.chars().collect();
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let plain_left = |left: &[char]| {
+        left.ends_with(&['-', '>']) || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c))
+    };
     let mut rest = chars.strip_suffix(&['.'])?;
     let mut calls = Vec::new();
     loop {
@@ -380,16 +393,26 @@ pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
             return None;
         }
         calls.insert(0, method);
-        rest = trim_end(named.get(..start)?).strip_suffix(&['.'])?;
+        let left = trim_end(named.get(..start)?);
+        if let Some(r) = left.strip_suffix(&['.']) {
+            rest = r;
+        } else {
+            let new = left.ends_with(&['n', 'e', 'w'])
+                && !left
+                    .len()
+                    .checked_sub(4)
+                    .and_then(|i| left.get(i))
+                    .is_some_and(|&c| ident(c));
+            return (plain_left(left) && !new).then_some((None, calls));
+        }
     }
     let start = rest.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
     let head: String = rest.get(start..)?.iter().collect();
     let left = trim_end(rest.get(..start)?);
-    let arrow = left.ends_with(&['-', '>']);
     let plain = head.starts_with(|c: char| c.is_ascii_alphabetic())
         && !calls.is_empty()
-        && (arrow || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c)));
-    plain.then_some((head, calls))
+        && plain_left(left);
+    plain.then_some((Some(head), calls))
 }
 
 pub fn java_spring_body(text: &str, owner: &str, method: &str, args: &str) -> Option<String> {
