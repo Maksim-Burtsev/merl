@@ -11,3 +11,16 @@ export function serve(c: Carafe): void {
   Carafe.decant().swirl();
 //                ^ d: picker snifter/snifter.ts:4, statics/carafe.ts:8, statics/ewer.ts:5; want statics/carafe.ts:8 (#1489)
 }
+
+export function named(Carafe: Carafe): void {
+  Carafe.decant(2);
+//       ^ d: !jump
+}
+
+export class Tray {
+  Carafe: Carafe = new Carafe();
+  pour(): void {
+    this.Carafe.decant(2);
+//              ^ d: !jump
+  }
+}

@@ -1,5 +1,6 @@
 use super::{App, Asked, Candidate, Kind, Near, Reason, bound, is_word, names_itself, search};
 use crate::app::jvm_typed::java_shaped;
+use std::path::Path;
 
 pub(super) struct Patterns {
     pub(super) pattern: String,
@@ -270,7 +271,13 @@ impl App {
 }
 
 impl App {
-    pub(super) fn statics_through_type(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {
+    pub(super) fn statics_through_type(
+        &self,
+        kind: Kind,
+        word: &str,
+        here: &Path,
+        found: &mut Vec<Candidate>,
+    ) {
         if !matches!(kind, Kind::Jvm | Kind::CSharp | Kind::TsJs) || found.len() < 2 {
             return;
         }
@@ -285,12 +292,22 @@ impl App {
                 let start = b
                     .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
                     .map_or(0, |i| i + 1);
-                b.get(start..)
+                (!b.get(..start).is_some_and(|h| h.ends_with('.'))).then(|| b.get(start..))?
             });
         let Some(qualifier) = qualifier.filter(|q| w == word && q.starts_with(char::is_uppercase))
         else {
             return;
         };
+        let text = self.buf.lines.join("\n");
+        let line1 = self.line + 1;
+        if !search::path_bindings(kind, here, &text, line1, qualifier).is_empty()
+            || (kind == Kind::Jvm
+                && search::jvm_enclosing_types(&text, line1)
+                    .into_iter()
+                    .any(|d| !search::jvm_members_of(here, &text, d, qualifier).is_empty()))
+        {
+            return;
+        }
         let owned: Option<Vec<bool>> = found
             .iter()
             .map(|c| {
