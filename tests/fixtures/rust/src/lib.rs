@@ -26,3 +26,6 @@ pub mod chessman;
 pub mod rookery;
 pub mod board;
 pub mod flagons;
+pub mod kylix;
+pub mod vessels;
+pub mod feast;

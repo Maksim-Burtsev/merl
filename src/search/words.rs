@@ -6,9 +6,9 @@ use super::{
     HASKELL_RESERVED, Kind, SYMBOLS, Value, close_of, cmake_name, code, cs_parameter_of,
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
     julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp,
-    lisp_form_encloses, lisp_name, literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name,
-    rust_impl_type, rust_let_declares, separator, shared_symbols, split_top, swift_type_header,
-    symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
+    lisp_form_encloses, lisp_name, literal_lines, ml_name, nix_name, one_line_owner, php_tag_class,
+    r_quoted_name, rust_impl_type, rust_let_declares, separator, shared_symbols, split_top,
+    swift_type_header, symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -60,6 +60,9 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     if kind == Kind::Dart
         && let Some(owner) = dart_one_line_enum(target, name)
     {
+        return Some(format!("{owner}{sep}{name}"));
+    }
+    if let Some(owner) = one_line_owner(kind, target, name) {
         return Some(format!("{owner}{sep}{name}"));
     }
     qualified_by_owner(kind, text, &lines, line1, name)

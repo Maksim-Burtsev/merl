@@ -7,7 +7,7 @@ use regex::Regex;
 use super::symbols::php_mods;
 use super::syntax::{close_of, literal_lines};
 use super::words::steps_over;
-use super::{Kind, indent};
+use super::{Kind, indent, one_line_body};
 
 pub(super) fn php_method(w: &str) -> String {
     format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
@@ -41,7 +41,13 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
     if call {
-        vec![php_method(&w).replacen(r"^\s*", r"^\s+", 1), method_tag]
+        let method = php_method(&w);
+        let one_line = one_line_body(Kind::Php, std::slice::from_ref(&method));
+        [
+            vec![method.replacen(r"^\s*", r"^\s+", 1), method_tag],
+            one_line,
+        ]
+        .concat()
     } else {
         vec![property, promoted, property_tag]
     }

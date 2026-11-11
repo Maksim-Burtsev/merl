@@ -6,7 +6,7 @@ use regex::Regex;
 use super::rust_rebound::{macro_binds, rust_rebound_before};
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
-    uncommented,
+    one_line_body, uncommented,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -902,10 +902,12 @@ fn open_head(lines: &[&str], head: usize, brace: usize) -> bool {
         && (head + 1..brace).all(|k| code(k).is_empty() || indent(lines[k]) > indent(lines[brace]))
 }
 pub fn rust_method_pattern(word: &str) -> String {
-    format!(
+    let method = format!(
         r#"^\s+(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+{}\b"#,
         regex::escape(word)
-    )
+    );
+    let one_line = one_line_body(Kind::Rust, std::slice::from_ref(&method));
+    [method, one_line.join("|")].join("|")
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RustOwner {
@@ -943,7 +945,10 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
             .expect("the regex is a literal")
     });
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
-    let at = rust_parent(lines, k)?;
+    let one_line = (IMPL.is_match(lines[k]) || TRAIT.is_match(lines[k]))
+        && lines[k].contains('{')
+        && lines[k].trim_end().ends_with('}');
+    let at = if one_line { k } else { rust_parent(lines, k)? };
     let parent = lines[at];
     let owner = if let Some(c) = TRAIT.captures(parent) {
         RustOwner::Trait(c[1].to_owned())
@@ -956,7 +961,8 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     } else if let Some(c) = IMPL_FOR.captures(parent) {
         RustOwner::ImplOf(c[1].to_owned())
     } else {
-        let no_for_further_down = parent.trim_end().ends_with('{')
+        let no_for_further_down = one_line
+            || parent.trim_end().ends_with('{')
             || lines
                 .get(at + 1)
                 .is_some_and(|l| l.trim_start().starts_with("where"));
@@ -968,6 +974,7 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     };
     let line_whose_pub_reaches = match owner {
         RustOwner::Trait(_) => parent,
+        _ if one_line => lines[k].split_once('{').map_or(lines[k], |(_, body)| body),
         _ => lines[k],
     };
     let vis = match VIS.captures(line_whose_pub_reaches) {
