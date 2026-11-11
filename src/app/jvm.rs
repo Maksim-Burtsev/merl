@@ -938,36 +938,6 @@ pub(super) fn declared_as(kind: Kind, word: &str, text: &str) -> String {
         .unwrap_or_else(|| word.to_owned())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn arguments_are_counted_past_non_ascii_characters() {
-        let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
-        assert_eq!(
-            arguments(&lines(&["naïve = Straße(ñ, ü)"]), 0, 16),
-            Some((2, false))
-        );
-        assert_eq!(
-            arguments(&lines(&[r#"f("ñ", 'ü')"#]), 0, 1),
-            Some((2, false))
-        );
-        assert_eq!(
-            arguments(
-                &lines(&["\tx := new(", "s = \"open", "t = ü + `x`", ")"]),
-                0,
-                9
-            ),
-            Some((1, false))
-        );
-        assert_eq!(
-            arguments(&lines(&["f(\"\"\"", "  text", "  \"\"\")"]), 0, 1),
-            Some((1, false))
-        );
-    }
-}
-
 impl App {
     pub(super) fn scala_enum_case(
         &self,
@@ -1056,7 +1026,7 @@ impl App {
 }
 
 impl App {
-    pub(super) fn scala_package_alias(
+    pub(super) fn jvm_written_package(
         &self,
         file: &Path,
         text: &str,
@@ -1064,17 +1034,54 @@ impl App {
         on: Option<usize>,
     ) -> Option<super::jvm_typed::JvmType> {
         let (head, rest) = written.split_once('.')?;
-        if !search::scala(file) || !head.starts_with(|c: char| c.is_ascii_lowercase()) {
+        if !head.starts_with(|c: char| c.is_ascii_lowercase()) {
             return None;
         }
-        let imports = on.map_or_else(
-            || search::jvm_imports(file, text),
-            |line1| search::jvm_imports_at(file, text, line1),
+        let packages = self.jvm_packages()?;
+        let aliased = search::scala(file).then(|| {
+            let imports = on.map_or_else(
+                || search::jvm_imports(file, text),
+                |line1| search::jvm_imports_at(file, text, line1),
+            );
+            let import = imports.into_iter().find(|i| i.bound_name == head)?;
+            let path: Vec<String> = (import.path.into_iter())
+                .chain(rest.split('.').map(str::to_owned))
+                .collect();
+            self.jvm_in_package(&packages, &path)
+        });
+        aliased.flatten().or_else(|| {
+            let path: Vec<String> = written.split('.').map(str::to_owned).collect();
+            self.jvm_in_package(&packages, &path)
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn arguments_are_counted_past_non_ascii_characters() {
+        let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
+        assert_eq!(
+            arguments(&lines(&["naïve = Straße(ñ, ü)"]), 0, 16),
+            Some((2, false))
         );
-        let import = imports.iter().find(|i| i.bound_name == head)?;
-        let path: Vec<String> = (import.path.iter().cloned())
-            .chain(rest.split('.').map(str::to_owned))
-            .collect();
-        self.jvm_in_package(&self.jvm_packages()?, &path)
+        assert_eq!(
+            arguments(&lines(&[r#"f("ñ", 'ü')"#]), 0, 1),
+            Some((2, false))
+        );
+        assert_eq!(
+            arguments(
+                &lines(&["\tx := new(", "s = \"open", "t = ü + `x`", ")"]),
+                0,
+                9
+            ),
+            Some((1, false))
+        );
+        assert_eq!(
+            arguments(&lines(&["f(\"\"\"", "  text", "  \"\"\")"]), 0, 1),
+            Some((1, false))
+        );
     }
 }

@@ -1103,17 +1103,8 @@ impl App {
         on: Option<usize>,
         alias: bool,
     ) -> JvmType {
-        if let Some(ty) = self.scala_package_alias(file, text, written, on) {
+        if let Some(ty) = self.jvm_written_package(file, text, written, on) {
             return ty;
-        }
-        if written.starts_with(|c: char| c.is_ascii_lowercase())
-            && written.contains('.')
-            && let Some(packages) = self.jvm_packages()
-        {
-            let path: Vec<String> = written.split('.').map(str::to_owned).collect();
-            if let Some(ty) = self.jvm_in_package(&packages, &path) {
-                return ty;
-            }
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
             return match self.jvm_type_hop(file, text, outer, on, alias) {
