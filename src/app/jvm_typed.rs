@@ -738,7 +738,7 @@ impl App {
         hits
     }
 
-    fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
+    pub(super) fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
         search::jvm_receiver(&hit.text, word).or_else(|| {
             let text = self.text_of(&hit.path)?;
             search::jvm_receiver_at(&text, hit.line1, word)

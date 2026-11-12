@@ -18,6 +18,29 @@ impl App {
         hits
     }
 
+    pub(in crate::app) fn cs_sees_namespace_of(
+        &self,
+        here: &Path,
+        word: &str,
+        hit: &Hit,
+    ) -> Option<bool> {
+        let text = self.buf.lines.join("\n");
+        let blocks = (!one_namespace(&text, None))
+            .then(|| search::cs_namespace_blocks(&text, self.line + 1));
+        if blocks.as_ref().is_some_and(Option::is_none) {
+            return None;
+        }
+        let blocks = blocks.as_ref().and_then(|b| b.as_deref());
+        let (seen, _) = self.cs_namespaces_seen(here, &text, word, blocks)?;
+        let t = self.text_of(&hit.path)?;
+        let ns = if one_namespace(&t, Some(hit.line1)) {
+            search::cs_namespace(&t, hit.line1)
+        } else {
+            dotted(&search::cs_namespace_blocks(&t, hit.line1)?)
+        };
+        Some(seen.contains(&ns))
+    }
+
     pub(in crate::app) fn cs_in_scope(&self, here: &Path, word: &str, hits: Vec<Hit>) -> Vec<Hit> {
         let text = self.buf.lines.join("\n");
         let blocks = (!one_namespace(&text, None))
