@@ -229,10 +229,35 @@ pub fn swift_bound_on_line(lead: &str, name: &str) -> bool {
                 .is_some_and(|c| swift_closure_params_bind(&c[2], name));
         let statements = split_top(Kind::Swift, part, b';');
         let (last, done) = statements.split_last().unwrap_or((&"", &[]));
+        let header = last
+            .get(after_closed_block(last)..)
+            .unwrap_or_default()
+            .trim();
         params
             || done.iter().any(|s| swift_declares(s, name, None))
-            || (i < open.len() && super::swift_binds_on(&format!("{} {{", last.trim()), name))
+            || (i < open.len()
+                && !header.starts_with("guard ")
+                && super::swift_binds_on(&format!("{header} {{"), name))
     })
+}
+
+fn after_closed_block(s: &str) -> usize {
+    let mut depth = 0i32;
+    let mut after = 0;
+    for (i, c) in code(Kind::Swift, s) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    after = i + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    after
 }
 
 pub struct SwiftPayload {

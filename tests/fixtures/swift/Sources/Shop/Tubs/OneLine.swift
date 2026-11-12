@@ -38,5 +38,11 @@ class TubOneLine {
     //                              ^ d: Sources/Shop/Tubs/OneLine.swift:37
     func y5() { run(c: Tun()) { _ = c } }
     //                              ^ d: Sources/Shop/Tubs/OneLine.swift:3
+    func z() { if let c = Optional(Hogshead()) { _ = c } else { _ = c } }
+    //                                                              ^ d: Sources/Shop/Tubs/OneLine.swift:3
+    func z2() { guard let c = Optional(Hogshead()) else { _ = c; return }; _ = c.dunk() }
+    //                                                        ^ d: Sources/Shop/Tubs/OneLine.swift:3
+    func z3() { if let c = Optional(Tub()) { _ = c } else if let c = Optional(Hogshead()) { _ = c } }
+    //                                                                                          ^ d: Sources/Shop/Tubs/OneLine.swift:45
     func run(c: Tun, _ f: () -> Void) {}
 }
