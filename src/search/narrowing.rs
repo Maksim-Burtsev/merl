@@ -2,11 +2,6 @@ use regex::Regex;
 
 use super::{Kind, indent, literal_lines, uncommented};
 
-pub enum Checked {
-    To(String, usize),
-    Unreadable,
-}
-
 struct Shapes {
     mention: Regex,
     negated: Regex,
@@ -63,11 +58,11 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
         function: re(r"\bfunction\b|=>"),
         class: re(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s"),
         named: re(r"(?:^|[^\w$.]){n}(?:[^\w$]|$)"),
-        assigned: re(r"(?:^|[^\w$.]){n}\s*[-+*/%&|^?]*=(?:[^=>]|$)"),
+        assigned: re(r"(?:^|[^\w$.]){n}\s*[-+*/%&|^?]*=(?:[^=>]|$)|\bfor\s*\(\s*{n}\s+(?:of|in)\b"),
     }
 }
 
-pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Checked> {
+pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
     let word = match kind {
         Kind::Python => "isinstance",
         Kind::TsJs => "instanceof",
@@ -87,16 +82,12 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
     let at = line1.checked_sub(1).filter(|j| *j < raw.len())?;
     let here = line(at);
     if s.mention.is_match(&here) {
-        return Some(Checked::Unreadable);
+        return None;
     }
     let mut crossed = s.function.is_match(&here);
     let found = |t: &str, k: usize, crossed: bool| {
-        let rebound = name.contains('.') && (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
-        Some(if crossed || rebound {
-            Checked::Unreadable
-        } else {
-            Checked::To(t.to_owned(), k + 1)
-        })
+        let rebound = (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
+        (!crossed && !rebound).then(|| (t.to_owned(), k + 1))
     };
     let mut within = indent(&here);
     let logical = |end: usize| logical(end, &line, &filled);
@@ -114,7 +105,7 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
                 if c.name("open").is_none() || closed_by_exit(kind, &raw, end, &s, &filled) {
                     return found(t, end, crossed);
                 }
-                return Some(Checked::Unreadable);
+                return None;
             }
             if let Some(c) = s.otherwise.captures(&l) {
                 let Some(top) = (0..k)
@@ -140,11 +131,11 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
                     .take_while(|j| indent(&line(*j)) > ind)
                     .any(|j| s.exit.is_match(&line(j)));
                 if s.mention.is_match(&h) && (exact || exits) {
-                    return Some(Checked::Unreadable);
+                    return None;
                 }
             }
             if s.negated.is_match(&l) {
-                return Some(Checked::Unreadable);
+                return None;
             }
             continue;
         }
@@ -162,7 +153,7 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
             return found(c.name("t")?.as_str(), end, crossed);
         }
         if s.mention.is_match(&l) && !s.negated_header.is_match(&l) {
-            return Some(Checked::Unreadable);
+            return None;
         }
     }
     None
