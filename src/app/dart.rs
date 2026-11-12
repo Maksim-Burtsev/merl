@@ -648,31 +648,36 @@ impl App {
         let cut = self.truncated.get();
         let hits = self.project_definitions(Kind::Dart, here, word, &pattern);
         self.truncated.set(cut);
+        let unnamed =
+            Regex::new(r"^extension\s*(?:<[^>]*>)?\s+on\s+(\w+)(?:<[^{]*>)?\??\s*\{").ok()?;
         let mut found = Vec::new();
         for hit in hits {
             let text = self.text_of(&hit.path)?;
-            let Some(owner) = search::qualified(Kind::Dart, &text, hit.line1, word)
-                .and_then(|q| q.strip_suffix(&format!(".{word}")).map(str::to_owned))
-            else {
-                continue;
+            let owner = search::qualified(Kind::Dart, &text, hit.line1, word)
+                .and_then(|q| q.strip_suffix(&format!(".{word}")).map(str::to_owned));
+            let target = match &owner {
+                Some(owner) => {
+                    let o = regex::escape(owner);
+                    let named = Regex::new(&format!(r"^extension\s+{o}\b")).ok()?;
+                    let on = Regex::new(&format!(
+                        r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)(?:<[^{{]*>)?\??\s*\{{"
+                    ))
+                    .ok()?;
+                    text.lines()
+                        .find(|l| named.is_match(l))
+                        .and_then(|head| on.captures(head))
+                        .map(|c| c[1].to_owned())
+                }
+                None => Self::dart_unnamed_on(&text, hit.line1, &unnamed),
             };
-            let o = regex::escape(&owner);
-            let named = Regex::new(&format!(r"^extension\s+{o}\b")).ok()?;
-            let on = Regex::new(&format!(
-                r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)\??\s*\{{"
-            ))
-            .ok()?;
-            let Some(head) = text.lines().find(|l| named.is_match(l)) else {
-                continue;
-            };
-            let target = on.captures(head)?[1].to_owned();
-            if !names.contains(&target) {
+            if !target.is_some_and(|t| names.contains(&t)) {
                 continue;
             }
-            if !self
-                .dart_visible_files(here, &owner, None)?
-                .contains(&hit.path)
-            {
+            let visible = match &owner {
+                Some(owner) => self.dart_visible_files(here, owner, None)?,
+                None => self.dart_library(here.to_path_buf(), None, false)?.0,
+            };
+            if !visible.contains(&hit.path) {
                 continue;
             }
             found.push(Candidate {
@@ -681,6 +686,19 @@ impl App {
             });
         }
         Some(found)
+    }
+
+    fn dart_unnamed_on(text: &str, line1: usize, unnamed: &Regex) -> Option<String> {
+        let lines: Vec<&str> = text.lines().take(line1).collect();
+        let (member, above) = lines.split_last()?;
+        if !member.starts_with(char::is_whitespace) {
+            return None;
+        }
+        let head = above
+            .iter()
+            .rev()
+            .find(|l| !l.is_empty() && !l.starts_with(char::is_whitespace))?;
+        unnamed.captures(head).map(|c| c[1].to_owned())
     }
 
     fn dart_ancestors(&self, file: &Path, class: &str, depth: usize, names: &mut Vec<String>) {
