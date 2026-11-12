@@ -570,6 +570,16 @@ fn go_local_type_line(lines: &[&str], i: usize, t: &str, name: &str) -> Option<u
                 )
         })
 }
+pub fn go_local_type(path: &Path, text: &str, line1: usize, name: &str) -> Option<usize> {
+    let b = path_bindings(Kind::Go, path, text, line1, name)
+        .into_iter()
+        .next()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let line = lines.get(b.line1.checked_sub(1)?)?;
+    let declared =
+        go_declares_type(line.trim_start(), name) || go_type_group_member(&lines, b.line1 - 1);
+    (line.starts_with(char::is_whitespace) && declared).then_some(b.line1)
+}
 pub fn go_type_group_member<S: AsRef<str>>(lines: &[S], i: usize) -> bool {
     let ind = indent(lines[i].as_ref());
     lines[..i]
