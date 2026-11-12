@@ -13,8 +13,8 @@ public class Urn
         Samovar.Size.Large;
 //                   ^ d: src/Statics/Samovar.cs:20
         Pot.Boil();
-//          ^ d: src/Shop/Jugs/JugStand.cs:7; want src/Statics/Samovar.cs:5 (#1512)
+//          ^ d: src/Statics/Samovar.cs:5
         Pot.Boil().Whistle();
-//                 ^ d: picker src/Statics/Kettle.cs:7, src/Statics/Samovar.cs:13; want src/Statics/Samovar.cs:13 (#1489)
+//                 ^ d: src/Statics/Samovar.cs:13
     }
 }
