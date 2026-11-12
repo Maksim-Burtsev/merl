@@ -361,7 +361,7 @@ pub fn scala_alias_owner(text: &str, line1: usize, alias: &str, bound: &[usize])
 
 pub fn scala_implicit_receiver(text: &str, line: usize, name: &str) -> Option<String> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:private|protected)(?:\[\w+\])?\s+|final\s+)*implicit\s+(?:final\s+)?class\s+\w+\s*(?:\[([^\[\]]*)\])?\s*\(\s*(?:val\s+)?\w+\s*:\s*([\w.]+)(?:\[[^\[\]]*\])?\s*\)(?:\s+extends\s+AnyVal)?\s*\{\s*(?://.*)?$")
+        Regex::new(r"^\s*(?:(?:private|protected)(?:\[\w+\])?\s+|final\s+)*implicit\s+(?:final\s+)?class\s+\w+\s*\(\s*(?:val\s+)?\w+\s*:\s*([\w.]+)\s*\)(?:\s+extends\s+AnyVal)?\s*\{\s*(?://.*)?$")
             .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
@@ -373,16 +373,7 @@ pub fn scala_implicit_receiver(text: &str, line: usize, name: &str) -> Option<St
     ))
     .ok()?;
     def.is_match(lines[at]).then_some(())?;
-    let c = CLASS.captures(lines[scope_of(&lines, at)?])?;
-    let receiver = &c[2];
-    let generic = c.get(1).is_some_and(|params| {
-        params.as_str().split(',').any(|p| {
-            p.trim()
-                .trim_start_matches(['+', '-'])
-                .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
-                .next()
-                == Some(receiver)
-        })
-    });
-    (!generic).then(|| receiver.to_owned())
+    CLASS
+        .captures(lines[scope_of(&lines, at)?])
+        .map(|c| c[1].to_owned())
 }

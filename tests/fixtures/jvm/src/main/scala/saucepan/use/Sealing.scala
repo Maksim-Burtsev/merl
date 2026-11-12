@@ -16,4 +16,4 @@ def claspAll(ladle: Ladle[Int], tongs: Tongs): Unit =
 def claspMade(): Unit =
   val ladle = new Ladle[Int]()
   ladle.clasp()
-  //    ^ d: src/main/scala/saucepan/Sealing.scala:9
+  //    ^ d: picker src/main/scala/saucepan/Sealing.scala:9, src/main/scala/saucepan/Sealing.scala:12; want src/main/scala/saucepan/Sealing.scala:9 (#1499)
