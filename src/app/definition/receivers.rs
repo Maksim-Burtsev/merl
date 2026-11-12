@@ -473,6 +473,19 @@ impl App {
         false
     }
 
+    pub(super) fn answered_by_literal_this(&mut self, a: &Asked) -> bool {
+        if a.kind == Kind::TsJs
+            && a.dotted
+            && matches!(a.chain.as_slice(), [t] if t == "this")
+            && let Some(key) = search::ts_literal_this_key(&a.text, self.line + 1, &a.word)
+        {
+            let reason = super::Reason::Receiver("this: object literal".to_owned());
+            let found = self.lines_here(a, [key], &reason);
+            return self.show_found(a, found);
+        }
+        false
+    }
+
     pub(super) fn answered_by_typed(
         &mut self,
         a: &Asked,
@@ -485,15 +498,6 @@ impl App {
             && let [name] = chain.as_slice()
             && let Some(found) = self.store_member(&a.here, &near.imports, name, word)
         {
-            return self.show_found(a, found);
-        }
-        if kind == Kind::TsJs
-            && dotted
-            && matches!(chain.as_slice(), [t] if t == "this")
-            && let Some(key) = search::ts_literal_this_key(&a.text, self.line + 1, word)
-        {
-            let reason = super::Reason::Receiver("this: object literal".to_owned());
-            let found = self.lines_here(a, [key], &reason);
             return self.show_found(a, found);
         }
         let head = (dotted && chain.is_empty())
