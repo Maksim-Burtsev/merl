@@ -10,7 +10,7 @@ impl Brazier {
     pub fn light(&self) {}
     pub fn hotter(&self) -> u32 {
         Self::MAX
-        //    ^ d: picker src/braziers.rs:6, src/braziers.rs:20, src/infusion/leaves.rs:7; want src/braziers.rs:6 (#1489)
+        //    ^ d: src/braziers.rs:6
     }
 }
 
@@ -22,6 +22,10 @@ impl Grate {
         Grate
     }
     pub fn light(&self) {}
+    pub fn cooler(&self) -> u32 {
+        Self::MAX
+        //    ^ d: src/braziers.rs:20
+    }
 }
 
 pub fn stoke() -> u32 {

@@ -1168,7 +1168,14 @@ impl App {
             }]);
         }
         let ty = self.rust_resolve(here, &written, impl_line0)?;
-        let found = self.rust_members(&ty, word);
+        let found = self.rust_items(
+            &ty,
+            &format!(
+                r"{}|^\s+(?:pub(?:\([^)]*\))?\s+)?const\s+{}\s*:",
+                search::rust_method_pattern(word),
+                regex::escape(word)
+            ),
+        );
         (!found.is_empty()).then(|| {
             found
                 .into_iter()
@@ -1329,6 +1336,10 @@ impl App {
     }
 
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
+        self.rust_items(ty, &search::rust_method_pattern(word))
+    }
+
+    fn rust_items(&self, ty: &Typed, pattern: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
         let files = self.rust_type_files(ty);
@@ -1344,8 +1355,7 @@ impl App {
                 })
                 .collect::<Vec<Hit>>()
         };
-        let pattern = search::rust_method_pattern(word);
-        let found = method(self.grep_in(&pattern, &files), &|o, line| {
+        let found = method(self.grep_in(pattern, &files), &|o, line| {
             matches!(
                 o,
                 search::RustOwner::Inherent | search::RustOwner::ImplOf(_)
@@ -1393,7 +1403,7 @@ impl App {
             return Vec::new();
         }
         let hits = self
-            .grep(&pattern, false, false, |p| rs(p))
+            .grep(pattern, false, false, |p| rs(p))
             .unwrap_or_default();
         method(
             hits,
