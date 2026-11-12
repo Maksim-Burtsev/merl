@@ -427,7 +427,11 @@ impl App {
                     }
                 }
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
-                let narrowed = smart.flatten().or_else(|| {
+                let callee = || {
+                    kt.then(|| search::kotlin_lambda_callee(here, text, line, before, f))
+                        .flatten()
+                };
+                let narrowed = smart.flatten().or_else(callee).or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(here, text, line, before, f));
                     let lambda = lambda.flatten()?;

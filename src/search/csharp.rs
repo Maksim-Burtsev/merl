@@ -281,7 +281,7 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
             r"^(?:(?:await\s+)?using\s+|const\s+|ref\s+(?:readonly\s+)?|scoped\s+|static\s+|async\s+|unsafe\s+)*{ty}\s+{n}\s*(?:=[^=>]|=$|;|,|$|(?:<[^()]*>)?\s*\()"
         ),
         format!(r"\bout\s+{ty_short}\s+{n}\b"),
-        format!(r"\bis\s+{ty_short}\s+{n}\b"),
+        format!(r"\bis\s+(?:not\s+)?{ty_short}\s+{n}\b"),
     ]
     .iter()
     .any(|p| Regex::new(p).is_ok_and(|re| re.is_match(t)))
@@ -481,7 +481,7 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
         return CsValue::Position { of, at, count };
     }
     [
-        format!(r"\b(?:is|case)\s+({CS_TYPE})\s+@?{n}\b"),
+        format!(r"\b(?:is(?:\s+not)?|case)\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bout\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bforeach\s*\(\s*({CS_TYPE})\s+@?{n}\s+in\b"),
         format!(r"\bcatch\s*\(\s*({CS_TYPE})\s+@?{n}\b"),
