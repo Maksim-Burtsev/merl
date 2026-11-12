@@ -23,6 +23,6 @@ public class Pour
     {
         if (v is not Beaker g) return;
         g.Brim();
-        //^ d: picker src/Shop/Vessels/Beaker.cs:7, src/Shop/Vessels/Flask.cs:7, src/Shop/Vessels/IVessel.cs:7; want src/Shop/Vessels/Beaker.cs:7 (#1494)
+        //^ d: src/Shop/Vessels/Beaker.cs:7
     }
 }
