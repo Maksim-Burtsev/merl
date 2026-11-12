@@ -215,3 +215,32 @@ pub(super) fn cs_switch_arm(before: &str) -> bool {
             && before.get(arm + 1..).is_some_and(|a| BARE.is_match(a))
     })
 }
+
+pub fn cs_indexed(expr: &str) -> Option<&str> {
+    let t = expr.trim();
+    t.ends_with(']').then_some(())?;
+    let open = code(Kind::CSharp, t)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::CSharp, t, i) == Some(t.len()))?;
+    let head = t.get(..open)?.trim_end();
+    head.ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == ')')
+        .then_some(head)
+}
+
+pub fn cs_dictionary_value(outer: &str, written: &str) -> Option<String> {
+    matches!(
+        outer,
+        "Dictionary"
+            | "IDictionary"
+            | "IReadOnlyDictionary"
+            | "SortedDictionary"
+            | "ConcurrentDictionary"
+    )
+    .then_some(())?;
+    let t = written.trim().trim_end_matches('?').strip_suffix('>')?;
+    let [_, value] = <[&str; 2]>::try_from(cs_split(t.get(t.find('<')? + 1..)?)).ok()?;
+    cs_type_name(value)
+        .filter(|_| !value.contains(['<', '[', '(']))
+        .map(|_| value.trim().to_owned())
+}

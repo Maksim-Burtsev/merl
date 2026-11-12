@@ -51,3 +51,4 @@ pub fn roll_carts(w: carts::Wagon, s: &carts::Sled) -> u32 {
     //^ d: src/carts.rs:19
 }
 pub mod servings;
+pub mod kettles;
