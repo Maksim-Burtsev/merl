@@ -375,16 +375,7 @@ impl App {
             }
             [] => {
                 let at = around?;
-                let mut top = match search::swift_scope(&lines, &literal, line1 + 1).header_line1 {
-                    h if h == line1 && h > at && line1 < lines.len() => line1,
-                    _ => search::swift_scope(&lines, &literal, line1).header_line1,
-                };
-                while top > at {
-                    match search::swift_scope(&lines, &literal, top).header_line1 {
-                        up if up > at => top = up,
-                        _ => break,
-                    }
-                }
+                let top = search::swift_member_scope_top(&lines, &literal, line1, at, name)?;
                 let upto = |l: usize| {
                     let line = lines[l - 1];
                     match (l == line1 && file == here && line1 == self.line + 1)
