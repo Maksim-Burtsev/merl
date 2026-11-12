@@ -641,3 +641,46 @@ pub(super) fn header_lines1_binding(
     out.dedup();
     out
 }
+
+pub fn jvm_anonymous_scope(text: &str, line1: usize, kotlin_before: Option<&str>) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = super::jvm::scope_of(&lines, line1.checked_sub(1).filter(|&i| i < lines.len())?)?;
+    if kotlin_before.is_some_and(|b| {
+        let b = blanked(b);
+        b.matches('{').count() > b.matches('}').count() || extension_fun(&b)
+    }) {
+        return None;
+    }
+    let mut inner = at;
+    while !(super::jvm::opens_type(lines[inner]) || anonymous(lines[inner])) {
+        if kotlin_before.is_some() && !kotlin_keeps_this(lines[inner]) {
+            return None;
+        }
+        inner = super::jvm::scope_of(&lines, inner)?;
+    }
+    anonymous(lines[inner]).then_some(inner + 1)
+}
+
+fn extension_fun(line: &str) -> bool {
+    static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfun\s+(?:<[^(]*>\s*)?[^(=]*\.\s*`?\w+`?\s*\(")
+            .expect("the regex is a literal")
+    });
+    EXTENSION.is_match(line)
+}
+
+fn kotlin_keeps_this(line: &str) -> bool {
+    static BLOCK: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\}\s*)?(?:(?:else\s+)?if\s*\(.*\)|else|for\s*\(.*\)|while\s*\(.*\)|do|try|catch\s*\(.*\)|finally|when(?:\s*\(.*\))?|init|(?:[\w@]+\s+)*constructor\s*\(.*\)(?:\s*:\s*(?:this|super)\s*\(.*\))?|(?:[\w@]+\s+)*(?:get|set)\s*\(.*\)|.*->)\s*\{\s*(?://.*)?$")
+            .expect("the regex is a literal")
+    });
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[\w@]+\s+)*fun\s+(?:<[^>]*>\s*)?`?\w+`?\s*\(")
+            .expect("the regex is a literal")
+    });
+    BLOCK.is_match(line)
+        || (FUN.is_match(line)
+            && !line
+                .rsplit_once(')')
+                .is_some_and(|(_, after)| after.contains('=')))
+}
