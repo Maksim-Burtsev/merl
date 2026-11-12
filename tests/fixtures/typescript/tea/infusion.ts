@@ -67,7 +67,7 @@ export function unpack(strainer: mesh.Strainer): number {
 export function sieveOf(): number {
   const sieve: Sieve = { sift: (grams) => grams };
   return sieve.sift(2);
-  //           ^ d: tea/infusion.ts:68
+  //           ^ d: tea/strainer.ts:51
 }
 
 export async function late(): Promise<number> {

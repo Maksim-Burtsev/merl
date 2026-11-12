@@ -274,6 +274,7 @@ impl App {
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
         let mut own_impls: Vec<(Hit, String)> = Vec::new();
+        let mut blankets: Vec<(Hit, String, Vec<String>)> = Vec::new();
         let mut matched: HashMap<String, bool> = HashMap::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
@@ -339,8 +340,24 @@ impl App {
                         own_impls.push((h.clone(), t.clone()));
                     }
                 }
+                if let search::RustOwner::ImplOf(t) = &owner
+                    && inside
+                    && let Some(bounds) = search::rust_blanket_bounds(lines[owner_line - 1])
+                {
+                    blankets.push((h.clone(), t.clone(), bounds));
+                }
                 rows.push((h, owner));
             }
+        }
+        if own_impls.is_empty()
+            && let (Some(r), [(h, t, bounds)]) = (&receiver, blankets.as_slice())
+            && rows.iter().all(|(row, o)| {
+                (row.path == h.path && row.line1 == h.line1)
+                    || !matches!(o, search::RustOwner::ImplOf(x) if x == t)
+            })
+            && bounds.iter().all(|b| self.rust_implements(r, b))
+        {
+            own_impls.push((h.clone(), t.clone()));
         }
         rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
     }
@@ -978,6 +995,16 @@ impl App {
             return self.rust_alias(&name);
         }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
+    }
+
+    fn rust_implements(&self, ty: &str, tr: &str) -> bool {
+        let pattern = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*?\b{}(?:<[^{{]*>)?\s+for\s+&?(?:\w+::)*{}\b",
+            regex::escape(tr),
+            regex::escape(ty)
+        );
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        (self.grep(&pattern, false, false, rs)).is_ok_and(|h| !h.is_empty())
     }
 
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {

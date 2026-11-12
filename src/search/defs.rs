@@ -1161,7 +1161,7 @@ pub fn ts_literal_key<S: AsRef<str>>(
 ) -> Option<usize> {
     let head = lines.get(line.checked_sub(1)?)?.as_ref();
     let open = Regex::new(&format!(
-        r"^\s*(?:export\s+)?const\s+{}\s*(?::[^=]+)?=\s*\{{",
+        r"^\s*(?:export\s+)?const\s+{}\s*=\s*\{{",
         regex::escape(name)
     ))
     .ok()?

@@ -31,6 +31,7 @@ pub mod vessels;
 pub mod feast;
 pub mod ewers;
 pub mod braziers;
+pub mod sluices;
 
 use ewers::{Ewer, Laver};
 
