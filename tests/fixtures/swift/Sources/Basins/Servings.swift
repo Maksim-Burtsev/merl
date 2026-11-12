@@ -19,3 +19,16 @@ func unpack() {
     c.stew()
 //    ^ d: Sources/Basins/Servings.swift:2
 }
+
+func mixed(flag: Bool, other: (Wok, Crock)) {
+    let (c, w) = (Wok(), Crock())
+    c.stew()
+//    ^ d: !jump
+    let (d, e) = flag ? servePair() : other
+    d.stew()
+//    ^ d: !jump
+    let maker = { (Wok(), Crock()) }
+    let (f, g) = maker()
+    f.stew()
+//    ^ d: !jump
+}

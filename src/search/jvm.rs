@@ -278,6 +278,7 @@ pub(super) fn jvm_bindings(
     let text = lines.join("\n");
     let literal = path_literal_lines(Kind::Jvm, path, &text);
     let scala = super::scala(path);
+    let call = col.is_some_and(|c| super::jvm_rebound::called(lines[at], c, name));
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -331,7 +332,7 @@ pub(super) fn jvm_bindings(
             continue;
         }
         let keyword = if scala { "def " } else { "fun " };
-        if (scala || super::kotlin(path))
+        if (scala || (call && super::kotlin(path)))
             && super::jvm_rebound::local_def_header(lines, i, name, keyword)
         {
             out.push(binding(i + 1));
