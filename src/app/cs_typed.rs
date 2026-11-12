@@ -3,6 +3,7 @@ use std::cell::OnceCell;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 mod attributes;
+mod deconstruct;
 mod elements;
 mod fits;
 mod generic_base;
@@ -645,6 +646,14 @@ impl App {
                 (None, search::CsValue::Call { callee, awaited }) if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
+                (
+                    None,
+                    search::CsValue::Position {
+                        of,
+                        at: index,
+                        count,
+                    },
+                ) if hops > 0 => self.cs_position(file, text, at, *of, (index, count), hops - 1)?,
                 (None, search::CsValue::Element(items)) if hops > 0 => {
                     let p = self.cs_name_type(file, text, at, &items, spent)?;
                     self.cs_element(&p, false)?
@@ -726,6 +735,26 @@ impl App {
         awaited: bool,
         hops: usize,
     ) -> Option<CsWrittenType> {
+        let (path, line, written) =
+            self.cs_call_written(file, text, line1, callee, awaited, hops)?;
+        let at = self.text_of(&path)?;
+        let ty = self.cs_resolve(&path, &at, line, &written)?;
+        Some(CsWrittenType {
+            ty,
+            written,
+            from: (path, line),
+        })
+    }
+
+    fn cs_call_written(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        callee: &str,
+        awaited: bool,
+        hops: usize,
+    ) -> Option<(PathBuf, usize, String)> {
         let parts: Vec<&str> = callee.split('.').collect();
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
@@ -758,14 +787,7 @@ impl App {
         } else {
             written
         };
-        let (path, line, written) = self.cs_substituted(&owner, hit, written);
-        let at = self.text_of(&path)?;
-        let ty = self.cs_resolve(&path, &at, line, &written)?;
-        Some(CsWrittenType {
-            ty,
-            written,
-            from: (path, line),
-        })
+        Some(self.cs_substituted(&owner, hit, written))
     }
 
     fn cs_resolve(&self, file: &Path, text: &str, line1: usize, written: &str) -> Option<CsType> {

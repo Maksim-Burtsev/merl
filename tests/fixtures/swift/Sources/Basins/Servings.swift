@@ -15,7 +15,7 @@ func servePair() -> (Crock, Wok) {
 func unpack() {
     let (c, w) = servePair()
     w.stew()
-//    ^ d: picker Sources/Basins/Servings.swift:2, Sources/Basins/Servings.swift:7; want Sources/Basins/Servings.swift:7 (#1484)
+//    ^ d: Sources/Basins/Servings.swift:7
     c.stew()
-//    ^ d: picker Sources/Basins/Servings.swift:2, Sources/Basins/Servings.swift:7; want Sources/Basins/Servings.swift:2 (#1484)
+//    ^ d: Sources/Basins/Servings.swift:2
 }
