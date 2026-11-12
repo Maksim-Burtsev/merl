@@ -418,6 +418,15 @@ impl App {
         if kind != Kind::CSharp {
             return false;
         }
+        if dotted
+            && let [var] = chain.as_slice()
+            && let [b] = &search::path_bindings(kind, &a.here, &a.text, self.line + 1, var)[..]
+            && let Some(at) = search::cs_anonymous_member(&a.text, b.line1, var, word)
+        {
+            let reason = super::Reason::Receiver(format!("{var}: anonymous type"));
+            let found = self.lines_here(a, [at], &reason);
+            return self.show_found(a, found);
+        }
         let answer = match dotted {
             false => self
                 .cs_attribute_argument(&a.here, word, &a.range)
@@ -476,6 +485,15 @@ impl App {
             && let [name] = chain.as_slice()
             && let Some(found) = self.store_member(&a.here, &near.imports, name, word)
         {
+            return self.show_found(a, found);
+        }
+        if kind == Kind::TsJs
+            && dotted
+            && matches!(chain.as_slice(), [t] if t == "this")
+            && let Some(key) = search::ts_literal_this_key(&a.text, self.line + 1, word)
+        {
+            let reason = super::Reason::Receiver("this: object literal".to_owned());
+            let found = self.lines_here(a, [key], &reason);
             return self.show_found(a, found);
         }
         let head = (dotted && chain.is_empty())

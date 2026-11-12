@@ -641,3 +641,13 @@ pub(super) fn header_lines1_binding(
     out.dedup();
     out
 }
+
+pub fn jvm_anonymous_scope(text: &str, line1: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = super::jvm::scope_of(&lines, line1.checked_sub(1).filter(|&i| i < lines.len())?)?;
+    let mut inner = at;
+    while !(super::jvm::opens_type(lines[inner]) || anonymous(lines[inner])) {
+        inner = super::jvm::scope_of(&lines, inner)?;
+    }
+    anonymous(lines[inner]).then_some(inner + 1)
+}
