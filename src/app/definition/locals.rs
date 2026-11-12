@@ -306,7 +306,11 @@ impl App {
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
                     !key && !super_keyword
-                        && (closure(n) || !names_itself(kind, l, first) || bare)
+                        && (closure(n)
+                            || !names_itself(kind, l, first)
+                                && !(kind == Kind::Go
+                                    && search::go_type_group_member(&self.buf.lines, n - 1))
+                            || bare)
                         && !import_line(kind, l)
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
