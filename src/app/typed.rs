@@ -949,7 +949,11 @@ impl App {
         if hidden(kind, file, text, line1, &parts[0]) {
             return None;
         }
-        let decl = self.declaration(kind, file, &parts);
+        let decl = self.declaration(kind, file, &parts).or_else(|| {
+            (kind == Kind::TsJs)
+                .then(|| self.ts_static_callee(file, text, line1, receiver, method))
+                .flatten()
+        });
         let imported = kind == Kind::Python
             && receiver.is_empty()
             && decl.as_ref().is_some_and(|d| d.path == file)

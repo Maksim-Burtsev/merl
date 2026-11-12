@@ -55,6 +55,7 @@ impl App {
         }
         let Proven { mut ty, link, .. } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
+            .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
