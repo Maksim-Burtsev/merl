@@ -1,3 +1,4 @@
+use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 struct WrittenType {
@@ -46,14 +47,25 @@ impl App {
             let ty = self.jvm_type_at(here, text, &cast);
             return self.jvm_typed_member(here, ty, &cast, word);
         }
-        if let ([], Some(made)) = (chain, search::jvm_constructed_receiver(before, kotlin)) {
+        let made = search::jvm_constructed_receiver(before, kotlin).or_else(|| {
+            search::scala(here)
+                .then(|| search::scala_packaged_construction(before))
+                .flatten()
+        });
+        if let ([], Some(made)) = (chain, made) {
             return match self.jvm_made(here, text, &made, kotlin) {
                 ty @ JvmType::Project(_) => self.jvm_typed_member(here, ty, &made, word),
                 _ => None,
             };
         }
         if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
-            let element = Self::jvm_element(here, text, self.line + 1, &source, true)?;
+            let line = Self::jvm_declared_line(here, text, self.line + 1, &source)?;
+            let (container, element) = search::java_element_type(line, &source)?;
+            if let JvmType::Project(hit) = self.jvm_type_at(here, text, &container)
+                && self.jvm_sees(here, text, &container, &hit)
+            {
+                return None;
+            }
             let ty = self.jvm_type_at(here, text, &element);
             let label = format!("{source}: element {element}");
             return self.jvm_typed_member(here, ty, &label, word);
@@ -80,6 +92,7 @@ impl App {
                             let calls = calls.into_iter().map(|c| format!("{c}()"));
                             std::iter::once(head).chain(calls).collect()
                         })
+                        .or_else(|| self.java_bare_chain(here, text, before))
                         .unwrap_or_default(),
                     c => c,
                 };
@@ -112,9 +125,74 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+        let (ty, links, rest) = if let Some(head) = self.jvm_static_head(here, text, first, rest) {
+            head
+        } else {
+            let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+            (ty, links, rest)
+        };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn java_bare_chain(&self, here: &Path, text: &str, before: &str) -> Option<Vec<String>> {
+        let calls = search::java_bare_chain(before)?;
+        let line = self.line + 1;
+        let innermost = *search::jvm_enclosing_types(text, line).first()?;
+        search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        (!search::java_new_between(text, line, before, innermost)).then_some(())?;
+        let first = self.jvm_returned(here, text, line, None, calls.first()?, false)?;
+        matches!(first.resolved, JvmType::Project(_)).then_some(())?;
+        let calls = calls.into_iter().map(|c| format!("{c}()"));
+        Some(std::iter::once("this".to_owned()).chain(calls).collect())
+    }
+
+    fn jvm_static_head<'r>(
+        &self,
+        here: &Path,
+        text: &str,
+        first: &str,
+        rest: &'r [String],
+    ) -> Option<(JvmType, Vec<String>, &'r [String])> {
+        let upper = |n: &str| n.starts_with(|c: char| c.is_ascii_uppercase());
+        let (mut decl, mut links, mut rest) = if upper(first) {
+            let JvmType::Project(decl) = self.jvm_type_at(here, text, first) else {
+                return None;
+            };
+            (decl, vec![first.to_owned()], rest)
+        } else {
+            let n = rest.iter().position(|l| upper(l))?;
+            let path: Vec<String> = std::iter::once(first)
+                .chain(rest.get(..=n)?.iter().map(String::as_str))
+                .map(str::to_owned)
+                .collect();
+            (!path.iter().any(|l| l.ends_with("()"))).then_some(())?;
+            let decl = self.jvm_packaged_type(here, text, &path)?;
+            (decl, vec![path.join(".")], rest.get(n + 1..)?)
+        };
+        while let Some((link, more)) = rest.split_first()
+            && upper(link)
+            && !link.ends_with("()")
+            && let JvmType::Project(inner) = self.jvm_nested(&decl, link)
+        {
+            decl = inner;
+            links.push(link.clone());
+            rest = more;
+        }
+        let next = rest.first()?;
+        if !next.ends_with("()") {
+            search::path_bindings(Kind::Jvm, here, text, self.line + 1, first)
+                .is_empty()
+                .then_some(())?;
+            let field = self.jvm_field_type(&decl, next)?;
+            field
+                .hit
+                .text
+                .split_whitespace()
+                .any(|t| t == "static")
+                .then_some(())?;
+        }
+        Some((JvmType::Project(decl), links, rest))
     }
 
     fn jvm_follow(
@@ -152,15 +230,19 @@ impl App {
         if c.links.len() > 6 {
             return None;
         }
-        let (ty, links) = match before {
-            _ if c.constructed => (
+        let (ty, links, rest) = if c.constructed {
+            (
                 self.jvm_made(here, text, &c.head, true),
                 vec![format!("{}()", c.head)],
-            ),
-            Some(before) => self.jvm_chain_head(here, text, before, &c.head, None)?,
-            None => return None,
+                &c.links[..],
+            )
+        } else if let Some(head) = self.jvm_static_head(here, text, &c.head, &c.links) {
+            head
+        } else {
+            let (ty, links) = self.jvm_chain_head(here, text, before?, &c.head, None)?;
+            (ty, links, &c.links[..])
         };
-        self.jvm_follow(ty, links, &c.head, &c.links)
+        self.jvm_follow(ty, links, &c.head, rest)
     }
 
     fn kotlin_initialized(
@@ -173,7 +255,7 @@ impl App {
         let at = text.lines().nth(line1.checked_sub(1)?)?;
         if let Some(d) = search::kotlin_destructured(at, name) {
             let source = if d.in_loop {
-                let element = Self::jvm_element(file, text, line1, &d.source, false)?;
+                let element = Self::jvm_element(file, text, line1, &d.source)?;
                 self.jvm_type_at(file, text, &element)
             } else {
                 self.jvm_value(file, text, line1, &d.source, true, 1)?
@@ -191,7 +273,7 @@ impl App {
         }
         let init = search::kotlin_initializer(text, line1, name)?;
         if init.trim() == name
-            && search::bindings(Kind::Jvm, text, line1.checked_sub(1)?, name).is_empty()
+            && search::path_bindings(Kind::Jvm, file, text, line1.checked_sub(1)?, name).is_empty()
         {
             let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
@@ -205,6 +287,12 @@ impl App {
             return Some(WrittenType { resolved, written });
         }
         let chain = search::kotlin_call_chain(&format!("{init}."))?;
+        if !chain.constructed
+            && chain.head.starts_with(|c: char| c.is_ascii_uppercase())
+            && !init.trim_start().starts_with(&format!("{}.", chain.head))
+        {
+            return None;
+        }
         let (resolved, links) = self.kotlin_chain_type(file, text, None, &chain)?;
         let written = links.last()?.rsplit(": ").next()?.to_owned();
         Some(WrittenType { resolved, written })
@@ -252,14 +340,14 @@ impl App {
             },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
                 if search::jvm_rebound_before(before, f)
-                    && !search::bindings(Kind::Jvm, text, line, f)
+                    && !search::path_bindings(Kind::Jvm, here, text, line, f)
                         .iter()
                         .any(|b| b.line1 == line)
                 {
                     return None;
                 }
                 if search::scala(here) {
-                    let bound: Vec<usize> = search::jvm_bindings_at(text, line, self.col, f)
+                    let bound: Vec<usize> = search::jvm_bindings_at(here, text, line, self.col, f)
                         .iter()
                         .map(|b| b.line1)
                         .collect();
@@ -270,7 +358,7 @@ impl App {
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
-                        kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
+                        kt.then(|| search::kotlin_lambda_collection(here, text, line, before, f));
                     let lambda = lambda.flatten()?;
                     match lambda.strip_suffix(".entries") {
                         Some(e) => match self.jvm_type_at(here, text, e) {
@@ -279,7 +367,7 @@ impl App {
                             }
                             _ => None,
                         },
-                        None => Self::jvm_element(here, text, line, &lambda, false),
+                        None => Self::jvm_element(here, text, line, &lambda),
                     }
                 });
                 let WrittenType {
@@ -331,14 +419,22 @@ impl App {
     }
 
     fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
-        if !written.contains('.') {
+        let renamed = || {
+            search::jvm_imports_at(here, text, self.line + 1)
+                .iter()
+                .any(|i| i.bound_name == written && i.path.last().is_some_and(|l| l != written))
+        };
+        if !written.contains('.') && !renamed() {
             let found = self
                 .jvm_members(here, text, "", written)
                 .or_else(|| self.jvm_imported_all(text, &[], written, false))
                 .unwrap_or_default();
             let named =
                 |c: &Candidate| search::jvm_type_name(&c.hit.text).as_deref() == Some(written);
-            if kotlin && !found.iter().all(named) {
+            let alias = |c: &Candidate| {
+                search::kotlin_typealias(&c.hit.text).is_some_and(|(name, _)| name == written)
+            };
+            if kotlin && !found.iter().all(named) && !found.iter().all(alias) {
                 return JvmType::Unknown;
             }
             let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
@@ -385,6 +481,110 @@ impl App {
             JvmType::Project(decl) => Some(decl),
             _ => None,
         }
+    }
+
+    pub(super) fn jvm_packaged_type(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+    ) -> Option<Hit> {
+        let (owner, package) = chain.split_last()?;
+        let first = package.first()?;
+        let line1 = self.line + 1;
+        if !owner.starts_with(|c: char| c.is_ascii_uppercase())
+            || !package
+                .iter()
+                .all(|p| p.starts_with(|c: char| c.is_ascii_lowercase()))
+            || !search::path_bindings(Kind::Jvm, here, text, line1, first).is_empty()
+            || search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .any(|d| !search::jvm_members_of(here, text, d, first).is_empty())
+        {
+            return None;
+        }
+        let packages = self.jvm_packages()?;
+        match self.jvm_in_package(&packages, chain)? {
+            JvmType::Project(decl) => Some(decl),
+            _ => None,
+        }
+    }
+
+    pub(super) fn jvm_enum_case(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if java && search::java_case_label(before) {
+            if let Some(selector) = search::java_switch_selector(text, self.line + 1)
+                && let Some((JvmType::Project(decl), _)) =
+                    self.jvm_chain_head(here, text, "", &selector, None)
+            {
+                let cases = self.jvm_enum_constant(&decl, word);
+                if !cases.is_empty() {
+                    *found = cases;
+                }
+            }
+            return;
+        }
+        if search::scala(here) {
+            self.scala_enum_case(here, text, word, found);
+            return;
+        }
+        let own = search::jvm_enclosing_types(text, self.line + 1)
+            .into_iter()
+            .any(|d| {
+                search::enum_constants(text, d)
+                    .iter()
+                    .any(|c| c.name == word)
+            });
+        if !found.is_empty() || own {
+            return;
+        }
+        let imports = search::jvm_enum_imports(here, text, word);
+        let single = imports.iter().any(|i| i.single);
+        for import in imports.iter().filter(|i| i.single == single) {
+            if let JvmType::Project(decl) = self.jvm_type_at(here, text, &import.owner) {
+                found.extend(self.jvm_enum_constant(&decl, word));
+            }
+        }
+    }
+
+    pub(super) fn jvm_enum_constant(&self, decl: &Hit, word: &str) -> Vec<Candidate> {
+        let Some(name) = search::jvm_type_name(&decl.text) else {
+            return Vec::new();
+        };
+        let is_enum = Regex::new(&format!(
+            r"\benum\s+(?:class\s+)?{}\b",
+            regex::escape(&name)
+        ))
+        .is_ok_and(|re| re.is_match(&decl.text));
+        let Some(text) = self.text_of(&decl.path).filter(|_| is_enum) else {
+            return Vec::new();
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        search::enum_constants(&text, decl.line1)
+            .into_iter()
+            .filter(|c| c.name == word)
+            .map(|c| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: decl.path.clone(),
+                    line1: c.line1,
+                    byte_col: None,
+                    text: lines
+                        .get(c.line1 - 1)
+                        .copied()
+                        .unwrap_or_default()
+                        .to_owned(),
+                },
+                reason: Reason::Path(name.clone()),
+            })
+            .collect()
     }
 
     pub(super) fn jvm_owns(&self, decl: &Hit, hit: &Hit, word: &str) -> bool {
@@ -503,9 +703,9 @@ impl App {
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
         let cursor_line = line1 == self.line + 1 && lines.get(self.line) == Some(&self.line_str());
         let bindings: Vec<usize> = if cursor_line {
-            search::jvm_bindings_at(text, line1, self.col, name)
+            search::jvm_bindings_at(file, text, line1, self.col, name)
         } else {
-            search::bindings(Kind::Jvm, text, line1, name)
+            search::path_bindings(Kind::Jvm, file, text, line1, name)
         }
         .iter()
         .map(|b| b.line1)
@@ -591,11 +791,27 @@ impl App {
         }
         let (in_file, written) = match (source.receiver, source.call) {
             (Some(r), None) => {
-                let [l] = search::bindings(Kind::Jvm, text, line1, &r)
-                    .iter()
-                    .map(|b| b.line1)
-                    .collect::<Vec<_>>()[..]
-                else {
+                let (own, r) = match r.strip_prefix("this.") {
+                    Some(field) => (true, field.to_owned()),
+                    None => (false, r),
+                };
+                let mut bindings: Vec<usize> = if own {
+                    Vec::new()
+                } else {
+                    search::path_bindings(Kind::Jvm, file, text, line1, &r)
+                        .iter()
+                        .map(|b| b.line1)
+                        .collect()
+                };
+                if bindings.is_empty() {
+                    let inner = *search::jvm_enclosing_types(text, line1).first()?;
+                    search::jvm_type_name(text.lines().nth(inner.checked_sub(1)?)?)?;
+                    let here = text.lines().nth(line1.checked_sub(1)?)?;
+                    (!search::java_new_between(text, line1, here, inner)).then_some(())?;
+                    (own || !search::java_local_above(text, line1, inner, &r)).then_some(())?;
+                    bindings = search::jvm_members_of(file, text, inner, &r);
+                }
+                let [l] = bindings[..] else {
                     return None;
                 };
                 let at = text.lines().nth(l.checked_sub(1)?)?;
@@ -673,14 +889,18 @@ impl App {
         matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
     }
 
-    fn jvm_element(
+    fn jvm_element(file: &Path, text: &str, line1: usize, name: &str) -> Option<String> {
+        let line = Self::jvm_declared_line(file, text, line1, name)?;
+        search::kotlin_element_type(line, name)
+    }
+
+    fn jvm_declared_line<'a>(
         file: &Path,
-        text: &str,
+        text: &'a str,
         line1: usize,
         name: &str,
-        java: bool,
-    ) -> Option<String> {
-        let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
+    ) -> Option<&'a str> {
+        let mut declared: Vec<usize> = search::path_bindings(Kind::Jvm, file, text, line1, name)
             .iter()
             .map(|b| b.line1)
             .collect();
@@ -693,12 +913,7 @@ impl App {
         let [l] = declared[..] else {
             return None;
         };
-        let line = text.lines().nth(l.checked_sub(1)?)?;
-        if java {
-            search::java_element_type(line, name)
-        } else {
-            search::kotlin_element_type(line, name)
-        }
+        text.lines().nth(l.checked_sub(1)?)
     }
 
     fn jvm_returned(
@@ -738,7 +953,24 @@ impl App {
 
     fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
         let found = self.jvm_hierarchy_member(decl, call, 0, &mut Vec::new());
-        let [hit] = java_shaped(found, |h| h, call, true).try_into().ok()?;
+        let found = java_shaped(found, |h| h, call, true);
+        if let [one, more @ ..] = found.as_slice()
+            && !more.is_empty()
+            && !search::scala(&one.path)
+        {
+            let mk = one.path.extension().is_none_or(|e| e != "java");
+            let returned = |h: &Hit| {
+                (h.path == one.path)
+                    .then(|| search::jvm_return_type(&h.text, call, mk))
+                    .flatten()
+            };
+            let written = returned(one)?;
+            more.iter()
+                .all(|h| returned(h).as_ref() == Some(&written))
+                .then_some(())?;
+            return Some(self.jvm_substituted(decl, one.clone(), written));
+        }
+        let [hit] = found.try_into().ok()?;
         let mk = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
             let getter = search::jvm_accessor(call).filter(|a| !a.setter)?;
@@ -747,7 +979,7 @@ impl App {
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
         })?;
-        Some(TypedField { hit, written })
+        Some(self.jvm_substituted(decl, hit, written))
     }
 
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {
@@ -756,6 +988,49 @@ impl App {
         let [hit] = java_shaped(found, |h| h, field, false).try_into().ok()?;
         let kotlin = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_declared_type(&hit.text, field, kotlin)?;
+        Some(self.jvm_substituted(decl, hit, written))
+    }
+
+    fn jvm_substituted(&self, decl: &Hit, hit: Hit, written: String) -> TypedField {
+        self.jvm_class_argument(decl, &hit, &written)
+            .unwrap_or(TypedField { hit, written })
+    }
+
+    fn jvm_class_argument(&self, decl: &Hit, member: &Hit, written: &str) -> Option<TypedField> {
+        if search::scala(&member.path) || search::jvm_type_parameter(&member.text, written) {
+            return None;
+        }
+        let text = self.text_of(&member.path)?;
+        let holder = search::jvm_enclosing_types(&text, member.line1)
+            .into_iter()
+            .next()?;
+        let name = search::jvm_type_name(text.lines().nth(holder - 1)?)?;
+        let params = search::generic_header(Kind::Jvm, &text, holder, &name)?.params;
+        let index = params.iter().position(|p| p == written)?;
+        let (hit, written) =
+            super::typed::base_argument(decl, (index, params.len()), 0, &|d: &Hit| {
+                let text = self.text_of(&d.path).filter(|_| !search::scala(&d.path))?;
+                let name = search::jvm_type_name(&d.text)?;
+                let header = search::generic_header(Kind::Jvm, &text, d.line1, &name)?;
+                let mut bases = search::jvm_bases(&text, d.line1, false);
+                bases.extend(search::java_implements(&text, d.line1));
+                let bases = bases
+                    .into_iter()
+                    .filter_map(|base| {
+                        let JvmType::Project(b) =
+                            self.jvm_type_on(&d.path, &text, &base, Some(d.line1))
+                        else {
+                            return None;
+                        };
+                        Some(if (&b.path, b.line1) == (&member.path, holder) {
+                            Base::Holder(search::base_arguments(&header.rest, &base))
+                        } else {
+                            Base::Other(b)
+                        })
+                    })
+                    .collect();
+                Some((header.params, bases))
+            })?;
         Some(TypedField { hit, written })
     }
 
@@ -817,22 +1092,44 @@ impl App {
         out
     }
 
+    fn jvm_sees(&self, file: &Path, text: &str, written: &str, decl: &Hit) -> bool {
+        if written.contains('.') || decl.path == file {
+            return true;
+        }
+        let package = self
+            .text_of(&decl.path)
+            .and_then(|t| search::jvm_package(&t));
+        package == search::jvm_package(text)
+            || search::jvm_imports(file, text).iter().any(|i| {
+                i.bound_name == written
+                    || (i.bound_name == "*"
+                        && i.path.split_last().is_some_and(|(_, base)| {
+                            package.as_deref() == Some(base.join(".").as_str())
+                        }))
+            })
+    }
+
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
         self.jvm_type_on(file, text, written, None)
     }
 
     fn jvm_type_on(&self, file: &Path, text: &str, written: &str, on: Option<usize>) -> JvmType {
-        if written.starts_with(|c: char| c.is_ascii_lowercase())
-            && written.contains('.')
-            && let Some(packages) = self.jvm_packages()
-        {
-            let path: Vec<String> = written.split('.').map(str::to_owned).collect();
-            if let Some(ty) = self.jvm_in_package(&packages, &path) {
-                return ty;
-            }
+        self.jvm_type_hop(file, text, written, on, 8)
+    }
+
+    fn jvm_type_hop(
+        &self,
+        file: &Path,
+        text: &str,
+        written: &str,
+        on: Option<usize>,
+        hops: usize,
+    ) -> JvmType {
+        if let Some(ty) = self.jvm_written_package(file, text, written, on) {
+            return ty;
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
-            return match self.jvm_type_on(file, text, outer, on) {
+            return match self.jvm_type_hop(file, text, outer, on, hops) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
                 JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
                 JvmType::Unknown => JvmType::Unknown,
@@ -873,9 +1170,14 @@ impl App {
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };
-            return self
-                .jvm_in_package(&packages, path)
-                .unwrap_or_else(|| JvmType::Outside(written.to_owned()));
+            let ty = self.jvm_in_package(&packages, path);
+            if hops > 0
+                && !matches!(ty, Some(JvmType::Project(_)))
+                && let Some(aliased) = self.kotlin_imported_alias(file, &packages, path, hops - 1)
+            {
+                return aliased;
+            }
+            return ty.unwrap_or_else(|| JvmType::Outside(written.to_owned()));
         }
         let pattern = search::def_patterns(Kind::Jvm, written).join("|");
         let cut = self.truncated.get();
@@ -888,6 +1190,11 @@ impl App {
         }
         if hits.is_empty() {
             return JvmType::Outside(written.to_owned());
+        }
+        if hops > 0
+            && let Some(ty) = self.kotlin_aliased(file, text, written, &hits, hops - 1)
+        {
+            return ty;
         }
         let types: Vec<Hit> = hits.iter().filter(|h| is_type(h)).cloned().collect();
         let others = hits
@@ -942,6 +1249,69 @@ impl App {
             .unwrap_or_default()
     }
 
+    fn kotlin_aliased(
+        &self,
+        file: &Path,
+        here: &str,
+        written: &str,
+        hits: &[Hit],
+        hops: usize,
+    ) -> Option<JvmType> {
+        let aliases: Vec<(&Hit, &str)> = hits
+            .iter()
+            .filter_map(|h| {
+                search::kotlin_typealias(&h.text)
+                    .filter(|(name, _)| *name == written)
+                    .map(|(_, target)| (h, target))
+            })
+            .collect();
+        let [(hit, target)] = aliases.as_slice() else {
+            return None;
+        };
+        let text = self.text_of(&hit.path)?;
+        let package = search::jvm_package(&text);
+        let seen = hit.path == file || (package.is_some() && search::jvm_package(here) == package);
+        let nested = hits
+            .iter()
+            .any(|h| !std::ptr::eq(h, *hit) && (h.path == file || h.path == hit.path));
+        if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
+            return None;
+        }
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
+            JvmType::Project(decl) => Some(JvmType::Project(decl)),
+            _ => None,
+        }
+    }
+
+    fn kotlin_imported_alias(
+        &self,
+        file: &Path,
+        packages: &HashMap<String, Vec<PathBuf>>,
+        path: &[String],
+        hops: usize,
+    ) -> Option<JvmType> {
+        if !file.extension().is_some_and(|e| e == "kt" || e == "kts") {
+            return None;
+        }
+        let (name, package) = path.split_last()?;
+        let files = packages.get(&package.join("."))?;
+        let hits: Vec<Hit> = self
+            .jvm_declared(files, std::slice::from_ref(name))
+            .into_iter()
+            .map(|c| c.hit)
+            .filter(|h| self.jvm_code(h))
+            .collect();
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        let (_, target) = search::kotlin_typealias(&hit.text).filter(|(n, _)| n == name)?;
+        let text = self.text_of(&hit.path)?;
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
+            JvmType::Project(decl) => Some(JvmType::Project(decl)),
+            _ => None,
+        }
+    }
+
     fn jvm_code(&self, h: &Hit) -> bool {
         self.text_of(&h.path).is_some_and(|t| {
             !search::path_literal_lines(Kind::Jvm, &h.path, &t)
@@ -951,7 +1321,7 @@ impl App {
         })
     }
 
-    fn jvm_in_package(
+    pub(super) fn jvm_in_package(
         &self,
         packages: &HashMap<String, Vec<PathBuf>>,
         path: &[String],

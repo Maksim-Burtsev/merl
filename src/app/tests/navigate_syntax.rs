@@ -95,17 +95,9 @@ fn a_wrapped_class_header_is_a_header() {
             jump("one \u{2192} Bin.one (by name, 1 match)", "headers.ts:81"),
         ),
         (
-            "`other: T` is typed by a parameter of the wrapped list: the chain breaks there",
+            "`other: T` is typed by the constraint of a parameter of the wrapped list, as on one line (#1439)",
             "this.other.seal|(key)",
-            picker(
-                "seal: by name, 4 declarations (chain broke at other)",
-                &[
-                    ("Sealable.seal", "headers.ts:6"),
-                    ("Crate.seal", "headers.ts:12"),
-                    ("LongNamedShelfOfStrings.seal", "headers.ts:70"),
-                    ("Bin.seal", "headers.ts:85"),
-                ],
-            ),
+            seal("this.other: Crate"),
         ),
         (
             "`type Loose = any;` has no body: the fields of the class under it are not its",

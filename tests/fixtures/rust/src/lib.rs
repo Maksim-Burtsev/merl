@@ -21,3 +21,25 @@ pub mod bales;
 pub mod infusion;
 pub mod sieves;
 pub mod husks;
+pub mod corvid;
+pub mod chessman;
+pub mod rookery;
+pub mod board;
+pub mod flagons;
+pub mod kylix;
+pub mod vessels;
+pub mod feast;
+pub mod ewers;
+pub mod braziers;
+
+use ewers::{Ewer, Laver};
+
+pub fn rinse_all() {
+    let e = Ewer;
+    e.swill();
+    //^ d: src/ewers.rs:4
+    let l = ewers::Laver;
+    l.swill();
+    //^ d: src/ewers.rs:8
+    let _ = Laver;
+}

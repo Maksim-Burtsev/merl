@@ -4,17 +4,17 @@ use regex::Regex;
 
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
-    element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_rooted, python_statements, returns, split_top, ts_header, type_path, uncommented,
-    value_of,
+    element_type, group, in_method, indent, jsdoc_getter_type, jsdoc_owner, jsdoc_properties,
+    literal_lines, python_header_open, python_rooted, python_statements, returns, split_top,
+    ts_header, type_path, uncommented, value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
-    let start = match (kind, lines[k].find('(')) {
-        (Kind::Python, Some(open)) => {
-            group(kind, lines, k, open).map_or(k + 1, |g| g.close_line + 1)
-        }
-        (Kind::TsJs, _) => ts_header(lines, k).last_line0 + 1,
+    let start = match kind {
+        Kind::Python => python_header_open(lines[k])
+            .and_then(|open| group(kind, lines, k, open))
+            .map_or(k + 1, |g| g.close_line + 1),
+        Kind::TsJs => ts_header(lines, k).last_line0 + 1,
         _ => k + 1,
     };
     let base = indent(lines[k]);
@@ -48,9 +48,17 @@ fn class_fields(
     {
         return fields;
     }
+    if kind == Kind::TsJs
+        && let Some(body) = ts_one_line(lines[k])
+    {
+        return ts_one_line_fields(body, name)
+            .map(|value| Binding { line1: decl, value })
+            .into_iter()
+            .collect();
+    }
     let go_field = |t: &str| go_field(t, name);
     if kind == Kind::Go
-        && let Some(body) = go_one_line(lines[k])
+        && let Some(body) = go_one_line(lines[k], "struct")
     {
         return body
             .split(';')
@@ -276,7 +284,9 @@ fn ts_fields(
             push(
                 i,
                 c.get(1)
-                    .map_or(Value::Unknown, |ty| Value::Type(ty.as_str().to_owned())),
+                    .map(|ty| ty.as_str().to_owned())
+                    .or_else(|| jsdoc_getter_type(text, i + 1))
+                    .map_or(Value::Unknown, Value::Type),
             );
         } else if let Some(c) = member.captures(t).filter(|_| ind == base) {
             push(
@@ -310,14 +320,52 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
         .filter(|c| c[1].split(',').any(|p| p.trim() == name))
         .map(|c| Value::Type(c[2].to_owned()))
 }
-fn go_one_line(line: &str) -> Option<&str> {
-    let at = line.find("struct")?;
+fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+    let at = line.find(keyword)?;
     let open = at + line.get(at..)?.find('{')?;
     let close = close_of(Kind::Go, line, open)?;
     line.get(open + 1..close - 1)
 }
+fn ts_one_line(line: &str) -> Option<&str> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+[A-Za-z_$][\w$]*\s*|type\s+[A-Za-z_$][\w$]*\s*=\s*)\{")
+            .expect("the regex is a literal")
+    });
+    let open = HEAD.find(line)?.end() - 1;
+    let close = close_of(Kind::TsJs, line, open)?;
+    line.get(close..)?
+        .trim()
+        .trim_end_matches(';')
+        .is_empty()
+        .then(|| line.get(open + 1..close - 1))?
+}
+fn ts_one_line_fields(body: &str, name: &str) -> Option<Value> {
+    split_top(Kind::TsJs, body, b';')
+        .into_iter()
+        .flat_map(|s| split_top(Kind::TsJs, s, b','))
+        .find_map(|item| {
+            let item = item.trim();
+            let item = item.strip_prefix("readonly ").unwrap_or(item).trim_start();
+            let (key, ty) = item.split_once(':')?;
+            (key.trim().trim_end_matches('?').trim_end() == name)
+                .then(|| Value::Type(ty.trim().to_owned()))
+        })
+}
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
-    go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
+    go_one_line(line, "struct")
+        .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
+}
+pub fn go_one_line_method(line: &str, name: &str) -> bool {
+    line.trim_start().starts_with("type ") && go_interface_declares(line, name)
+}
+pub fn go_interface_declares(t: &str, name: &str) -> bool {
+    go_one_line(t, "interface").is_some_and(|body| {
+        body.split(';').any(|m| {
+            m.trim()
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.trim_start().starts_with('('))
+        })
+    })
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -526,6 +574,36 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
         .last()
         .map_or_else(String::new, |c| c[1].to_owned())
 }
+pub fn cs_namespace_blocks(text: &str, line: usize) -> Option<Vec<(usize, String)>> {
+    static NS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)\s*\{?\s*$").expect("the regex is a literal")
+    });
+    let code: Vec<(usize, &str)> = cs_code_lines(text)
+        .filter(|(_, l)| {
+            let t = l.trim();
+            !(t.is_empty() || t == "{" || comment(Kind::CSharp, t) || t.starts_with('#'))
+        })
+        .collect();
+    for (n, &(_, l)) in code.iter().enumerate() {
+        if super::cs_namespace_line(l)
+            && (!NS.is_match(l) || code.get(n + 1).is_none_or(|&(_, b)| indent(b) <= indent(l)))
+        {
+            return None;
+        }
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut blocks = Vec::new();
+    while let Some(e) = super::csharp::cs_enclosing(&lines, k) {
+        if let Some(c) = NS.captures(lines[e]) {
+            blocks.push((e, c[1].to_owned()));
+        }
+        k = e;
+    }
+    blocks.reverse();
+    Some(blocks)
+}
+
 pub struct CsUsing {
     pub fixed: bool,
     pub alias: Option<String>,

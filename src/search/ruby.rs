@@ -128,6 +128,31 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
         .join("::")
 }
 
+pub fn ruby_member_class(text: &str, line1: usize, word: &str) -> String {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*class\s+((?:::)?[A-Z][\w:]*)(?:\s*<\s*[\w:]+)?\s*;")
+            .expect("the regex is a literal")
+    });
+    static OPENER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:class|module)\b").expect("the regex is a literal"));
+    let outer = ruby_class_path(text, line1);
+    let line = text
+        .lines()
+        .nth(line1.saturating_sub(1))
+        .unwrap_or_default();
+    let own = Regex::new(&format!(r";\s*def\s+{}(?:[\s;(]|$)", regex::escape(word)));
+    let name = HEAD
+        .captures(line)
+        .filter(|_| OPENER.find_iter(line).count() == 1)
+        .filter(|_| own.is_ok_and(|re| re.is_match(line)))
+        .and_then(|c| c.get(1));
+    match name.map(|m| m.as_str()) {
+        Some(n) if n.starts_with("::") || outer.is_empty() => n.trim_start_matches(':').to_owned(),
+        Some(n) => format!("{outer}::{n}"),
+        None => outer,
+    }
+}
+
 pub fn ruby_opens_inline(before_cursor: &str) -> bool {
     static WORD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(class|module|def|do|begin|case|if|unless|while|until|end)\b")
@@ -499,6 +524,26 @@ pub fn ruby_on_class(text: &str, line1: usize) -> bool {
             .iter()
             .find(|(_, o)| *o != Opens::Nothing)
             .is_some_and(|&(i, _)| lines[i].trim_start().starts_with("class << self"))
+}
+
+pub fn ruby_self_rebound(text: &str, line1: usize, before: &str) -> bool {
+    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:instance|class|module)_(?:eval|exec)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    if OPENS.is_match(before) {
+        return true;
+    }
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .take_while(|(_, o)| *o != Opens::Gate)
+        .any(|&(i, o)| o == Opens::Block && OPENS.is_match(lines[i].trim_end()))
 }
 
 pub fn ruby_self_is_class(text: &str, line1: usize) -> bool {

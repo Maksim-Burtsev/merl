@@ -820,6 +820,12 @@ impl App {
         } else {
             None
         };
+        if own_closure.is_none()
+            && let Some(ty) = self.rust_if_let_then(file, text, line0, name, col, &mut bindings)
+        {
+            let link = format!("{name}: {}", ty.name);
+            return Some((ty, link));
+        }
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
@@ -856,20 +862,7 @@ impl App {
                     function: f,
                 } => {
                     let ty = self.rust_resolve(file, &w, at)?;
-                    let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {
-                        Ok([decl]) => {
-                            let t = self.text_of(&decl.path)?;
-                            let l: Vec<&str> = t.lines().collect();
-                            let n = search::rust_type_name(&search::rust_return_type(
-                                &l,
-                                decl.line1 - 1,
-                            )?)?
-                            .name;
-                            n == "Self" || n == ty.name
-                        }
-                        Err(none) => none.is_empty() && f == "default",
-                    };
-                    if !returns {
+                    if !self.rust_returns_own(&ty, &f)? {
                         return None;
                     }
                     let link = format!("{name}: {}", ty.name);
@@ -891,7 +884,7 @@ impl App {
         found
     }
 
-    fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
+    pub(super) fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
         let lines: Vec<&str> = text.lines().collect();
         let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;

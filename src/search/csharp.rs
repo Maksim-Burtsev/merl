@@ -1,8 +1,10 @@
 use regex::Regex;
 
+use super::cs_linq::cs_switch_arm;
+
 use super::{
     Group, Kind, close_of, code, comment, cs_code_lines, cs_generics, cs_mods, cs_namespace,
-    cs_type, cs_using, cs_usings, def_patterns, group, indent, split_top, uncommented,
+    cs_type, cs_using, cs_usings, def_patterns, group, hole_line, indent, split_top, uncommented,
     written_line,
 };
 
@@ -130,6 +132,10 @@ pub(super) struct CsOpener {
 }
 
 pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
+    cs_opener_in("", header, name)
+}
+
+pub(super) fn cs_opener_in(outer: &str, header: &str, name: &str) -> CsOpener {
     static AFTER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$")
             .expect("the regex is a literal")
@@ -153,7 +159,15 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
     let mut binds = own;
     if let Some(c) = Regex::new(&format!(r"(?:^|[^\w.]){n}\s*=>(\s*\{{?\s*$)?"))
         .ok()
-        .and_then(|re| re.captures_iter(&h).last())
+        .and_then(|re| {
+            re.captures_iter(&h)
+                .filter(|c| {
+                    let at = c.get(0).map_or(0, |m| m.start());
+                    !h.get(..at)
+                        .is_some_and(|b| cs_switch_arm(&format!("{outer}\n{b}")))
+                })
+                .last()
+        })
     {
         binds = true;
         own |= c.get(1).is_some();
@@ -930,6 +944,9 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     let before = line.get(..start)?.trim_end();
     if !(before.is_empty() || before.ends_with(['{', ','])) {
         return None;
+    }
+    if let Some(hole) = hole_line(Kind::CSharp, lines, at, start) {
+        return cs_initialized(&[hole], 0, start, end);
     }
     let from = at.saturating_sub(200);
     let mut prefix = lines[from..at].join("\n");

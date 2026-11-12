@@ -42,7 +42,7 @@ pub fn java_lambda_source(text: &str, line1: usize, name: &str) -> Option<JavaCh
     let lines: Vec<&str> = text.lines().collect();
     let at = uncommented(Kind::Jvm, lines.get(line1.checked_sub(1)?)?);
     let lambda = Regex::new(&format!(
-        r"\.\s*(?:(?:map|mapNotNull|filter|filterWhen|flatMap|flatMapMany|flatMapIterable|concatMap|doOnNext|doOnSuccess|delayUntil|forEach|anyMatch|allMatch|noneMatch|ifPresent|peek)\s*\(|collect\s*\(\s*(?:Collectors\s*\.\s*)?(?:toMap|groupingBy)\s*\()\s*(?:\(\s*{0}\s*\)|{0})\s*->",
+        r"\.\s*(?:(?:map|mapNotNull|filter|filterWhen|flatMap|flatMapMany|flatMapIterable|concatMap|doOnNext|doOnSuccess|delayUntil|forEach|anyMatch|allMatch|noneMatch|ifPresent|peek)\s*\(|collect\s*\(\s*(?:Collectors\s*\.\s*)?(?:toMap|groupingBy)\s*\()\s*(?:\(\s*{0}\s*\)|{0})\s*->|\.\s*(?:sort|sorted|max|min)\s*\(\s*\(\s*(?:\w+\s*,\s*{0}|{0}\s*,\s*\w+)\s*\)\s*->",
         regex::escape(name)
     ))
     .ok()?;
@@ -178,8 +178,17 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
         rest = trim_end(rest);
         if rest.last()? != &')' {
             let start = rest.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
-            let receiver: String = rest.get(start..)?.iter().collect();
-            let head = trim_end(rest.get(..start)?);
+            let mut receiver: String = rest.get(start..)?.iter().collect();
+            let mut head = trim_end(rest.get(..start)?);
+            if let Some(this) = head
+                .strip_suffix(&['.'])
+                .map(trim_end)
+                .and_then(|h| h.strip_suffix(&['t', 'h', 'i', 's']))
+                .filter(|h| !h.last().is_some_and(|&c| ident(c) || c == '.'))
+            {
+                receiver.insert_str(0, "this.");
+                head = trim_end(this);
+            }
             if !receiver.starts_with(|c: char| c.is_ascii_lowercase())
                 || head.last().is_some_and(|&c| c == '.' || c == ')')
             {
@@ -363,8 +372,57 @@ pub fn java_declared_element(line: &str, name: &str) -> Option<String> {
 }
 
 pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
+    let (head, calls) = fluent(before)?;
+    Some((head?, calls))
+}
+
+pub fn java_bare_chain(before: &str) -> Option<Vec<String>> {
+    let (head, calls) = fluent(before)?;
+    head.is_none().then_some(calls)
+}
+
+pub fn java_new_between(text: &str, line1: usize, before: &str, type_line1: usize) -> bool {
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return true;
+    };
+    let mut scopes = Vec::new();
+    while let Some(s) = super::jvm::scope_of(&lines, at).filter(|&s| s + 1 > type_line1) {
+        scopes.push(uncommented(Kind::Jvm, lines[s]));
+        at = s;
+    }
+    NEW.is_match(&uncommented(Kind::Jvm, before)) || scopes.iter().any(|l| NEW.is_match(l))
+}
+
+pub fn java_local_above(text: &str, line1: usize, type_line1: usize, name: &str) -> bool {
+    let Ok(local) = Regex::new(&format!(
+        r"(?:^|[^.\w$]){}\s*(?:=[^=]|=$|[;,):]|->|$)",
+        regex::escape(name)
+    )) else {
+        return true;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(cursor) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return true;
+    };
+    let mut from = cursor;
+    while let Some(s) = super::jvm::scope_of(&lines, from).filter(|&s| s + 1 > type_line1) {
+        from = s;
+    }
+    lines[from..=cursor]
+        .iter()
+        .any(|l| local.is_match(&uncommented(Kind::Jvm, l)))
+}
+
+fn fluent(before: &str) -> Option<(Option<String>, Vec<String>)> {
     let chars: Vec<char> = before.chars().collect();
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let plain_left = |left: &[char]| {
+        left.ends_with(&['-', '>']) || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c))
+    };
     let mut rest = chars.strip_suffix(&['.'])?;
     let mut calls = Vec::new();
     loop {
@@ -380,16 +438,26 @@ pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
             return None;
         }
         calls.insert(0, method);
-        rest = trim_end(named.get(..start)?).strip_suffix(&['.'])?;
+        let left = trim_end(named.get(..start)?);
+        if let Some(r) = left.strip_suffix(&['.']) {
+            rest = r;
+        } else {
+            let new = left.ends_with(&['n', 'e', 'w'])
+                && !left
+                    .len()
+                    .checked_sub(4)
+                    .and_then(|i| left.get(i))
+                    .is_some_and(|&c| ident(c));
+            return (plain_left(left) && !new).then_some((None, calls));
+        }
     }
     let start = rest.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
     let head: String = rest.get(start..)?.iter().collect();
     let left = trim_end(rest.get(..start)?);
-    let arrow = left.ends_with(&['-', '>']);
-    let plain = head.starts_with(|c: char| c.is_ascii_lowercase())
+    let plain = head.starts_with(|c: char| c.is_ascii_alphabetic())
         && !calls.is_empty()
-        && (arrow || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c)));
-    plain.then_some((head, calls))
+        && plain_left(left);
+    plain.then_some((Some(head), calls))
 }
 
 pub fn java_spring_body(text: &str, owner: &str, method: &str, args: &str) -> Option<String> {

@@ -33,6 +33,23 @@ fn jvm_declares(t: &str, name: &str) -> bool {
     })
 }
 
+pub(super) fn python_declares(t: &str, name: &str) -> bool {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:(?:async\s+)?def|class|type)\s+\w+\s*\[(.*?)\]\s*[(:=]")
+            .expect("the regex is a literal")
+    });
+    HEAD.captures(t).is_some_and(|c| {
+        split_top(Kind::Python, &c[1], b',').iter().any(|p| {
+            p.trim()
+                .trim_start_matches('*')
+                .split([':', '='])
+                .next()
+                .map(str::trim)
+                == Some(name)
+        })
+    })
+}
+
 fn scala_declares(t: &str, name: &str) -> bool {
     static ANONYMOUS_GIVEN: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\bgiven\s+[\w.]+\s*\[[^\]]*\]\s*(?:with\b|=|\{|$)")
@@ -50,6 +67,7 @@ pub fn generic_param_line(
 ) -> Option<usize> {
     let declares = |t: &str| match kind {
         Kind::Dart => dart_declares(t, name),
+        Kind::Python => python_declares(t, name),
         Kind::Jvm if scala(path) => scala_declares(t, name),
         Kind::Jvm => jvm_declares(t, name),
         _ => false,
@@ -68,12 +86,104 @@ pub fn generic_param_line(
         {
             continue;
         }
-        depth = ind + usize::from(t.starts_with([')', '>']));
+        depth = ind + usize::from(t.starts_with([')', '>', ']']));
         if declares(t) {
             return Some(i + 1);
         }
+        if let Some(at) = wrapped_list(kind, &lines, &literal, i)
+            .filter(|&last| declares(&joined(kind, &lines, i, last)))
+            .and_then(|last| param_head_line(kind, &lines, i, last, name))
+        {
+            return Some(at + 1);
+        }
         if depth == 0 {
             break;
+        }
+    }
+    None
+}
+
+pub(super) fn wrapped_list(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    i: usize,
+) -> Option<usize> {
+    let (open, close) = match uncommented(kind, lines[i]).trim_end().chars().last()? {
+        '<' => ('<', '>'),
+        '[' => ('[', ']'),
+        _ => return None,
+    };
+    let mut depth = 1i32;
+    for (j, line) in lines.iter().enumerate().skip(i + 1).take(15) {
+        if literal.get(j) == Some(&true) {
+            return None;
+        }
+        let l = uncommented(kind, line);
+        for (k, c) in l.char_indices() {
+            let arrow = || l.get(..k).is_some_and(|p| p.ends_with(['-', '=']));
+            if c == open {
+                depth += 1;
+            } else if c == close && !(open == '<' && arrow()) {
+                depth -= 1;
+            }
+        }
+        if depth <= 0 {
+            return Some(j);
+        }
+    }
+    None
+}
+
+fn joined(kind: Kind, lines: &[&str], from: usize, to: usize) -> String {
+    (from..=to)
+        .map(|j| uncommented(kind, lines[j]).trim().to_owned())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub(super) fn param_head_line(
+    kind: Kind,
+    lines: &[&str],
+    open: usize,
+    last: usize,
+    name: &str,
+) -> Option<usize> {
+    let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'$';
+    let (mut depth, mut head) = (0i32, true);
+    for (j, line) in lines.iter().enumerate().take(last + 1).skip(open + 1) {
+        let l = uncommented(kind, line);
+        let b = l.as_bytes();
+        let mut k = 0;
+        while k < b.len() {
+            let c = b[k];
+            if word(c) || c == b'@' {
+                let end = k + 1 + b[k + 1..].iter().take_while(|&&c| word(c)).count();
+                let w = l.get(k..end).unwrap_or_default();
+                if depth == 0
+                    && head
+                    && c != b'@'
+                    && !matches!(w, "in" | "out" | "reified" | "const")
+                {
+                    if w == name {
+                        return Some(j);
+                    }
+                    head = false;
+                }
+                k = end;
+                continue;
+            }
+            let next = b.get(k + 1).copied();
+            let prev = k.checked_sub(1).map(|p| b[p]);
+            match c {
+                b'<' if matches!(next, Some(b':' | b'%')) => {}
+                b'>' if next == Some(b':') || matches!(prev, Some(b'=' | b'-')) => {}
+                b'(' | b'[' | b'{' | b'<' => depth += 1,
+                b')' | b']' | b'}' | b'>' => depth -= 1,
+                b',' if depth == 0 => head = true,
+                _ => {}
+            }
+            k += 1;
         }
     }
     None
@@ -120,6 +230,41 @@ fn dart_declares(t: &str, name: &str) -> bool {
 }
 
 pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Option<usize> {
+    type_param(kind, text, line1, name).map(|(at, _)| at)
+}
+
+pub struct TypeParam {
+    pub bound: Option<String>,
+}
+
+pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Option<TypeParam> {
+    let (at, bound) = type_param(kind, text, line1, name)?;
+    let bound = bound?;
+    let clause = match kind {
+        Kind::Rust | Kind::Swift | Kind::CSharp if bound.is_none() => "where",
+        _ => return Some(TypeParam { bound }),
+    };
+    let mut header = String::new();
+    for (i, l) in text.lines().enumerate().skip(at - 1) {
+        let code = coded(kind, l);
+        let end = code.find(['{', '}']).filter(|_| i + 1 >= line1);
+        header.push_str(code.get(..end.unwrap_or(code.len()))?);
+        header.push(' ');
+        if end.is_some() {
+            let clauses = header
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|w| w == clause);
+            return Some(TypeParam {
+                bound: clauses.then(|| clause.to_owned()),
+            });
+        }
+    }
+    None
+}
+
+type Bound = Option<Option<String>>;
+
+fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize, Bound)> {
     static RUST_ITEM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:const|async|unsafe|extern(?:\s+\S+)?)\s+)*(fn|struct|enum|union|trait|impl|type|mod)\b")
             .expect("the regex is a literal")
@@ -137,8 +282,8 @@ pub fn type_param_line(kind: Kind, text: &str, line1: usize, name: &str) -> Opti
             }
             inside_item = true;
         }
-        if let Some(at) = declares(kind, &lines, k, name) {
-            return Some(at + 1);
+        if let Some((at, bound)) = declares(kind, &lines, k, name) {
+            return Some((at + 1, bound));
         }
         let t = uncommented(kind, lines[k]);
         let t = t.trim();
@@ -167,7 +312,7 @@ fn continues(t: &str) -> bool {
     t.starts_with([')', ']', '>']) || t.starts_with("where") || t.starts_with("->")
 }
 
-fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
+fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, Bound)> {
     static RUST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"\b(?:fn\s+\w+|impl|struct\s+\w+|enum\s+\w+|union\s+\w+|trait\s+\w+|type\s+\w+)\s*<",
@@ -179,48 +324,136 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<usize> {
             .expect("the regex is a literal")
     });
     static GO_RECEIVER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^func\s*\(\s*\w*\s*\*?\s*\w+\s*\[").expect("the regex is a literal")
+        Regex::new(r"^func\s*\(\s*\w*\s*\*?\s*(\w+)\s*\[").expect("the regex is a literal")
     });
     static CPP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\btemplate\s*<").expect("the regex is a literal"));
+    static SWIFT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:func\s+\w+|init[?!]?|subscript|(?:struct|class|enum|actor)\s+\w+)\s*<")
+            .expect("the regex is a literal")
+    });
+    static CSHARP_TYPE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:class|struct|interface|record)\s+\w+\s*<")
+            .expect("the regex is a literal")
+    });
     let line = coded(kind, lines[k]);
     let t = line.trim();
     let named = |list: &str, last: bool| {
-        top_parts(list)
-            .iter()
-            .any(|p| param_name(p, last) == Some(name))
+        let parts = top_parts(list);
+        let i = parts.iter().position(|p| {
+            let p = p.trim_start();
+            let p = match kind {
+                Kind::CSharp => p
+                    .strip_prefix("out ")
+                    .or_else(|| p.strip_prefix("in "))
+                    .unwrap_or(p),
+                _ => p,
+            };
+            param_name(p, last) == Some(name)
+        })?;
+        Some(Some(param_bound(kind, &parts, i)))
+    };
+    let angled = |re: &Regex| {
+        re.find_iter(t)
+            .filter_map(|m| list_after(t.get(m.end()..)?, b'<', b'>'))
+            .find_map(|l| named(l, false))
+            .map(|b| (k, b))
     };
     match kind {
-        Kind::Rust => RUST
-            .find_iter(t)
-            .filter_map(|m| list_after(t.get(m.end()..)?, b'<', b'>'))
-            .any(|l| named(l, false))
-            .then_some(k),
+        Kind::Rust => angled(&RUST),
+        Kind::Swift => angled(&SWIFT),
+        Kind::CSharp => angled(&CSHARP_TYPE).or_else(|| {
+            let (list, inherits) = csharp_method_list(t)?;
+            let inherits = inherits
+                || t.split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == "override");
+            named(list, false).map(|b| (k, b.filter(|_| !inherits)))
+        }),
         Kind::Go => {
             let list = |re: &Regex| list_after(t.get(re.find(t)?.end()..)?, b'[', b']');
-            let typed = list(&GO).is_some_and(|l| {
-                let parts = top_parts(l);
-                parts
-                    .last()
-                    .and_then(|p| p.split_whitespace().nth(1))
-                    .is_some_and(|c| {
-                        c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c))
-                    })
-                    && named(l, false)
-            });
-            (typed || list(&GO_RECEIVER).is_some_and(|l| named(l, false))).then_some(k)
+            list(&GO)
+                .filter(|l| go_constrained(l))
+                .and_then(|l| named(l, false))
+                .or_else(|| {
+                    let ty = GO_RECEIVER.captures(t)?.get(1)?.as_str();
+                    let i = top_parts(list(&GO_RECEIVER)?)
+                        .iter()
+                        .position(|p| param_name(p, false) == Some(name))?;
+                    Some(go_type_bound(lines, ty, i))
+                })
+                .map(|b| (k, b))
         }
         Kind::C => (0..=k)
             .rev()
             .take_while(|&i| i == k || bare_template(&uncommented(kind, lines[i])))
-            .find(|&i| {
+            .find_map(|i| {
                 let l = coded(kind, lines[i]);
                 CPP.find_iter(&l)
                     .filter_map(|m| list_after(l.get(m.end()..)?, b'<', b'>'))
-                    .any(|l| named(l, true))
+                    .find_map(|l| named(l, true))
+                    .map(|b| (i, b))
             }),
         _ => None,
     }
+}
+
+fn csharp_method_list(t: &str) -> Option<(&str, bool)> {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([^=(]*[\w>\]?])\s+((?:\w+(?:<[^()]*?>)?\.)*)\w+\s*<")
+            .expect("the regex is a literal")
+    });
+    const STATEMENTS: [&str; 21] = [
+        "return", "await", "new", "throw", "yield", "else", "in", "is", "as", "case", "when",
+        "select", "let", "where", "orderby", "by", "into", "goto", "and", "or", "not",
+    ];
+    let c = HEAD.captures(t)?;
+    if STATEMENTS.contains(&c[1].split_whitespace().last()?) {
+        return None;
+    }
+    let rest = t.get(c.get(0)?.end()..)?;
+    let list = list_after(rest, b'<', b'>')?;
+    rest.get(list.len() + 1..)?
+        .trim_start()
+        .starts_with('(')
+        .then_some((list, !c[2].is_empty()))
+}
+
+fn go_constrained(list: &str) -> bool {
+    top_parts(list)
+        .last()
+        .and_then(|p| p.split_whitespace().nth(1))
+        .is_some_and(|c| c.starts_with(|c: char| c.is_alphabetic() || "_~[(".contains(c)))
+}
+
+fn go_type_bound(lines: &[&str], ty: &str, i: usize) -> Bound {
+    let head = format!("type {ty}");
+    lines.iter().find_map(|l| {
+        let l = coded(Kind::Go, l);
+        let list = list_after(
+            l.strip_prefix(&head)?.trim_start().strip_prefix('[')?,
+            b'[',
+            b']',
+        )?;
+        let parts = top_parts(list);
+        (go_constrained(list) && i < parts.len()).then(|| param_bound(Kind::Go, &parts, i))
+    })
+}
+
+fn param_bound(kind: Kind, parts: &[&str], i: usize) -> Option<String> {
+    let part = parts[i].split('=').next().unwrap_or_default().trim();
+    let bound = match kind {
+        Kind::Go => parts[i..]
+            .iter()
+            .find_map(|p| p.trim().split_once(char::is_whitespace))
+            .map(|(_, c)| c.trim())
+            .filter(|c| !matches!(*c, "any" | "interface{}")),
+        Kind::C => part
+            .split_whitespace()
+            .next()
+            .filter(|w| !matches!(*w, "typename" | "class")),
+        _ => part.split_once(':').map(|(_, b)| b.trim()),
+    };
+    bound.map(str::to_owned)
 }
 
 fn bare_template(line: &str) -> bool {
@@ -290,4 +523,155 @@ fn param_name(part: &str, last: bool) -> Option<&str> {
     WORD.find(head)
         .filter(|m| m.start() == 0)
         .map(|m| m.as_str())
+}
+
+pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let pattern = match kind {
+        Kind::Rust | Kind::Swift => format!(
+            r"(?:^|[^\w.])(?:_\s+)?{n}\s*:\s*(?:&\s*)?(?:mut\s+|inout\s+)?([A-Za-z_]\w*)[?!]?\s*(?:[,)=;{{]|$)"
+        ),
+        Kind::CSharp => format!(r"(?:^|[\s(,])([A-Za-z_]\w*)\s+{n}\s*(?:[,)=;{{]|$)"),
+        _ => return None,
+    };
+    let code = coded(kind, line);
+    Regex::new(&pattern)
+        .ok()?
+        .captures(code.trim())
+        .map(|c| c[1].to_owned())
+}
+
+pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<super::Binding> {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[^(]*\b(?:struct|class|union|actor)\s+[A-Za-z_]")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(kind, text);
+    let mut k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
+    let parent = loop {
+        let p = (0..k).rev().find(|&i| {
+            let t = uncommented(kind, lines[i]);
+            let t = t.trim();
+            !t.is_empty()
+                && literal.get(i) != Some(&true)
+                && !t.starts_with(['{', '}', '#'])
+                && indent(lines[i]) < indent(lines[k])
+        })?;
+        if HEAD.is_match(&coded(kind, lines[p])) {
+            break p;
+        }
+        k = p;
+    };
+    let (outer, base) = (indent(lines[parent]), indent(lines[k]));
+    lines
+        .iter()
+        .enumerate()
+        .skip(parent + 1)
+        .skip_while(|(_, l)| l.trim() == "{")
+        .take_while(|(_, l)| l.trim().is_empty() || indent(l) > outer)
+        .filter(|&(i, l)| indent(l) == base && literal.get(i) != Some(&true))
+        .find_map(|(i, l)| {
+            let t = coded(kind, l);
+            let field = if kind == Kind::CSharp {
+                !t.split(['=', '{']).next().unwrap_or_default().contains('(')
+            } else {
+                t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func ")
+            };
+            Some(super::Binding {
+                line1: i + 1,
+                value: super::Value::Type(declared_type_on(kind, l, name).filter(|_| field)?),
+            })
+        })
+}
+
+pub fn rust_impl_field(
+    text: &str,
+    line1: usize,
+    name: &str,
+    elsewhere: impl FnOnce(&str, usize) -> Option<(String, usize)>,
+) -> Option<String> {
+    fn angled(s: &str) -> Option<Vec<&str>> {
+        Some(top_parts(list_after(
+            s.get(s.find('<')? + 1..)?,
+            b'<',
+            b'>',
+        )?))
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let owner = super::rust_self_type(&lines, line1.checked_sub(1)?)?;
+    let head = coded(
+        Kind::Rust,
+        &super::rust_impl_header(&lines, owner.impl_line0),
+    );
+    let head_trimmed = head.trim();
+    let generics = head_trimmed
+        .strip_prefix("unsafe")
+        .map_or(head_trimmed, str::trim_start)
+        .strip_prefix("impl")?
+        .trim_start();
+    let params = angled(generics).filter(|_| generics.starts_with('<'))?;
+    let args = angled(head.get(head.rfind(&format!("{}<", owner.written))?..)?)?;
+    let decl = Regex::new(&super::rust_type_decl_pattern(&owner.written)).ok()?;
+    let mut decls = (0..lines.len()).filter(|&i| decl.is_match(lines[i]));
+    let far;
+    let (lines, s) = match (decls.next(), decls.next()) {
+        (Some(s), None) => (lines, s),
+        (None, _) => {
+            let (t, s) = elsewhere(&owner.written, owner.impl_line0)?;
+            far = t;
+            (far.lines().collect(), s)
+        }
+        _ => return None,
+    };
+    let written = super::rust_struct_field(&lines, s, name)?.written_type;
+    let i = angled(&coded(Kind::Rust, lines[s]))?
+        .iter()
+        .position(|p| param_name(p, false) == Some(rust_pointee(&written)))?;
+    let arg = args.get(i)?.trim();
+    params
+        .iter()
+        .any(|p| param_name(p, false) == Some(arg))
+        .then(|| arg.to_owned())
+}
+
+fn rust_pointee(t: &str) -> &str {
+    let t = t.trim();
+    if let Some(r) = t.strip_prefix('&') {
+        let r = r.trim_start();
+        let r = r.strip_prefix('\'').map_or(r, |l| {
+            l.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+                .trim_start()
+        });
+        return rust_pointee(r.strip_prefix("mut ").unwrap_or(r));
+    }
+    t.strip_prefix("Box<")
+        .and_then(|r| r.strip_suffix('>'))
+        .map_or(t, rust_pointee)
+}
+
+pub const RUST_BLANKET_IMPL: &str = r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::\s*\?\s*Sized\s*)?>\s*(?:[\w:]+::)?([A-Za-z_]\w*)\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:where\b|\{|$)";
+
+pub fn rust_blanket_trait(line: &str) -> Option<String> {
+    static IMPL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(RUST_BLANKET_IMPL).expect("the regex is a literal"));
+    let c = IMPL.captures(line)?;
+    (c[1] == c[3]).then(|| c[2].to_owned())
+}
+
+pub fn rust_trait_declares(text: &str, line1: usize, word: &str) -> bool {
+    let Ok(method) = Regex::new(&format!(r"\bfn\s+{}\b", regex::escape(word))) else {
+        return true;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(head) = line1.checked_sub(1).and_then(|k| lines.get(k)) else {
+        return true;
+    };
+    let body = lines
+        .iter()
+        .skip(line1)
+        .take_while(|l| l.trim().is_empty() || indent(l) > indent(head));
+    std::iter::once(head)
+        .chain(body)
+        .any(|l| method.is_match(&coded(Kind::Rust, l)))
 }

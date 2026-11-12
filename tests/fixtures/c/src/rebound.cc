@@ -89,3 +89,9 @@ void zeroed(Gourd g) { { ZERO(g); g.slosh(); READ(g); g.slosh(); } }
 //                                                      ^ d: src/rebound.cc:2
 void peeked(Gourd *g) { { SHOWP(g); g->slosh(); } }
 //                                     ^ d: src/rebound.cc:2
+#include "shop/declare.h"
+void hdeclared(Gourd g) { { HDECLARE(Terrine, g); g.slosh(); } g.slosh(); }
+//                                                  ^ d: picker src/rebound.cc:2, src/rebound.cc:5
+//                                                               ^ d: src/rebound.cc:2
+void hshown(Gourd g) { { HSHOW(g); g.slosh(); } }
+//                                   ^ d: src/rebound.cc:2

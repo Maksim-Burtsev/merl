@@ -215,9 +215,13 @@ pub fn dart_called(rest: &str) -> bool {
 }
 
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
-    if patterns.len() == DART_PATTERN_COUNT
+    let wrapped = patterns.len() == 2 * DART_PATTERN_COUNT;
+    if (wrapped || patterns.len() == DART_PATTERN_COUNT)
         && line.get(word.end..).is_some_and(|rest| !dart_called(rest))
     {
+        if wrapped {
+            patterns.remove(DART_PATTERN_COUNT + DART_CONSTRUCTOR_PATTERN);
+        }
         patterns.remove(DART_CONSTRUCTOR_PATTERN);
     }
 }
@@ -1452,4 +1456,11 @@ pub fn dart_this_super(text: &str, line0: usize, of_super: bool) -> Option<DartT
         class: c[2].to_owned(),
         constructor: None,
     })
+}
+
+pub fn dart_compared(before: &str) -> Option<String> {
+    static COMPARED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.?!])([a-z_$][\w$]*)\s*[!=]=\s*\.$").expect("the regex is a literal")
+    });
+    Some(COMPARED.captures(before)?[1].to_owned())
 }

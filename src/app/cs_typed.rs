@@ -2,8 +2,10 @@ use std::cell::OnceCell;
 
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
+mod attributes;
 mod elements;
 mod fits;
+mod generic_base;
 
 #[derive(Debug, Clone)]
 enum CsType {
@@ -177,7 +179,8 @@ impl App {
             (Some(w), _) => {
                 let link = format!("new {}", search::cs_type_name(&w)?);
                 let alias = (text.lines().filter_map(search::cs_using))
-                    .find(|u| !u.fixed && u.alias.as_deref() == Some(w.as_str()));
+                    .find(|u| !u.fixed && u.alias.as_deref() == Some(w.as_str()))
+                    .filter(|u| !self.cs_alias_hidden(file, text, line1, &w, &u.target));
                 let w = alias.map_or(w, |u| u.target);
                 let ty = self.cs_new_type(file, text, line1, &w)?;
                 let p = Proven {
@@ -189,7 +192,10 @@ impl App {
                 (p, parts.as_slice())
             }
             (None, Some(((name, false), rest))) => {
-                (self.cs_name_type(file, text, line1, name, hops)?, rest)
+                let p = self.cs_name_type(file, text, line1, name, hops);
+                let called = rest.first().is_some_and(|(_, call)| *call);
+                let p = p.or_else(|| self.cs_static_head(file, text, line1, name, called))?;
+                (p, rest)
             }
             (None, Some(((name, true), rest))) => {
                 let w = self.cs_call_type(file, text, line1, name, false, hops)?;
@@ -283,14 +289,15 @@ impl App {
         let mut found: Option<Proven> = None;
         for hit in hits {
             let w = search::cs_returns(&hit.text, name)?;
-            let at = self.text_of(&hit.path)?;
-            let ty = self.cs_resolve(&hit.path, &at, hit.line1, &w)?;
+            let (path, line, w) = self.cs_substituted(t, &hit, w);
+            let at = self.text_of(&path)?;
+            let ty = self.cs_resolve(&path, &at, line, &w)?;
             let link = format!("{name}(): {}", search::cs_type_name(&w)?);
             let next = Proven {
                 ty,
                 link,
                 written: w,
-                from: (hit.path.clone(), hit.line1),
+                from: (path, line),
             };
             one_more(&mut found, next)?;
         }
@@ -532,7 +539,10 @@ impl App {
             .filter(|&(i, l)| {
                 literal.get(i) != Some(&true)
                     && re.is_match(l)
-                    && search::cs_owner(&text, i + 1) == Some(ty.line)
+                    && (search::cs_owner(&text, i + 1) == Some(ty.line)
+                        || (i + 1 == ty.line
+                            && search::one_line_owner(Kind::CSharp, l, word).as_deref()
+                                == Some(ty.name.as_str())))
                     && !matches!(
                         search::cs_place(&text, i + 1, word),
                         search::CsPlace::Local { .. }
@@ -561,14 +571,15 @@ impl App {
         let search::CsValue::Type(written) = search::cs_declared(&hit.text, field) else {
             return None;
         };
-        let text = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
+        let (path, line, written) = self.cs_substituted(ty, hit, written);
+        let text = self.text_of(&path)?;
+        let ty = self.cs_resolve(&path, &text, line, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
         Some(Proven {
             ty,
             link,
             written,
-            from: (hit.path.clone(), hit.line1),
+            from: (path, line),
         })
     }
 
@@ -743,12 +754,13 @@ impl App {
         } else {
             written
         };
-        let at = self.text_of(&hit.path)?;
-        let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;
+        let (path, line, written) = self.cs_substituted(&owner, hit, written);
+        let at = self.text_of(&path)?;
+        let ty = self.cs_resolve(&path, &at, line, &written)?;
         Some(CsWrittenType {
             ty,
             written,
-            from: (hit.path.clone(), hit.line1),
+            from: (path, line),
         })
     }
 
@@ -758,6 +770,13 @@ impl App {
             return None;
         }
         let cut = self.truncated.get();
+        if written == name
+            && let Some((_, target)) = self.cs_alias_target(file, text, line1, &name)
+            && let Some(ty @ CsType::Project(_)) = self.cs_new_type(file, text, line1, &target)
+        {
+            self.truncated.set(cut);
+            return Some(ty);
+        }
         let pattern = search::def_patterns(Kind::CSharp, &name)[..4].join("|");
         let mut hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
         hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
@@ -1030,44 +1049,15 @@ impl App {
         if !typed || search::cs_generic_param(&text, self.line + 1, word) {
             return None;
         }
-        let mut aliases = search::cs_code_lines(&text).filter_map(|(k, l)| {
-            let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
-            Some((k + 1, u.target))
-        });
-        let (at, target) = aliases.next()?;
+        let (at, target) = self.cs_alias_target(here, &text, self.line + 1, word)?;
         if !self.cs_bases_in_project(here) {
             return None;
         }
-        let first_namespace = text.lines().position(search::cs_namespace_line);
-        if aliases.next().is_some()
-            || first_namespace.is_some_and(|n| n < at)
-            || !target.contains('.')
-            || search::cs_type_name(&target).as_deref() != Some(word)
-        {
-            return None;
-        }
-        let pattern = search::def_patterns(Kind::CSharp, word)[..2].join("|");
-        let mut hits = self.project_definitions(Kind::CSharp, here, word, &pattern);
-        hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
-        let types: Vec<&Hit> = (hits.iter())
-            .filter(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == word))
-            .collect();
+        let hits = self.cs_project_types(here, &search::cs_type_name(&target)?);
+        let types: Vec<&Hit> = hits.iter().collect();
         let [one] = self.cs_namespace_hits(&text, at, &target, &types)?[..] else {
             return None;
         };
-        let mut levels = vec![String::new()];
-        let inside = search::cs_namespace(&text, self.line + 1);
-        let mut level = inside.as_str();
-        while !level.is_empty() {
-            levels.push(level.to_owned());
-            level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
-        }
-        for (i, h) in types.iter().enumerate() {
-            let other = self.text_of(&h.path)?;
-            if i != one && levels.contains(&search::cs_namespace(&other, h.line1)) {
-                return None;
-            }
-        }
         Some(vec![Candidate {
             hit: types[one].clone(),
             reason: Reason::Path(format!("using {word} = {target}")),

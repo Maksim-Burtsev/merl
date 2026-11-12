@@ -136,13 +136,16 @@ pub fn jsdoc_binding(text: &str, line1: usize, name: &str) -> Option<String> {
 }
 
 pub fn jsdoc_returns(text: &str, decl_line1: usize) -> Option<String> {
+    jsdoc_type(&jsdoc_returns_written(text, decl_line1)?)
+}
+
+pub fn jsdoc_returns_written(text: &str, decl_line1: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
-    let tags = tags(&lines[block]);
-    let tag = tags
-        .iter()
-        .find(|t| t.name == "returns" || t.name == "return")?;
-    jsdoc_type(&tag.braced_type)
+    tags(&lines[block])
+        .into_iter()
+        .find(|t| t.name == "returns" || t.name == "return")
+        .map(|t| t.braced_type)
 }
 
 pub fn js_assigned_calls(text: &str, decl_line1: usize, name: &str) -> Option<Vec<String>> {
@@ -501,4 +504,18 @@ pub fn ts_object_type_key(object: &str, key: &str) -> Option<String> {
         .map(|(_, t)| t.trim());
     let one = found.next()?;
     (found.next().is_none() && TYPE.is_match(one)).then(|| one.to_owned())
+}
+
+pub fn jsdoc_getter_type(text: &str, decl_line1: usize) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
+    let tags = tags(&lines[block]);
+    let mut typed = tags
+        .iter()
+        .filter(|t| t.name == "type" || t.name == "returns" || t.name == "return");
+    let one = typed.next()?;
+    if typed.next().is_some() {
+        return None;
+    }
+    jsdoc_type(&one.braced_type)
 }

@@ -1145,3 +1145,29 @@ fn a_typescript_signature_has_no_equals_sign_in_its_return_type() {
     assert!(re.is_match("  next(value: number): number;"));
     assert!(!re.is_match("  next(value: number): number => value;"));
 }
+
+#[test]
+fn a_typescript_method_with_its_body_on_its_line_is_a_declaration() {
+    let members = member_patterns(Kind::TsJs, "nose").unwrap().join("|");
+    let re = Regex::new(&members).unwrap();
+    assert!(re.is_match(r#"  nose(): string { return "oak"; }"#));
+    assert!(re.is_match("  static nose<T>(t: T) { return t; } // aroma"));
+    assert!(!re.is_match("  get nose() { return this._n; }"));
+    assert!(!re.is_match("  nose(a) : { b: 1 }"));
+    assert!(!re.is_match("  nose((): void => { a(); }); // }"));
+    assert!(!re.is_match("  nose(): { a: string }"));
+}
+
+#[test]
+fn a_cut_pattern_leaves_with_its_one_line_class_copy() {
+    let line = "class Pot { $steep = 1; }";
+    let mut php = def_patterns(Kind::Php, "steep");
+    assert!(Regex::new(&php.join("|")).unwrap().is_match(line));
+    narrow_patterns(Kind::Php, &mut php, "", 0, "steep();", 0..5);
+    assert!(!Regex::new(&php.join("|")).unwrap().is_match(line));
+    let line = "class Pot; steep = 1; end";
+    let mut ruby = def_patterns(Kind::Ruby, "steep");
+    assert!(Regex::new(&ruby.join("|")).unwrap().is_match(line));
+    cut_def_patterns(Kind::Ruby, &mut ruby, &[ruby_assignment("steep")]);
+    assert!(!Regex::new(&ruby.join("|")).unwrap().is_match(line));
+}

@@ -197,6 +197,7 @@ impl App {
         }
         let owner = match (kind, chain.as_slice()) {
             (Kind::Jvm, [owner]) => self.jvm_owner_type(&a.here, &a.text, owner),
+            (Kind::Jvm, _) => self.jvm_packaged_type(&a.here, &a.text, chain),
             _ => None,
         };
         if let Some(decl) = &owner {
@@ -211,8 +212,11 @@ impl App {
                 return self.show_found(a, found);
             }
         }
-        if let (Kind::Jvm, [name]) = (kind, chain.as_slice()) {
-            let found = self.enum_constant(kind, &a.here, name, word);
+        if let (Kind::Jvm, [.., name]) = (kind, chain.as_slice()) {
+            let found = match chain.len() {
+                1 => self.enum_constant(kind, &a.here, name, word),
+                _ => Vec::new(),
+            };
             if !found.is_empty() {
                 return self.show_found(a, found);
             }

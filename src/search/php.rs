@@ -7,7 +7,7 @@ use regex::Regex;
 use super::symbols::php_mods;
 use super::syntax::{close_of, literal_lines};
 use super::words::steps_over;
-use super::{Kind, indent};
+use super::{Kind, cut_def_patterns, indent, one_line_body};
 
 pub(super) fn php_method(w: &str) -> String {
     format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
@@ -41,7 +41,13 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
     if call {
-        vec![php_method(&w).replacen(r"^\s*", r"^\s+", 1), method_tag]
+        let method = php_method(&w);
+        let one_line = one_line_body(Kind::Php, std::slice::from_ref(&method));
+        [
+            vec![method.replacen(r"^\s*", r"^\s+", 1), method_tag],
+            one_line,
+        ]
+        .concat()
     } else {
         vec![property, promoted, property_tag]
     }
@@ -69,7 +75,7 @@ pub(super) fn php_bare_word_cut(patterns: &mut Vec<String>, line: &str, range: R
         cut.extend(php_properties(&w));
         cut.push(php_tags(&w)[0].clone());
     }
-    patterns.retain(|p| !cut.contains(p));
+    cut_def_patterns(Kind::Php, patterns, &cut);
 }
 
 const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
@@ -125,12 +131,12 @@ pub fn php_namespace_patterns(
         return;
     };
     let generic = php_namespace_line(&regex::escape(word));
-    let Some(at) = patterns.iter().position(|p| *p == generic) else {
+    if !patterns.contains(&generic) {
         return;
-    };
+    }
     if !after.starts_with('\\') {
         if !(ON_NAMESPACE.is_match(before) && after.trim_start().starts_with([';', '{'])) {
-            patterns.remove(at);
+            cut_def_patterns(Kind::Php, patterns, std::slice::from_ref(&generic));
         }
         return;
     }
@@ -166,7 +172,11 @@ pub fn php_access_patterns(word: &str, access: PhpAccess) -> Vec<String> {
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
     match access {
-        PhpAccess::Call => vec![php_method(&w), method_tag],
+        PhpAccess::Call => {
+            let method = php_method(&w);
+            let one_line = one_line_body(Kind::Php, std::slice::from_ref(&method));
+            [vec![method, method_tag], one_line].concat()
+        }
         PhpAccess::Property => vec![property, promoted, property_tag],
         PhpAccess::Constant => php_constants(&w).into(),
     }
@@ -221,6 +231,7 @@ pub fn php_class_members<S: AsRef<str>>(lines: &[S], class: usize, re: &Regex) -
     (0..lines.len())
         .filter(|&i| re.is_match(lines[i].as_ref()))
         .filter(|&i| match php_outer_line(lines, i) {
+            _ if i == class => true,
             Some(o) if o == class => true,
             Some(o) if CONSTRUCTOR.is_match(lines[o].as_ref()) => {
                 php_outer_line(lines, o) == Some(class)
@@ -390,7 +401,11 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
                 .iter()
                 .any(|m| pre.ends_with(m)));
     (is_class(at, &written)
-        && (used || after.trim_start().starts_with("::") || AFTER.is_match(pre) || typed))
+        && (used
+            || after.trim_start().starts_with("::")
+            || AFTER.is_match(pre)
+            || pre.ends_with("#[")
+            || typed))
         .then(|| {
             if used && !written.starts_with('\\') {
                 format!("\\{written}")

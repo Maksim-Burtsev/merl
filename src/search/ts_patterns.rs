@@ -36,6 +36,22 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     }
 }
 
+pub(super) fn ts_callback_element(before: &str, params: &str, name: &str) -> Option<Value> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])((?:this\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\.\s*(map|forEach|filter|find|findLast|findIndex|findLastIndex|some|every|flatMap|sort|toSorted)\s*\(\s*(?:async\s+)?(?:function\s*)?$")
+            .expect("the regex is a literal")
+    });
+    let c = CALL.captures(before.trim_end())?;
+    let params: Vec<&str> = split_top(Kind::TsJs, params, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let at = params.iter().position(|p| *p == name)?;
+    let sort = matches!(&c[2], "sort" | "toSorted");
+    let element = if sort { params.len() == 2 } else { at == 0 };
+    element.then(|| Value::Element(c[1].to_owned()))
+}
+
 fn typed_pattern(p: &str, name: &str) -> Option<Value> {
     let close = close_of(Kind::TsJs, p, 0).filter(|_| p.starts_with('{'))?;
     let written = p.get(close..)?.trim_start().strip_prefix(':')?;
@@ -74,6 +90,38 @@ pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     match value_of(Kind::TsJs, &c[2]) {
         call @ Value::Call(_) => Some(Value::Member(Box::new(call), field)),
         _ => None,
+    }
+}
+
+pub(super) fn ts_tuple_destructured(t: &str, name: &str) -> Option<Value> {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:export\s+)?(?:const|let|var)\s*\[([^\[\]{}=.]*)\]\s*(?::\s*(.+?))?\s*=\s*(.+?)\s*;?$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = SHAPE.captures(t)?;
+    let items: Vec<&str> = c[1].split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.chars()
+            .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '$')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    match c.get(2) {
+        Some(written) => {
+            super::written_element(Kind::TsJs, written.as_str(), at, items.len()).map(Value::Type)
+        }
+        None => match value_of(Kind::TsJs, &c[3]) {
+            call @ Value::Call(_) => Some(Value::Position {
+                of: Box::new(call),
+                at,
+                count: items.len(),
+            }),
+            _ => None,
+        },
     }
 }
 
@@ -244,7 +292,7 @@ pub fn ts_signature(text: &str, line1: usize, word: &str) -> Option<TsSignature>
     let open = head.find(rows.get(at)?)?.end() - 1;
     let g = group(Kind::TsJs, &rows, at, open)?;
     let after = g.after_close.trim_end();
-    let body = after.ends_with('{');
+    let body = after.ends_with('{') || (after.ends_with('}') && after.contains('{'));
     if !body && !after.ends_with(';') {
         return None;
     }
@@ -415,6 +463,28 @@ pub fn ts_union_names(union: &str) -> Option<Vec<String>> {
     .then_some(arms)
 }
 
+pub fn ts_intersection_names(written: &str) -> Option<Vec<String>> {
+    let arms: Vec<String> = written
+        .split('&')
+        .map(|a| {
+            let a = a.trim();
+            ["Required<", "Partial<", "Readonly<"]
+                .iter()
+                .find_map(|w| a.strip_prefix(w)?.strip_suffix('>'))
+                .unwrap_or(a)
+                .trim()
+                .to_owned()
+        })
+        .collect();
+    (arms.len() > 1
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
+    .then_some(arms)
+}
+
 pub fn ts_type_tag(decl: &str) -> Option<String> {
     static TAG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\s*(?:readonly\s+)?type\s*:\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*[;,]?\s*$"#)
@@ -483,6 +553,7 @@ pub fn ts_narrowed_tag(text: &str, line1: usize, name: &str) -> Option<(String, 
 pub struct TsTypeParam {
     pub line1: usize,
     pub constraint: Option<String>,
+    pub typed: bool,
 }
 
 pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam> {
@@ -501,6 +572,24 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
             continue;
         }
         depth = ind + usize::from(t.starts_with([')', '>']));
+        let last = t
+            .ends_with('<')
+            .then(|| super::generics::wrapped_list(Kind::TsJs, &lines, &literal, i))
+            .flatten()
+            .unwrap_or(i);
+        let joined = (i..=last)
+            .map(|j| uncommented(Kind::TsJs, lines[j]).trim().to_owned())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let first_len = t.len();
+        let t = joined.as_str();
+        let alias = {
+            let d = t.strip_prefix("export ").unwrap_or(t).trim_start();
+            d.strip_prefix("declare ")
+                .unwrap_or(d)
+                .trim_start()
+                .starts_with("type ")
+        };
         for c in OPENS.captures_iter(t) {
             let Some(whole) = c.get(0) else {
                 continue;
@@ -534,9 +623,18 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
                     None => (p, None),
                 };
                 if pname == name {
+                    let at = if last > i && whole.end() + params.len() >= first_len {
+                        super::generics::param_head_line(Kind::TsJs, &lines, i, last, name)
+                    } else {
+                        Some(i)
+                    };
+                    let Some(at) = at else {
+                        continue;
+                    };
                     return Some(TsTypeParam {
-                        line1: i + 1,
+                        line1: at + 1,
                         constraint: constraint.map(|c| c.trim().to_owned()),
+                        typed: alias || (i + 1 < line1 && line1 <= last),
                     });
                 }
             }
@@ -841,4 +939,62 @@ fn code_only(line: &str) -> String {
         b[i] = c;
     }
     String::from_utf8_lossy(&b).into_owned()
+}
+
+pub fn ts_awaited(
+    kind: Kind,
+    text: &str,
+    line1: usize,
+    callee: &str,
+    written: &str,
+) -> Option<String> {
+    let inner = written
+        .trim()
+        .strip_prefix("Promise<")?
+        .strip_suffix('>')?
+        .trim();
+    let nests = inner.chars().try_fold(0usize, |depth, c| match c {
+        '<' => Some(depth + 1),
+        '>' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    if kind != Kind::TsJs || nests != Some(0) {
+        return None;
+    }
+    let line = code_only(text.lines().nth(line1.checked_sub(1)?)?);
+    let closes_above = line.bytes().try_fold(0usize, |depth, c| match c {
+        b'(' | b'[' | b'{' => Some(depth + 1),
+        b')' | b']' | b'}' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    let method = callee.rsplit('.').next()?;
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut uses = line.match_indices(method).map(|(i, _)| i).filter(|&i| {
+        !line.get(..i).is_some_and(|b| b.ends_with(name))
+            && !line
+                .get(i + method.len()..)
+                .is_some_and(|a| a.starts_with(name))
+    });
+    let (Some(end), None) = (uses.next(), uses.next()) else {
+        return None;
+    };
+    let at = (end + method.len()).checked_sub(callee.len())?;
+    let awaited = line.get(..at).is_some_and(|before| {
+        before.ends_with(char::is_whitespace)
+            && before
+                .trim_end()
+                .strip_suffix("await")
+                .is_some_and(|head| !head.ends_with(|c: char| name(c) || c == '.'))
+    });
+    let ended = line
+        .get(at..)
+        .is_some_and(|l| l.starts_with(&format!("{callee}(")))
+        && close_of(kind, &line, at + callee.len())
+            .and_then(|end| line.get(end..))
+            .is_some_and(|rest| {
+                let rest = rest.trim_start();
+                rest.is_empty() || rest.starts_with([';', ')', ','])
+            });
+    let continued = line.trim_start().starts_with('.') || closes_above.is_none();
+    (awaited && ended && !continued).then(|| inner.to_owned())
 }

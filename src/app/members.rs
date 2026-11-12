@@ -255,7 +255,7 @@ impl App {
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
-        let hits = self
+        let mut hits: Vec<Hit> = self
             .grep_in(&patterns.join("|"), &files)
             .into_iter()
             .filter(|h| match self.text_of(&h.path) {
@@ -265,6 +265,15 @@ impl App {
                 text => text.and_then(|text| search::qualified(kind, &text, h.line1, word)) == want,
             })
             .collect();
+        if kind == Kind::Go && search::go_one_line_method(decl, word) {
+            hits.push(Hit {
+                deleted: None,
+                text: decl.to_owned(),
+                path: ty.path.clone(),
+                line1: ty.line,
+                byte_col: None,
+            });
+        }
         self.host_built(kind, hits)
     }
 
@@ -925,7 +934,7 @@ impl App {
     }
 }
 
-fn ts_modifiers(line: &str) -> Vec<&str> {
+pub(super) fn ts_modifiers(line: &str) -> Vec<&str> {
     let words: Vec<&str> = line.split_whitespace().collect();
     words
         .windows(2)

@@ -1,5 +1,6 @@
 use super::{App, Asked, Candidate, Kind, Near, Reason, bound, is_word, names_itself, search};
 use crate::app::jvm_typed::java_shaped;
+use std::path::Path;
 
 pub(super) struct Patterns {
     pub(super) pattern: String,
@@ -212,14 +213,14 @@ impl App {
         let lower =
             kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
         if kind == Kind::Ruby && (dotted || lower) {
-            let assignment = search::ruby_assignment(word);
-            patterns.retain(|p| *p != assignment);
+            search::cut_def_patterns(kind, &mut patterns, &[search::ruby_assignment(word)]);
         }
         let ruby_local = lower && !a.tail.starts_with('(');
         if lower
             && near.locals.is_empty()
             && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
             && (!ruby_local || search::ruby_locals(&a.text, self.line + 1, word).is_empty())
+            && !search::ruby_self_rebound(&a.text, self.line + 1, before)
         {
             let found = self.ruby_self_methods(&a.here, &a.text, word);
             if !found.is_empty() {
@@ -266,5 +267,107 @@ impl App {
             cs_type,
             ruby_local,
         })
+    }
+}
+
+impl App {
+    pub(super) fn statics_through_type(
+        &self,
+        kind: Kind,
+        word: &str,
+        here: &Path,
+        found: &mut Vec<Candidate>,
+    ) {
+        if !matches!(kind, Kind::Jvm | Kind::CSharp | Kind::TsJs) || found.len() < 2 {
+            return;
+        }
+        let line = self.line_str();
+        let Some((r, w)) = search::definition_word(Some(kind), line, self.col) else {
+            return;
+        };
+        let text = self.buf.lines.join("\n");
+        let qualifier = line
+            .get(..r.start)
+            .and_then(|b| b.strip_suffix('.'))
+            .and_then(|b| {
+                let start = b
+                    .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                    .map_or(0, |i| i + 1);
+                let (head, name) = (b.get(..start)?, b.get(start..)?);
+                let packaged = || {
+                    let head = head.strip_suffix('.')?;
+                    let from = head
+                        .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '.'))
+                        .map_or(0, |i| i + 1);
+                    let mut chain: Vec<String> =
+                        head.get(from..)?.split('.').map(str::to_owned).collect();
+                    chain.push(name.to_owned());
+                    (kind == Kind::Jvm)
+                        .then(|| self.jvm_packaged_type(here, &text, &chain))
+                        .flatten()
+                };
+                (!head.ends_with('.') || packaged().is_some()).then_some(name)
+            });
+        let Some(qualifier) = qualifier.filter(|q| w == word && q.starts_with(char::is_uppercase))
+        else {
+            return;
+        };
+        let line1 = self.line + 1;
+        if !search::path_bindings(kind, here, &text, line1, qualifier).is_empty()
+            || (kind == Kind::Jvm
+                && search::jvm_enclosing_types(&text, line1)
+                    .into_iter()
+                    .any(|d| !search::jvm_members_of(here, &text, d, qualifier).is_empty()))
+        {
+            return;
+        }
+        let owned: Option<Vec<bool>> = found
+            .iter()
+            .map(|c| {
+                let text = self.text_of(&c.hit.path)?;
+                let (stat, name) = static_owner(kind, &text, c.hit.line1, word)?;
+                (name == qualifier).then_some(stat)
+            })
+            .collect();
+        let Some(owned) = owned else { return };
+        if owned.iter().any(|s| *s) && owned.iter().any(|s| !*s) {
+            let mut kept = owned.into_iter();
+            found.retain(|_| kept.next().unwrap_or(false));
+        }
+    }
+}
+
+fn static_owner(kind: Kind, text: &str, line1: usize, word: &str) -> Option<(bool, String)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let decl = lines.get(line1.checked_sub(1)?)?;
+    let written_static = decl
+        .find(word)
+        .and_then(|at| decl.get(..at))
+        .is_some_and(|head| head.split_whitespace().any(|t| t == "static"));
+    match kind {
+        Kind::Jvm => {
+            let owners = search::jvm_enclosing_types(text, line1);
+            let first = lines.get(owners.first()?.checked_sub(1)?)?;
+            if first.contains("companion object") {
+                let outer = lines.get(owners.get(1)?.checked_sub(1)?)?;
+                return Some((true, search::jvm_type_name(outer)?));
+            }
+            let object = first.split_whitespace().any(|t| t == "object");
+            Some((written_static || object, search::jvm_type_name(first)?))
+        }
+        Kind::CSharp => {
+            let owner = search::cs_owner(text, line1)?;
+            Some((
+                written_static,
+                search::cs_type_decl(lines.get(owner - 1)?)?.name,
+            ))
+        }
+        _ => {
+            let owner = search::owner_decl(kind, text, line1)?;
+            Some((
+                written_static,
+                search::type_name(kind, lines.get(owner - 1)?)?,
+            ))
+        }
     }
 }

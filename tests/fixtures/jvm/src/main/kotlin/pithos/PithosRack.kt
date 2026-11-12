@@ -60,3 +60,39 @@ class PithosRange {
         return ""
     }
 }
+
+class PithosWrapped<
+    Pithos,
+//  ^ d: src/main/kotlin/pithos/PithosRack.kt:65
+>(
+    val held: Pithos,
+    //        ^ d: src/main/kotlin/pithos/PithosRack.kt:65
+) {
+    fun take(x: Pithos): Pithos = x
+    //          ^ d: src/main/kotlin/pithos/PithosRack.kt:65
+}
+
+fun <Pithos> pithosWrapped(
+    x: Pithos,
+    // ^ d: src/main/kotlin/pithos/PithosRack.kt:75
+): Pithos = x
+// ^ d: src/main/kotlin/pithos/PithosRack.kt:75
+
+fun pithosWrappedPlain(
+    x: Pithos,
+    // ^ d: src/main/kotlin/pithos/Pithos.kt:3
+): Pithos = x
+// ^ d: src/main/kotlin/pithos/Pithos.kt:3
+
+class PithosWrappedCtor<Pithos>(
+    val held: Pithos,
+    //        ^ d: src/main/kotlin/pithos/PithosRack.kt:87
+)
+
+class PithosCrossBound<
+    A : Comparable<Pithos>,
+    Pithos,
+> {
+    fun second(x: Pithos): Pithos = x
+    //            ^ d: src/main/kotlin/pithos/PithosRack.kt:94
+}
