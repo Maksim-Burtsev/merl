@@ -977,7 +977,9 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     if let Some(t) = narrowed(before, at) {
         return Some(t);
     }
-    if let Some(t) = super::kotlin_guarded(&lines, at, name) {
+    if header_lines1_binding(&lines, at, at, name, Some(before.len()), false).is_empty()
+        && let Some(t) = super::kotlin_guarded(&lines, at, name)
+    {
         return Some(t);
     }
     let mut i = at;
