@@ -568,6 +568,50 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<TypeVia> {
+        let declared = || self.declared_value_type(kind, file, text, line1, name, hops);
+        if !matches!(kind, Kind::TsJs | Kind::Python) {
+            return declared();
+        }
+        let (written, guard) = match search::checked_type(kind, text, line1, name) {
+            None => return declared(),
+            Some(search::Checked::Unreadable) => return None,
+            Some(search::Checked::To(written, guard)) => (written, guard),
+        };
+        if self
+            .bindings_of(kind, file, text, line1, name)
+            .iter()
+            .any(|b| b.line1 >= guard)
+        {
+            return declared();
+        }
+        let checked = self.type_decl(kind, file, &written)?;
+        let at = (checked.path.clone(), checked.line);
+        match declared() {
+            Some(d)
+                if self
+                    .hierarchy(kind, &d.ty, 0, &mut |t| {
+                        ((t.path.clone(), t.line) == at).then_some(())
+                    })
+                    .is_some() =>
+            {
+                Some(d)
+            }
+            _ => Some(TypeVia {
+                ty: checked,
+                call_signature: None,
+            }),
+        }
+    }
+
+    fn declared_value_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<TypeVia> {
         if kind == Kind::TsJs
             && let Some(ty) = self.narrowed(kind, file, text, line1, name, hops)
         {
