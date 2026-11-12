@@ -78,3 +78,50 @@ def own(f: Flute) -> None:
     if isinstance(f, Vial):
         f.uncork()
         # ^ d: cruets/vial.py:13
+
+
+def wrapped(c: Cruet) -> None:
+    if isinstance(
+        c, Vial
+    ):
+        c.stopper()
+        # ^ d: cruets/vial.py:8
+
+
+def otherwise(c: Cruet) -> int:
+    if isinstance(c, Vial):
+        c.uncork()
+    else:
+        return 0
+    return c.stopper()
+    #        ^ d: cruets/vial.py:8
+
+
+def noisy(c: Cruet) -> int:
+    if isinstance(c, Phial):
+        c.uncork()
+    else:
+        print(c)
+        return 0
+    return c.stopper()
+    #        ^ d: !jump
+
+
+class Rack:
+    held: Cruet
+
+    def __init__(self, held: Cruet) -> None:
+        self.held = held
+
+    def pour(self) -> None:
+        if isinstance(self.held, Vial):
+            self.held.stopper()
+            #         ^ d: cruets/vial.py:8
+        self.held.stopper()
+        #         ^ d: !jump
+
+    def swap(self, p: Phial) -> None:
+        if isinstance(self.held, Vial):
+            self.held = p
+            self.held.uncork()
+            #         ^ d: !jump
