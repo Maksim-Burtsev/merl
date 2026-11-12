@@ -43,12 +43,12 @@ def loose(c: Cruet, ok: bool) -> None:
         print(ok)
         return
     c.uncork()
-    # ^ d: !jump
+    # ^ d: cruets/cruet.py:2
     if isinstance(c, Phial) and ok:
         c.uncork()
-        # ^ d: !jump
+        # ^ d: cruets/cruet.py:2
     v = c.stopper() if isinstance(c, Vial) else 0
-    #     ^ d: !jump
+    #     ^ d: cruets/cruet.py:5
     print(v)
 
 
@@ -57,7 +57,7 @@ def later(c: Cruet) -> None:
 
         def inner() -> None:
             c.uncork()
-            # ^ d: !jump
+            # ^ d: cruets/cruet.py:2
 
         def other(c: Phial) -> None:
             c.uncork()
@@ -78,3 +78,82 @@ def own(f: Flute) -> None:
     if isinstance(f, Vial):
         f.uncork()
         # ^ d: cruets/vial.py:13
+
+
+def wrapped(c: Cruet) -> None:
+    if isinstance(
+        c, Vial
+    ):
+        c.stopper()
+        # ^ d: cruets/vial.py:8
+
+
+def otherwise(c: Cruet) -> int:
+    if isinstance(c, Vial):
+        c.uncork()
+    else:
+        return 0
+    return c.stopper()
+    #        ^ d: cruets/vial.py:8
+
+
+def noisy(c: Cruet) -> int:
+    if isinstance(c, Phial):
+        c.uncork()
+    else:
+        print(c)
+        return 0
+    return c.stopper()
+    #        ^ d: cruets/cruet.py:5
+
+
+class Rack:
+    held: Cruet
+
+    def __init__(self, held: Cruet) -> None:
+        self.held = held
+
+    def pour(self) -> None:
+        if isinstance(self.held, Vial):
+            self.held.stopper()
+            #         ^ d: cruets/vial.py:8
+        self.held.stopper()
+        #         ^ d: !jump
+
+    def swap(self, p: Phial) -> None:
+        if isinstance(self.held, Vial):
+            self.held = p
+            self.held.uncork()
+            #         ^ d: !jump
+
+
+def reassigned(c: Cruet, xs: list[Cruet]) -> None:
+    if isinstance(c, Vial):
+        for c in xs:
+            c.uncork()
+            # ^ d: cruets/cruet.py:2
+
+
+def outside(c: Cruet, ok: bool) -> None:
+    if not isinstance(c, Vial):
+        print(ok)
+    c.uncork()
+    # ^ d: cruets/cruet.py:2
+    if isinstance(c, dict):
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+    if isinstance(c, (Vial, Phial)):
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+    if isinstance(c, Vial) or ok:
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+
+
+def unrelated(p: Phial, both: Phial | Vial) -> None:
+    if isinstance(p, Vial):
+        p.uncork()
+        # ^ d: cruets/phial.py:5
+    if isinstance(both, Vial):
+        both.uncork()
+        #    ^ d: cruets/vial.py:5

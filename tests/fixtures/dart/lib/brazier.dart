@@ -23,3 +23,14 @@ void rake() {
   Grate.make().light();
   //           ^ d: lib/brazier.dart:10
 }
+
+class Hearth {
+  Hearth();
+  static Grate forge() => Grate();
+  void light() {}
+}
+
+void bank() {
+  Hearth.forge().light();
+  //             ^ d: lib/brazier.dart:10
+}
