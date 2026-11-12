@@ -781,7 +781,7 @@ impl App {
         }
         if let Some(callee) = search::dart_lambda_callee(seen, name)
             && search::dart_bindings_seen(text, self.line + 1, self.dart_col(), callee).is_empty()
-            && search::dart_this_super(text, self.line, false).is_none()
+            && search::dart_class_header(text, self.line).is_none()
             && let Some(ty) = search::dart_callback_param(text, callee)
         {
             return Some((ty, here.to_path_buf()));

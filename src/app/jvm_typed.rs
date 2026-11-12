@@ -726,7 +726,10 @@ impl App {
         let (on, off): (Vec<Hit>, Vec<Hit>) = extensions
             .into_iter()
             .partition(|h| self.jvm_receiver_of(h, word).as_deref() == Some(name));
-        (off.is_empty() || !on.is_empty()).then_some(on)
+        let elsewhere = off
+            .iter()
+            .any(|h| self.jvm_extension_receiver(h, word).is_some());
+        (!elsewhere || !on.is_empty()).then_some(on)
     }
 
     fn jvm_extensions(&self, here: &Path, word: &str) -> Vec<Hit> {
@@ -739,11 +742,13 @@ impl App {
     }
 
     pub(super) fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
-        search::jvm_receiver(&hit.text, word).or_else(|| {
-            let text = self.text_of(&hit.path)?;
-            search::jvm_receiver_at(&text, hit.line1, word)
-                .or_else(|| search::scala_implicit_receiver(&text, hit.line1, word))
-        })
+        self.jvm_extension_receiver(hit, word)
+            .or_else(|| search::scala_implicit_receiver(&self.text_of(&hit.path)?, hit.line1, word))
+    }
+
+    fn jvm_extension_receiver(&self, hit: &Hit, word: &str) -> Option<String> {
+        search::jvm_receiver(&hit.text, word)
+            .or_else(|| search::jvm_receiver_at(&self.text_of(&hit.path)?, hit.line1, word))
     }
 
     fn jvm_value(

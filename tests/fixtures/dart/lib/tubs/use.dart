@@ -78,3 +78,15 @@ void nested() {
   each((x) => x.dunk());
   //            ^ d: !jump
 }
+
+extension HolderEach on Holder {
+  void each(void Function(Tun) f) {}
+  void a() => each((x) => x.dunk());
+  //                        ^ d: !jump
+}
+
+extension type Wrap(int i) {
+  void each(void Function(Tun) f) {}
+  void a() => each((x) => x.dunk());
+  //                        ^ d: !jump
+}
