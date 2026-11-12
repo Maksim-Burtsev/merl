@@ -46,6 +46,12 @@ class Round(val f: Flagon) {
         //              ^ d: picker src/main/java/tea/Kettle.java:44, src/main/java/tea/Teapot.java:17, src/main/java/tea/Vessel.java:6, src/main/kotlin/carafe/Flagon.kt:6, src/main/kotlin/carafe/Stein.kt:6, src/main/kotlin/carafe/Tankard.kt:6
     }
 
+    fun elvis(x: Flagon?) {
+        val z = (x as? Stein) ?: return
+        z.rinse()
+        //^ d: src/main/kotlin/carafe/Stein.kt:6
+    }
+
     fun elseBelow(x: Flagon) {
         if (x is Stein) {
             x.swirl()

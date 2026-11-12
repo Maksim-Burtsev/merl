@@ -895,7 +895,10 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
     let closure = rule(format!(
         r"[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
     ));
-    if [&declared, &assigned, &listed, &closure]
+    let cast = rule(format!(
+        r"(?:final|var|late)\s+{w}\s*=\s*[\w$.]+\s+as\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\s*;"
+    ));
+    if [&declared, &assigned, &listed, &closure, &cast]
         .iter()
         .map(|r| r.find_iter(line).count())
         .sum::<usize>()
@@ -904,6 +907,13 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         return None;
     }
     if let Some(c) = declared.captures(line) {
+        return Some(DartType {
+            prefix: c.get(1).map(|m| m.as_str().to_owned()),
+            class: c[2].to_owned(),
+            constructor: None,
+        });
+    }
+    if let Some(c) = cast.captures(line) {
         return Some(DartType {
             prefix: c.get(1).map(|m| m.as_str().to_owned()),
             class: c[2].to_owned(),
