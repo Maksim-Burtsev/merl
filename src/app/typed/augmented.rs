@@ -17,4 +17,14 @@ impl App {
             })
             .collect()
     }
+
+    pub(super) fn ts_augmented_class(&self, decl: &Hit, parts: &[String]) -> Option<Hit> {
+        let text = self.text_of(&decl.path)?;
+        let spec = search::ts_augmented_module(&text, decl.line1, parts.last()?)?;
+        let [file] = search::module_files(Kind::TsJs, &self.root, &self.files, &decl.path, &[spec])
+            .try_into()
+            .ok()?;
+        self.declaration(Kind::TsJs, &file, parts)
+            .filter(|d| d.path == file)
+    }
 }

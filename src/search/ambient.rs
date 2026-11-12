@@ -249,7 +249,12 @@ pub fn ts_augmented_module(text: &str, line1: usize, name: &str) -> Option<Strin
             !l.trim().is_empty() && l.len() - l.trim_start().len() < depth
         })
     };
-    let head = outer(line1.checked_sub(1)?)?;
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let head = if interface.is_match(lines[at]) {
+        at
+    } else {
+        outer(at)?
+    };
     interface.is_match(lines[head]).then_some(())?;
     Some(MODULE.captures(lines[outer(head)?])?[1].to_owned())
 }

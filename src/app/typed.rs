@@ -1128,6 +1128,10 @@ impl App {
                     .flatten()
             });
         };
+        let decl = (kind == Kind::TsJs)
+            .then(|| self.ts_augmented_class(&decl, &parts))
+            .flatten()
+            .unwrap_or(decl);
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
