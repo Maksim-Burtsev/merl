@@ -317,15 +317,15 @@ pub fn kotlin_guarded(lines: &[&str], at: usize, name: &str) -> Option<String> {
 }
 
 pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str) -> bool {
+    static EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:return|throw|continue|break)\b").expect("the regex is a literal")
+    });
     let n = regex::escape(name);
     let Ok(check) = Regex::new(&format!(
         r"^\s*(?:if\s*\(\s*{n}\s+is\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
     )) else {
         return false;
     };
-    static EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\b(?:return|throw|continue|break)\b").expect("the regex is a literal")
-    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(head) = mention1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
