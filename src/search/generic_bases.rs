@@ -203,3 +203,14 @@ pub fn go_receiver_parameters(member: &str) -> Option<Vec<String>> {
     let (list, _) = bracket_group(member.get(open..)?, '[', ']')?;
     Some(top_commas(&list))
 }
+
+pub fn go_type_with_arguments(written: &str) -> Option<(&str, Vec<String>)> {
+    let (name, inner) = written.trim().trim_start_matches('*').split_once('[')?;
+    let name = name.trim();
+    let (list, rest) = bracket_group(inner, '[', ']')?;
+    let named = !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '.'));
+    (named && rest.trim().is_empty()).then(|| (name, top_commas(&list)))
+}

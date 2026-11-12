@@ -884,7 +884,7 @@ impl App {
         found
     }
 
-    fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
+    pub(super) fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
         let lines: Vec<&str> = text.lines().collect();
         let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;

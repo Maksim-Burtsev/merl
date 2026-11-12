@@ -1,20 +1,100 @@
 use regex::Regex;
 
-use super::{Kind, Value, close_of, code, return_type, ts_callback_element};
+use super::{Kind, Value, close_of, code, return_type, split_top, ts_callback_element};
 
 pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
     ts_arrows(line, name).iter().any(|a| a.holds(at))
 }
-pub(super) fn ts_arrow_element(line: &str, name: &str, at: usize) -> Option<Value> {
+pub(super) fn ts_arrow_element(text: &str, line: &str, name: &str, at: usize) -> Option<Value> {
     let a = ts_arrows(line, name)
         .into_iter()
         .filter(|a| a.holds(at))
         .max_by_key(|a| a.body_start)?;
-    let value = ts_callback_element(line.get(..a.head)?, line.get(a.params)?, name)?;
+    let n = regex::escape(name);
+    let rebinds = Regex::new(&format!(
+        r"\b(?:const|let|var)\s+{n}\b|\bcatch\s*\(\s*{n}\b|\bfunction\b[^(]*\([^)]*\b{n}\b"
+    ))
+    .ok()?;
+    let bound = Regex::new(&format!(r"(?:^|[{{\[,:]|\.\.\.)\s*{n}\s*(?:$|[}}\],=])")).ok()?;
+    let body = line.get(a.body_start..at)?;
+    if rebinds.is_match(body) || destructures(body, &bound) {
+        return None;
+    }
+    let (before, params) = (line.get(..a.head)?, line.get(a.params)?);
+    let value = ts_callback_element(before, params, name)
+        .or_else(|| ts_callee_param(text, before, params, name))?;
     match &value {
         Value::Element(over) if over.split('.').next() == Some(name) => None,
         _ => Some(value),
     }
+}
+fn destructures(body: &str, bound: &Regex) -> bool {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:const|let|var)\s*[\[{]").expect("the regex is a literal")
+    });
+    PATTERN.find_iter(body).any(|m| {
+        let close = close_of(Kind::TsJs, body, m.end() - 1).unwrap_or(body.len() + 1);
+        body.get(m.end()..close - 1)
+            .is_some_and(|p| bound.is_match(p))
+    })
+}
+fn ts_callee_param(text: &str, before: &str, params: &str, name: &str) -> Option<Value> {
+    static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$").expect("the regex is a literal")
+    });
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::TsJs, before) {
+        match c {
+            b'(' | b'[' | b'{' => open.push((i, c)),
+            b')' | b']' | b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    let (open, b'(') = open.pop()? else {
+        return None;
+    };
+    let args = split_top(Kind::TsJs, before.get(open + 1..)?, b',');
+    if !args.last()?.trim().is_empty() {
+        return None;
+    }
+    let head = before.get(..open)?.trim_end();
+    let receiver = head.trim_end_matches(|c: char| c.is_alphanumeric() || "_$".contains(c));
+    let callee = head
+        .get(receiver.len()..)
+        .filter(|c| !c.is_empty() && !receiver.trim_end().ends_with('.'))?;
+    let word = Regex::new(&format!(r"(?:^|[^\w$]){}\b", regex::escape(callee))).ok()?;
+    let only_called = word.find_iter(text).all(|m| {
+        text.get(m.end()..)
+            .is_some_and(|t| t.trim_start().starts_with('('))
+    });
+    let declared = Regex::new(&format!(
+        r"(?m)^(?:export\s+)?(?:async\s+)?function\s+{}\s*\(",
+        regex::escape(callee)
+    ))
+    .ok()?;
+    let mut headers = declared.find_iter(text);
+    let (Some(header), None, true) = (headers.next(), headers.next(), only_called) else {
+        return None;
+    };
+    let close = close_of(Kind::TsJs, text, header.end() - 1)?;
+    let declared = split_top(Kind::TsJs, text.get(header.end()..close - 1)?, b',');
+    let (_, f) = declared.get(args.len() - 1)?.split_once(':')?;
+    let f = f.trim();
+    let f_close = close_of(Kind::TsJs, f, 0).filter(|_| f.starts_with('('))?;
+    f.get(f_close..)?
+        .trim_start()
+        .starts_with("=>")
+        .then_some(())?;
+    let at = split_top(Kind::TsJs, params, b',')
+        .iter()
+        .position(|p| p.trim() == name)?;
+    let (_, t) = split_top(Kind::TsJs, f.get(1..f_close - 1)?, b',')
+        .get(at)?
+        .split_once(':')?;
+    TYPE.is_match(t.trim())
+        .then(|| Value::Type(t.trim().to_owned()))
 }
 pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
     let (Some(before), Some(after)) = (line.get(..at), line.get(at + name.len()..)) else {

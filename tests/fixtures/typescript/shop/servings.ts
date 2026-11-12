@@ -50,3 +50,31 @@ export function unpack(): void {
     //   ^ d: shop/servings.ts:2
   }
 }
+
+export interface Set1 { plate: Platter; readonly pan?: Saucepan }
+export type Set2 = { pan: Saucepan, plate: Platter };
+export function setOne(): Set1 {
+  return { plate: new Platter() };
+}
+export function setTwo(): Set2 {
+  return { pan: new Saucepan(), plate: new Platter() };
+}
+
+export function unpackSets({ plate, pan }: Set1): void {
+  pan.dollop();
+  //  ^ d: shop/servings.ts:5
+  plate.dollop();
+  //    ^ d: shop/servings.ts:2
+  const { pan: p2, plate: q2 } = setTwo();
+  p2.dollop();
+  // ^ d: shop/servings.ts:5
+  q2.dollop();
+  // ^ d: shop/servings.ts:2
+  const one = setOne();
+  one.pan.dollop();
+  //      ^ d: shop/servings.ts:5
+  let { plate: swapped, pan: other2 } = setTwo();
+  [swapped, other2] = [other2, swapped];
+  swapped.dollop();
+  //      ^ d: !jump
+}

@@ -48,6 +48,14 @@ fn class_fields(
     {
         return fields;
     }
+    if kind == Kind::TsJs
+        && let Some(body) = ts_one_line(lines[k])
+    {
+        return ts_one_line_fields(body, name)
+            .map(|value| Binding { line1: decl, value })
+            .into_iter()
+            .collect();
+    }
     let go_field = |t: &str| go_field(t, name);
     if kind == Kind::Go
         && let Some(body) = go_one_line(lines[k], "struct")
@@ -318,19 +326,46 @@ fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
     let close = close_of(Kind::Go, line, open)?;
     line.get(open + 1..close - 1)
 }
+fn ts_one_line(line: &str) -> Option<&str> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+[A-Za-z_$][\w$]*\s*|type\s+[A-Za-z_$][\w$]*\s*=\s*)\{")
+            .expect("the regex is a literal")
+    });
+    let open = HEAD.find(line)?.end() - 1;
+    let close = close_of(Kind::TsJs, line, open)?;
+    line.get(close..)?
+        .trim()
+        .trim_end_matches(';')
+        .is_empty()
+        .then(|| line.get(open + 1..close - 1))?
+}
+fn ts_one_line_fields(body: &str, name: &str) -> Option<Value> {
+    split_top(Kind::TsJs, body, b';')
+        .into_iter()
+        .flat_map(|s| split_top(Kind::TsJs, s, b','))
+        .find_map(|item| {
+            let item = item.trim();
+            let item = item.strip_prefix("readonly ").unwrap_or(item).trim_start();
+            let (key, ty) = item.split_once(':')?;
+            (key.trim().trim_end_matches('?').trim_end() == name)
+                .then(|| Value::Type(ty.trim().to_owned()))
+        })
+}
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line, "struct")
         .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 pub fn go_one_line_method(line: &str, name: &str) -> bool {
-    line.trim_start().starts_with("type ")
-        && go_one_line(line, "interface").is_some_and(|body| {
-            body.split(';').any(|m| {
-                m.trim()
-                    .strip_prefix(name)
-                    .is_some_and(|rest| rest.trim_start().starts_with('('))
-            })
+    line.trim_start().starts_with("type ") && go_interface_declares(line, name)
+}
+pub fn go_interface_declares(t: &str, name: &str) -> bool {
+    go_one_line(t, "interface").is_some_and(|body| {
+        body.split(';').any(|m| {
+            m.trim()
+                .strip_prefix(name)
+                .is_some_and(|rest| rest.trim_start().starts_with('('))
         })
+    })
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

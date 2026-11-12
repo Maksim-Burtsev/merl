@@ -178,13 +178,19 @@ pub struct JvmEnumImport {
 pub fn jvm_enum_imports(path: &Path, text: &str, word: &str) -> Vec<JvmEnumImport> {
     let java = path.extension().is_some_and(|e| e == "java");
     let kotlin = path.extension().is_some_and(|e| e == "kt" || e == "kts");
-    if !java && !kotlin {
+    let scala = super::scala(path);
+    if !java && !kotlin && !scala {
         return Vec::new();
     }
     let keyword = if java { r"static\s+" } else { "" };
     let end = if java { r"\s*;" } else { r"\s*;?" };
+    let (lead, wildcard) = if scala {
+        ("", r"\*|_")
+    } else {
+        (r"\s*", r"\*")
+    };
     let Ok(import) = Regex::new(&format!(
-        r"^\s*import\s+{keyword}([\w.]+)\.(\*|{})(?:{end})\s*(?://.*)?$",
+        r"^{lead}import\s+{keyword}([\w.]+)\.({wildcard}|{})(?:{end})\s*(?://.*)?$",
         regex::escape(word)
     )) else {
         return Vec::new();
@@ -201,7 +207,7 @@ pub fn jvm_enum_imports(path: &Path, text: &str, word: &str) -> Vec<JvmEnumImpor
         })
         .map(|c| JvmEnumImport {
             owner: c[1].to_owned(),
-            single: &c[2] != "*",
+            single: &c[2] == word,
         })
         .collect()
 }

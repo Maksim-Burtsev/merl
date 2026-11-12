@@ -6,7 +6,7 @@ import Hound.*
 object Perch {
   def perch(bird: Hound): Int = bird match {
     case Setter => 1
-      // ^ d: picker src/main/scala/rookery/Gem.scala:4, src/main/scala/rookery/Hound.scala:4; want src/main/scala/rookery/Hound.scala:4 (#1448)
+      // ^ d: src/main/scala/rookery/Hound.scala:4
     case Beagle => 0
   }
 
@@ -17,5 +17,5 @@ object Perch {
   }
 
   val plain: Hound = Setter
-                  // ^ d: picker src/main/scala/rookery/Gem.scala:4, src/main/scala/rookery/Hound.scala:4; want src/main/scala/rookery/Hound.scala:4 (#1448)
+                  // ^ d: src/main/scala/rookery/Hound.scala:4
 }

@@ -303,11 +303,17 @@ fn a_java_element_comes_out_of_a_written_collection() {
     assert_eq!(java_element_access("        x = q.size()."), None);
     assert_eq!(java_element_access("        x = a.b.get(0)."), None);
     let field = "    private final List<Stone> stones = new ArrayList<>();";
-    assert_eq!(java_element_type(field, "stones").as_deref(), Some("Stone"));
+    let both = |c: &str, e: &str| Some((c.to_owned(), e.to_owned()));
+    assert_eq!(java_element_type(field, "stones"), both("List", "Stone"));
     assert_eq!(
         java_element_type("    Map<K, Stone> stones;", "stones"),
+        both("Map", "Stone")
+    );
+    assert_eq!(
+        java_element_type("    Map<String, List<Stone>> stones;", "stones"),
         None
     );
+    assert_eq!(java_element_type("    Map<Stone> stones;", "stones"), None);
     assert_eq!(
         java_element_type("    Optional<? extends a.B> stones,", "stones"),
         None

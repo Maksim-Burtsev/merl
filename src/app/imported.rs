@@ -504,10 +504,17 @@ impl App {
             let Some(text) = self.text_of(f) else {
                 continue;
             };
+            let listed = search::listed_import(&text, first).and_then(|mut module| {
+                let name_in_module = module.pop()?;
+                Some(search::Reexport {
+                    module,
+                    name_in_module,
+                })
+            });
             for search::Reexport {
                 mut module,
                 name_in_module,
-            } in search::reexported(&text, first)
+            } in search::reexported(&text, first).into_iter().chain(listed)
             {
                 if name_in_module == "*" && chain.is_empty() {
                     continue;

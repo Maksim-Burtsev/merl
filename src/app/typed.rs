@@ -495,6 +495,16 @@ impl App {
         chain: &[String],
         hops: usize,
     ) -> Result<ProvenType, String> {
+        if kind == Kind::Go
+            && let [var, field, rest @ ..] = chain
+            && let Some(arg) = self.go_field_argument(file, text, line1, (var, field))
+        {
+            let value = search::Value::Type(arg);
+            let start = self
+                .binding_type(kind, file, text, &search::Binding { line1, value }, hops)
+                .ok_or_else(|| field.clone())?;
+            return self.follow(kind, start, &format!("{var}.{field}"), false, rest);
+        }
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
@@ -819,7 +829,11 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
-                None if indexed => (search::python_dict_value(&written)?, at.clone()),
+                None if indexed
+                    && (kind != Kind::TsJs || self.type_decl(kind, &at, &written).is_none()) =>
+                {
+                    (search::indexed_value(kind, &written)?, at.clone())
+                }
                 None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
