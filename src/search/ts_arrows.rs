@@ -12,10 +12,12 @@ pub(super) fn ts_arrow_element(text: &str, line: &str, name: &str, at: usize) ->
         .max_by_key(|a| a.body_start)?;
     let n = regex::escape(name);
     let rebinds = Regex::new(&format!(
-        r"\b(?:const|let|var)\s+{n}\b|\b(?:const|let|var)\s*[\[{{][^=]*\b{n}\b|\bcatch\s*\(\s*{n}\b|\bfunction\b[^(]*\([^)]*\b{n}\b"
+        r"\b(?:const|let|var)\s+{n}\b|\bcatch\s*\(\s*{n}\b|\bfunction\b[^(]*\([^)]*\b{n}\b"
     ))
     .ok()?;
-    if rebinds.is_match(line.get(a.body_start..at)?) {
+    let bound = Regex::new(&format!(r"(?:^|[{{\[,:]|\.\.\.)\s*{n}\s*(?:$|[}}\],=])")).ok()?;
+    let body = line.get(a.body_start..at)?;
+    if rebinds.is_match(body) || destructures(body, &bound) {
         return None;
     }
     let (before, params) = (line.get(..a.head)?, line.get(a.params)?);
@@ -25,6 +27,16 @@ pub(super) fn ts_arrow_element(text: &str, line: &str, name: &str, at: usize) ->
         Value::Element(over) if over.split('.').next() == Some(name) => None,
         _ => Some(value),
     }
+}
+fn destructures(body: &str, bound: &Regex) -> bool {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:const|let|var)\s*[\[{]").expect("the regex is a literal")
+    });
+    PATTERN.find_iter(body).any(|m| {
+        let close = close_of(Kind::TsJs, body, m.end() - 1).unwrap_or(body.len() + 1);
+        body.get(m.end()..close - 1)
+            .is_some_and(|p| bound.is_match(p))
+    })
 }
 fn ts_callee_param(text: &str, before: &str, params: &str, name: &str) -> Option<Value> {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -48,10 +60,10 @@ fn ts_callee_param(text: &str, before: &str, params: &str, name: &str) -> Option
         return None;
     }
     let head = before.get(..open)?.trim_end();
-    let callee = head.trim_start_matches(|c: char| c.is_alphanumeric() || "_$".contains(c));
+    let receiver = head.trim_end_matches(|c: char| c.is_alphanumeric() || "_$".contains(c));
     let callee = head
-        .get(callee.len()..)
-        .filter(|_| !callee.ends_with('.'))?;
+        .get(receiver.len()..)
+        .filter(|c| !c.is_empty() && !receiver.trim_end().ends_with('.'))?;
     let word = Regex::new(&format!(r"(?:^|[^\w$]){}\b", regex::escape(callee))).ok()?;
     let only_called = word.find_iter(text).all(|m| {
         text.get(m.end()..)
