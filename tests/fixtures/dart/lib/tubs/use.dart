@@ -27,7 +27,7 @@ void each(void Function(Tub) f) {}
 
 void run() {
   each((x) => x.dunk());
-  //            ^ d: picker lib/tubs/hogshead.dart:2, lib/tubs/tub.dart:2, lib/tubs/tun.dart:2; want lib/tubs/tub.dart:2 (#1488)
+  //            ^ d: lib/tubs/tub.dart:2
   c.dunk();
   //^ d: !jump
 }
@@ -60,4 +60,33 @@ class Shade {
   //                                                   ^ d: !jump
   void b(List<Tun> tubs) => tubs.forEach((x) => x.dunk());
   //                                              ^ d: lib/tubs/tun.dart:2
+}
+
+void shadowedEach(void Function(Tun) each) {
+  each((x) => x.dunk());
+  //            ^ d: !jump
+}
+
+class Eacher {
+  void each(void Function(Tun) f) {}
+  void a() => each((x) => x.dunk());
+  //                      ^ d: !jump
+}
+
+void nested() {
+  void each(void Function(Tun) f) {}
+  each((x) => x.dunk());
+  //            ^ d: !jump
+}
+
+extension HolderEach on Holder {
+  void each(void Function(Tun) f) {}
+  void a() => each((x) => x.dunk());
+  //                        ^ d: !jump
+}
+
+extension type Wrap(int i) {
+  void each(void Function(Tun) f) {}
+  void a() => each((x) => x.dunk());
+  //                        ^ d: !jump
 }

@@ -102,4 +102,26 @@ impl App {
             from: (file.to_path_buf(), line1),
         })
     }
+
+    pub(super) fn cs_static_field_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        fields: &[String],
+    ) -> Option<Proven> {
+        let field = fields.first()?;
+        let p = self.cs_static_head(file, text, line1, name, true)?;
+        let CsType::Project(t) = &p.ty else {
+            return None;
+        };
+        let Up::Found(hits) = self.cs_up(t, field, 0) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        search::cs_static_member(&hit.text, field).then_some(p)
+    }
 }

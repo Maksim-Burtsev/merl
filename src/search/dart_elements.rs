@@ -108,3 +108,32 @@ pub fn dart_lambda_over<'a>(line: &'a str, name: &str) -> Option<(&'a str, bool)
     }
     Some((c.get(2)?.as_str(), c.get(1).is_some()))
 }
+
+pub fn dart_lambda_callee<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w$.])([a-z_$][\w$]*)\s*\(\s*\(\s*{}\s*\)\s*(?:=>|\{{)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let mut found = re.captures_iter(line);
+    let callee = found.next()?.get(1)?.as_str();
+    (found.next().is_none() && callee != name).then_some(callee)
+}
+
+pub fn dart_callback_param(text: &str, callee: &str) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        r"^(\s*)[\w$<>?]+\s+{}\s*\(\s*(?:void\s+)?Function\s*\(\s*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:\s+[a-z_$][\w$]*)?\s*\)\??\s+[a-z_$][\w$]*\s*[,)]",
+        regex::escape(callee)
+    ))
+    .ok()?;
+    let mut found = text
+        .lines()
+        .filter_map(|l| re.captures(l))
+        .filter(|c| c[1].is_empty());
+    let c = found.next()?;
+    found.next().is_none().then(|| DartType {
+        prefix: c.get(2).map(|m| m.as_str().to_owned()),
+        class: c[3].to_owned(),
+        constructor: None,
+    })
+}

@@ -2,6 +2,7 @@ use regex::Regex;
 
 use super::jvm::{opens_type, scope_of};
 use super::jvm_rebound::blanked;
+use super::scala_mods;
 use super::{Kind, indent, path_literal_lines};
 use std::path::Path;
 
@@ -329,4 +330,23 @@ pub fn scala_rebound(
         return true;
     }
     unread_above(path, &lines, at, name, false).is_some_and(|l| bound.iter().all(|&b| b < l))
+}
+
+pub fn scala_implicit_receiver(text: &str, line: usize, name: &str) -> Option<String> {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected)(?:\[\w+\])?\s+|final\s+)*implicit\s+(?:final\s+)?class\s+\w+\s*\(\s*(?:val\s+)?\w+\s*:\s*([\w.]+)\s*\)(?:\s+extends\s+AnyVal)?\s*\{\s*(?://.*)?$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let def = Regex::new(&format!(
+        r"{}def\s+`?{}`?(?:[^\w`]|$)",
+        scala_mods!(),
+        regex::escape(name)
+    ))
+    .ok()?;
+    def.is_match(lines[at]).then_some(())?;
+    CLASS
+        .captures(lines[scope_of(&lines, at)?])
+        .map(|c| c[1].to_owned())
 }

@@ -726,7 +726,10 @@ impl App {
         let (on, off): (Vec<Hit>, Vec<Hit>) = extensions
             .into_iter()
             .partition(|h| self.jvm_receiver_of(h, word).as_deref() == Some(name));
-        (off.is_empty() || !on.is_empty()).then_some(on)
+        let elsewhere = off
+            .iter()
+            .any(|h| self.jvm_extension_receiver(h, word).is_some());
+        (!elsewhere || !on.is_empty()).then_some(on)
     }
 
     fn jvm_extensions(&self, here: &Path, word: &str) -> Vec<Hit> {
@@ -738,11 +741,14 @@ impl App {
         hits
     }
 
-    fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
-        search::jvm_receiver(&hit.text, word).or_else(|| {
-            let text = self.text_of(&hit.path)?;
-            search::jvm_receiver_at(&text, hit.line1, word)
-        })
+    pub(super) fn jvm_receiver_of(&self, hit: &Hit, word: &str) -> Option<String> {
+        self.jvm_extension_receiver(hit, word)
+            .or_else(|| search::scala_implicit_receiver(&self.text_of(&hit.path)?, hit.line1, word))
+    }
+
+    fn jvm_extension_receiver(&self, hit: &Hit, word: &str) -> Option<String> {
+        search::jvm_receiver(&hit.text, word)
+            .or_else(|| search::jvm_receiver_at(&self.text_of(&hit.path)?, hit.line1, word))
     }
 
     fn jvm_value(
@@ -757,20 +763,28 @@ impl App {
         let narrowing = if kotlin {
             r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
         } else {
-            r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b"
+            r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
         };
         let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
         let own_when = kotlin
             .then(|| search::jvm_when_else(text, line1, name))
             .flatten();
-        if narrowed
-            .find_iter(text)
-            .any(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1) != own_when)
-        {
-            return None;
-        }
         let lines: Vec<&str> = text.lines().collect();
         let ext = file.extension().and_then(|e| e.to_str());
+        let start = search::jvm_function_start(&lines, line1);
+        let elsewhere = |at: usize| {
+            start.is_some_and(|s| {
+                at > line1 || at < s || search::kotlin_check_closed(text, line1, at, name)
+            })
+        };
+        let mentions: Vec<Option<usize>> = narrowed
+            .find_iter(text)
+            .map(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1))
+            .filter(|&at| at != own_when)
+            .collect();
+        if !mentions.iter().all(|at| at.is_some_and(elsewhere)) {
+            return None;
+        }
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
         let cursor_line = line1 == self.line + 1 && lines.get(self.line) == Some(&self.line_str());
         let bindings: Vec<usize> = if cursor_line {
@@ -830,7 +844,7 @@ impl App {
             }
             found = Some(this);
         }
-        found
+        found.filter(|f| mentions.is_empty() || matches!(f.resolved, JvmType::Project(_)))
     }
 
     fn jvm_held_member(
