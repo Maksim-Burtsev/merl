@@ -19,8 +19,12 @@ class Grate
 end
 
 Brazier::make
-#         ^ d: picker app/brazier.rb:2, app/brazier.rb:6; want app/brazier.rb:2 (#1489)
+#         ^ d: app/brazier.rb:2
 Brazier.make
 #       ^ d: app/brazier.rb:2
 Brazier.make.light
-#            ^ d: picker app/brazier.rb:10, app/brazier.rb:18; want app/brazier.rb:10 (#1489)
+#            ^ d: app/brazier.rb:10
+Grate.make.light
+#          ^ d: app/brazier.rb:18
+Grate::make
+#      ^ d: app/brazier.rb:14

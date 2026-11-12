@@ -868,15 +868,15 @@ fn kotlin_int_type(value: &str) -> Option<&'static str> {
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let rule = if kotlin {
-        format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??")
+        format!(
+            r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??|\bdef\s+{n}\s*(?:\([^)]*\))*\s*:\s*([A-Z]\w*)\s*(?:=|\{{|$)"
+        )
     } else {
         format!(r"(?:^|\s)([A-Z]\w*){GENERIC}\s+{n}\s*\(")
     };
     let code = uncommented(Kind::Jvm, line);
-    Regex::new(&rule)
-        .ok()?
-        .captures(&code)
-        .map(|c| c[1].to_owned())
+    let c = Regex::new(&rule).ok()?.captures(&code)?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
 static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
