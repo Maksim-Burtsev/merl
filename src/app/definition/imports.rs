@@ -336,10 +336,13 @@ impl App {
                     .collect();
                 search::scala_alias_owner(&a.text, line1, s, &bound)
             }
+            [t, s] if s == "this" && !search::kotlin(&a.here) => {
+                search::jvm_named_this_owner(&a.text, line1, t)
+            }
             _ => None,
         };
         let applies = kind == Kind::Jvm
-            && a.own()
+            && (a.own() || alias.is_some())
             && (a.dotted || a.before.ends_with("::"))
             && !search::jvm_anonymous_open(&a.before);
         let kotlin = search::kotlin(&a.here).then_some(a.before.as_str());
