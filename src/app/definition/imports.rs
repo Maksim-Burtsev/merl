@@ -327,12 +327,32 @@ impl App {
 
     fn jvm_this(&self, a: &Asked, pattern: &str) -> Vec<Candidate> {
         let kind = a.kind;
-        if kind == Kind::Jvm
+        let line1 = self.line + 1;
+        let alias = match a.chain.as_slice() {
+            [s] if s != "this" && search::scala(&a.here) => {
+                let bound: Vec<usize> = search::path_bindings(kind, &a.here, &a.text, line1, s)
+                    .iter()
+                    .map(|b| b.line1)
+                    .collect();
+                search::scala_alias_owner(&a.text, line1, s, &bound)
+            }
+            _ => None,
+        };
+        let applies = kind == Kind::Jvm
             && a.own()
             && (a.dotted || a.before.ends_with("::"))
-            && !search::jvm_anonymous_open(&a.before)
-            && let Some(owner) = search::jvm_this_owner(&a.text, self.line + 1)
+            && !search::jvm_anonymous_open(&a.before);
+        let kotlin = search::kotlin(&a.here).then_some(a.before.as_str());
+        if applies
+            && alias.is_none()
+            && matches!(a.chain.as_slice(), [s] if s == "this")
+            && let Some(anon) = search::jvm_anonymous_scope(&a.text, line1, kotlin)
         {
+            let reason = Reason::Path("this".to_owned());
+            let lines = search::jvm_members_of(&a.here, &a.text, anon, &a.word);
+            return self.lines_here(a, lines, &reason);
+        }
+        if applies && let Some(owner) = alias.or_else(|| search::jvm_this_owner(&a.text, line1)) {
             let full = format!("{owner}.{}", a.word);
             let re = Regex::new(pattern).expect("an escaped name keeps the pattern valid");
             return a
