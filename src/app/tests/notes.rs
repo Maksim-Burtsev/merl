@@ -562,7 +562,7 @@ fn a_note_being_typed_draws_the_reading_cursor_on_its_band() {
 }
 
 fn on_the_empty_line(tag: &str) -> (PathBuf, App) {
-    let long: &[u8] = b"x\n    def handle(self, payload):\n\n";
+    let long: &[u8] = b"x\n    def handle(self, payload):\n\ny\n";
     let (dir, mut a) = review_app_with(tag, &[("long.py", long)]);
     a.show_tree = false;
     a.jump_to(&dir.join("long.py"), 3);
@@ -597,5 +597,26 @@ fn a_second_note_on_an_empty_line_opens_with_the_cursor_on_the_line() {
     assert_eq!((a.mode, a.line, a.col), (Mode::Note, 2, 0));
     keys(&mut a, &[(KeyCode::Esc, NONE)]);
     assert_eq!((a.mode, a.line, a.col), (Mode::Normal, 2, 0));
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_second_note_on_a_range_ending_in_an_empty_line_takes_the_whole_range() {
+    let (dir, mut a) = on_the_empty_line("notes-empty-range");
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Down, SHIFT),
+            (KeyCode::Down, SHIFT),
+        ],
+    );
+    note(&mut a, "first");
+    assert_eq!(a.notes.focus, Some(0));
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    typed(&mut a, "second");
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    let text = read(&dir);
+    assert_eq!(text.matches("\nlong.py:2-3\n").count(), 2, "{text}");
     drop(std::fs::remove_dir_all(dir));
 }
