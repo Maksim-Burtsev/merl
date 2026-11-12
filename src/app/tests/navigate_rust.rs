@@ -307,7 +307,10 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         ),
         (
             "x.secret",
-            Shown::Jump("no definition for secret".into(), String::new()),
+            jump(
+                "secret \u{2192} Extra::secret (via x: Extra)",
+                "src/extra.rs:4",
+            ),
         ),
         (
             "q.into_iter",
