@@ -4,6 +4,7 @@ use super::{
 };
 
 mod accessor;
+mod augmented;
 mod calls;
 mod checked;
 mod declared;
@@ -120,7 +121,13 @@ impl App {
                 assigned
             })
             .or_else(|| self.eslint_parent(kind, here, &text, line, chain, word))
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                if kind == Kind::TsJs {
+                    self.ts_augmentations(&ty, word)
+                } else {
+                    Vec::new()
+                }
+            });
         if hits.is_empty()
             && search::reads_jsdoc(kind, here)
             && ty
@@ -942,7 +949,11 @@ impl App {
         if hidden(kind, file, text, line1, &parts[0]) {
             return None;
         }
-        let decl = self.declaration(kind, file, &parts);
+        let decl = self.declaration(kind, file, &parts).or_else(|| {
+            (kind == Kind::TsJs)
+                .then(|| self.ts_static_callee(file, text, line1, receiver, method))
+                .flatten()
+        });
         let imported = kind == Kind::Python
             && receiver.is_empty()
             && decl.as_ref().is_some_and(|d| d.path == file)
@@ -1121,6 +1132,10 @@ impl App {
                     .flatten()
             });
         };
+        let decl = (kind == Kind::TsJs)
+            .then(|| self.ts_augmented_class(&decl, &parts))
+            .flatten()
+            .unwrap_or(decl);
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));

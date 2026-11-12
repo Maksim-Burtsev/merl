@@ -217,6 +217,49 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>
     })
 }
 
+pub fn swift_bound_on_line(lead: &str, name: &str) -> bool {
+    let open = open_braces(lead, lead.len());
+    let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
+    let ends = open.iter().copied().chain(std::iter::once(lead.len()));
+    starts.zip(ends).enumerate().any(|(i, (from, to))| {
+        let part = lead.get(from..to).unwrap_or_default();
+        let params = i > 0
+            && CLOSURE_HEAD
+                .captures(part)
+                .is_some_and(|c| swift_closure_params_bind(&c[2], name));
+        let statements = split_top(Kind::Swift, part, b';');
+        let (last, done) = statements.split_last().unwrap_or((&"", &[]));
+        let header = last
+            .get(after_closed_block(last)..)
+            .unwrap_or_default()
+            .trim();
+        params
+            || done.iter().any(|s| swift_declares(s, name, None))
+            || (i < open.len()
+                && !header.starts_with("guard ")
+                && super::swift_binds_on(&format!("{header} {{"), name))
+    })
+}
+
+fn after_closed_block(s: &str) -> usize {
+    let mut depth = 0i32;
+    let mut after = 0;
+    for (i, c) in code(Kind::Swift, s) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    after = i + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    after
+}
+
 pub struct SwiftPayload {
     pub name: String,
     pub subject: Option<String>,
