@@ -39,4 +39,8 @@ class Use(private val tubs: List<Tub>, private val c: Tun) {
     //        ^ d: src/main/kotlin/tubs/Tun.kt:4
         }
     }
+    fun r() = tubs.forEach {
+        it.dunk()
+    //     ^ d: src/main/kotlin/tubs/Tub.kt:4
+    }
 }
