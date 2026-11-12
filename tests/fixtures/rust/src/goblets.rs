@@ -133,3 +133,57 @@ pub fn probe_blanket<T>(x: T) {
     x.sip_it();
     //^ d: src/goblets.rs:129
 }
+pub struct Tankard<'a, T> {
+    held: &'a T,
+    boxed: Box<T>,
+}
+impl<'a, T> Tankard<'a, T> {
+    pub fn probe_ref(&self) {
+        self.held.quaff();
+        //        ^ d: none
+        self.boxed.quaff();
+        //         ^ d: none
+    }
+}
+pub struct Decanter<T> {
+    held: T,
+}
+impl<T>
+    Decanter<T>
+{
+    pub fn probe_wrapped_impl(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+pub struct Carafe<T> {
+    held: T,
+}
+pub unsafe trait Decant {
+    fn decant(&self);
+}
+unsafe impl<T> Decant for Carafe<T> {
+    fn decant(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+pub trait Siphon {
+    fn siphon(&self);
+}
+impl<T> Siphon
+    for Decanter<T>
+{
+    fn siphon(&self) {
+        self.held.quaff();
+        //        ^ d: none
+    }
+}
+impl<
+    T: Toaster,
+> Carafe<T> {
+    pub fn probe_wrapped_params(&self) {
+        self.held.clink();
+        //        ^ d: src/goblets.rs:39
+    }
+}

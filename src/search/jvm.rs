@@ -636,7 +636,9 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
                 r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
             ),
             format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
-            format!(r"\b(?:val|var)\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*(?:\([^()]*\))?\s*;?\s*$"),
+            format!(
+                r"\b(?:val|var)\s+{n}\s*=\s*new\s+{ty}{GENERIC}(?:\[[^\[\]]*\])?\s*(?:\([^()]*\))?\s*;?\s*$"
+            ),
         ]
     } else {
         vec![
@@ -1152,13 +1154,21 @@ pub fn java_element_access(before: &str) -> Option<String> {
     Some(ACCESS.captures(before)?[1].to_owned())
 }
 
-pub fn java_element_type(line: &str, name: &str) -> Option<String> {
+pub fn java_element_type(line: &str, name: &str) -> Option<(String, String)> {
     let re = Regex::new(&format!(
-        r"(?:^|[\s(,])(?:List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional|PriorityQueue|BlockingQueue)<\s*(?:\?\s+extends\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)",
+        concat!(
+            r"(?:^|[\s(,])(?:(List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional",
+            r"|PriorityQueue|BlockingQueue)<|(Map|HashMap|LinkedHashMap|TreeMap|SortedMap|NavigableMap",
+            r"|ConcurrentMap|ConcurrentHashMap)<\s*[A-Z][\w.]*\s*,)\s*(?:\?\s+extends\s+)?",
+            r"([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)"
+        ),
         regex::escape(name)
     ))
     .ok()?;
-    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    let container = c.get(1).or_else(|| c.get(2))?.as_str().to_owned();
+    Some((container, c[3].to_owned()))
 }
 
 pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
@@ -1279,6 +1289,14 @@ pub fn jvm_when_else(text: &str, line1: usize, name: &str) -> Option<usize> {
     subject
         .is_match(&uncommented(Kind::Jvm, lines[head]))
         .then_some(head + 1)
+}
+
+pub fn scala_packaged_construction(before: &str) -> Option<String> {
+    static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])new\s+((?:[a-z]\w*\.)+[A-Z]\w*(?:\.[A-Z]\w*)*)\s*\([^()]*\)\.$")
+            .expect("the regex is a literal")
+    });
+    SCALA.captures(before.trim_end()).map(|c| c[1].to_owned())
 }
 
 pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {

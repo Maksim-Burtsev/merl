@@ -967,6 +967,11 @@ in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `
 returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
 the expected type must not read (#1069): each jumps by name, and says "no definition" with its
 guard removed.
+`swift/Sources/Shop/Gantry/` (#1481) has a `Perch: Gantry<Ewer>` whose inherited `first() -> T`
+types `brim()` as `Ewer`'s, through `self.`, a bare call, a `Lofty: Perch` and a `Twin: Pair<Ladle,
+Ewer>`'s second parameter; a base without arguments, a subclass's own `U`, a method's own `<T>`,
+a base written with three arguments for two parameters and a method of an `extension Gantry` keep
+the picker.
 `swift/Sources/Shop/Infuse/` is the third corner (#1126), its answers sourcekit-lsp's: `Sencha`
 declares `uppercased` and `append` beside a `String` and an `[Int]` local, a builder chain over
 lines, members of a constructor's and a method's result, an override in the subclass `Gyokuro`,

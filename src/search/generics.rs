@@ -585,7 +585,12 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         })
 }
 
-pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
+pub fn rust_impl_field(
+    text: &str,
+    line1: usize,
+    name: &str,
+    elsewhere: impl FnOnce(&str, usize) -> Option<(String, usize)>,
+) -> Option<String> {
     fn angled(s: &str) -> Option<Vec<&str>> {
         Some(top_parts(list_after(
             s.get(s.find('<')? + 1..)?,
@@ -595,22 +600,54 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
     }
     let lines: Vec<&str> = text.lines().collect();
     let owner = super::rust_self_type(&lines, line1.checked_sub(1)?)?;
-    let head = coded(Kind::Rust, lines[owner.impl_line0]);
-    let generics = head.trim().strip_prefix("impl")?.trim_start();
+    let head = coded(
+        Kind::Rust,
+        &super::rust_impl_header(&lines, owner.impl_line0),
+    );
+    let head_trimmed = head.trim();
+    let generics = head_trimmed
+        .strip_prefix("unsafe")
+        .map_or(head_trimmed, str::trim_start)
+        .strip_prefix("impl")?
+        .trim_start();
     let params = angled(generics).filter(|_| generics.starts_with('<'))?;
     let args = angled(head.get(head.rfind(&format!("{}<", owner.written))?..)?)?;
     let decl = Regex::new(&super::rust_type_decl_pattern(&owner.written)).ok()?;
     let mut decls = (0..lines.len()).filter(|&i| decl.is_match(lines[i]));
-    let s = decls.next().filter(|_| decls.next().is_none())?;
+    let far;
+    let (lines, s) = match (decls.next(), decls.next()) {
+        (Some(s), None) => (lines, s),
+        (None, _) => {
+            let (t, s) = elsewhere(&owner.written, owner.impl_line0)?;
+            far = t;
+            (far.lines().collect(), s)
+        }
+        _ => return None,
+    };
     let written = super::rust_struct_field(&lines, s, name)?.written_type;
     let i = angled(&coded(Kind::Rust, lines[s]))?
         .iter()
-        .position(|p| param_name(p, false) == Some(&written))?;
+        .position(|p| param_name(p, false) == Some(rust_pointee(&written)))?;
     let arg = args.get(i)?.trim();
     params
         .iter()
         .any(|p| param_name(p, false) == Some(arg))
         .then(|| arg.to_owned())
+}
+
+fn rust_pointee(t: &str) -> &str {
+    let t = t.trim();
+    if let Some(r) = t.strip_prefix('&') {
+        let r = r.trim_start();
+        let r = r.strip_prefix('\'').map_or(r, |l| {
+            l.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+                .trim_start()
+        });
+        return rust_pointee(r.strip_prefix("mut ").unwrap_or(r));
+    }
+    t.strip_prefix("Box<")
+        .and_then(|r| r.strip_suffix('>'))
+        .map_or(t, rust_pointee)
 }
 
 pub const RUST_BLANKET_IMPL: &str = r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::\s*\?\s*Sized\s*)?>\s*(?:[\w:]+::)?([A-Za-z_]\w*)\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:where\b|\{|$)";
