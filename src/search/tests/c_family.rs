@@ -2082,6 +2082,12 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
         ("Func<A, B, int> f = cup => cup.Pour();", None),
         ("Func<Pot, int> f = cup => cup.All(cup => cup.Ok);", None),
         ("Func<Pot, int> f = x => cup.Pour();", None),
+        (
+            "void J() { Action<Pot> f = cup => cup.Pour(); }",
+            Some("Pot"),
+        ),
+        ("Run(); Action<Pot> f = cup => cup.Pour();", Some("Pot")),
+        ("Run(Action<Pot> f = cup => cup.Pour());", None),
     ] {
         assert_eq!(cs_lambda_delegate(line, "cup").as_deref(), want, "{line}");
     }
