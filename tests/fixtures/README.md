@@ -337,6 +337,9 @@ beside its real definition, which `d` jumps to.
 `rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
 `/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
 its real definition, which `d` jumps to.
+`rust/src/sluices.rs` (#1497) calls methods a blanket impl (`impl<T: Lather> Sluice for T`) gives a
+type that meets its bound: `d` lands on the impl's method, as rust-analyzer does. A bound the
+project shows no impl of for the type (`b.soak()`) keeps the trait's declaration.
 `php/src/Husk.php` (#1427) declares functions and a class inside `'…'` and `"…"` strings over
 several lines, and `swift/Sources/Shop/Husk.swift` inside a nested `/* /* */ */` comment and a
 `#if false` block. Neither declares anything; `d` jumps to the real definitions beside them and
@@ -834,9 +837,9 @@ over lines through a renaming re-export (`Strainer as Filter`), an inherited and
 member of `strainer.ts`, a loop variable, a destructured local and an arrow parameter hiding
 namesakes, `basket = basket.next`, a nested function called above its declaration, a type behind
 `export * as mesh`, a dynamic `import()`, a call inside a template literal holding a declaration,
-a commented-out declaration, and `this` in a class expression. One answer is read from the code:
-`sieve.sift` on `const sieve: Sieve = { sift: … }` is the literal's `sift`, where tsserver
-answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
+a commented-out declaration, and `this` in a class expression. `sieve.sift` on
+`const sieve: Sieve = { sift: … }` is the interface's `sift`, as tsserver answers: a variable
+with a written type answers from the type, not from its literal (#1498). `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
 `rebound.ts` (and `coffee/rebound.js`) rebinds a `u` typed by `urn.ts`'s `Urn` to a `Flask`, both

@@ -666,7 +666,7 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
 pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
     let n = regex::escape(name.trim_start_matches('@'));
     let re = Regex::new(&format!(
-        r"^\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
+        r"(?:^|[{{;])\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
     ))
     .ok()?;
     let code = uncommented(Kind::CSharp, line);
