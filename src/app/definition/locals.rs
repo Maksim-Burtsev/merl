@@ -246,6 +246,11 @@ impl App {
                 && search::python_in_function_body(&a.text, own))
     }
 
+    fn declares_itself(&self, kind: Kind, n: usize, name: &str) -> bool {
+        names_itself(kind, &self.buf.lines[n - 1], name)
+            || kind == Kind::Go && search::go_type_group_member(&self.buf.lines, n - 1)
+    }
+
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
         let (kind, word, range, chain) = (a.kind, &a.word, &a.range, &a.chain);
         let (before, dotted, first) = (a.before.as_str(), a.dotted, a.first());
@@ -306,11 +311,7 @@ impl App {
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
                     !key && !super_keyword
-                        && (closure(n)
-                            || !names_itself(kind, l, first)
-                                && !(kind == Kind::Go
-                                    && search::go_type_group_member(&self.buf.lines, n - 1))
-                            || bare)
+                        && (closure(n) || !self.declares_itself(kind, n, first) || bare)
                         && !import_line(kind, l)
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
