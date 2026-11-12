@@ -627,7 +627,7 @@ fn the_status_counts_the_ticked_stops_and_reads_all_of_them_after_the_walk() {
     let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
     let viewed = |a: &App| {
         let status = a.review_status().unwrap();
-        status[status.find("viewed").unwrap()..].to_owned()
+        format!("viewed{}", status.split_once("viewed").unwrap().1)
     };
     a.focus = Focus::Tree;
     for f in ["new", "tail"] {
