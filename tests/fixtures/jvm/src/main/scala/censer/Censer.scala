@@ -20,10 +20,17 @@ object Grill {
 object Swing {
   def run(): Unit = {
     Censer.make().cense()
-//                ^ d: picker src/main/scala/censer/Censer.scala:4, src/main/scala/censer/Censer.scala:13; want src/main/scala/censer/Censer.scala:4 (#1489)
+//                ^ d: src/main/scala/censer/Censer.scala:4
     Censer.shared.cense()
-//                ^ d: picker src/main/scala/censer/Censer.scala:4, src/main/scala/censer/Censer.scala:13; want src/main/scala/censer/Censer.scala:4 (#1489)
+//                ^ d: src/main/scala/censer/Censer.scala:4
     Censer.make()
 //         ^ d: src/main/scala/censer/Censer.scala:9
+  }
+}
+
+object Rack {
+  def run(): Unit = {
+    Grill.make().cense()
+//               ^ d: src/main/scala/censer/Censer.scala:13
   }
 }

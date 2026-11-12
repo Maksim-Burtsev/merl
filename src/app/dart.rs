@@ -706,6 +706,13 @@ impl App {
             let c = self.dart_field_row(here, text, items)?;
             return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
         }
+        if let Some((items, this)) = search::dart_lambda_over(seen, name) {
+            if !this && let Some((line, _)) = line_of(items) {
+                return Some((search::dart_iterated(line, items)?, here.to_path_buf()));
+            }
+            let c = self.dart_field_row(here, text, items)?;
+            return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
+        }
         if let Some((method, awaited)) = search::dart_for_in_call(line, name) {
             let c = self.dart_field_row(here, text, method)?;
             let ty = search::dart_iterated_call(&c.hit.text, method, awaited)?;
@@ -850,7 +857,7 @@ impl App {
                 },
             }
         };
-        for link in rest {
+        for (i, link) in rest.iter().enumerate() {
             let file = self.dart_class_file(&scope, &ty)?;
             let mut rows = self.dart_member_of(&file, &ty.class, link);
             if rows.is_empty() {
@@ -863,6 +870,19 @@ impl App {
             let method = Regex::new(&format!(r"\b{}\s*(?:<[^()]*>)?\s*\(", regex::escape(link)));
             if plain && method.is_ok_and(|m| m.is_match(&row.hit.text)) {
                 return None;
+            }
+            let named = Regex::new(&format!(
+                r"^\s*(?:(?:const|factory|external)\s+)*{}\.{}\s*\(",
+                regex::escape(&ty.class),
+                regex::escape(link)
+            ));
+            if i == 0
+                && !called
+                && *head == ty.class
+                && named.is_ok_and(|n| n.is_match(&row.hit.text))
+            {
+                scope.clone_from(&row.hit.path);
+                continue;
             }
             ty = search::dart_returns(&row.hit.text, link)
                 .or_else(|| search::dart_typed(&row.hit.text, "", link))?;

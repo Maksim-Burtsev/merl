@@ -23,3 +23,14 @@ class Clock
     2
   end
 end
+
+module Stamps
+  def stamp(x)
+    x
+  end
+
+  def seal(x)
+    x
+  end
+  module_function :stamp, :seal
+end

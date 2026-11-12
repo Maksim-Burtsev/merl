@@ -47,8 +47,16 @@ impl App {
                     .is_empty()
                     .then_some(class);
             }
+            if receiver.starts_with(|c: char| c.is_ascii_uppercase())
+                && receiver
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == ':')
+            {
+                let class = self.ruby_constant_class(here, receiver)?;
+                return self.ruby_returned_class(here, &class, method, depth, true);
+            }
             let class = self.ruby_value_class(here, text, line1, prefix, receiver, depth + 1)?;
-            return self.ruby_returned_class(here, &class, method, depth);
+            return self.ruby_returned_class(here, &class, method, depth, false);
         }
         if !search::ruby_local_name(expr) {
             return None;
@@ -84,7 +92,7 @@ impl App {
                     expr,
                 );
             return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
-                .then(|| self.ruby_returned_class(here, &class, expr, depth))
+                .then(|| self.ruby_returned_class(here, &class, expr, depth, false))
                 .flatten();
         };
         let (head, whole) = search::ruby_receiver_split(&value);
@@ -118,32 +126,35 @@ impl App {
         class: &str,
         method: &str,
         depth: usize,
+        on_class: bool,
     ) -> Option<String> {
-        let found = self.ruby_methods_from(here, method, class.to_owned(), false);
+        let found = self.ruby_methods_from(here, method, class.to_owned(), on_class);
         let [one] = found.as_slice() else {
             return None;
         };
         let t = self.text_of(&one.hit.path)?;
         let owner = search::ruby_class_path(&t, one.hit.line1);
-        match search::ruby_last_value(&t, one.hit.line1)? {
-            search::RubyReturns::Itself => Some(owner),
+        let made = match search::ruby_last_value(&t, one.hit.line1)? {
+            search::RubyReturns::Itself if !on_class => return Some(owner),
             search::RubyReturns::New(name) => {
-                let made = self.ruby_resolve(here, &owner, &name).or_else(|| {
+                self.ruby_resolve(here, &owner, &name).or_else(|| {
                     (owner == name || owner.ends_with(&format!("::{name}"))).then(|| owner.clone())
-                })?;
-                self.ruby_methods_from(here, "new", made.clone(), true)
-                    .is_empty()
-                    .then_some(made)
+                })?
             }
+            search::RubyReturns::Fresh if on_class => class.to_owned(),
             search::RubyReturns::Found(name) => {
                 let found = self.ruby_resolve(here, &owner, &name)?;
-                self.ruby_record(here, found)
+                return self.ruby_record(here, found);
             }
-            search::RubyReturns::Chain(line1, chain) => {
+            search::RubyReturns::Chain(line1, chain) if !on_class => {
                 let (prefix, expr) = search::ruby_receiver_split(&chain);
-                self.ruby_value_class(here, &t, line1, prefix, expr, depth + 1)
+                return self.ruby_value_class(here, &t, line1, prefix, expr, depth + 1);
             }
-        }
+            _ => return None,
+        };
+        self.ruby_methods_from(here, "new", made.clone(), true)
+            .is_empty()
+            .then_some(made)
     }
 
     fn ruby_record(&self, here: &Path, class: String) -> Option<String> {

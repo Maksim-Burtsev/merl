@@ -140,18 +140,24 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
         || later_declarator(&blanked(t), name).is_some()
 }
 
-pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str) -> bool {
+pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str, keyword: &str) -> bool {
     let header = uncommented(Kind::Jvm, lines[i]);
-    header.trim_start().starts_with("def ")
+    header.trim_start().starts_with(keyword)
         && declares_local(header.trim(), name)
         && super::jvm::scope_of(lines, i).is_some_and(|s| !super::jvm::opens_type(lines[s]))
 }
 
-pub(super) fn jvm_declared_before(lead: &str, name: &str) -> bool {
+pub(super) fn called(line: &str, col: usize, name: &str) -> bool {
+    line.get(col + name.len()..)
+        .is_some_and(|r| r.trim_start().starts_with('('))
+}
+
+pub(super) fn jvm_declared_before(lead: &str, name: &str, call: bool) -> bool {
     let n = regex::escape(name);
+    let def = if call { "(?:def|fun)" } else { "def" };
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|def\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|{def}\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };
@@ -552,7 +558,7 @@ pub fn jvm_bindings_at(
     if !matches!(name, "this" | "super" | "it")
         && blanked(lines[at])
             .get(..col)
-            .is_some_and(|lead| jvm_declared_before(lead, name))
+            .is_some_and(|lead| jvm_declared_before(lead, name, called(lines[at], col, name)))
     {
         return vec![Binding {
             line1,

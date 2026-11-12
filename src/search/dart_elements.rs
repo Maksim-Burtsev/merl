@@ -84,3 +84,27 @@ pub fn dart_read_links(value: &str) -> Option<Vec<String>> {
         .is_match(value)
         .then(|| value.split('.').map(str::to_owned).collect())
 }
+
+pub fn dart_lambda_over<'a>(line: &'a str, name: &str) -> Option<(&'a str, bool)> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w$.])(this\.)?([a-z_$][\w$]*)\s*\.\s*(forEach|map|where|any|every|firstWhere",
+            r"|lastWhere|singleWhere|expand|takeWhile|skipWhile|removeWhere|retainWhere|sort|reduce)",
+            r"\s*\(\s*\(\s*([a-z_$][\w$]*)(?:\s*,\s*([a-z_$][\w$]*))?\s*\)\s*(?:=>|\{)"
+        ))
+        .expect("the regex is a literal")
+    });
+    let mut found = CALL.captures_iter(line).filter(|c| {
+        let pair = matches!(&c[3], "sort" | "reduce");
+        match (c.get(5), pair) {
+            (None, false) => &c[4] == name,
+            (Some(second), true) => (&c[4] == name) != (second.as_str() == name),
+            _ => false,
+        }
+    });
+    let c = found.next()?;
+    if found.next().is_some() || &c[2] == name {
+        return None;
+    }
+    Some((c.get(2)?.as_str(), c.get(1).is_some()))
+}
