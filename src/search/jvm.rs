@@ -639,6 +639,7 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
             format!(
                 r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
             ),
+            format!(r"\b(?:val|var)\s+{n}\s*=\s*[\w.]+\.asInstanceOf\[{ty}\]\s*;?\s*$"),
             format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
             format!(
                 r"\b(?:val|var)\s+{n}\s*=\s*new\s+{ty}{GENERIC}(?:\[[^\[\]]*\])?\s*(?:\([^()]*\))?\s*;?\s*$"
@@ -1334,12 +1335,13 @@ pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     });
     static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
-            r"(?:^|[^\w.])\(\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*){GENERIC}\??\s*\)(?:\?|!!)?\.$"
+            r"(?:(?:^|[^\w.])\(\s*{CAST_OPERAND}\s+as\??\s+([A-Z]\w*){GENERIC}\??\s*\)(?:\?|!!)?|\.asInstanceOf\[([A-Z]\w*)\])\.$"
         ))
         .expect("the regex is a literal")
     });
     let re = if kotlin { &*KOTLIN } else { &*JAVA };
-    re.captures(before.trim_end()).map(|c| c[1].to_owned())
+    let c = re.captures(before.trim_end())?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
 pub fn jvm_getter_chain(before: &str) -> Vec<String> {

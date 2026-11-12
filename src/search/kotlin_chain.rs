@@ -84,6 +84,10 @@ pub fn kotlin_call_chain(before: &str) -> Option<KotlinCallChain> {
 }
 
 pub fn kotlin_initializer(text: &str, line1: usize, name: &str) -> Option<String> {
+    static ELVIS_EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(.*?)\s*\?:\s*(?:return|throw|continue|break)\b[^?]*$")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let re = Regex::new(&format!(
         r"\b(?:val|var)\s+{}\s*=\s*(.+)$",
@@ -92,6 +96,9 @@ pub fn kotlin_initializer(text: &str, line1: usize, name: &str) -> Option<String
     .ok()?;
     let first = uncommented(Kind::Jvm, lines.get(line1.checked_sub(1)?)?);
     let mut init = re.captures(first.trim_end())?[1].to_owned();
+    if let Some(c) = ELVIS_EXIT.captures(&init) {
+        return Some(c[1].replace("?.", ".").replace("!!.", "."));
+    }
     for l in lines.iter().skip(line1) {
         let code = uncommented(Kind::Jvm, l);
         let t = code.trim();
@@ -322,7 +329,7 @@ pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str
     });
     let n = regex::escape(name);
     let Ok(check) = Regex::new(&format!(
-        r"^\s*(?:if\s*\(\s*{n}\s+is\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
+        r"^\s*(?:if\s*\(\s*{n}\s+(?:is|instanceof)\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
     )) else {
         return false;
     };
