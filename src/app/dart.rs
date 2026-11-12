@@ -545,7 +545,12 @@ impl App {
         let shorthand = (chain.is_empty() && compared.is_none())
             .then(|| self.dart_shorthand_type(here, text, before))
             .flatten();
+        let cast = chain
+            .is_empty()
+            .then(|| search::dart_cast(before))
+            .flatten();
         let ty = match chain {
+            [] if cast.is_some() => cast?,
             [] if compared.is_some() => {
                 let (ty, s) = self.dart_bound(here, text, compared.as_deref()?, 0)?;
                 scope = s;
