@@ -1,9 +1,9 @@
 package saucepan
 
-class Ladle
+class Whisk
 
 object Drying {
-  implicit class LadleDry(l: Ladle) {
+  implicit class WhiskDry(l: Whisk) {
     def dry(): Unit = ()
   }
   implicit class SaucepanDry(val s: Saucepan) extends AnyVal {

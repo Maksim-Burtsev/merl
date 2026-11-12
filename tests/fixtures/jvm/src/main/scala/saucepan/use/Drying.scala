@@ -1,10 +1,10 @@
 package saucepan.use
 
-import saucepan.{Ladle, Saucepan}
+import saucepan.{Whisk, Saucepan}
 import saucepan.Drying.*
 
-def dryAll(pot: Saucepan, ladle: Ladle): Unit =
+def dryAll(pot: Saucepan, whisk: Whisk): Unit =
   pot.dry()
   //  ^ d: src/main/scala/saucepan/Drying.scala:10
-  ladle.dry()
+  whisk.dry()
   //    ^ d: src/main/scala/saucepan/Drying.scala:7

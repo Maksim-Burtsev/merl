@@ -623,8 +623,74 @@ impl App {
         if found.is_empty() {
             found = self.dart_inherited(&file, class, word, 0);
         }
+        if found.is_empty() {
+            found = self.dart_extended(here, &file, class, word)?;
+        }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_extended(
+        &self,
+        here: &Path,
+        file: &Path,
+        class: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let mut names = vec![class.to_owned(), "Object".to_owned()];
+        self.dart_ancestors(file, class, 0, &mut names);
+        let pattern = search::def_patterns(Kind::Dart, word).join("|");
+        let cut = self.truncated.get();
+        let hits = self.project_definitions(Kind::Dart, here, word, &pattern);
+        self.truncated.set(cut);
+        let mut found = Vec::new();
+        for hit in hits {
+            let text = self.text_of(&hit.path)?;
+            let Some(owner) = search::qualified(Kind::Dart, &text, hit.line1, word)
+                .and_then(|q| q.strip_suffix(&format!(".{word}")).map(str::to_owned))
+            else {
+                continue;
+            };
+            let o = regex::escape(&owner);
+            let named = Regex::new(&format!(r"^extension\s+{o}\b")).ok()?;
+            let on = Regex::new(&format!(
+                r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)\??\s*\{{"
+            ))
+            .ok()?;
+            let Some(head) = text.lines().find(|l| named.is_match(l)) else {
+                continue;
+            };
+            let target = on.captures(head)?[1].to_owned();
+            if !names.contains(&target) {
+                continue;
+            }
+            if !self
+                .dart_visible_files(here, &owner, None)?
+                .contains(&hit.path)
+            {
+                continue;
+            }
+            found.push(Candidate {
+                hit,
+                reason: Reason::Receiver(class.to_owned()),
+            });
+        }
+        Some(found)
+    }
+
+    fn dart_ancestors(&self, file: &Path, class: &str, depth: usize, names: &mut Vec<String>) {
+        let Some(text) = self.text_of(file).filter(|_| depth < 8) else {
+            return;
+        };
+        for ty in search::dart_supertypes(&text, class) {
+            if names.contains(&ty.class) {
+                continue;
+            }
+            names.push(ty.class.clone());
+            if let Some(up) = self.dart_class_file(file, &ty) {
+                self.dart_ancestors(&up, &ty.class, depth + 1, names);
+            }
+        }
     }
 
     fn dart_col(&self) -> usize {
