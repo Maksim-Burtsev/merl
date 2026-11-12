@@ -322,7 +322,7 @@ pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str
     });
     let n = regex::escape(name);
     let Ok(check) = Regex::new(&format!(
-        r"^\s*(?:if\s*\(\s*{n}\s+is\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
+        r"^\s*(?:if\s*\(\s*{n}\s+(?:is|instanceof)\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
     )) else {
         return false;
     };
