@@ -864,15 +864,15 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if got && self.type_decl(kind, &at, &written).is_none() => {
                     let maps = ["Map", "ReadonlyMap", "WeakMap"];
-                    (search::ts_pair_value(&written, &maps)?, at.clone())
+                    (search::ts_pair_value(&written, &maps)?, at)
                 }
                 _ if got => return None,
-                _ if values => (search::python_dict_value(&written)?, at.clone()),
-                Some(element) => (element, at.clone()),
+                _ if values => (search::python_dict_value(&written)?, at),
+                Some(element) => (element, at),
                 None if indexed
                     && (kind != Kind::TsJs || self.type_decl(kind, &at, &written).is_none()) =>
                 {
-                    (search::indexed_value(kind, &written)?, at.clone())
+                    (search::indexed_value(kind, &written)?, at)
                 }
                 None => self.named_element(kind, &at, &written)?,
             };
