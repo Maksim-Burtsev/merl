@@ -886,7 +886,7 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let declared = rule(format!(
-        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:<(?:[^<>()]|<(?:[^<>()]|<[^<>()]*>)*>)*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
     ));
     let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
     let listed = rule(format!(
