@@ -736,6 +736,12 @@ impl App {
             return self.constructed_member(t, &name, word);
         }
         let mut members = self.members_of(kind, t, word);
+        if members
+            .iter()
+            .any(|m| !ts_modifiers(&m.text).contains(&"static"))
+        {
+            members.retain(|m| !ts_modifiers(&m.text).contains(&"static"));
+        }
         let field = self.field_of(kind, t, word, false);
         if members.is_empty() {
             return field

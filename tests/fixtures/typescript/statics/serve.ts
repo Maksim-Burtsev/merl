@@ -7,7 +7,7 @@ export function serve(c: Carafe): void {
   Ewer.decant();
 //     ^ d: statics/ewer.ts:2
   c.decant(2);
-//  ^ d: picker statics/carafe.ts:2, statics/carafe.ts:5; want statics/carafe.ts:5 (#1489)
+//  ^ d: statics/carafe.ts:5
   Carafe.decant().swirl();
 //                ^ d: statics/carafe.ts:8
   Carafe.tip().swirl();
@@ -30,6 +30,41 @@ export class Tray {
   Carafe: Carafe = new Carafe();
   pour(): void {
     this.Carafe.decant(2);
-//              ^ d: !jump
+//              ^ d: statics/carafe.ts:5
   }
+}
+
+export function held(): void {
+  const K = Carafe;
+  K.decant();
+//  ^ d: !jump
+}
+
+export function classed(k: typeof Carafe): void {
+  k.decant();
+//  ^ d: !jump
+}
+
+export function kept(c: Carafe): void {
+  const d = c;
+  d.decant(2);
+//  ^ d: statics/carafe.ts:5
+  c.decant();
+//  ^ d: statics/carafe.ts:5
+}
+
+function maker(): typeof Carafe {
+  return Carafe;
+}
+
+export function made(): void {
+  const K: typeof Carafe = Carafe;
+  K.decant();
+//  ^ d: !jump
+  maker().decant();
+//        ^ d: !jump
+  new Carafe().decant(2);
+//             ^ d: statics/carafe.ts:5
+  Carafe.decant().decant(2);
+//                ^ d: statics/carafe.ts:5
 }
