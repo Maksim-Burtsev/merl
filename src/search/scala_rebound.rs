@@ -332,7 +332,7 @@ pub fn scala_rebound(
     unread_above(path, &lines, at, name, false).is_some_and(|l| bound.iter().all(|&b| b < l))
 }
 
-pub fn scala_alias_owner(text: &str, line1: usize, alias: &str) -> Option<String> {
+pub fn scala_alias_owner(text: &str, line1: usize, alias: &str, bound: &[usize]) -> Option<String> {
     let declares = Regex::new(&format!(
         r"^\s*{}\s*(?::[^=]*)?=>\s*(?://.*)?$",
         regex::escape(alias)
@@ -343,9 +343,16 @@ pub fn scala_alias_owner(text: &str, line1: usize, alias: &str) -> Option<String
     loop {
         at = scope_of(&lines, at)?;
         let opened = lines[at].rsplit_once('{').map(|(_, r)| r);
-        if opened.is_some_and(|r| declares.is_match(r))
-            || lines.get(at + 1).is_some_and(|l| declares.is_match(l))
-        {
+        let declared1 = if opened.is_some_and(|r| declares.is_match(r)) {
+            Some(at + 1)
+        } else {
+            lines
+                .get(at + 1)
+                .is_some_and(|l| declares.is_match(l))
+                .then_some(at + 2)
+        };
+        if let Some(declared1) = declared1 {
+            bound.iter().all(|&b| b <= declared1).then_some(())?;
             let name = super::jvm_type_name(lines[at])?;
             return Some(super::qualified(Kind::Jvm, text, at + 1, &name).unwrap_or(name));
         }
