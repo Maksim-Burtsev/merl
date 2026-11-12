@@ -766,6 +766,10 @@ impl App {
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
+            if self.dart_static_factory(here, &ty) {
+                let value = search::dart_value(line, name).filter(|_| depth < 4)?;
+                return self.dart_chain_type(here, text, &format!("{value}."), depth + 1);
+            }
             return Some((ty, here.to_path_buf()));
         }
         if let Some(list) = search::dart_list_element(line, name) {
@@ -1217,6 +1221,24 @@ impl App {
         text.lines().enumerate().any(|(i, l)| {
             !literal[i] && !l.starts_with(char::is_whitespace) && declares.is_match(l)
         })
+    }
+
+    fn dart_static_factory(&self, here: &Path, ty: &search::DartType) -> bool {
+        let (None, Some(made)) = (&ty.prefix, &ty.constructor) else {
+            return false;
+        };
+        let Some(file) = self.dart_class_file(here, ty) else {
+            return false;
+        };
+        let rows = self.dart_member_of(&file, &ty.class, made);
+        !rows.is_empty()
+            && rows.iter().all(|r| {
+                r.hit
+                    .text
+                    .split_whitespace()
+                    .take_while(|w| !w.contains('('))
+                    .any(|w| w == "static")
+            })
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {
