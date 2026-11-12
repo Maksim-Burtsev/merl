@@ -59,6 +59,57 @@ pub struct Candidate {
     pub reason: Reason,
 }
 pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
+    let mut patterns = kind_patterns(kind, word);
+    if matches!(
+        kind,
+        Kind::Rust | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Dart | Kind::Ruby
+    ) {
+        let wrapped = one_line_body(kind, &patterns);
+        patterns.extend(wrapped);
+    }
+    patterns
+}
+pub fn cut_def_patterns(kind: Kind, patterns: &mut Vec<String>, cut: &[String]) {
+    let copies = one_line_body(kind, cut);
+    patterns.retain(|p| !cut.contains(p) && !copies.contains(p));
+}
+const ONE_LINE_TYPE: &str = r"^\s*(?:[\w@]+(?:\([^)]*\))?\s+)*(?:class|struct|interface|trait|enum|record|object|mixin|protocol|actor|extension|impl)\b";
+pub(super) fn one_line_body(kind: Kind, patterns: &[String]) -> Vec<String> {
+    let head = match kind {
+        Kind::Ruby => format!(r"{ONE_LINE_TYPE}[^;#]*;(?:[^#]*?;)?"),
+        _ => format!(
+            r"{ONE_LINE_TYPE}[^{{;]*\{{(?:(?:[^{{}}]|\{{[^{{}}]*\}})*?(?:;|\{{[^{{}}]*\}}))?"
+        ),
+    };
+    patterns
+        .iter()
+        .filter_map(|p| p.strip_prefix('^'))
+        .map(|p| format!("{head}{p}"))
+        .collect()
+}
+pub fn one_line_owner(kind: Kind, line: &str, word: &str) -> Option<String> {
+    static OWNER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{ONE_LINE_TYPE}(?:\s*<[^>]*>)?\s+(?:[\w:]+(?:<[^>]*>)?\s+for\s+)?([A-Za-z_$][\w$]*)[^{{;]*[{{;]"
+        ))
+        .expect("the regex is a literal")
+    });
+    if !matches!(
+        kind,
+        Kind::TsJs | Kind::Rust | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Dart | Kind::Ruby
+    ) {
+        return None;
+    }
+    let c = OWNER.captures(line)?;
+    let owner = c.get(1)?.as_str();
+    let patterns = match kind {
+        Kind::TsJs => member_patterns(kind, word)?,
+        _ => one_line_body(kind, &kind_patterns(kind, word)),
+    };
+    let re = Regex::new(&patterns.join("|")).ok()?;
+    (owner != word && re.is_match(line)).then(|| owner.to_owned())
+}
+fn kind_patterns(kind: Kind, word: &str) -> Vec<String> {
     let w = regex::escape(word);
     match kind {
         Kind::Python => vec![
@@ -854,12 +905,16 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
         Kind::Go => vec![format!(r"^func\s+\([^)]*\)\s*{w}\(")],
         Kind::TsJs => {
             let mods = r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*";
-            vec![
+            let members = vec![
                 format!(
                     r"{mods}{w}\??\s*(?:<.*>)?\((?:(?:[^;]|:\s*\{{[^{{}}]*\}})*\{{\s*\}}?)?\s*$"
                 ),
                 format!(
                     r"{mods}{w}\??\s*(?:<.*>)?\((?:[^;{{}}]|\{{[^{{}}]*\}})*\)\s*(?::[^;{{}}]*)?\{{\s*(?:/\*.*\*/\s*)?\}}?\s*(?://.*|/\*.*\*/\s*)?$"
+                ),
+                format!(
+                    r"{}{w}\??\s*(?:<.*>)?\((?:[^;{{}}]|\{{[^{{}}]*\}})*\)\s*(?::\s*[^\s;{{}}=][^;{{}}=]*)?\{{.*\}}\s*(?://.*|/\*.*\*/\s*)?$",
+                    mods.replace("|get|set", "")
                 ),
                 format!(r"{mods}{w}\??\s*<\s*$"),
                 format!(
@@ -874,7 +929,9 @@ pub fn member_patterns(kind: Kind, word: &str) -> Option<Vec<String>> {
                 format!(
                     r"^\s*constructor\s*\(.*\b(?:public|private|protected|readonly)\s+{w}\s*[?!]?\s*:"
                 ),
-            ]
+            ];
+            let wrapped = one_line_body(kind, &members);
+            [members, wrapped].concat()
         }
         Kind::Rust
         | Kind::Jvm

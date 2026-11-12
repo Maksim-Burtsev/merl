@@ -2,7 +2,10 @@ use std::ops::Range;
 
 use regex::Regex;
 
-use super::{Group, Kind, body_of, code, group, indent, literal_lines, split_top, word_at};
+use super::{
+    Group, Kind, body_of, code, group, hole_line, indent, literal_lines, path_literal_lines,
+    python_header, split_top, uncommented, word_at,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owner {
@@ -37,21 +40,28 @@ const LINES_BACK_TO_THE_BRACKET: usize = 80;
 )]
 pub fn label_at(
     kind: Kind,
-    java: bool,
+    path: &std::path::Path,
     text: &str,
     line0: usize,
     range: Range<usize>,
 ) -> Option<Label> {
+    let java = path.extension().is_some_and(|e| e == "java");
     let lines: Vec<&str> = text.lines().collect();
     let l = *lines.get(line0)?;
     let tight = l.get(range.end..)?;
     let after = match kind {
-        Kind::Ruby => tight,
+        Kind::Ruby | Kind::Elixir => tight,
         _ => tight.trim_start(),
     };
     let sep = match kind {
-        Kind::Python | Kind::Jvm => b'=',
-        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust => b':',
+        Kind::Python | Kind::Jvm | Kind::Julia => b'=',
+        Kind::Swift
+        | Kind::CSharp
+        | Kind::Php
+        | Kind::Ruby
+        | Kind::Rust
+        | Kind::Elixir
+        | Kind::Dart => b':',
         Kind::TsJs if after.starts_with('=') => b'=',
         Kind::TsJs => b':',
         _ => return None,
@@ -60,20 +70,57 @@ pub fn label_at(
     if rest.first() != Some(&sep) || matches!(rest.get(1), Some(b'=' | b'>' | b':')) {
         return None;
     }
-    let literal = literal_lines(kind, text);
+    if let Some(hole) = hole_line(kind, &lines, line0, range.start) {
+        let mut label = label_at(kind, path, &hole, 0, range)?;
+        if let Some(o) = label.owner.as_mut() {
+            o.line0 = line0;
+        }
+        return Some(label);
+    }
+    let literal = path_literal_lines(kind, path, text);
     if kind == Kind::TsJs && sep == b'=' {
         return jsx(kind, &lines, &literal, line0, range.start);
+    }
+    let opened = enclosing(
+        kind,
+        &lines,
+        &literal,
+        line0,
+        range.start,
+        kind != Kind::Julia,
+    );
+    if kind == Kind::Elixir {
+        let elixir = path.extension().is_some_and(|e| e == "ex" || e == "exs");
+        let in_code = !literal.get(line0).copied().unwrap_or(true)
+            && code(Kind::Python, l).any(|(i, _)| i == range.start);
+        let keyword = elixir
+            && in_code
+            && rest.get(1).is_none_or(u8::is_ascii_whitespace)
+            && opened.as_ref().is_none_or(|o| o.bracket != b'{')
+            && !l.trim_start().starts_with("defstruct")
+            && !elixir_arities(&lines, l, opened.as_ref());
+        return keyword.then_some(Label {
+            what: "key",
+            owner: None,
+            nested: false,
+        });
+    }
+    let after_the_bracket = |o: &OpenBracket| {
+        o.first_met == Some(o.bracket)
+            || o.first_met == Some(b',')
+            || (kind == Kind::Julia && o.first_met == Some(b';'))
+    };
+    if !opened.as_ref().is_some_and(after_the_bracket) {
+        return (kind == Kind::Ruby)
+            .then(|| ruby_command_label(kind, l, line0, range.start))
+            .flatten();
     }
     let OpenBracket {
         line0: at,
         byte: open,
         bracket,
-        first_met,
         ..
-    } = open_bracket(kind, &lines, &literal, line0, range.start)?;
-    if first_met != Some(bracket) && first_met != Some(b',') {
-        return None;
-    }
+    } = opened?;
     match (kind, bracket) {
         (Kind::TsJs, b'{') => ts_object_key(kind, &lines, &literal, at, open),
         (Kind::Rust, b'{') => rust_struct_key(kind, &lines, &literal, at, open),
@@ -90,49 +137,159 @@ pub fn label_at(
                 nested: false,
             })
         }
-        (Kind::Python | Kind::Jvm | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby, b'(') => {
-            static ANNOTATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal")
-            });
-            let before = lines[at].get(..open)?;
-            if declares(before) {
-                return None;
-            }
-            if java && !ANNOTATION.is_match(before) {
-                return None;
-            }
-            let col = callee(kind, lines[at], open)?;
-            let owner = if kind == Kind::Swift
-                && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
-            {
-                let head =
-                    (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
-                head.and_then(|h| {
-                    let name = h
-                        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
-                        .next()?;
-                    (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
-                        line0: at,
-                        byte_col: h.len() - 1,
-                        how: Owner::Args,
-                    })
-                })
-                .or_else(|| head.and_then(|h| swift_implicit_init(kind, &lines, &literal, at, h)))
-            } else {
-                Some(LabelOwner {
-                    line0: at,
-                    byte_col: col,
-                    how: Owner::Args,
-                })
-            };
-            Some(Label {
-                what: "argument label",
-                owner,
-                nested: false,
-            })
+        (_, b'(') if !matches!(kind, Kind::TsJs | Kind::Rust) => {
+            call_label(kind, java, &lines, &literal, at, open)
         }
         _ => None,
     }
+}
+
+fn elixir_arities(lines: &[&str], l: &str, opened: Option<&OpenBracket>) -> bool {
+    let overridable = |s: &str| s.trim_start().starts_with("defoverridable");
+    overridable(l)
+        || opened.is_some_and(|o| {
+            let before = lines[o.line0].get(..o.byte).unwrap_or_default();
+            let key = before.trim_end();
+            o.bracket == b'['
+                && (key.ends_with("only:") || key.ends_with("except:") || overridable(before))
+        })
+}
+
+fn call_label(
+    kind: Kind,
+    java: bool,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+) -> Option<Label> {
+    static ANNOTATION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal"));
+    static JULIA_SHORT_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*[\w.!]+\s*\(.*\)\s*(?:where\b.*)?(?:::\s*[\w{}.]+\s*)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    let before = lines[at].get(..open)?;
+    if declares(before) || (kind == Kind::Julia && JULIA_SHORT_DEF.is_match(lines[at])) {
+        return None;
+    }
+    if java && !ANNOTATION.is_match(before) {
+        return None;
+    }
+    let Some(col) = callee(kind, lines[at], open) else {
+        return (kind == Kind::Julia)
+            .then(|| julia_named_tuple_key(kind, lines, at, open))
+            .flatten();
+    };
+    let owner = if kind == Kind::Swift && word_at(lines[at], col, "").map(|w| w.1) == Some("init") {
+        let head = (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
+        head.and_then(|h| {
+            let name = h
+                .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .next()?;
+            (name.starts_with(|c: char| c.is_ascii_uppercase())).then(|| LabelOwner {
+                line0: at,
+                byte_col: h.len() - 1,
+                how: Owner::Args,
+            })
+        })
+        .or_else(|| head.and_then(|h| swift_implicit_init(kind, lines, literal, at, h)))
+    } else {
+        Some(LabelOwner {
+            line0: at,
+            byte_col: col,
+            how: Owner::Args,
+        })
+    };
+    Some(Label {
+        what: "argument label",
+        owner,
+        nested: false,
+    })
+}
+
+fn julia_named_tuple_key(kind: Kind, lines: &[&str], at: usize, open: usize) -> Option<Label> {
+    let Group {
+        inner_uncommented,
+        after_close,
+        ..
+    } = group(kind, lines, at, open)?;
+    let inner = inner_uncommented.trim_start();
+    let parts = split_top(kind, inner, b';').len();
+    let tuple = if inner.starts_with(';') {
+        parts == 2
+    } else {
+        parts == 1 && split_top(kind, inner, b',').len() > 1
+    };
+    (tuple && !after_close.trim_start().starts_with("->")).then_some(Label {
+        what: "key",
+        owner: None,
+        nested: false,
+    })
+}
+
+fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Option<Label> {
+    let lead = line.get(..start)?;
+    let head = lead.trim_end();
+    if head.trim_start().is_empty()
+        || !lead.ends_with(char::is_whitespace)
+        || !head.ends_with(|c: char| c.is_alphanumeric() || matches!(c, '_' | ',' | '!'))
+        || declares(head)
+    {
+        return None;
+    }
+    let args = if head.ends_with(',') {
+        ruby_command_args(kind, lead)
+    } else {
+        Some(start)
+    };
+    let owner = args
+        .and_then(|a| callee(kind, line, a))
+        .map(|byte_col| LabelOwner {
+            line0,
+            byte_col,
+            how: Owner::Args,
+        });
+    Some(Label {
+        what: "argument label",
+        owner,
+        nested: false,
+    })
+}
+
+fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
+    let first = split_top(kind, lead, b',').into_iter().next()?;
+    let b = first.as_bytes();
+    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let named = |h: &[u8]| match h {
+        [.., p, b'!' | b'?'] | [.., p] => name(*p),
+        [] => false,
+    };
+    let unary = |i: usize| {
+        b.get(i + 1)
+            .is_some_and(|&n| !n.is_ascii_whitespace() && n != b'=')
+    };
+    let mut depth = 0i32;
+    let mut out = None;
+    for (i, c) in code(kind, first) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        let gap = i > 0 && b[i - 1].is_ascii_whitespace();
+        let starts_arg = name(c)
+            || matches!(c, b'@' | b'$' | b'(' | b'[')
+            || (matches!(c, b':' | b'-' | b'*' | b'&' | b'!') && unary(i));
+        if depth == i32::from(matches!(c, b'(' | b'['))
+            && gap
+            && starts_arg
+            && named(first.get(..i)?.trim_end().as_bytes())
+        {
+            out = Some(i);
+        }
+    }
+    out
 }
 
 fn swift_implicit_init(
@@ -656,6 +813,12 @@ pub fn label_lines(
         return Vec::new();
     };
     let types_own_name = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
+    if kind == Kind::Jvm
+        && *owner == Owner::Args
+        && let Some(elements) = java_annotation_elements(&lines, k, name, word)
+    {
+        return elements;
+    }
     match (owner, types_own_name.as_deref()) {
         (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
@@ -705,6 +868,11 @@ pub fn label_lines(
             out
         }
         (Owner::Implicit(_), _) => Vec::new(),
+        (Owner::Args, None)
+            if kind == Kind::Dart && name.starts_with(|c: char| c.is_ascii_uppercase()) =>
+        {
+            Vec::new()
+        }
         (Owner::Args, None) => params(kind, &lines, k, name, |p| param_named(kind, p, word))
             .into_iter()
             .collect(),
@@ -790,6 +958,30 @@ pub fn object_type(
     found
 }
 
+fn java_annotation_elements(
+    lines: &[&str],
+    decl_line0: usize,
+    name: &str,
+    word: &str,
+) -> Option<Vec<usize>> {
+    Regex::new(&format!(r"@interface\s+{}\b", regex::escape(name)))
+        .ok()?
+        .is_match(lines[decl_line0])
+        .then_some(())?;
+    let element = Regex::new(&format!(
+        r"^\s*(?:public\s+|abstract\s+)*[\w.<>\[\]?, ]*[\w>\]]\s+{}\s*\(\s*\)",
+        regex::escape(word)
+    ))
+    .ok()?;
+    Some(
+        members(lines, decl_line0)
+            .into_iter()
+            .filter(|&i| element.is_match(lines[i]))
+            .map(|i| i + 1)
+            .collect(),
+    )
+}
+
 fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
     let member = |i: &usize| !matches!(lines[*i].trim(), "" | "{");
     let body = body_of(Kind::Swift, lines, decl_line0);
@@ -811,18 +1003,67 @@ fn params(
         "" => 0,
         _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let open = code(kind, lines[decl_line0])
-        .find(|&(i, c)| i >= from && c == b'(')
-        .map(|(i, _)| i)?;
-    let Group {
-        inner_uncommented: inner,
-        ..
-    } = group(kind, lines, decl_line0, open)?;
+    let inner = if let Some(inner) = ruby_bare_params(kind, lines, decl_line0, from) {
+        inner
+    } else {
+        let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
+            Some((_, open)) => open?,
+            None => code(kind, lines[decl_line0])
+                .find(|&(i, c)| i >= from && c == b'(')
+                .map(|(i, _)| i)?,
+        };
+        group(kind, lines, decl_line0, open)?.inner_uncommented
+    };
     let base = inner.as_ptr() as usize;
-    split_top(kind, &inner, b',').into_iter().find_map(|p| {
-        let at = find(p)? + (p.as_ptr() as usize - base);
-        Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
-    })
+    split_top(kind, &inner, b',')
+        .into_iter()
+        .flat_map(|p| dart_optional(kind, p))
+        .find_map(|p| {
+            let at = find(p)? + (p.as_ptr() as usize - base);
+            Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
+        })
+}
+
+fn ruby_bare_params(kind: Kind, lines: &[&str], decl_line0: usize, from: usize) -> Option<String> {
+    let line = lines[decl_line0];
+    let rest = line.get(from..)?;
+    let def = line
+        .get(..from)?
+        .trim_start()
+        .strip_prefix("def ")
+        .map(str::trim_start);
+    if kind != Kind::Ruby
+        || !def.is_some_and(|d| !d.is_empty() && !d.contains([' ', '(']))
+        || !rest.starts_with([' ', '\t'])
+        || rest.trim_start().starts_with('(')
+    {
+        return None;
+    }
+    let mut out = String::new();
+    for l in std::iter::once(rest).chain(lines.iter().skip(decl_line0 + 1).copied()) {
+        let l = uncommented(kind, l);
+        let end = code(kind, &l)
+            .find(|&(_, c)| c == b';')
+            .map_or(l.len(), |(i, _)| i);
+        let piece = l.get(..end)?;
+        out.push_str(piece);
+        if end < l.len() || !piece.trim_end().ends_with(',') {
+            return Some(out);
+        }
+        out.push('\n');
+    }
+    Some(out)
+}
+
+fn dart_optional(kind: Kind, part: &str) -> Vec<&str> {
+    let t = part.trim();
+    match t
+        .strip_prefix(['{', '['])
+        .and_then(|t| t.strip_suffix(['}', ']']))
+    {
+        Some(inner) if kind == Kind::Dart => split_top(kind, inner, b','),
+        _ => vec![part],
+    }
 }
 
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
@@ -842,6 +1083,13 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     let token = match (kind, typed) {
         (Kind::Swift, _) => tokens.next()?,
         _ => tokens.next_back()?,
+    };
+    let token = match kind {
+        Kind::Dart => ["this.", "super."]
+            .iter()
+            .find_map(|p| token.strip_prefix(p))
+            .unwrap_or(token),
+        _ => token,
     };
     let bare = token
         .trim_start_matches(['$', '*', '&', '.'])
@@ -867,7 +1115,7 @@ mod tests {
             .expect("the probe is in the text");
         let start = l.find(probe).unwrap() + probe.find(|c: char| c.is_alphanumeric()).unwrap();
         let (range, _) = word_at(l, start, "").unwrap();
-        label_at(kind, false, text, line, range)
+        label_at(kind, std::path::Path::new(""), text, line, range)
     }
 
     fn owner(kind: Kind, text: &str, probe: &str) -> Option<(String, Owner)> {
@@ -906,14 +1154,14 @@ mod tests {
         assert!(label(Kind::CSharp, tuple, "count: n)").is_some());
         let java = "for (i = 0; i < n; i++) {}\n@Size(max = 3)\n";
         assert!(
-            label_at(Kind::Jvm, true, java, 0, 5..6).is_none(),
+            label_at(Kind::Jvm, std::path::Path::new("A.java"), java, 0, 5..6).is_none(),
             "Java has no named arguments"
         );
         assert!(
-            label_at(Kind::Jvm, true, java, 1, 6..9).is_some(),
+            label_at(Kind::Jvm, std::path::Path::new("A.java"), java, 1, 6..9).is_some(),
             "only an annotation's brackets hold labels"
         );
-        assert!(label_at(Kind::Jvm, false, java, 1, 6..9).is_some());
+        assert!(label_at(Kind::Jvm, std::path::Path::new(""), java, 1, 6..9).is_some());
         let swift = "let w = RefreshWindow.init(interval: 30, maximumAttempts: 1)\nlet v = RefreshWindow(interval: 30)\ninit(interval: Double) {}\nlet t = a ? b : c\nx = self.init(name: 1)\n";
         assert_eq!(
             owner(Kind::Swift, swift, "maximumAttempts"),
@@ -1056,6 +1304,14 @@ mod tests {
             ),
             vec![2]
         );
+        let rb = "class Satchel\n  def initialize(grams:, owner: nil)\n  end\nend\ndef pair cups, mugful: 0, # x\n         pot: nil; cups\nend\ndef bare a: f(mugful: 1)\nend\n";
+        let ruby = |decl, name, word| label_lines(Kind::Ruby, rb, decl, name, word, &Owner::Args);
+        assert_eq!(ruby(1, "Satchel", "owner"), vec![2]);
+        assert_eq!(ruby(2, "new", "owner"), vec![2]);
+        assert_eq!(ruby(5, "pair", "mugful"), vec![5]);
+        assert_eq!(ruby(5, "pair", "pot"), vec![6]);
+        assert_eq!(ruby(5, "pair", "cups"), vec![5]);
+        assert_eq!(ruby(8, "bare", "mugful"), Vec::<usize>::new());
         let php = "function discount(int $total): int\n{\n}\nclass Song {\n    public function __construct(private readonly int $ids) {}\n}\n";
         assert_eq!(
             label_lines(Kind::Php, php, 1, "discount", "total", &Owner::Args),

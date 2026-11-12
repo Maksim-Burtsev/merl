@@ -44,10 +44,10 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
-        let type_param = locals
-            .is_empty()
+        let type_param = (locals.is_empty() || kind == Kind::Python)
             .then(|| self.type_param(a, &imports))
-            .flatten();
+            .flatten()
+            .filter(|&p| locals.is_empty() || search::python_locals_outside(&a.text, p, &locals));
         if let Some(line1) = type_param {
             locals = vec![line1];
         }
@@ -58,7 +58,7 @@ impl App {
         let unbound = kind == Kind::Python
             && !a.dotted
             && a.chain.is_empty()
-            && search::bindings(kind, &a.text, self.line + 1, word).is_empty()
+            && search::path_bindings(kind, &a.here, &a.text, self.line + 1, word).is_empty()
             && !search::python_class_binds(&a.text, self.line + 1, word)
             && !names_itself(kind, self.line_str(), word)
             && !self.offer_only;
@@ -114,14 +114,15 @@ impl App {
             return None;
         }
         match kind {
-            Kind::TsJs
-                if imports.iter().any(|i| i.name == *word)
-                    && !ts_type_position(a, self.line_str()) =>
-            {
-                None
-            }
-            Kind::TsJs => search::ts_type_param(&a.text, line1, word).map(|p| p.line1),
-            Kind::Jvm | Kind::Dart => {
+            Kind::TsJs => search::ts_type_param(&a.text, line1, word)
+                .filter(|p| {
+                    p.typed
+                        || imports.iter().all(|i| i.name != *word)
+                        || ts_type_position(a, self.line_str())
+                })
+                .map(|p| p.line1),
+            Kind::Python if search::python_in_default(&a.text, line1, a.range.start) => None,
+            Kind::Jvm | Kind::Dart | Kind::Python => {
                 search::generic_param_line(kind, &a.here, &a.text, line1, word)
             }
             _ if a.before.ends_with("::") => None,
@@ -267,7 +268,11 @@ impl App {
                 && after.starts_with(':')
                 && search::dart_label(&a.text, self.line + 1, range.start))
             || (kind == Kind::Solidity
-                && search::solidity_key(&a.text, self.line + 1, before, after));
+                && search::solidity_key(&a.text, self.line + 1, before, after))
+            || (kind == Kind::CSharp
+                && !dotted
+                && search::cs_initialized(&self.buf.lines, self.line, range.start, range.end)
+                    .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust
@@ -282,7 +287,10 @@ impl App {
             _ => Vec::new(),
         };
         let closure = |n: usize| {
-            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&a.text, n))
+            (kind == Kind::Swift
+                || kind == Kind::Go && search::go_names_a_type_here(&a.lead, &a.tail)
+                || kind == Kind::Python && search::python_in_function(&a.text, n)
+                || kind == Kind::Jvm && search::scala(&a.here))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1

@@ -46,3 +46,33 @@ object KraterGivens {
     def compare(a: Krater, b: Krater): Int = 0
     //             ^ d: src/main/scala/krater/Krater.scala:3
 }
+
+class KraterWrapped[
+    Krater
+//  ^ d: src/main/scala/krater/KraterRack.scala:51
+](val held: Krater) {
+//          ^ d: src/main/scala/krater/KraterRack.scala:51
+  def take(x: Krater): Krater = x
+  //          ^ d: src/main/scala/krater/KraterRack.scala:51
+}
+
+object KraterWrappedFns {
+  def wrapped[Krater](
+      x: Krater,
+      // ^ d: src/main/scala/krater/KraterRack.scala:60
+      y: Int
+  ): Krater = x
+  // ^ d: src/main/scala/krater/KraterRack.scala:60
+  def plain(
+      x: Krater
+      // ^ d: src/main/scala/krater/Krater.scala:3
+  ): Krater = x
+  // ^ d: src/main/scala/krater/Krater.scala:3
+}
+
+class KraterCrossBound[
+    A <: Krater,
+    Krater
+](val held: Krater) {
+//          ^ d: src/main/scala/krater/KraterRack.scala:75
+}

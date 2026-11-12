@@ -3,8 +3,18 @@ use super::{
     signature,
 };
 
+mod accessor;
+mod calls;
 mod declared;
+mod eslint;
+mod generic_base;
+mod go_argument;
+mod intersection;
+mod positions;
 mod shadowed;
+
+use declared::declared_name;
+pub(super) use generic_base::{Base, base_argument};
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
@@ -75,12 +85,29 @@ impl App {
         {
             return Ok(found);
         }
-        let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
+        let ProvenType { ty, links } = match self.receiver(kind, here, chain, head) {
+            Ok(proven) => proven,
+            Err(via) => {
+                let (hits, label) = head
+                    .is_none()
+                    .then(|| self.jsdoc_intersection_member(kind, here, &text, line, chain, word))
+                    .flatten()
+                    .ok_or(via)?;
+                return Ok(hits
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(label.clone()),
+                    })
+                    .collect());
+            }
+        };
         let declared = match self.union_arms(kind, &ty) {
             Some(arms) => self.shared_member(kind, &arms, word),
             None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
         };
         let hits = declared
+            .map(|hits| self.accessor_side(kind, word, hits))
             .or_else(|| {
                 let mut assigned = None;
                 self.hierarchy(kind, &ty, 0, &mut |t| {
@@ -91,6 +118,7 @@ impl App {
                 });
                 assigned
             })
+            .or_else(|| self.eslint_parent(kind, here, &text, line, chain, word))
             .unwrap_or_default();
         if hits.is_empty()
             && search::reads_jsdoc(kind, here)
@@ -143,64 +171,6 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect()))
-    }
-
-    fn calls_type(
-        &self,
-        kind: Kind,
-        here: &Path,
-        line: &str,
-        word_start: usize,
-    ) -> Option<Result<ProvenType, String>> {
-        let (end, methods) = search::go_method_calls(line, word_start)?;
-        let head = search::call_head(kind, line, end)?;
-        let ProvenType { mut ty, mut links } = self.receiver(kind, here, &[], Some(&head)).ok()?;
-        for method in &methods {
-            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
-                let members = self.members_of(kind, t, method);
-                (!members.is_empty()).then_some(members)
-            })?;
-            let [decl] = <[Hit; 1]>::try_from(found).ok()?;
-            let text = self.text_of(&decl.path)?;
-            let search::Value::Type(written) =
-                self.returns_of(kind, &decl.path, &text, decl.line1)?
-            else {
-                return None;
-            };
-            links.push(signature(kind, method, &written));
-            match self.annotated_type(kind, &decl.path, &text, 0, &written) {
-                Some(next) => ty = next,
-                None if kind == Kind::Go && self.go_outside(&decl.path, &text, &written) => {
-                    return Some(Err(links.join(" \u{2192} ")));
-                }
-                None => return None,
-            }
-        }
-        Some(Ok(ProvenType { ty, links }))
-    }
-
-    fn assigned_calls_type(
-        &self,
-        kind: Kind,
-        file: &Path,
-        text: &str,
-        line1: usize,
-    ) -> Option<TypeVia> {
-        if self.rel_current().as_deref() != Some(file) {
-            return None;
-        }
-        let name = text.lines().nth(line1.checked_sub(1)?)?.trim_start();
-        let name = name.get(..name.find(|c: char| !(c.is_alphanumeric() || c == '_'))?)?;
-        let expr = match kind {
-            Kind::Go => search::go_assigned_chain(text, line1, name)?,
-            _ => search::python_assigned_call(text, line1, name)?,
-        };
-        let probe = format!("{expr}.x");
-        let ProvenType { ty, links } = self.calls_type(kind, file, &probe, expr.len() + 1)?.ok()?;
-        Some(TypeVia {
-            ty,
-            call_signature: Some(links.join(" \u{2192} ")),
-        })
     }
 
     pub(super) fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
@@ -364,7 +334,8 @@ impl App {
         let (last, before) = chain.split_last()?;
         if before.is_empty() {
             let text = self.buf.lines.join("\n");
-            let bindings = search::bindings_at(kind, &text, self.line + 1, Some(self.col), last);
+            let bindings =
+                search::bindings_at(kind, here, &text, self.line + 1, Some(self.col), last);
             Some((here.to_path_buf(), text, bindings, Vec::new()))
         } else {
             let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
@@ -524,6 +495,16 @@ impl App {
         chain: &[String],
         hops: usize,
     ) -> Result<ProvenType, String> {
+        if kind == Kind::Go
+            && let [var, field, rest @ ..] = chain
+            && let Some(arg) = self.go_field_argument(file, text, line1, (var, field))
+        {
+            let value = search::Value::Type(arg);
+            let start = self
+                .binding_type(kind, file, text, &search::Binding { line1, value }, hops)
+                .ok_or_else(|| field.clone())?;
+            return self.follow(kind, start, &format!("{var}.{field}"), false, rest);
+        }
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
@@ -640,6 +621,7 @@ impl App {
     fn typed_field(&self, kind: Kind, ty: &Typed, field: &str) -> Option<TypeVia> {
         self.hierarchy(kind, ty, 0, &mut |t| self.field_type(kind, t, field))
             .and_then(DeclaredField::typed)
+            .or_else(|| self.generic_base_field(kind, ty, field))
             .or_else(|| {
                 (kind == Kind::Python && self.stub_returns_self(ty, field)).then(|| TypeVia {
                     ty: ty.clone(),
@@ -784,41 +766,15 @@ impl App {
             search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
                 self.assigned_calls_type(kind, file, text, b.line1)
             }
+            search::Value::Position { .. } if hops > 0 => {
+                self.call_position_type(kind, file, text, b, hops)
+            }
             search::Value::Name(_)
             | search::Value::Element(_)
             | search::Value::Field { .. }
+            | search::Value::Position { .. }
             | search::Value::Unknown => None,
         }
-    }
-
-    fn dict_value(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        receiver: &str,
-        method: &str,
-    ) -> Option<TypeVia> {
-        let kind = Kind::Python;
-        let mut found: Option<TypeVia> = None;
-        for b in self.bindings_of(kind, file, text, line1, receiver) {
-            let search::Value::Type(written) = &b.value else {
-                return None;
-            };
-            let value = search::python_dict_value(written)?;
-            let ty = self.annotated_type(kind, file, text, b.line1, &value)?;
-            match &found {
-                Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => return None,
-                Some(_) => {}
-                None => {
-                    found = Some(TypeVia {
-                        ty,
-                        call_signature: Some(format!("{receiver}.{method}() -> {value}")),
-                    });
-                }
-            }
-        }
-        found
     }
 
     fn element_binding_type(
@@ -833,6 +789,7 @@ impl App {
         let (n, values) = n
             .strip_suffix(".values()")
             .map_or((n, false), |base| (base, true));
+        let (n, indexed) = n.strip_suffix("[]").map_or((n, false), |base| (base, true));
         let (file, text, bindings) = match n.rsplit_once('.') {
             None => (
                 file.to_path_buf(),
@@ -872,6 +829,11 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
+                None if indexed
+                    && (kind != Kind::TsJs || self.type_decl(kind, &at, &written).is_none()) =>
+                {
+                    (search::indexed_value(kind, &written)?, at.clone())
+                }
                 None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
@@ -1042,53 +1004,37 @@ impl App {
             }
             _ => return None,
         };
-        let ty = self.annotated_type(kind, &decl.path, &at, 0, &written)?;
+        let own_type = match kind {
+            Kind::TsJs => written.trim() == "this",
+            Kind::Python => written.trim() == "Self" && super::python::imports_typing_self(&at),
+            _ => false,
+        };
+        if own_type && hops > 0 && !receiver.is_empty() {
+            let ProvenType { ty, .. } = self
+                .chain_type(kind, file, text, line1, receiver, hops - 1)
+                .ok()?;
+            return Some(TypeVia {
+                ty,
+                call_signature: Some(signature),
+            });
+        }
+        if let Some(ty) =
+            self.generic_call_type(kind, (file, text, line1), receiver, method, &written, hops)
+        {
+            return Some(TypeVia {
+                ty,
+                call_signature: Some(signature),
+            });
+        }
+        let (written, scope) = match search::ts_awaited(kind, text, line1, callee, &written) {
+            Some(inner) => (inner, decl.line1),
+            None => (written, 0),
+        };
+        let ty = self.annotated_type(kind, &decl.path, &at, scope, &written)?;
         Some(TypeVia {
             ty: self.runtime_class(ty),
             call_signature: Some(signature),
         })
-    }
-
-    fn go_type_argument(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        callee: &str,
-        params: &[String],
-        type_param: &str,
-    ) -> Option<String> {
-        let line = text.lines().nth(line1.checked_sub(1)?)?;
-        let args = search::go_call_arguments(line, callee)?;
-        let variadic = params.last().is_some_and(|p| p.starts_with("..."));
-        if args.len() != params.len() && !(variadic && args.len() + 1 >= params.len()) {
-            return None;
-        }
-        let mut found: Option<String> = None;
-        for (i, arg) in args.iter().enumerate() {
-            let param = params
-                .get(i)
-                .or_else(|| params.last().filter(|_| variadic))?;
-            if !arg.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                continue;
-            }
-            let bindings = self.bindings_of(Kind::Go, file, text, line1, arg);
-            let [
-                search::Binding {
-                    value: search::Value::Type(written),
-                    ..
-                },
-            ] = bindings.as_slice()
-            else {
-                continue;
-            };
-            if let Some(t) = search::go_type_argument(param, written, type_param)
-                && *found.get_or_insert_with(|| t.clone()) != t
-            {
-                return None;
-            }
-        }
-        found
     }
 
     fn annotated_type(
@@ -1207,7 +1153,8 @@ impl App {
     ) -> Vec<search::Binding> {
         let col = (line1 == self.line + 1 && text.lines().nth(self.line) == Some(self.line_str()))
             .then_some(self.col);
-        let mut bindings = search::bindings_at(kind, text, line1, col, name);
+        let mut bindings = search::bindings_at(kind, file, text, line1, col, name);
+        positions::forget_swapped(text, line1, name, &mut bindings);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
                 if let Some(t) = search::jsdoc_binding(text, b.line1, name)
@@ -1231,14 +1178,6 @@ impl App {
             }
         }
         bindings
-    }
-    fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
-        self.type_decl(kind, file, written).is_some_and(|ty| {
-            self.is_interface(&ty)
-                || self
-                    .union_arms(kind, &ty)
-                    .is_some_and(|arms| arms.iter().all(|a| self.is_interface(a)))
-        })
     }
 
     fn is_interface(&self, ty: &Typed) -> bool {
@@ -1476,22 +1415,17 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
         regex::escape(name)
     ))
     .expect("an escaped name keeps the pattern valid");
-    search::bindings(kind, text, line1, name).iter().any(|b| {
-        lines.get(b.line1 - 1).is_some_and(|l| {
-            !(names_itself(kind, l, name)
-                || search::reads_jsdoc(kind, file) && required.is_match(l))
+    search::path_bindings(kind, file, text, line1, name)
+        .iter()
+        .any(|b| {
+            lines.get(b.line1 - 1).is_some_and(|l| {
+                !(names_itself(kind, l, name)
+                    || search::reads_jsdoc(kind, file) && required.is_match(l))
+            })
         })
-    })
 }
 
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
     search::reads_jsdoc(kind, file)
         && (search::js_constructor(line).is_some() || search::js_exported_class(line))
-}
-
-fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
-    search::type_name(kind, decl)
-        .filter(|_| matches!(kind, Kind::Python | Kind::TsJs))
-        .or_else(|| parts.last().cloned())
-        .unwrap_or_default()
 }

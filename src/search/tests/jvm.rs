@@ -303,11 +303,17 @@ fn a_java_element_comes_out_of_a_written_collection() {
     assert_eq!(java_element_access("        x = q.size()."), None);
     assert_eq!(java_element_access("        x = a.b.get(0)."), None);
     let field = "    private final List<Stone> stones = new ArrayList<>();";
-    assert_eq!(java_element_type(field, "stones").as_deref(), Some("Stone"));
+    let both = |c: &str, e: &str| Some((c.to_owned(), e.to_owned()));
+    assert_eq!(java_element_type(field, "stones"), both("List", "Stone"));
     assert_eq!(
         java_element_type("    Map<K, Stone> stones;", "stones"),
+        both("Map", "Stone")
+    );
+    assert_eq!(
+        java_element_type("    Map<String, List<Stone>> stones;", "stones"),
         None
     );
+    assert_eq!(java_element_type("    Map<Stone> stones;", "stones"), None);
     assert_eq!(
         java_element_type("    Optional<? extends a.B> stones,", "stones"),
         None
@@ -424,7 +430,7 @@ fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
 fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
     let text = "fun f(glasses: List<Glass>, n: Map<String, Glass>) {\n    glasses.sumOf { it.dose() }\n    glasses.forEach { g ->\n        g.dose()\n    }\n}\n";
     let at = |line1: usize, before: &str, name: &str| {
-        kotlin_lambda_collection(text, line1, before, name)
+        kotlin_lambda_collection(Path::new("a.kt"), text, line1, before, name)
     };
     assert_eq!(
         at(2, "    glasses.sumOf { ", "it").as_deref(),
@@ -461,7 +467,7 @@ fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
 fn a_kotlin_lambda_parameter_is_read_through_inner_lambdas_and_enum_entries() {
     let text = "fun f(items: List<Wrapped>) {\n    items.forEach { w ->\n        item(key = 1) {\n            Show(\n                name = w.topic,\n            )\n            val w = 2\n            w.x\n        }\n    }\n    Flavor.entries.forEach { flavor ->\n        flavor.suffix\n    }\n}\n";
     let at = |line1: usize, before: &str, name: &str| {
-        kotlin_lambda_collection(text, line1, before, name)
+        kotlin_lambda_collection(Path::new("a.kt"), text, line1, before, name)
     };
     assert_eq!(
         at(5, "                name = w.", "w").as_deref(),

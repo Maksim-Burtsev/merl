@@ -56,3 +56,26 @@ exports.calls = {
     };
   },
 };
+
+exports.parents = {
+  create(context) {
+    return {
+      ObjectPattern(node) {
+        return node.parent;
+        //          ^ d: node_modules/eslint/lib/types/index.d.ts:5
+      },
+      "Property:exit"(node) {
+        [context].forEach(function (node) {
+          return node.parent;
+          //          ^ d: chains.ts:13; want none (#1337)
+        });
+        return node.parent;
+        //          ^ d: node_modules/eslint/lib/types/index.d.ts:5
+      },
+      Program(node) {
+        return node.parent;
+        //          ^ d: chains.ts:13; want none (#1337)
+      },
+    };
+  },
+};

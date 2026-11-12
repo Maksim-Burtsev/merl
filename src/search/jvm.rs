@@ -1,8 +1,9 @@
 use regex::Regex;
 
+use super::groovy::script_binding;
 use super::jvm_rebound::{
-    blanked, clause_closed_at, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
-    negated_pattern_exits,
+    case_label_end, continued_declarator, declares_local, header_lines1_binding,
+    later_declarator_type, negated_pattern_exits,
 };
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
@@ -225,7 +226,7 @@ pub fn jvm_function(line: &str) -> Option<String> {
     Some(head.get(unnamed.len()..)?.to_owned())
 }
 
-fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<usize> {
+pub(super) fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<usize> {
     static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").expect("the regex is a literal")
     });
@@ -260,78 +261,8 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
     None
 }
 
-fn header_lines1_binding(
-    lines: &[&str],
-    from: usize,
-    to: usize,
-    name: &str,
-    cursor: Option<usize>,
-) -> Vec<usize> {
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let ret = super::jvm_return_type!();
-    let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
-    ));
-    let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
-        .into_iter()
-        .collect();
-    for (i, l) in lines.iter().enumerate().take(to + 1).skip(from) {
-        let code = uncommented(Kind::Jvm, l);
-        let (lambda, clause) = match cursor {
-            Some(col) => {
-                let line = blanked(l);
-                let lambda = lambda_binders(&line)
-                    .iter()
-                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
-                let open = std::iter::successors(clause.find(&line), |m| {
-                    clause.find_at(&line, m.start() + 1)
-                })
-                .any(|m| !clause_closed_at(&line, m.start(), col));
-                (lambda, open)
-            }
-            None => (
-                lambda_names(&code).iter().any(|p| p == name),
-                clause.is_match(&code),
-            ),
-        };
-        if clause || lambda {
-            out.push(i + 1);
-        }
-    }
-    out.sort_unstable();
-    out.dedup();
-    out
-}
-
-fn declares_local(t: &str, name: &str) -> bool {
-    let n = regex::escape(name);
-    let ret = super::jvm_return_type!();
-    Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
-    ))
-    .is_ok_and(|re| re.is_match(t))
-}
-
-pub fn jvm_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return Vec::new();
-    };
-    if !matches!(name, "this" | "super" | "it")
-        && blanked(lines[at])
-            .get(..col)
-            .is_some_and(|lead| jvm_declared_before(lead, name))
-    {
-        return vec![Binding {
-            line1,
-            value: Value::Unknown,
-        }];
-    }
-    jvm_bindings(&lines, at, name, Some(col))
-}
-
 pub(super) fn jvm_bindings(
+    path: &std::path::Path,
     lines: &[&str],
     at: usize,
     name: &str,
@@ -345,11 +276,12 @@ pub(super) fn jvm_bindings(
         return Vec::new();
     }
     let text = lines.join("\n");
-    let literal = literal_lines(Kind::Jvm, &text);
-    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
+    let literal = path_literal_lines(Kind::Jvm, path, &text);
+    let scala = super::scala(path);
+    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
-    let mut i = at;
+    let (mut i, mut own_group) = (at, true);
     while out.is_empty() && depth > 0 && i > 0 {
         i -= 1;
         let t = uncommented(Kind::Jvm, lines[i]);
@@ -358,12 +290,23 @@ pub(super) fn jvm_bindings(
         if t.is_empty() || comment(Kind::Jvm, t) || literal[i] || ind > depth {
             continue;
         }
+        if ind < depth && case_label_end(t) == t.len() {
+            if own_group {
+                let own = header_lines1_binding(lines, i, i, name, None, scala);
+                out.extend(own.into_iter().map(binding));
+            }
+            own_group = false;
+            continue;
+        }
         if ind == depth {
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
             if (declares_local(t, name) || negated_pattern_exits(lines, i, name))
                 && !member_or_top_level
             {
                 out.push(binding(i + 1));
+            } else if !member_or_top_level && let Some(k) = continued_declarator(lines, i, at, name)
+            {
+                out.push(binding(k + 1));
             }
             continue;
         }
@@ -376,6 +319,7 @@ pub(super) fn jvm_bindings(
                 .unwrap_or(i);
         }
         depth = indent(lines[i]);
+        own_group = true;
         if opens_type(lines[i]) {
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
             if member_or_top_level
@@ -386,11 +330,26 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
+        if scala && super::jvm_rebound::local_def_header(lines, i, name) {
+            out.push(binding(i + 1));
+        }
         out.extend(
-            header_lines1_binding(lines, i, end, name, None)
+            header_lines1_binding(lines, i, end, name, None, scala)
                 .into_iter()
                 .map(binding),
         );
+    }
+    if out.is_empty()
+        && let Some(k) = script_binding(path, lines, &text, &literal, at, col, name)
+    {
+        out.push(binding(k + 1));
+    }
+    if super::scala(path)
+        && let Some(col) = col
+        && let Some(g) = super::scala_rebound::scala_generator_line1(path, lines, at, col, name)
+        && out.iter().all(|b| b.line1 < g)
+    {
+        out = vec![binding(g)];
     }
     out
 }
@@ -428,17 +387,6 @@ pub(super) fn anonymous(line: &str) -> bool {
             .expect("the regex is a literal")
     });
     ANONYMOUS.is_match(line)
-}
-
-pub fn jvm_anonymous_base(line: &str) -> Option<String> {
-    static BASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bobject\s*:\s*([\w.]+)|\bnew\s+([\w.]+)").expect("the regex is a literal")
-    });
-    if !anonymous(line) {
-        return None;
-    }
-    let c = BASE.captures_iter(line).last()?;
-    c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned())
 }
 
 pub fn jvm_type_name(line: &str) -> Option<String> {
@@ -683,27 +631,37 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
             return None;
         }
         vec![
-            format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{)"),
+            format!(r"(?:^|[^\w.]){n}\s*:\s*{ty}{GENERIC}\??\s*(?:[=,)]|$|\{{|get\s*\()"),
             format!(
                 r"\b(?:val|var)\s+{n}\s*=\s*{CAST_OPERAND}\s+as\??\s+{ty}{GENERIC}\??\s*;?\s*$"
             ),
             format!(r"\b(?:val|var)\s+{n}\s*=\s*([A-Z]\w*){GENERIC}\s*\("),
+            format!(
+                r"\b(?:val|var)\s+{n}\s*=\s*new\s+{ty}{GENERIC}(?:\[[^\[\]]*\])?\s*(?:\([^()]*\))?\s*;?\s*$"
+            ),
         ]
     } else {
         vec![
             format!(
-                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"
+                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|->|$)"
             ),
             format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
             format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
         ]
     };
-    rules.iter().find_map(|r| {
-        let re = Regex::new(r).ok()?;
-        let c = re.captures(&code)?;
-        let at = c.get(1)?.start();
-        (!code.get(..at)?.ends_with('.')).then(|| c[1].to_owned())
-    })
+    rules
+        .iter()
+        .find_map(|r| {
+            let re = Regex::new(r).ok()?;
+            let c = re.captures(&code)?;
+            let at = c.get(1)?.start();
+            (!code.get(..at)?.ends_with('.')).then(|| c[1].to_owned())
+        })
+        .or_else(|| {
+            (!kotlin)
+                .then(|| later_declarator_type(&code, name))
+                .flatten()
+        })
 }
 
 pub fn scala_type_parameter(text: &str, name: &str) -> bool {
@@ -1032,6 +990,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
 }
 
 pub fn kotlin_lambda_collection(
+    path: &std::path::Path,
     text: &str,
     line1: usize,
     before: &str,
@@ -1054,7 +1013,7 @@ pub fn kotlin_lambda_collection(
     }
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let nearest: Vec<usize> = jvm_bindings(&lines, at, name, None)
+    let nearest: Vec<usize> = jvm_bindings(path, &lines, at, name, None)
         .iter()
         .map(|b| b.line1)
         .collect();
@@ -1103,6 +1062,14 @@ pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<
     (bound == "it").then_some(())?;
     let c = CALL.captures(&head)?;
     Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
+}
+
+pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str) -> bool {
+    static GROOVY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\.\s*(?:with|tap)\s*\{$").expect("the regex is a literal")
+    });
+    kotlin_lambda_head(text, line1, before)
+        .is_some_and(|(head, bound)| bound == "it" && GROOVY.is_match(&head))
 }
 
 pub fn kotlin_scope_returned(before: &str) -> Option<String> {
@@ -1187,13 +1154,21 @@ pub fn java_element_access(before: &str) -> Option<String> {
     Some(ACCESS.captures(before)?[1].to_owned())
 }
 
-pub fn java_element_type(line: &str, name: &str) -> Option<String> {
+pub fn java_element_type(line: &str, name: &str) -> Option<(String, String)> {
     let re = Regex::new(&format!(
-        r"(?:^|[\s(,])(?:List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional|PriorityQueue|BlockingQueue)<\s*(?:\?\s+extends\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)",
+        concat!(
+            r"(?:^|[\s(,])(?:(List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional",
+            r"|PriorityQueue|BlockingQueue)<|(Map|HashMap|LinkedHashMap|TreeMap|SortedMap|NavigableMap",
+            r"|ConcurrentMap|ConcurrentHashMap)<\s*[A-Z][\w.]*\s*,)\s*(?:\?\s+extends\s+)?",
+            r"([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)"
+        ),
         regex::escape(name)
     ))
     .ok()?;
-    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    let container = c.get(1).or_else(|| c.get(2))?.as_str().to_owned();
+    Some((container, c[3].to_owned()))
 }
 
 pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
@@ -1314,6 +1289,14 @@ pub fn jvm_when_else(text: &str, line1: usize, name: &str) -> Option<usize> {
     subject
         .is_match(&uncommented(Kind::Jvm, lines[head]))
         .then_some(head + 1)
+}
+
+pub fn scala_packaged_construction(before: &str) -> Option<String> {
+    static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])new\s+((?:[a-z]\w*\.)+[A-Z]\w*(?:\.[A-Z]\w*)*)\s*\([^()]*\)\.$")
+            .expect("the regex is a literal")
+    });
+    SCALA.captures(before.trim_end()).map(|c| c[1].to_owned())
 }
 
 pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {

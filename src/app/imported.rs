@@ -479,7 +479,7 @@ impl App {
     fn unbound(&self, kind: Kind, files: &[PathBuf], name: &str) -> bool {
         files.iter().all(|f| {
             self.text_of(f)
-                .is_none_or(|t| search::bindings(kind, &t, 1, name).is_empty())
+                .is_none_or(|t| search::path_bindings(kind, f, &t, 1, name).is_empty())
         })
     }
 
@@ -504,10 +504,17 @@ impl App {
             let Some(text) = self.text_of(f) else {
                 continue;
             };
+            let listed = search::listed_import(&text, first).and_then(|mut module| {
+                let name_in_module = module.pop()?;
+                Some(search::Reexport {
+                    module,
+                    name_in_module,
+                })
+            });
             for search::Reexport {
                 mut module,
                 name_in_module,
-            } in search::reexported(&text, first)
+            } in search::reexported(&text, first).into_iter().chain(listed)
             {
                 if name_in_module == "*" && chain.is_empty() {
                     continue;
@@ -533,7 +540,7 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let import =
             |l: &str| l.trim_start().starts_with("from ") || l.trim_start().starts_with("import ");
-        if search::bindings(kind, &text, 1, first)
+        if search::path_bindings(kind, file, &text, 1, first)
             .iter()
             .any(|b| !lines.get(b.line1 - 1).is_some_and(|l| import(l)))
         {

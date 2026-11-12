@@ -64,7 +64,10 @@ pub fn kotlin_call_chain(before: &str) -> Option<KotlinCallChain> {
                     return None;
                 }
                 let constructed = call;
-                if !constructed && upper(&full) {
+                if !constructed
+                    && upper(&full)
+                    && (h.ends_with('@') || !links.first().is_some_and(|l| l.ends_with(')')))
+                {
                     return None;
                 }
                 links.iter().any(|l| l.ends_with(')')).then_some(())?;
@@ -186,4 +189,76 @@ pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Opt
     (decl..=g.close_line)
         .find(|&i| jvm_declared_type(lines[i], name, true).as_ref() == Some(&declared))
         .map(|i| i + 1)
+}
+
+pub fn kotlin_typealias(line: &str) -> Option<(&str, &str)> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:(?:public|internal)\s+)*typealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)\s*$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = ALIAS.captures(line)?;
+    Some((c.get(1)?.as_str(), c.get(2)?.as_str()))
+}
+
+pub fn kotlin_backing_property(text: &str, line1: usize, col: usize) -> Option<usize> {
+    static ACCESSOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected|internal|public|override|inline)\s+)*(?:get|set)\s*\(([^)]*)\)")
+            .expect("the regex is a literal")
+    });
+    static PROPERTY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected|internal|public|override|open|final|lateinit|const|abstract)\s+)*(?:val|var)\s+[A-Za-z_]\w*\b")
+            .expect("the regex is a literal")
+    });
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:val|var)\s+field\b|\bfield\s*(?:->|:)|\bfun\b|\bclass\b|\bobject\b")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let here = uncommented(Kind::Jvm, lines[at]);
+    let before = here.get(..col)?;
+    if let Some(c) = ACCESSOR.captures(before) {
+        if c[1]
+            .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .any(|w| w == "field")
+        {
+            return None;
+        }
+        if PROPERTY.is_match(before) {
+            return Some(at + 1);
+        }
+        let s = scope_of(&lines, at)?;
+        return PROPERTY.is_match(lines[s]).then_some(s + 1);
+    }
+    if PROPERTY.is_match(before)
+        && Regex::new(r"\b(?:get|set)\s*\(").is_ok_and(|r| r.is_match(before))
+    {
+        return Some(at + 1);
+    }
+    if LOCAL.is_match(before) {
+        return None;
+    }
+    loop {
+        let s = scope_of(&lines, at)?;
+        let line = uncommented(Kind::Jvm, lines[s]);
+        if let Some(c) = ACCESSOR.captures(&line) {
+            if c[1]
+                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .any(|w| w == "field")
+            {
+                return None;
+            }
+            let p = scope_of(&lines, s)?;
+            return PROPERTY.is_match(lines[p]).then_some(p + 1);
+        }
+        if LOCAL.is_match(&line) || PROPERTY.is_match(&line) {
+            return None;
+        }
+        if (s + 1..at).any(|i| LOCAL.is_match(&uncommented(Kind::Jvm, lines[i]))) {
+            return None;
+        }
+        at = s;
+    }
 }

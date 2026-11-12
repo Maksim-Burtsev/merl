@@ -316,6 +316,61 @@ impl App {
             .collect()))
     }
 
+    pub(super) fn swift_free_call_type(
+        &self,
+        here: &Path,
+        text: &str,
+        lead: &str,
+    ) -> Option<String> {
+        let (callee, open, label) = search::swift_free_argument(lead)?;
+        if !search::bindings(Kind::Swift, text, self.line + 1, &callee).is_empty() {
+            return None;
+        }
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(Kind::Swift, &callee).join("|");
+        let hits = self.project_definitions(Kind::Swift, here, &callee, &pattern);
+        self.truncated.set(cut);
+        let mut decls = Vec::new();
+        for hit in hits {
+            let t = self.text_of(&hit.path)?;
+            let lines: Vec<&str> = t.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &t);
+            let top = search::swift_scope(&lines, &literal, hit.line1).header_line1 == 0;
+            if !self.in_code(Kind::Swift, &hit) {
+                continue;
+            }
+            if !top || search::swift_declares_func(&hit.text) != Some(true) {
+                return None;
+            }
+            decls.push(Candidate {
+                hit,
+                reason: Reason::Local,
+            });
+        }
+        if decls.is_empty() || !self.swift_by_labels(&callee, open, &mut decls) {
+            return None;
+        }
+        let mut types = decls.iter().map(|c| {
+            let t = self.text_of(&c.hit.path)?;
+            let lines: Vec<&str> = t.lines().collect();
+            let params = search::swift_param_labels(&lines, c.hit.line1 - 1, &callee)?;
+            let mut named = params.iter().filter(|p| p.label == label);
+            let p = match (label.as_str(), named.next(), named.next()) {
+                ("_", ..) => params.first().filter(|p| p.label == "_")?,
+                (_, Some(p), None) => p,
+                _ => return None,
+            };
+            let ty = p.ty.trim_end_matches(['?', '!']).to_owned();
+            let first = ty.split('.').next()?;
+            (!search::swift_generics(lines.get(c.hit.line1 - 1)?)
+                .iter()
+                .any(|g| g == first))
+            .then_some(ty)
+        });
+        let ty = types.next()??;
+        types.all(|t| t.as_ref() == Some(&ty)).then_some(ty)
+    }
+
     pub(super) fn swift_implicit_init_rows(
         &mut self,
         here: &Path,
@@ -541,5 +596,60 @@ impl App {
                 _ => true,
             }
         });
+    }
+}
+
+impl App {
+    pub(super) fn swift_attribute_types(&self, here: &Path, text: &str, hits: &mut Vec<Hit>) {
+        hits.retain(|h| search::swift_type_decl(&h.text));
+        self.swift_imported_modules(here, text, hits);
+    }
+
+    pub(super) fn swift_imported_modules(&self, here: &Path, text: &str, hits: &mut Vec<Hit>) {
+        static IMPORT: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"(?m)^[ \t]*(?:@\w+[ \t]+)*import[ \t]+(?:(?:class|struct|enum|protocol|func|var|let|typealias)[ \t]+)?(\w+)")
+                .expect("the regex is a literal")
+        });
+        let targets = self.swift_package_targets();
+        let module = |p: &Path| {
+            let p = p.strip_prefix(&self.root).unwrap_or(p);
+            targets
+                .iter()
+                .filter(|t| p.starts_with(&t.dir))
+                .max_by_key(|t| t.dir.components().count())
+                .map(|t| t.name.as_str())
+                .filter(|n| n.chars().all(|c| c.is_alphanumeric() || c == '_'))
+        };
+        let Some(own) = module(here) else {
+            return;
+        };
+        let imported: Vec<&str> = IMPORT
+            .captures_iter(text)
+            .filter_map(|c| Some(c.get(1)?.as_str()))
+            .collect();
+        let exported = |m: &str| {
+            self.grep(
+                &format!(r"@_exported\s+import\s+(\w+\s+)?{m}\b"),
+                false,
+                false,
+                |p| p.extension().is_some_and(|e| e == "swift"),
+            )
+            .map_or(true, |found| !found.is_empty())
+        };
+        hits.retain(|h| match module(&h.path) {
+            Some(m) if m != own => imported.contains(&m) || exported(m),
+            _ => true,
+        });
+    }
+
+    fn swift_package_targets(&self) -> Vec<search::SwiftTarget> {
+        let xcode = std::fs::read_dir(&self.root).map_or(true, |d| {
+            d.flatten()
+                .any(|e| e.path().extension().is_some_and(|x| x == "xcodeproj"))
+        });
+        match std::fs::read_to_string(self.root.join("Package.swift")) {
+            Ok(manifest) if !xcode => search::swift_targets(&manifest),
+            _ => Vec::new(),
+        }
     }
 }

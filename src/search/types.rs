@@ -1,14 +1,82 @@
 use regex::Regex;
 
+static GO_FUNC_METHOD_OR_INTERFACE_METHOD: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(")
+            .expect("the regex is a literal")
+    });
+
+pub fn returned_element(
+    kind: Kind,
+    text: &str,
+    decl_line1: usize,
+    at: usize,
+    count: usize,
+) -> Option<String> {
+    if kind != Kind::Go {
+        let Value::Type(t) = returns(kind, text, decl_line1)? else {
+            return None;
+        };
+        return written_element(kind, &t, at, count);
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl_line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let open = GO_FUNC_METHOD_OR_INTERFACE_METHOD.find(lines[k])?.end() - 1;
+    let Group { after_close, .. } = group(kind, &lines, k, open)?;
+    let result = after_close.split('{').next()?.trim();
+    let list = result
+        .strip_prefix('(')
+        .filter(|_| close_of(kind, result, 0) == Some(result.len()))?;
+    let parts: Vec<&str> = split_top(kind, list.get(..list.len() - 1)?, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let named = parts.iter().any(|p| p.contains(char::is_whitespace));
+    let items: Vec<String> = parts
+        .into_iter()
+        .map(|p| match p.split_once(char::is_whitespace) {
+            Some(("chan" | "func" | "<-chan", _)) => None,
+            Some((_, t)) if named => Some(t.trim().to_owned()),
+            None if !named && !p.is_empty() => Some(p.to_owned()),
+            _ => None,
+        })
+        .collect::<Option<_>>()?;
+    (items.len() == count)
+        .then(|| items.get(at).cloned())
+        .flatten()
+}
+pub fn written_element(kind: Kind, written: &str, at: usize, count: usize) -> Option<String> {
+    let t = written.trim();
+    let open = match kind {
+        Kind::Python => ["tuple[", "Tuple[", "typing.Tuple["]
+            .into_iter()
+            .find(|p| t.starts_with(p))?
+            .len(),
+        Kind::TsJs => t.starts_with('[').then_some(1)?,
+        _ => return None,
+    };
+    (close_of(kind, t, open - 1) == Some(t.len())).then_some(())?;
+    let items: Vec<&str> = split_top(kind, t.get(open..t.len() - 1)?, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let plain = |e: &&str| !e.is_empty() && !e.contains("...") && !e.contains(['?', ':', '*']);
+    let fits = match kind {
+        Kind::TsJs => items.len() >= count,
+        _ => items.len() == count,
+    };
+    (fits && items.iter().all(plain))
+        .then(|| items.get(at).map(|e| (*e).to_owned()))
+        .flatten()
+}
+
 use super::{
     Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, group, indent,
-    literal_lines, member_or_signature, names, split_top, ts_header, uncommented, value_of,
+    literal_lines, member_or_signature, names, names_a_type_param, python_def_open, python_header,
+    python_header_open, split_top, ts_header, uncommented, value_of,
 };
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
-    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").expect("the regex is a literal")
-    });
     static TS_FUNCTION_CONST_OR_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(
         || {
             Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").expect("the regex is a literal")
@@ -17,20 +85,14 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
     static TS_RETURN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").expect("the regex is a literal")
     });
-    static GO_FUNC_METHOD_OR_INTERFACE_METHOD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| {
-            Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(")
-                .expect("the regex is a literal")
-        });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl_line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let opener = match kind {
-        Kind::Python => &PY_DEF,
-        Kind::TsJs => &TS_FUNCTION_CONST_OR_METHOD,
-        Kind::Go => &GO_FUNC_METHOD_OR_INTERFACE_METHOD,
+    let open = match kind {
+        Kind::Python => python_def_open(lines[k])?,
+        Kind::TsJs => TS_FUNCTION_CONST_OR_METHOD.find(lines[k])?.end() - 1,
+        Kind::Go => GO_FUNC_METHOD_OR_INTERFACE_METHOD.find(lines[k])?.end() - 1,
         _ => return None,
     };
-    let open = opener.find(lines[k])?.end() - 1;
     let Group {
         close_line: end,
         after_close: after,
@@ -40,6 +102,7 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
         Kind::Python => {
             let parts = split_top(kind, after, b':');
             match parts[0].trim().strip_prefix("->") {
+                Some(t) if names_a_type_param(&lines, k, t) => None,
                 Some(t) => (parts.len() > 1 && !t.trim().is_empty())
                     .then(|| Value::Type(t.trim().to_owned())),
                 None => python_class_every_return_calls(text, &lines, k, end),
@@ -50,6 +113,14 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
                 return Some(Value::Type(c[1].to_owned()));
             }
             let expression = after.trim_start().strip_prefix("=>").map(str::trim);
+            let block = expression.is_none_or(|e| e.starts_with('{'));
+            let inline = after.trim_end().strip_suffix('}');
+            if let Some((_, b)) = inline.and_then(|s| s.split_once('{')).filter(|_| block) {
+                return match b.trim().strip_prefix("return ").map(|e| value_of(kind, e)) {
+                    Some(Value::New(t)) => Some(Value::New(t)),
+                    _ => None,
+                };
+            }
             let base = indent(lines[k]);
             let body = end
                 + 1
@@ -57,7 +128,6 @@ pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
                     .iter()
                     .take_while(|l| !(indent(l) <= base && l.trim_start().starts_with('}')))
                     .count();
-            let block = expression.is_none_or(|e| e.starts_with('{'));
             let returned: Vec<(usize, Value)> = match expression {
                 Some(e) if !block => vec![(k, value_of(kind, e))],
                 _ => (end + 1..body)
@@ -223,7 +293,7 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
         Kind::Python => lines[k]
             .trim_start()
             .starts_with("class ")
-            .then(|| lines[k].find('('))
+            .then(|| python_header_open(lines[k]))
             .flatten()
             .and_then(|open| group(kind, &lines, k, open))
             .map_or_else(Vec::new, |g| list(&g.inner_uncommented)),
@@ -330,7 +400,11 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
         .filter(|&(_, c)| c == b'(')
         .map(|(i, _)| i);
     let receiver = kind == Kind::Go && lines[k].trim_start().starts_with("func (");
-    let open = if receiver { opens.nth(1) } else { opens.next() }?;
+    let open = match python_header(lines[k]).filter(|_| kind == Kind::Python) {
+        Some((_, open)) => open?,
+        None if receiver => opens.nth(1)?,
+        None => opens.next()?,
+    };
     let Group {
         inner_uncommented: inner,
         ..
@@ -589,6 +663,19 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     };
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
+}
+pub fn indexed_value(kind: Kind, written: &str) -> Option<String> {
+    match kind {
+        Kind::Python => python_dict_value(written),
+        Kind::TsJs => {
+            let t = written.trim().trim_end_matches([';', ',']).trim();
+            let rest = t.strip_prefix("Record<")?.strip_suffix('>')?;
+            let [_, value] = <[&str; 2]>::try_from(split_top(kind, rest, b',')).ok()?;
+            let value = value.trim();
+            (!value.is_empty()).then(|| value.to_owned())
+        }
+        _ => None,
+    }
 }
 pub fn python_dict_value(written: &str) -> Option<String> {
     let t = written.trim().trim_matches(['"', '\'']);
