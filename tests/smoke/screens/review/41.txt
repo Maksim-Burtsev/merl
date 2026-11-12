@@ -1,4 +1,4 @@
-wait hunk 1/1  file 1/2
+wait TotpAuthenticationFilter.java  1:1  [code]  hunk 1/1
 ┌agent/totp ← origin/main────┐1▎class TotpAuthenticationFilter {}
 │  ▾ application             │
 │    ▾ src                   │
@@ -53,5 +53,5 @@ wait hunk 1/1  file 1/2
 │                            │
 │                            │
 └ 2 files · +2 −0 ───────────┘
-application/src/main/java/run/halo/app/security/authentication/twofactor/totp/TotpAuthenticationFilter.java  1:1  [code]  hunk 1/1  file 1/2                                       14:32
+application/src/main/java/run/halo/app/security/authentication/twofactor/totp/TotpAuthenticationFilter.java  1:1  [code]  hunk 1/1  viewed 0/2                                     14:32
 cursor (x,y,shown) 32,0,0

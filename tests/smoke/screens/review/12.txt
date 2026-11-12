@@ -1,4 +1,4 @@
-wait read-only  hunk 0/0  file 6/8  skipped 1 file without hunks
+wait refund_by_hand.py  1:1  [code]  read-only  hunk 0/0
 ┌agent/refund ← origin/main──┐1▎"""Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
 │  ▾ app                     │2▎import sys
 │✓   A refunds.py      +18 −0│3▎
@@ -53,5 +53,5 @@ wait read-only  hunk 0/0  file 6/8  skipped 1 file without hunks
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8  skipped 1 file without hunks                                                                                14:32
+scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  viewed 4/7  skipped 1 file without hunks                                                                              14:32
 cursor (x,y,shown) 32,0,0

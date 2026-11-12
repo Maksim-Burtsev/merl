@@ -20,45 +20,47 @@
 # one-child chain into `…/twofactor/totp`; Tab gives the panel the keys and, its names still cut,
 # it widens to its longest row, at most half the screen; Tab back returns it to 30 columns (#399).
 # On a pane of 12 rows, c in refunds.py, a hunk taller than the screen, stands on its first rows
-# not drawn yet, 12 then 18, before it goes on to the next file not ticked (#908).
+# not drawn yet, 12 then 18, before it goes on to the next file not ticked (#908). Then c walks
+# to the end: the status bar's `viewed 5/7` counts the ticked files of the 7 that c stops on (the
+# PNG is not one), and reads 7/7 once the walk is over (#1505).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 caption c: the next hunk, across files; the panel marks each file M, A or D with its +n −m
 key c
-wait hunk 1/1  file 2/8
+wait app/repos.py  -32:1  [code]  hunk 1/1
 caption the lines the branch deleted at the end of repos.py are lines: PgDn walks them, down to the last (#179, #439)
 key PageDown
 wait self.orders.clear()
 caption two imports three lines apart are two hunks, though git's interHunkContext would merge them (#220)
 key c
-wait hunk 1/4  file 3/8
+wait hunk 1/4
 key c
-wait hunk 2/4  file 3/8
+wait hunk 2/4
 key c c
-wait hunk 4/4  file 3/8
+wait hunk 4/4
 caption d from a changed line into the function the branch added, [ back to the hunk
 key /
 type refund_amount(o
 key Enter d
 wait refund_amount: via import app/refunds.py
 key [
-wait app/service.py  44:18  [code]  hunk 4/4  file 3/8
+wait app/service.py  44:18  [code]  hunk 4/4
 caption m puts the tick on the open file and takes it off (#162)
 key m
-wait file 3/8  viewed
+wait ✓   M service.py
 key m
-wait file 3/8  not viewed
+wait not viewed
 caption on through the chart; the redrawn PNG is skipped (#77), the deleted script opens read-only
 key c
-wait hunk 1/1  file 4/8
+wait values.yaml  25:1  [code]  hunk 1/1
 key c
-wait read-only  hunk 0/0  file 6/8  skipped 1 file without hunks
+wait refund_by_hand.py  1:1  [code]  read-only  hunk 0/0
 caption C walks back
 key C
-wait hunk 1/1  file 4/8
+wait values.yaml  25:1  [code]  hunk 1/1
 key C
-wait hunk 4/4  file 3/8
+wait app/service.py  41:1  [code]  hunk 4/4
 caption d into a file the branch did not touch, then c: back to the hunk left (#239)
 key /
 type REFUNDED
@@ -75,17 +77,17 @@ key c
 wait :1  [code]  hunk
 caption the lines a branch deleted are lines of the text: c stands on the first, the status bar reads its old number (#439)
 key C C C C
-wait app/repos.py  -32:1  [code]  hunk 1/1  file 2/8
+wait app/repos.py  -32:1  [code]  hunk 1/1
 caption / finds the deleted text, Ctrl+C copies the deleted line, and an edit there is refused (#439)
 key /
 type orders.clear
 key Enter
-wait app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1
+wait app/repos.py  -59:14  [code]  hunk 1/1
 key C-c
 wait copied 1 line
 check $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
 key Enter
-wait -59:14  [code]  hunk 1/1  file 2/8  deleted
+wait deleted
 caption o lists the review's files first, with their panel letter (#246)
 key o
 wait Files (
@@ -99,14 +101,14 @@ wait Usages of OrderStatus
 key Escape
 # --base names the branch the review is against, here the one origin/HEAD would give (#310).
 merl --review=agent/refund --base main
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 # --reviews prints the two sessions this scenario played, and exits 0 (#310).
 merl --reviews
 wait 30 days: 2 sessions
 wait merl exited: 0
 caption merl -r agent/page-size: the branch an agent works on in a worktree of its own is reviewed there (#396)
 merl -r agent/page-size
-wait [code]  hunk 1/1  file 1/2
+wait app/config.py  10:1  [code]  hunk 1/1
 caption its file not committed yet is part of the review
 key c
 wait docs/paging.md
@@ -117,7 +119,7 @@ key o
 wait Files (
 type app/repos.py
 key Enter
-wait app/repos.py  1:1  [code]  hunk 0/1  file 2/8
+wait app/repos.py  1:1  [code]  hunk 0/1
 key /
 type orders.clear
 key Enter
@@ -140,10 +142,10 @@ wait [code]
 # agent/page-size above, and C passes over a file ticked before (#823): m in the panel takes it off.
 key Tab Up Up m Tab
 key C
-wait hunk 1/1  file 1/2
+wait app/config.py  10:1  [code]  hunk 1/1
 caption merl -r agent/totp: a package eleven directories deep; the chain folds into one row (#399)
 merl -r agent/totp
-wait hunk 1/1  file 1/2
+wait TotpAuthenticationFilter.java  1:1  [code]  hunk 1/1
 caption Tab: the names are cut, so the panel widens to its longest row while it has the keys (#399)
 key Tab
 wait [tree]
@@ -153,11 +155,11 @@ wait [code]
 caption c in a hunk taller than the screen: its first row not drawn yet, then the next hunk (#908)
 size 185x12
 merl --review=agent/refund
-wait file 6/8
+wait refund_by_hand.py  1:1  [code]  read-only  hunk 0/0
 # The files before it were ticked in the first review of agent/refund above, so C passes over
 # them (#823): the panel's Enter opens app/refunds.py.
 key Tab Up*10 Enter
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 key m
 wait not viewed
 key c
@@ -165,4 +167,14 @@ wait app/refunds.py  12:1
 key c
 wait app/refunds.py  18:1
 key c
-wait hunk 0/0  file 6/8
+wait refund_by_hand.py  1:1  [code]  read-only  hunk 0/0
+caption the status line counts the files viewed out of the files c stops on, and a finished walk reads them all (#1505)
+size 185x40
+key c
+wait viewed 5/7
+key c
+wait viewed 6/7
+key c
+wait hunk 2/2  viewed 6/7
+key c
+wait viewed 7/7

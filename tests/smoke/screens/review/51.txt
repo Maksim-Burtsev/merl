@@ -1,0 +1,42 @@
+wait viewed 6/7
+┌agent/refund ← origin/main──┐  ▎// Command worker drains the order jobs the API queues: shipping and syncs.
+│✓   M service.py      +13 −1│ 1▎// Command worker drains the order jobs the API queues: shipping, syncs and refunds.
+│  ▾ deploy                  │ 2 package main
+│    ▾ helm                  │ 3
+│      ▾ orders              │ 4 import (
+│✓       M values.yaml  +1 −0│ 5     "context"
+│  ▾ docs                    │ 6     "fmt"
+│    M architecture.png   bin│ 7     "log"
+│  ▾ scripts                 │ 8     "os"
+│✓   D refund_by_hand.… +0 −9│ 9     "os/signal"
+│  ▾ tests                   │10     "time"
+│✓   A test_refunds.py +23 −0│11
+│  ▾ worker                  │12     "example.com/orders/worker/internal/queue"
+│    M main.go          +4 −1│13 )
+│                            │14
+│                            │15 func main() {
+│                            │16     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+│                            │17     defer stop()
+│                            │18
+│                            │19     q := queue.New()
+│                            │20     q.Push(queue.Job{Kind: "sync"})
+│                            │21     if err := run(ctx, q); err != nil {
+│                            │22         log.Fatal(err)
+│                            │23     }
+│                            │24 }
+│                            │25
+│                            │26 func run(ctx context.Context, q queue.Queue) error {
+│                            │27     for {
+│                            │28         select {
+│                            │29         case <-ctx.Done():
+│                            │30             return drain(q)
+│                            │31         case <-time.After(time.Second):
+│                            │32         }
+│                            │33         job, ok := q.Pop()
+│                            │34         if !ok {
+│                            │35             continue
+│                            │36         }
+│                            │37         if err := handle(job); err != nil {
+└ 8 files · +59 −39 ─────────┘38             return fmt.Errorf("job for order %d: %w", job.OrderID, err)
+worker/main.go  1:1  [code]  hunk 1/2  viewed 6/7                                                                                                                                  14:32
+cursor (x,y,shown) 33,1,0

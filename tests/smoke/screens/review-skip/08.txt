@@ -1,4 +1,4 @@
-wait hunk 1/1  file 4/6
+wait docs/notes.md  39:1  [code]  hunk 1/1
 ┌agent/skip ← origin/main────┐12 - Search by customer finds orders by the customer's number, not by their name.
 │  ▾ app                     │13
 │✓   M models.py        +2 −0│14 ## 1.7.1
@@ -53,5 +53,5 @@ wait hunk 1/1  file 4/6
 │                            │
 │                            │
 └ 6 files · +14 −0 ──────────┘
-docs/notes.md  39:1  [code]  hunk 1/1  file 4/6                                                                                                                                    14:32
+docs/notes.md  39:1  [code]  hunk 1/1  viewed 3/4                                                                                                                                  14:32
 cursor (x,y,shown) 33,27,0

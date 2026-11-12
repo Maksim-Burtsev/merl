@@ -2,7 +2,7 @@
 # `merl -r origin/agent/refund` reviews agent/refund as `--review=agent/refund` does: fetched from
 # the local origin, opened on its first hunk (#271).
 merl -r origin/agent/refund
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 
 # A branch checked out nowhere opens in a folder of its own: a key that edits code says
 # read-only, and your checkout stays on main (#215).
@@ -14,5 +14,5 @@ check test "$(git symbolic-ref --short HEAD)" = main
 # its own: no local branch is made, and your checkout stays on main (#1188).
 run git remote add upstream ../origin.git
 merl -r upstream/agent/refund
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 check test -z "$(git branch --list agent/refund 'upstream/*')" && test "$(git symbolic-ref --short HEAD)" = main

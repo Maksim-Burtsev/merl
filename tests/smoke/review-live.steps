@@ -4,7 +4,7 @@
 # review's folder (your checkout before #215): the panel lists it. c walks past refunds.py, which
 # gets its tick, and the agent's next write to it takes the tick off (#162).
 merl --review=agent/refund
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 run git clone -q ../origin.git ../agent -b agent/refund && cd ../agent && printf '\n\ndef test_only_a_paid_order():\n    with pytest.raises(RefundNotAllowed):\n        refund_amount(Order(id=2, customer_id=7, total=Decimal("9.99")), window_days=30, now=NOW)\n' >> tests/test_refunds.py && git commit -qa --amend --no-edit && git push -qf origin agent/refund
 merl --review=agent/refund
 wait A test_refunds.py +28 −0

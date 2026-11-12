@@ -1,4 +1,4 @@
-wait hunk 1/4  file 3/8
+wait hunk 1/4
 ┌agent/refund ← origin/main──┐ 1▎from decimal import Decimal
 │  ▾ app                     │ 2▎
 │✓   A refunds.py      +18 −0│ 3 from app.config import Settings
@@ -53,5 +53,5 @@ wait hunk 1/4  file 3/8
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-app/service.py  1:1  [code]  hunk 1/4  file 3/8                                                                                                                                    14:32
+app/service.py  1:1  [code]  hunk 1/4  viewed 2/7                                                                                                                                  14:32
 cursor (x,y,shown) 33,0,0
