@@ -279,6 +279,14 @@ impl App {
             && let [binding] = locals.as_slice()
             && let Some(line) = search::ts_literal_key(&self.buf.lines, *binding, name, word)
         {
+            let annotated = Regex::new(&format!(r"\bconst\s+{}\s*:", regex::escape(name)))
+                .is_ok_and(|re| re.is_match(&self.buf.lines[*binding - 1]));
+            if annotated
+                && let Ok(found) = self.typed_definitions(kind, &a.here, word, chain, None)
+                && !found.is_empty()
+            {
+                return self.show_found(a, found);
+            }
             let found = self.lines_here(a, [line], &super::Reason::Local);
             return self.show_found(a, found);
         }
