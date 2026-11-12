@@ -47,13 +47,13 @@ export function loose(c: Cruet, ok: boolean): void {
     return;
   }
   c.uncork();
-  //^ d: !jump
+  //^ d: cruets/cruet.ts:2
   if (c instanceof Phial && ok) {
     c.uncork();
-    //^ d: !jump
+    //^ d: cruets/cruet.ts:2
   }
   const v = c instanceof Vial ? c.stopper() : 0;
-  //                              ^ d: !jump
+  //                              ^ d: cruets/cruet.ts:3
   void v;
 }
 
@@ -61,7 +61,7 @@ export function later(c: Cruet): void {
   if (c instanceof Vial) {
     [1].forEach(() => {
       c.uncork();
-      //^ d: !jump
+      //^ d: cruets/cruet.ts:2
     });
     [2].forEach((c: Phial) => {
       c.uncork();
@@ -87,7 +87,7 @@ export function wrapped(c: Cruet): void {
   if (c instanceof Phial &&
       c.stopper() > 0) {
     c.uncork();
-    //^ d: !jump
+    //^ d: cruets/cruet.ts:2
   }
 }
 
@@ -109,7 +109,7 @@ export function noisy(c: Cruet): number {
     return 0;
   }
   return c.stopper();
-  //       ^ d: !jump
+  //       ^ d: cruets/cruet.ts:3
 }
 
 export class Rack {
@@ -134,5 +134,56 @@ export class Rack {
       this.held.uncork();
       //        ^ d: !jump
     }
+  }
+}
+
+export function reassigned(c: Cruet, p: Phial, xs: Cruet[]): void {
+  if (c instanceof Vial) {
+    c = p;
+    c.uncork();
+    //^ d: cruets/cruet.ts:2
+  }
+  if (c instanceof Vial) {
+    for (c of xs) {
+      c.uncork();
+      //^ d: cruets/cruet.ts:2
+    }
+  }
+}
+
+export function guardedThenReassigned(c: Cruet, p: Phial): void {
+  if (!(c instanceof Vial)) return;
+  c = p;
+  c.uncork();
+  //^ d: cruets/cruet.ts:2
+}
+
+export function outside(c: Cruet, ok: boolean): void {
+  if (!(c instanceof Vial)) {
+    console.log(ok);
+  }
+  c.uncork();
+  //^ d: cruets/cruet.ts:2
+  const v = c instanceof Vial ? 1 : c.stopper();
+  //                                  ^ d: cruets/cruet.ts:3
+  void v;
+  if (c instanceof Map) {
+    c.uncork();
+    //^ d: cruets/cruet.ts:2
+  }
+  if (c instanceof Vial || ok) {
+    c.uncork();
+    //^ d: cruets/cruet.ts:2
+  }
+}
+
+export function unrelated(p: Phial, both: Phial | Vial): void {
+  if (p instanceof Vial) {
+    p.uncork();
+    //^ d: cruets/phial.ts:4
+  }
+  if (both instanceof Vial) {
+    both.uncork();
+    //   ^ d: cruets/vial.ts:4
   }
 }
