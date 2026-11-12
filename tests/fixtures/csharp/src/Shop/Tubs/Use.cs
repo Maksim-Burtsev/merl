@@ -33,13 +33,13 @@ public class Use
         //               ^ d: src/Shop/Tubs/Tub.cs:5
     }
     void H() => tubs.Sort((a, b) => a.Slop() - b.Slop());
-    //                                ^ d: picker src/Shop/Tubs/Hogshead.cs:6, src/Shop/Tubs/Tub.cs:6, src/Shop/Tubs/Tun.cs:6; want src/Shop/Tubs/Tub.cs:6 (#1488)
-    //                                           ^ d: picker src/Shop/Tubs/Hogshead.cs:6, src/Shop/Tubs/Tub.cs:6, src/Shop/Tubs/Tun.cs:6; want src/Shop/Tubs/Tub.cs:6 (#1488)
+    //                                ^ d: src/Shop/Tubs/Tub.cs:6
+    //                                           ^ d: src/Shop/Tubs/Tub.cs:6
     void Each(Action<Tub> f) { }
     void I() => Each(x => x.Dunk());
     //                      ^ d: picker src/Shop/Tubs/Hogshead.cs:5, src/Shop/Tubs/Tub.cs:5, src/Shop/Tubs/Tun.cs:5; want src/Shop/Tubs/Tub.cs:5 (#1488)
     void J() { Action<Tub> f = x => x.Dunk(); }
-    //                                ^ d: picker src/Shop/Tubs/Hogshead.cs:5, src/Shop/Tubs/Tub.cs:5, src/Shop/Tubs/Tun.cs:5; want src/Shop/Tubs/Tub.cs:5 (#1488)
+    //                                ^ d: src/Shop/Tubs/Tub.cs:5
     void K() => c.Dunk();
     //            ^ d: src/Shop/Tubs/Tun.cs:5
     void L() => seq.First(x => x.Dunk());
@@ -51,4 +51,8 @@ public class Use
     //                                                  ^ d: src/Shop/Tubs/Tub.cs:6
     void O() => this.tubs.ForEach(x => x.Dunk());
     //                                   ^ d: src/Shop/Tubs/Tub.cs:5
+    void P(List<Tun> tuns) => tuns.Sort((a, b) => a.Slop() - b.Slop());
+    //                                                         ^ d: src/Shop/Tubs/Tun.cs:6
+    void Q() => tubs.Select((x, i) => x.Dunk());
+    //                                  ^ d: !jump
 }

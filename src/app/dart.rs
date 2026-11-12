@@ -713,6 +713,13 @@ impl App {
             let c = self.dart_field_row(here, text, items)?;
             return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
         }
+        if let Some(callee) = search::dart_lambda_callee(seen, name)
+            && search::dart_bindings_seen(text, self.line + 1, self.dart_col(), callee).is_empty()
+            && search::dart_this_super(text, self.line, false).is_none()
+            && let Some(ty) = search::dart_callback_param(text, callee)
+        {
+            return Some((ty, here.to_path_buf()));
+        }
         if let Some((method, awaited)) = search::dart_for_in_call(line, name) {
             let c = self.dart_field_row(here, text, method)?;
             let ty = search::dart_iterated_call(&c.hit.text, method, awaited)?;

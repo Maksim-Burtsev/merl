@@ -142,15 +142,26 @@ fn cs_element_lambda(method: &str) -> bool {
 pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<String> {
     let n = regex::escape(name.trim_start_matches('@'));
     let re = Regex::new(&format!(
-        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\)|\(\s*@?(\w+)\s*,\s*@?(\w+)\s*\))\s*=>"
     ))
     .ok()?;
     let line = lines.get(at)?.as_ref();
     let code = uncommented(Kind::CSharp, line);
-    let mut found = re.captures_iter(&code);
+    let mut found = re
+        .captures_iter(&code)
+        .filter(|c| match (c.get(2), c.get(3)) {
+            (Some(a), Some(b)) => {
+                &c[1] == "Sort"
+                    && a.as_str() != b.as_str()
+                    && [&a, &b]
+                        .iter()
+                        .any(|p| p.as_str() == name.trim_start_matches('@'))
+            }
+            _ => true,
+        });
     let c = found.next()?;
     let method = c.get(1)?;
-    if found.next().is_some() || !cs_element_lambda(method.as_str()) {
+    if found.next().is_some() || (!cs_element_lambda(method.as_str()) && c.get(2).is_none()) {
         return None;
     }
     let receiver = cs_receiver(lines, at, method.start())?;
