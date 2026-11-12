@@ -358,7 +358,8 @@ local or parameter named like an import or a field, and declaration-shaped lines
 a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
 `if` header and a closure re-declaring a local, a promoted method and one an embedding type
 overrides, an interface method, a function-typed field and a generic method, a `Kettle` type
-local to a function and one local to an `if` block over the package's `Kettle` (#1470), and its `twin`
+local to a function and one local to an `if` block over the package's `Kettle` (#1470; `damper.go`
+does the same with a `Damper`: its own name, its keyed literal and its fields), and its `twin`
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the

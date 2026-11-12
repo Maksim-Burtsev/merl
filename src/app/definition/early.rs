@@ -536,6 +536,24 @@ impl App {
             search::GoKey::No
         };
         a.go_keyed = go_key != search::GoKey::No;
+        if let search::GoKey::Of(written) = &go_key
+            && let Some(line) = search::go_local_type(&a.here, &a.text, self.line + 1, written)
+        {
+            let ty = super::Typed {
+                name: written.clone(),
+                path: a.here.clone(),
+                line,
+            };
+            let found = self
+                .field_of(kind, &ty, &a.word, false)
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(format!("{written}{{\u{2026}}}")),
+                })
+                .collect();
+            return self.show_found(a, found);
+        }
         if kind == Kind::Go
             && (dotted || matches!(go_key, search::GoKey::Of(_) | search::GoKey::ElementOf(_)))
         {
