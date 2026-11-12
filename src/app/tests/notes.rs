@@ -560,3 +560,42 @@ fn a_note_being_typed_draws_the_reading_cursor_on_its_band() {
         "github-light's Cursor, not the accent #6639ba at 2.34:1 on the note band"
     );
 }
+
+fn on_the_empty_line(tag: &str) -> (PathBuf, App) {
+    let long: &[u8] = b"x\n    def handle(self, payload):\n\n";
+    let (dir, mut a) = review_app_with(tag, &[("long.py", long)]);
+    a.show_tree = false;
+    a.jump_to(&dir.join("long.py"), 3);
+    screen(&mut a);
+    (dir, a)
+}
+
+#[test]
+fn undoing_a_note_on_an_empty_line_from_the_end_of_a_long_one_lands_on_the_line() {
+    let (dir, mut a) = on_the_empty_line("notes-empty-undo");
+    note(&mut a, "why blank");
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Up, NONE),
+            (KeyCode::End, NONE),
+        ],
+    );
+    assert_eq!((a.line, a.col), (1, 30));
+    keys(&mut a, &[(KeyCode::Char('z'), CTRL)]);
+    assert_eq!((a.line, a.col), (2, 0), "the column fits the empty line");
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_second_note_on_an_empty_line_opens_with_the_cursor_on_the_line() {
+    let (dir, mut a) = on_the_empty_line("notes-empty-again");
+    note(&mut a, "why blank");
+    assert_eq!(a.notes.focus, Some(0));
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    assert_eq!((a.mode, a.line, a.col), (Mode::Note, 2, 0));
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert_eq!((a.mode, a.line, a.col), (Mode::Normal, 2, 0));
+    drop(std::fs::remove_dir_all(dir));
+}

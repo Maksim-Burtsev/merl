@@ -509,7 +509,7 @@ impl App {
         if let Some((first, at)) = on {
             self.anchor = (first != at).then_some((first, 0));
             self.set_at(at);
-            self.col = 1;
+            self.col = super::next_char(self.line_str(), 0);
         }
         self.start_note();
     }
