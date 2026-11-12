@@ -224,7 +224,11 @@ pub fn bindings_at(
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
-            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], col, name) {
+            let own = out.iter().any(|b| b.line1 == line);
+            if col.is_some() && own && go_declares_then_uses(lines[at], col, name) {
+                return out.into_iter().filter(|b| b.line1 == line).collect();
+            }
+            if !own && go_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
             out
@@ -513,13 +517,16 @@ fn read_statement(
                     statement_bindings(kind, &d.as_own_statement, d.line0 + 1, name, out);
                 }
             }
-            None if kind == Kind::Go && ind > 0 && go_declares_type(t, name) => {
-                out.push(Binding {
-                    line1: i + 1,
+            None => match (kind == Kind::Go && ind > 0)
+                .then(|| go_local_type_line(lines, i, t, name))
+                .flatten()
+            {
+                Some(k) => out.push(Binding {
+                    line1: k + 1,
                     value: Value::Unknown,
-                });
-            }
-            None => statement_bindings(kind, t, i + 1, name, out),
+                }),
+                None => statement_bindings(kind, t, i + 1, name, out),
+            },
         },
     }
 }
@@ -543,6 +550,40 @@ fn go_declares_type(t: &str, name: &str) -> bool {
         .filter(|r| r.starts_with(char::is_whitespace))
         .and_then(|r| r.trim_start().strip_prefix(name))
         .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+}
+fn go_local_type_line(lines: &[&str], i: usize, t: &str, name: &str) -> Option<usize> {
+    if go_declares_type(t, name) {
+        return Some(i);
+    }
+    if t.strip_prefix("type").map(str::trim) != Some("(") {
+        return None;
+    }
+    let ind = indent(lines[i]);
+    let child = lines.get(i + 1).map(|l| indent(l))?;
+    (i + 1..lines.len())
+        .take_while(|&j| lines[j].trim().is_empty() || indent(lines[j]) > ind)
+        .find(|&j| {
+            indent(lines[j]) == child
+                && go_declares_type(
+                    &format!("type {}", uncommented(Kind::Go, lines[j]).trim()),
+                    name,
+                )
+        })
+}
+pub fn go_type_group_member<S: AsRef<str>>(lines: &[S], i: usize) -> bool {
+    let ind = indent(lines[i].as_ref());
+    lines[..i]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < ind)
+        .is_some_and(|l| {
+            uncommented(Kind::Go, l)
+                .trim()
+                .strip_prefix("type")
+                .map(str::trim)
+                == Some("(")
+        })
 }
 fn header_start(kind: Kind, lines: &[&str], mut i: usize, ind: usize) -> usize {
     while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {

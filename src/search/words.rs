@@ -1095,12 +1095,31 @@ pub fn ruby_singleton(text: &str, line1: usize) -> bool {
         return false;
     };
     let head = lines[owner].trim_start();
+    let name = t.trim_start().strip_prefix("def ").map(|r| {
+        r.split(|c: char| !(c.is_alphanumeric() || "_?!".contains(c)))
+            .next()
+            .unwrap_or_default()
+    });
+    let names = |l: &str| {
+        name.is_some_and(|n| {
+            l.trim_start()
+                .strip_prefix("module_function ")
+                .is_some_and(|args| {
+                    args.split('#')
+                        .next()
+                        .unwrap_or_default()
+                        .split(',')
+                        .any(|a| a.trim().strip_prefix(':') == Some(n))
+                })
+        })
+    };
     head.starts_with("class << self")
         || (head.starts_with("module ")
             && lines[owner + 1..]
                 .iter()
-                .take_while(|l| l.trim().is_empty() || indent(l) > indent(lines[owner]))
-                .any(|l| MODULE_WIDE.is_match(l)))
+                .enumerate()
+                .take_while(|(_, l)| l.trim().is_empty() || indent(l) > indent(lines[owner]))
+                .any(|(i, l)| MODULE_WIDE.is_match(l) || (owner + 1 + i >= line1 && names(l))))
 }
 pub fn ruby_concern_class_method(text: &str, line1: usize, module: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();

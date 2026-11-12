@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::cs_deconstruct::{cs_deconstructed, cs_deconstructed_from};
 use super::cs_linq::cs_switch_arm;
 
 use super::{
@@ -413,9 +414,17 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CsValue {
     Type(String),
-    Call { callee: String, awaited: bool },
+    Call {
+        callee: String,
+        awaited: bool,
+    },
     Element(String),
     Indexed(String),
+    Position {
+        of: Box<Self>,
+        at: usize,
+        count: usize,
+    },
     Unknown,
 }
 
@@ -467,6 +476,10 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     if let Some(value) = cs_deconstructed(&code, name) {
         return cs_expr(value);
     }
+    if let Some((value, at, count)) = cs_deconstructed_from(&code, name) {
+        let of = Box::new(cs_expr(value));
+        return CsValue::Position { of, at, count };
+    }
     [
         format!(r"\b(?:is|case)\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bout\s+({CS_TYPE})\s+@?{n}\b"),
@@ -499,25 +512,6 @@ pub fn cs_var_chain<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option
     }
     let expr = expr.trim_end_matches(';').trim_end();
     expr.ends_with(')').then(|| (expr.to_owned(), continued))
-}
-
-fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
-    static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")
-    });
-    let c = VAR.captures(code)?;
-    let at = (c[1].split(','))
-        .position(|n| n.trim().trim_start_matches('@') == name.trim_start_matches('@'))?;
-    let open = c.get_match().end() - 1;
-    let close = close_of(Kind::CSharp, code, open)?;
-    let values = split_top(Kind::CSharp, code.get(open + 1..close - 1)?, b',');
-    let ends = code
-        .get(close..)?
-        .trim()
-        .trim_end_matches(';')
-        .trim()
-        .is_empty();
-    (ends && values.len() == c[1].split(',').count()).then_some(values.get(at)?.trim())
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {

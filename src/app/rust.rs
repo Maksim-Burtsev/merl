@@ -907,6 +907,15 @@ impl App {
                 return used;
             }
         }
+        if let Some(first) = path.first()
+            && declares_mod(&text, first)
+            && search::rust_inline_mod(&lines, line0).is_none()
+        {
+            let (krate, module) = self.rust_own_crate(file, "self", &[])?;
+            let mut rest = path.clone();
+            rest.push(name);
+            return self.rust_type_in(&krate, &module, &rest);
+        }
         let imports = search::imports(Kind::Rust, &text);
         let ours = |p: &[String]| {
             p.first()
