@@ -55,6 +55,7 @@ impl App {
         }
         let Proven { mut ty, link, .. } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
+            .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
@@ -126,6 +127,14 @@ impl App {
                 .filter(|picked| !picked.is_empty())?;
         }
         Some(ty)
+    }
+
+    pub(super) fn cs_cast(&self, here: &Path, word: &str, before: &str) -> Option<CsAnswer> {
+        let written = search::cs_cast(before)?;
+        let text = self.buf.lines.join("\n");
+        let ty = self.cs_new_type(here, &text, self.line + 1, &written)?;
+        self.cs_member_answer(here, &ty, word, &written)
+            .filter(|a| matches!(a, CsAnswer::Found(_)))
     }
 
     pub(super) fn cs_call_result(&self, here: &Path, word: &str, start: usize) -> Option<CsAnswer> {

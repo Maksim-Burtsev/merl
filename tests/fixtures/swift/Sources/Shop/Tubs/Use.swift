@@ -4,7 +4,7 @@ class TubUse {
     var more: Array<Tub> = []
 
     func a() { tubs.forEach { _ = $0.dunk() } }
-    //                               ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                               ^ d: Sources/Shop/Tubs/Tub.swift:2
     func b() { tubs.forEach { x in _ = x.dunk() } }
     //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func b2() { _ = tubs.map { c in c.dunk() } }
@@ -27,11 +27,11 @@ class TubUse {
     func j(list: [Tub]) { list.forEach { x in _ = x.dunk() } }
     //                                              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func k() { _ = more.map { $0.dunk() } }
-    //                           ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                           ^ d: Sources/Shop/Tubs/Tub.swift:2
     func l() { _ = c.dunk() }
-    //               ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
+    //               ^ d: Sources/Shop/Tubs/Tun.swift:2
     func m() { _ = tubs.map { $0.dunk() } }
-    //                           ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                           ^ d: Sources/Shop/Tubs/Tub.swift:2
     func n() { _ = tubs.first { x in x.dunk() } }
     //                                 ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func o() { tubs.forEach { x in let x = Tun(); _ = x.dunk() } }

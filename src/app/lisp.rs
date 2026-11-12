@@ -64,6 +64,7 @@ impl App {
             && self.line_str().get(..col).is_some_and(|lead| match kind {
                 Kind::Lua => search::lua_binds_before(lead, name, false),
                 Kind::Julia => search::julia_binds_before(lead, name),
+                Kind::Swift => search::swift_bound_on_line(lead, name),
                 _ => false,
             })
         {

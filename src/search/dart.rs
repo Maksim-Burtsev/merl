@@ -1214,7 +1214,7 @@ static EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         .expect("the regex is a literal")
 });
 
-fn dart_class_header(text: &str, line0: usize) -> Option<String> {
+pub fn dart_class_header(text: &str, line0: usize) -> Option<String> {
     let (lines, _) = dart_body_at(text, line0)?;
     let all: Vec<&str> = text.lines().collect();
     let head = lines.start.checked_sub(1)?;
