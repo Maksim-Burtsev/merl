@@ -461,7 +461,9 @@ impl App {
     }
 
     fn ticked(&self, rel: &Path) -> bool {
-        self.viewed.get(rel) == Some(&self.disk_hash(rel))
+        self.viewed
+            .get(rel)
+            .is_some_and(|&h| h == self.disk_hash(rel))
     }
 
     fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
@@ -470,10 +472,13 @@ impl App {
             && self.ticked(&f.path)
     }
 
-    fn every_stop_ticked(&self, r: &git::Review) -> bool {
+    fn stops<'a>(&'a self, r: &'a git::Review) -> impl Iterator<Item = &'a git::ReviewFile> {
         (r.files.iter())
             .filter(|f| !f.left_out(&self.viewed) && f.is_stop(&self.root, self.diagrams.on()))
-            .all(|f| self.ticked(&f.path))
+    }
+
+    fn every_stop_ticked(&self, r: &git::Review) -> bool {
+        self.stops(r).all(|f| self.ticked(&f.path))
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {
@@ -603,19 +608,15 @@ impl App {
 
     pub fn review_status(&self) -> Option<String> {
         let r = self.review.as_ref()?;
-        let rel = self.rel_current()?;
-        let file = r.files.iter().position(|f| f.path == rel)?;
+        r.file(&self.rel_current()?)?;
+        let ticked = self.stops(r).filter(|f| self.ticked(&f.path)).count();
+        let viewed = format!("viewed {ticked}/{}", self.stops(r).count());
         if self.folded_here().is_some() {
-            return Some(format!("folded  file {}/{}", file + 1, r.files.len()));
+            return Some(format!("folded  {viewed}"));
         }
         let at = self.hunk_place(self.at());
         let hunk = self.diff.hunks.iter().filter(|&&h| h <= at).count();
-        Some(format!(
-            "hunk {hunk}/{}  file {}/{}",
-            self.diff.hunks.len(),
-            file + 1,
-            r.files.len()
-        ))
+        Some(format!("hunk {hunk}/{}  {viewed}", self.diff.hunks.len()))
     }
 
     pub fn review_refreshed(&mut self, fresh: git::Review) -> bool {

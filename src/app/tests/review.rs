@@ -40,7 +40,7 @@ fn review_walks_past_files_without_hunks() {
     press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     assert_eq!(a.message, "skipped 1 file without hunks");
-    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/7");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  viewed 2/5");
     drop(std::fs::remove_dir_all(dir));
 }
 
@@ -619,6 +619,35 @@ fn a_skipped_file_changed_since_the_order_s_commit_loses_its_robot() {
     drop(std::fs::remove_dir_all(dir));
 }
 
+#[test]
+fn the_status_counts_the_ticked_stops_and_reads_all_of_them_after_the_walk() {
+    let (dir, _) = review_app("viewedcount");
+    let order = "# commit 1\nskip src/a.rs\ncrlf.txt\ngone\nnew\ntail\n";
+    let mut a = skipping_review(&dir, order);
+    let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
+    let viewed = |a: &App| {
+        let status = a.review_status().unwrap();
+        status[status.find("viewed").unwrap()..].to_owned()
+    };
+    a.focus = Focus::Tree;
+    for f in ["new", "tail"] {
+        a.tree.reveal(Path::new(f));
+        c(&mut a, 'm');
+    }
+    let mut a = skipping_review(&dir, order);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    assert_eq!(viewed(&a), "viewed 2/4", "src/a.rs is left out");
+    c(&mut a, 'c');
+    assert_eq!(at(&a).0, dir.join("gone"));
+    assert_eq!(viewed(&a), "viewed 3/4");
+    c(&mut a, 'c');
+    assert_eq!(a.message, "last hunk of the review");
+    assert_eq!(viewed(&a), "viewed 4/4");
+    c(&mut a, 'm');
+    assert_eq!(viewed(&a), "viewed 3/4", "m takes a tick off");
+    drop(std::fs::remove_dir_all(dir));
+}
+
 fn skipping_review(dir: &Path, order: &str) -> App {
     let file = dir.join(".git/merl/review/feature");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -1035,7 +1064,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
     a.tree.reveal(Path::new("new"));
     a.tree_top = 1;
     let before = place(&a);
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 0/5");
 
     std::fs::write(dir.join("src/keep.rs"), "k1\nk2\nK\nk3\n").unwrap();
     std::fs::create_dir(dir.join("pkg")).unwrap();
@@ -1060,7 +1089,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
             row('A', "zz.py", 3, 0),
         ]
     );
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 8/10");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 0/9");
     assert_eq!(place(&a), before, "rows came in above: nothing moved");
     let shown = |a: &App, p: &str| {
         a.tree
@@ -1089,7 +1118,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         (3, &vec![TextLine::File(0)]),
         "`c` walks into the untracked file as into any added one: every line is added"
     );
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 10/10");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 2/9");
 
     a.jump_to(&dir.join("src/keep.rs"), 3);
     assert_eq!(a.diff.marks.len(), 1);
@@ -1121,7 +1150,7 @@ fn a_live_review_follows_edits_untracked_files_and_commits() {
         "the rows are tracked now: `untracked` went"
     );
     assert_eq!(rows(&a), listed);
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 7/9");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 2/8");
     git(&["branch", "-f", "main", "HEAD~1"]);
     assert!(refresh(&mut a));
     assert_eq!(
@@ -1232,14 +1261,14 @@ fn the_current_hunk_stays_current_when_one_is_added_above() {
     a.anchor = Some((TextLine::File(4), 0));
     let stop = |a: &App| a.history[a.hist_idx].clone();
     assert_eq!(stop(&a), (dir.join("src/a.rs"), TextLine::File(5), 0));
-    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  viewed 0/5");
     std::fs::write(dir.join("src/a.rs"), "new\nnew\na\nB\nc\nd\ne\nF\n").unwrap();
     assert!(a.reload(false));
     assert_eq!(
         (a.line, a.top_line, a.buf.lines[a.line].as_str()),
         (7, 5, "F")
     );
-    assert_eq!(a.review_status().unwrap(), "hunk 3/3  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 3/3  viewed 0/5");
     assert_eq!(
         a.anchor,
         Some((TextLine::File(6), 0)),
@@ -1467,7 +1496,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
         ["M src/a.rs", "M crlf.txt", "D gone", "A new", "M tail"]
     );
     assert_eq!(at(&a), (dir.join("new"), 0));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 4/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 0/5");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(
@@ -1475,7 +1504,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
         vec!["t2", "t3"],
         "a deletion at the end of `tail` is a stop on its last line, with the ghosts under it"
     );
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 5/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 1/5");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(a.message, "last hunk of the review");
@@ -1511,7 +1540,7 @@ fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     assert_eq!(a.diff.marks.len(), 1);
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
-    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  viewed 2/5");
     big_c(&mut a);
     assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
     assert_eq!(a.diff.ghosts[&1], vec!["b"]);
@@ -1614,7 +1643,7 @@ fn c_and_big_c_from_another_file_go_back_to_the_hunk_left() {
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5), "`C` goes back too");
     c(&mut a);
     assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/1  file 2/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/1  viewed 1/5");
     a.jump_to(&outside, 2);
     assert_eq!(a.review_status(), None);
     c(&mut a);
@@ -1837,7 +1866,7 @@ fn the_hunk_left_is_found_by_its_place_in_its_file() {
     assert_eq!(at(&a), (dir.join("tail"), 0));
     assert_eq!(
         a.review_status().unwrap(),
-        "hunk 1/1  file 4/4",
+        "hunk 1/1  viewed 2/4",
         "crlf.txt as it was at the base: the review drops the file"
     );
     write(&mut a, "src/a.rs", "a\nB\nc\nd\ne\nF\n");
@@ -2004,10 +2033,10 @@ fn deleted_lines_are_lines_of_the_text() {
     assert_eq!((a.at(), a.line_str()), (File(5), "F"));
     key(&mut a, KeyCode::Char('C'));
     assert_eq!((a.at(), a.line_str()), (File(1), "B"));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/2  viewed 0/5");
     key(&mut a, KeyCode::Up);
     assert_eq!((a.at(), a.line_str()), (Deleted(1, 0), "b"));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/2  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/2  viewed 0/5");
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(
         (a.at(), a.line_str()),
@@ -2016,7 +2045,7 @@ fn deleted_lines_are_lines_of_the_text() {
     );
     key(&mut a, KeyCode::Up);
     assert_eq!((a.at(), a.line_str()), (Deleted(5, 0), "f"));
-    assert_eq!(a.review_status().unwrap(), "hunk 2/2  file 1/5");
+    assert_eq!(a.review_status().unwrap(), "hunk 2/2  viewed 0/5");
     key(&mut a, KeyCode::Char('C'));
     assert_eq!((a.at(), a.line_str()), (File(1), "B"));
     key(&mut a, KeyCode::Up);
@@ -2220,7 +2249,7 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(at(&a).0, lock);
     assert!(a.folded_here().is_some());
-    assert_eq!(a.review_status().unwrap(), "folded  file 5/6");
+    assert_eq!(a.review_status().unwrap(), "folded  viewed 1/6");
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(at(&a).0, dir.join("tail"), "one stop, then the next file");
     assert!(a.viewed.contains_key(Path::new("poetry.lock")));
@@ -2276,7 +2305,7 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
         "Enter loads the diff, it does not edit"
     );
     assert_eq!(at(&a), (lock.clone(), 1));
-    assert_eq!(a.review_status().unwrap(), "hunk 1/3  file 5/6");
+    assert_eq!(a.review_status().unwrap(), "hunk 1/3  viewed 2/6");
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(at(&a), (lock.clone(), 4));
     let mut again = review_start(&dir, None);
@@ -2536,7 +2565,7 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
         .renamed_here()
         .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()));
     assert_eq!(shown, words);
-    assert_eq!(a.review_status().unwrap(), "hunk 0/0  file 4/4");
+    assert_eq!(a.review_status().unwrap(), "hunk 0/0  viewed 1/4");
     for code in [
         KeyCode::Down,
         KeyCode::Enter,
