@@ -279,15 +279,7 @@ impl App {
             && let [binding] = locals.as_slice()
             && let Some(line) = search::ts_literal_key(&self.buf.lines, *binding, name, word)
         {
-            let annotated = Regex::new(&format!(r"\bconst\s+{}\s*:", regex::escape(name)))
-                .is_ok_and(|re| re.is_match(&self.buf.lines[*binding - 1]));
-            if annotated
-                && let Ok(found) = self.typed_definitions(kind, &a.here, word, chain, None)
-                && !found.is_empty()
-            {
-                return self.show_found(a, found);
-            }
-            let found = self.lines_here(a, [line], &super::Reason::Local);
+            let found = self.ts_literal_or_type(a, *binding, name, line);
             return self.show_found(a, found);
         }
         if kind == Kind::Swift
@@ -657,6 +649,24 @@ impl App {
         };
         let base = t.trim_start_matches(['[', ']', '*', '.']);
         PREDECLARED.split(' ').any(|p| p == base) || self.go_outside(file, text, base)
+    }
+
+    fn ts_literal_or_type(
+        &mut self,
+        a: &Asked,
+        binding: usize,
+        name: &str,
+        key: usize,
+    ) -> Vec<super::Candidate> {
+        let annotated = Regex::new(&format!(r"\bconst\s+{}\s*:", regex::escape(name)))
+            .is_ok_and(|re| re.is_match(&self.buf.lines[binding - 1]));
+        if annotated
+            && let Ok(found) = self.typed_definitions(a.kind, &a.here, &a.word, &a.chain, None)
+            && !found.is_empty()
+        {
+            return found;
+        }
+        self.lines_here(a, [key], &super::Reason::Local)
     }
 
     fn rust_blanket_method(&self, word: &str) -> bool {

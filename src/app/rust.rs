@@ -274,7 +274,6 @@ impl App {
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
         let mut own_impls: Vec<(Hit, String)> = Vec::new();
-        let mut blankets: Vec<(Hit, String, Vec<String>)> = Vec::new();
         let mut matched: HashMap<String, bool> = HashMap::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
@@ -340,26 +339,44 @@ impl App {
                         own_impls.push((h.clone(), t.clone()));
                     }
                 }
-                if let search::RustOwner::ImplOf(t) = &owner
-                    && inside
-                    && let Some(bounds) = search::rust_blanket_bounds(lines[owner_line - 1])
-                {
-                    blankets.push((h.clone(), t.clone(), bounds));
-                }
                 rows.push((h, owner));
             }
         }
-        if own_impls.is_empty()
-            && let (Some(r), [(h, t, bounds)]) = (&receiver, blankets.as_slice())
-            && rows.iter().all(|(row, o)| {
-                (row.path == h.path && row.line1 == h.line1)
-                    || !matches!(o, search::RustOwner::ImplOf(x) if x == t)
-            })
-            && bounds.iter().all(|b| self.rust_implements(r, b))
-        {
-            own_impls.push((h.clone(), t.clone()));
-        }
+        let own_impls = self.rust_blanket_impl(own_impls, receiver.as_deref(), &rows);
         rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
+    }
+
+    fn rust_blanket_impl(
+        &self,
+        own_impls: Vec<(Hit, String)>,
+        receiver: Option<&str>,
+        rows: &[(Hit, search::RustOwner)],
+    ) -> Vec<(Hit, String)> {
+        let Some(receiver) = receiver.filter(|_| own_impls.is_empty()) else {
+            return own_impls;
+        };
+        let blankets: Vec<(&Hit, &String, Vec<String>)> = (rows.iter())
+            .filter_map(|(h, o)| {
+                let search::RustOwner::ImplOf(t) = o else {
+                    return None;
+                };
+                let text = self.text_of(&h.path).filter(|_| !h.path.is_absolute())?;
+                let lines: Vec<&str> = text.lines().collect();
+                let m = search::rust_method_at(&lines, h.line1)?;
+                Some((h, t, search::rust_blanket_bounds(lines[m.owner_line1 - 1])?))
+            })
+            .collect();
+        let [(h, t, bounds)] = blankets.as_slice() else {
+            return own_impls;
+        };
+        let alone = rows.iter().all(|(row, o)| {
+            (row.path == h.path && row.line1 == h.line1)
+                || !matches!(o, search::RustOwner::ImplOf(x) if x == *t)
+        });
+        if alone && bounds.iter().all(|b| self.rust_implements(receiver, b)) {
+            return vec![((*h).clone(), (*t).clone())];
+        }
+        own_impls
     }
 
     fn rust_crate_of(&self, p: &Path) -> Option<PathBuf> {
