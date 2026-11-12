@@ -113,7 +113,11 @@ export function noisy(c: Cruet): number {
 }
 
 export class Rack {
-  held: Cruet = new Vial();
+  held: Cruet;
+
+  constructor(held: Cruet) {
+    this.held = held;
+  }
 
   pour(): void {
     if (this.held instanceof Vial) {
@@ -121,7 +125,7 @@ export class Rack {
       //        ^ d: cruets/vial.ts:5
     }
     this.held.stopper();
-    //        ^ d: cruets/cruet.ts:3
+    //        ^ d: !jump
   }
 
   swap(p: Phial): void {
