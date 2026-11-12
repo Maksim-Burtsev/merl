@@ -31,6 +31,7 @@ pub mod vessels;
 pub mod feast;
 pub mod ewers;
 pub mod braziers;
+pub mod sluices;
 
 use ewers::{Ewer, Laver};
 
@@ -52,3 +53,4 @@ pub fn roll_carts(w: carts::Wagon, s: &carts::Sled) -> u32 {
 }
 pub mod servings;
 pub mod kettles;
+pub mod creels;

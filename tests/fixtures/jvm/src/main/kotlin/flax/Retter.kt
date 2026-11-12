@@ -77,3 +77,18 @@ fun twice(n: Int): Int {
     fun hurl(k: Int): Int = k; return hurl(hurl(n))
     //                                ^ d: src/main/kotlin/flax/Retter.kt:77
 }
+
+class Bolter(val sley: String) {
+    fun render(): String {
+        fun sley(): String {
+            return sley.uppercase()
+//                 ^ d: src/main/kotlin/flax/Retter.kt:81
+        }
+        return sley()
+//             ^ d: src/main/kotlin/flax/Retter.kt:83
+    }
+
+    fun oneLine(): String { fun sley(): String = "x"; return sley + sley() }
+    //                                                       ^ d: src/main/kotlin/flax/Retter.kt:81
+    //                                                              ^ d: src/main/kotlin/flax/Retter.kt:91
+}

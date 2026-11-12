@@ -342,7 +342,41 @@ impl App {
                 rows.push((h, owner));
             }
         }
+        let own_impls = self.rust_blanket_impl(own_impls, receiver.as_deref(), &rows);
         rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
+    }
+
+    fn rust_blanket_impl(
+        &self,
+        own_impls: Vec<(Hit, String)>,
+        receiver: Option<&str>,
+        rows: &[(Hit, search::RustOwner)],
+    ) -> Vec<(Hit, String)> {
+        let Some(receiver) = receiver.filter(|_| own_impls.is_empty()) else {
+            return own_impls;
+        };
+        let blankets: Vec<(&Hit, &String, Vec<String>)> = (rows.iter())
+            .filter_map(|(h, o)| {
+                let search::RustOwner::ImplOf(t) = o else {
+                    return None;
+                };
+                let text = self.text_of(&h.path).filter(|_| !h.path.is_absolute())?;
+                let lines: Vec<&str> = text.lines().collect();
+                let m = search::rust_method_at(&lines, h.line1)?;
+                Some((h, t, search::rust_blanket_bounds(lines[m.owner_line1 - 1])?))
+            })
+            .collect();
+        let [(h, t, bounds)] = blankets.as_slice() else {
+            return own_impls;
+        };
+        let alone = rows.iter().all(|(row, o)| {
+            (row.path == h.path && row.line1 == h.line1)
+                || !matches!(o, search::RustOwner::ImplOf(x) if x == *t)
+        });
+        if alone && bounds.iter().all(|b| self.rust_implements(receiver, b)) {
+            return vec![((*h).clone(), (*t).clone())];
+        }
+        own_impls
     }
 
     fn rust_crate_of(&self, p: &Path) -> Option<PathBuf> {
@@ -978,6 +1012,16 @@ impl App {
             return self.rust_alias(&name);
         }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
+    }
+
+    fn rust_implements(&self, ty: &str, tr: &str) -> bool {
+        let pattern = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*?\b{}(?:<[^{{]*>)?\s+for\s+&?(?:\w+::)*{}\b",
+            regex::escape(tr),
+            regex::escape(ty)
+        );
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        (self.grep(&pattern, false, false, rs)).is_ok_and(|h| !h.is_empty())
     }
 
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {

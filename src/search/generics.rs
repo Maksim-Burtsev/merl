@@ -659,6 +659,23 @@ pub fn rust_blanket_trait(line: &str) -> Option<String> {
     (c[1] == c[3]).then(|| c[2].to_owned())
 }
 
+pub fn rust_blanket_bounds(line: &str) -> Option<Vec<String>> {
+    static IMPL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::([\w:\s+?]*))?>\s*(?:[\w:]+::)?[A-Za-z_]\w*\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:\{|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = IMPL.captures(line)?;
+    (c[1] == c[3]).then(|| {
+        (c.get(2).map_or("", |m| m.as_str()).split('+'))
+            .map(str::trim)
+            .filter(|b| !b.is_empty() && *b != "?Sized")
+            .map(|b| b.rsplit("::").next().unwrap_or(b).to_owned())
+            .collect()
+    })
+}
+
 pub fn rust_trait_declares(text: &str, line1: usize, word: &str) -> bool {
     let Ok(method) = Regex::new(&format!(r"\bfn\s+{}\b", regex::escape(word))) else {
         return true;

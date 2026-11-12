@@ -43,12 +43,12 @@ def loose(c: Cruet, ok: bool) -> None:
         print(ok)
         return
     c.uncork()
-    # ^ d: !jump
+    # ^ d: cruets/cruet.py:2
     if isinstance(c, Phial) and ok:
         c.uncork()
-        # ^ d: !jump
+        # ^ d: cruets/cruet.py:2
     v = c.stopper() if isinstance(c, Vial) else 0
-    #     ^ d: !jump
+    #     ^ d: cruets/cruet.py:5
     print(v)
 
 
@@ -57,7 +57,7 @@ def later(c: Cruet) -> None:
 
         def inner() -> None:
             c.uncork()
-            # ^ d: !jump
+            # ^ d: cruets/cruet.py:2
 
         def other(c: Phial) -> None:
             c.uncork()
@@ -104,7 +104,7 @@ def noisy(c: Cruet) -> int:
         print(c)
         return 0
     return c.stopper()
-    #        ^ d: !jump
+    #        ^ d: cruets/cruet.py:5
 
 
 class Rack:
@@ -125,3 +125,35 @@ class Rack:
             self.held = p
             self.held.uncork()
             #         ^ d: !jump
+
+
+def reassigned(c: Cruet, xs: list[Cruet]) -> None:
+    if isinstance(c, Vial):
+        for c in xs:
+            c.uncork()
+            # ^ d: cruets/cruet.py:2
+
+
+def outside(c: Cruet, ok: bool) -> None:
+    if not isinstance(c, Vial):
+        print(ok)
+    c.uncork()
+    # ^ d: cruets/cruet.py:2
+    if isinstance(c, dict):
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+    if isinstance(c, (Vial, Phial)):
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+    if isinstance(c, Vial) or ok:
+        c.uncork()
+        # ^ d: cruets/cruet.py:2
+
+
+def unrelated(p: Phial, both: Phial | Vial) -> None:
+    if isinstance(p, Vial):
+        p.uncork()
+        # ^ d: cruets/phial.py:5
+    if isinstance(both, Vial):
+        both.uncork()
+        #    ^ d: cruets/vial.py:5

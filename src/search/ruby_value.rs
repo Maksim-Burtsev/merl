@@ -117,7 +117,7 @@ pub fn ruby_alias_target<'a>(line: &'a str, name: &str) -> Option<&'a str> {
 
 pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:((?:::)?[A-Z][\w:]*)\.)?new(?:\(.*\))?$").expect("the regex is a literal")
+        Regex::new(r"^(?:((?:::)?[A-Z][\w:]*)\.)?new(\(.*\))?$").expect("the regex is a literal")
     });
     static RETURN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\breturn\b").expect("the regex is a literal"));
@@ -152,7 +152,10 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     if last == "self" {
         return Some(RubyReturns::Itself);
     }
-    if let Some(c) = NEW.captures(last) {
+    if let Some(c) = NEW.captures(last).filter(|c| {
+        c.get(2)
+            .is_none_or(|a| super::closing(a.as_str()) == Some(a.len() - 1))
+    }) {
         return Some(c.get(1).map_or(RubyReturns::Fresh, |m| {
             RubyReturns::New(m.as_str().to_owned())
         }));
