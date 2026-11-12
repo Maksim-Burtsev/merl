@@ -708,6 +708,10 @@ pub(super) fn dart_header_binds(head: &str, name: &str) -> bool {
     else {
         return false;
     };
+    let switch = Regex::new(r"(?:^|[^\w$.])switch\s*$").expect("the regex is a literal");
+    if switch.is_match(head.get(..open).unwrap_or_default()) {
+        return false;
+    }
     let mut inner = head.get(open + 1..close).unwrap_or_default().to_owned();
     let generic = Regex::new(r"<[^<>]*>").expect("the regex is a literal");
     while generic.is_match(&inner) {
@@ -893,15 +897,20 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         r"(?:final|var|const|late)\s+{w}\s*=\s*(?:const\s+)?<[\w$.,?\s<>]*>\s*\["
     ));
     let closure = rule(format!(
-        r"[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
+        r"(\bswitch\s*)?[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
     ));
     let cast = rule(format!(
         r"(?:final|var|late)\s+{w}\s*=\s*[\w$.]+\s+as\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\s*;"
     ));
-    if [&declared, &assigned, &listed, &closure, &cast]
+    let closures = closure
+        .captures_iter(line)
+        .filter(|c| c.get(1).is_none())
+        .count();
+    if [&declared, &assigned, &listed, &cast]
         .iter()
         .map(|r| r.find_iter(line).count())
         .sum::<usize>()
+        + closures
         > 1
     {
         return None;
