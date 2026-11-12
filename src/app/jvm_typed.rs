@@ -63,16 +63,18 @@ impl App {
         if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
             let line = Self::jvm_declared_line(here, text, self.line + 1, &source)?;
             let (container, element) = search::java_element_type(line, &source)?;
-            if let JvmType::Project(hit) = self.jvm_type_at(here, text, &container)
-                && self.jvm_sees(here, text, &container, &hit)
-            {
-                return None;
-            }
-            let ty = self.jvm_type_at(here, text, &element);
             let label = format!("{source}: element {element}");
-            return self.jvm_typed_member(here, ty, &label, word);
+            return self.jvm_held_member(here, text, &container, &element, &label, word);
         }
         let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
+        if let ([], true, Some(source)) = (chain, kt, search::kotlin_map_read(before))
+            && let Some((container, value)) =
+                Self::jvm_declared_line(here, text, self.line + 1, &source)
+                    .and_then(|line| search::kotlin_map_value(line, &source))
+        {
+            let label = format!("{source}: value {value}");
+            return self.jvm_held_member(here, text, &container, &value, &label, word);
+        }
         let safe: Vec<String>;
         let chain = match chain {
             [] if kotlin => {
@@ -829,6 +831,24 @@ impl App {
             found = Some(this);
         }
         found
+    }
+
+    fn jvm_held_member(
+        &self,
+        here: &Path,
+        text: &str,
+        container: &str,
+        held: &str,
+        label: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        if let JvmType::Project(hit) = self.jvm_type_at(here, text, container)
+            && self.jvm_sees(here, text, container, &hit)
+        {
+            return None;
+        }
+        let ty = self.jvm_type_at(here, text, held);
+        self.jvm_typed_member(here, ty, label, word)
     }
 
     fn jvm_element(file: &Path, text: &str, line1: usize, name: &str) -> Option<String> {

@@ -1150,7 +1150,7 @@ pub fn java_element_access(before: &str) -> Option<String> {
     static ACCESS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:get|getFirst|getLast|peek|peekFirst|peekLast",
-            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse)\s*\([^()]*\)\s*\.$"
+            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse|getOrDefault)\s*\([^()]*\)\s*\.$"
         ))
         .expect("the regex is a literal")
     });

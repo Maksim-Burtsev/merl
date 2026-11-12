@@ -44,3 +44,4 @@ pub fn rinse_all() {
     let _ = Laver;
 }
 pub mod servings;
+pub mod kettles;
