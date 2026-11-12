@@ -36,7 +36,7 @@ impl App {
         word: &str,
         hit: &Hit,
     ) -> Option<bool> {
-        if hit.path == here {
+        if hit.path == here && matches!(kind, Kind::Swift | Kind::CSharp) {
             return Some(true);
         }
         let kotlin_or_scala = here
@@ -45,7 +45,7 @@ impl App {
         match kind {
             Kind::Jvm if kotlin_or_scala => {
                 self.jvm_receiver_of(hit, word)?;
-                Some(self.jvm_package_sees(here, text, word, &hit.path))
+                self.jvm_sees_extension(here, text, word, hit)
             }
             Kind::Swift => {
                 let there = self.text_of(&hit.path)?;
@@ -61,11 +61,45 @@ impl App {
             }
             Kind::Rust => {
                 let there = self.text_of(&hit.path)?;
-                let name = search::rust_impl_trait(enclosing(&there, hit.line1)?)?;
-                rust_sees_trait(text, &hit.path, &name)
+                rust_sees_trait(text, &hit.path, &there, enclosing(&there, hit.line1)?)
             }
             _ => None,
         }
+    }
+
+    fn jvm_sees_extension(&self, here: &Path, text: &str, word: &str, hit: &Hit) -> Option<bool> {
+        let there = self.text_of(&hit.path)?;
+        let line = there.lines().nth(hit.line1.checked_sub(1)?)?;
+        let top = indent(line) == 0
+            || enclosing(&there, hit.line1)
+                .is_some_and(|l| indent(l) == 0 && l.starts_with("extension"));
+        let packages = text
+            .lines()
+            .filter(|l| l.trim_start().starts_with("package "))
+            .count();
+        if !top || packages > 1 {
+            return None;
+        }
+        let declared = search::jvm_package(&there).unwrap_or_default();
+        if hit.path == here || declared == search::jvm_package(text).unwrap_or_default() {
+            return Some(true);
+        }
+        let imports = search::jvm_imports(here, text);
+        let names = |i: &search::JvmImport| {
+            i.path.join(".") == format!("{declared}.{}", i.bound_name)
+                && [word, "*", "_"].contains(&i.bound_name.as_str())
+        };
+        if imports.iter().any(names) {
+            return Some(true);
+        }
+        let relative = |i: &search::JvmImport| {
+            let prefix = i.path[..i.path.len().saturating_sub(1)].join(".");
+            !prefix.is_empty() && declared.ends_with(&format!(".{prefix}"))
+        };
+        let selectors = text
+            .lines()
+            .any(|l| l.trim_start().starts_with("import ") && l.contains('{'));
+        (!selectors && !imports.iter().any(relative)).then_some(false)
     }
 }
 
@@ -80,34 +114,44 @@ fn enclosing(text: &str, line1: usize) -> Option<&str> {
         .copied()
 }
 
-fn rust_sees_trait(text: &str, there: &Path, name: &str) -> Option<bool> {
+fn rust_sees_trait(text: &str, there: &Path, there_text: &str, imp: &str) -> Option<bool> {
+    static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s[^;]*;").expect("the regex is a literal")
+    });
+    let name = search::rust_impl_trait(imp)?;
+    let n = regex::escape(&name);
+    let declared = Regex::new(&format!(r"(?m)^\s*(?:pub\S*\s+)?trait\s+{n}\b")).ok()?;
+    let named = Regex::new(&format!(r"(\w+)::(?:{n}\b|\{{[^}}]*\b{n}\b)")).ok()?;
+    if declared.is_match(text) {
+        return None;
+    }
     let stem = there.file_stem()?.to_str()?;
-    let module = if stem == "mod" {
+    let own = if stem == "mod" {
         there.parent()?.file_name()?.to_str()?
     } else {
         stem
     };
-    let n = regex::escape(name);
-    let named = Regex::new(&format!(r"(\w+)::(?:{n}\b|\{{[^}}]*\b{n}\b)")).ok()?;
-    let declared = Regex::new(&format!(r"^\s*(?:pub\S*\s+)?trait\s+{n}\b")).ok()?;
-    let used = Regex::new(&format!(
-        r"\b{}::(?:{n}\b|\{{[^}}]*\b{n}\b)",
-        regex::escape(module)
-    ))
-    .ok()?;
-    let uses: Vec<&str> = text
-        .lines()
-        .filter(|l| l.trim_start().starts_with("use ") || l.trim_start().starts_with("pub use "))
-        .collect();
-    if text.lines().any(|l| declared.is_match(l)) {
+    let module = match named.captures(imp) {
+        Some(c) => c[1].to_owned(),
+        None if declared.is_match(there_text) => own.to_owned(),
+        None => (USE.find_iter(there_text))
+            .find_map(|u| named.captures(u.as_str()))
+            .map(|c| c[1].to_owned())?,
+    };
+    if matches!(module.as_str(), "crate" | "self" | "super") {
         return None;
     }
-    if uses.iter().any(|l| used.is_match(l)) {
+    let uses: Vec<&str> = USE.find_iter(text).map(|m| m.as_str()).collect();
+    if uses
+        .iter()
+        .flat_map(|u| named.captures_iter(u))
+        .any(|c| c[1] == module)
+    {
         return Some(true);
     }
-    let unsure = uses.iter().any(|l| {
-        l.contains('*')
-            || (named.captures_iter(l)).any(|c| matches!(&c[1], "crate" | "self" | "super"))
+    let unsure = uses.iter().any(|u| {
+        u.contains('*')
+            || (named.captures_iter(u)).any(|c| matches!(&c[1], "crate" | "self" | "super"))
     });
     (!unsure).then_some(false)
 }
