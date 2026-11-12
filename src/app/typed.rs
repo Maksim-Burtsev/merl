@@ -5,6 +5,7 @@ use super::{
 
 mod accessor;
 mod calls;
+mod checked;
 mod declared;
 mod eslint;
 mod generic_base;
@@ -508,6 +509,17 @@ impl App {
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
+        if let [own, field, rest @ ..] = chain
+            && matches!(own.as_str(), "self" | "this")
+            && let name = format!("{own}.{field}")
+            && search::checked_type(kind, text, line1, &name).is_some()
+        {
+            let declared = || self.typed_field(kind, &start.ty, field);
+            let via = self
+                .checked_or(kind, file, text, line1, &name, &declared)
+                .ok_or_else(|| field.clone())?;
+            return self.follow(kind, via, &name, false, rest);
+        }
         self.follow(kind, start, &chain[0], true, &chain[1..])
     }
 
@@ -560,6 +572,19 @@ impl App {
     }
 
     fn value_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<TypeVia> {
+        let declared = || self.declared_value_type(kind, file, text, line1, name, hops);
+        self.checked_or(kind, file, text, line1, name, &declared)
+    }
+
+    fn declared_value_type(
         &self,
         kind: Kind,
         file: &Path,
@@ -789,6 +814,9 @@ impl App {
         let (n, values) = n
             .strip_suffix(".values()")
             .map_or((n, false), |base| (base, true));
+        let (n, got) = n
+            .strip_suffix(".get()")
+            .map_or((n, false), |base| (base, true));
         let (n, indexed) = n.strip_suffix("[]").map_or((n, false), |base| (base, true));
         let (file, text, bindings) = match n.rsplit_once('.') {
             None => (
@@ -827,6 +855,11 @@ impl App {
                 _ => return None,
             };
             let (element, at) = match search::element_type(kind, &written) {
+                _ if got && self.type_decl(kind, &at, &written).is_none() => {
+                    let maps = ["Map", "ReadonlyMap", "WeakMap"];
+                    (search::ts_pair_value(&written, &maps)?, at.clone())
+                }
+                _ if got => return None,
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
                 None if indexed
@@ -940,11 +973,7 @@ impl App {
         if receiver.first().is_some_and(|r| r == "super") {
             return None;
         }
-        if kind == Kind::Python
-            && let [r] = receiver
-            && matches!(method.as_str(), "get" | "pop" | "setdefault")
-            && let Some(via) = self.dict_value(file, text, line1, r, method)
-        {
+        if let Some(via) = self.keyed_read(kind, file, text, line1, callee, hops) {
             return Some(via);
         }
         if kind == Kind::Python
