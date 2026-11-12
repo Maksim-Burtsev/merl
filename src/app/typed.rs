@@ -864,15 +864,15 @@ impl App {
             let (element, at) = match search::element_type(kind, &written) {
                 _ if got && self.type_decl(kind, &at, &written).is_none() => {
                     let maps = ["Map", "ReadonlyMap", "WeakMap"];
-                    (search::ts_pair_value(&written, &maps)?, at.clone())
+                    (search::ts_pair_value(&written, &maps)?, at)
                 }
                 _ if got => return None,
-                _ if values => (search::python_dict_value(&written)?, at.clone()),
-                Some(element) => (element, at.clone()),
+                _ if values => (search::python_dict_value(&written)?, at),
+                Some(element) => (element, at),
                 None if indexed
                     && (kind != Kind::TsJs || self.type_decl(kind, &at, &written).is_none()) =>
                 {
-                    (search::indexed_value(kind, &written)?, at.clone())
+                    (search::indexed_value(kind, &written)?, at)
                 }
                 None => self.named_element(kind, &at, &written)?,
             };
@@ -1068,6 +1068,7 @@ impl App {
         }
         let (written, scope) = match search::ts_awaited(kind, text, line1, callee, &written) {
             Some(inner) => (inner, decl.line1),
+            None if ts_declared_param(kind, &at, decl.line1, &written) => return None,
             None => (written, 0),
         };
         let ty = self.annotated_type(kind, &decl.path, &at, scope, &written)?;
@@ -1472,4 +1473,11 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
     search::reads_jsdoc(kind, file)
         && (search::js_constructor(line).is_some() || search::js_exported_class(line))
+}
+
+pub(super) fn ts_declared_param(kind: Kind, text: &str, line1: usize, written: &str) -> bool {
+    kind == Kind::TsJs
+        && search::type_path(kind, written)
+            .filter(|p| p.len() == 1)
+            .is_some_and(|p| search::ts_type_param(text, line1, &p[0]).is_some())
 }
