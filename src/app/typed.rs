@@ -857,6 +857,9 @@ impl App {
         let (n, values) = n
             .strip_suffix(".values()")
             .map_or((n, false), |base| (base, true));
+        let (n, got) = n
+            .strip_suffix(".get()")
+            .map_or((n, false), |base| (base, true));
         let (n, indexed) = n.strip_suffix("[]").map_or((n, false), |base| (base, true));
         let (file, text, bindings) = match n.rsplit_once('.') {
             None => (
@@ -895,6 +898,11 @@ impl App {
                 _ => return None,
             };
             let (element, at) = match search::element_type(kind, &written) {
+                _ if got && self.type_decl(kind, &at, &written).is_none() => {
+                    let maps = ["Map", "ReadonlyMap", "WeakMap"];
+                    (search::ts_pair_value(&written, &maps)?, at.clone())
+                }
+                _ if got => return None,
                 _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
                 None if indexed
@@ -1008,11 +1016,7 @@ impl App {
         if receiver.first().is_some_and(|r| r == "super") {
             return None;
         }
-        if kind == Kind::Python
-            && let [r] = receiver
-            && matches!(method.as_str(), "get" | "pop" | "setdefault")
-            && let Some(via) = self.dict_value(file, text, line1, r, method)
-        {
+        if let Some(via) = self.keyed_read(kind, file, text, line1, callee, hops) {
             return Some(via);
         }
         if kind == Kind::Python

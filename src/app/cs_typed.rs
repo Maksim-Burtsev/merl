@@ -152,6 +152,9 @@ impl App {
         if let Some(l) = coalesced() {
             return Some(l);
         }
+        if let Some(head) = search::cs_indexed(expr) {
+            return self.cs_indexed_read(file, text, line1, head, hops);
+        }
         if let Some((class, written)) = search::cs_framework_value(expr) {
             let CsType::Outside(_) = self.cs_resolve(file, text, line1, &class)? else {
                 return None;
@@ -648,7 +651,8 @@ impl App {
                 }
                 (None, search::CsValue::Indexed(items)) if hops > 0 => {
                     let p = self.cs_name_type(file, text, at, &items, spent)?;
-                    self.cs_element(&p, true)?
+                    self.cs_element(&p, true)
+                        .or_else(|| self.cs_dictionary(&p))?
                 }
                 (None, search::CsValue::Unknown)
                     if lines
