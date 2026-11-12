@@ -230,3 +230,26 @@ pub fn manifest_dependencies(root: &Path, dir: &Path) -> Vec<PathBuf> {
     }
     names
 }
+
+pub fn ts_augmented_module(text: &str, line1: usize, name: &str) -> Option<String> {
+    static MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^declare\s+module\s+['"]([^'"]+)['"]\s*\{\s*$"#)
+            .expect("the regex is a literal")
+    });
+    let interface = Regex::new(&format!(
+        r"^\s+(?:export\s+)?interface\s+{}\s*\{{\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let outer = |at: usize| {
+        let depth = lines.get(at).map(|l| l.len() - l.trim_start().len())?;
+        (0..at).rev().find(|&i| {
+            let l = lines[i];
+            !l.trim().is_empty() && l.len() - l.trim_start().len() < depth
+        })
+    };
+    let head = outer(line1.checked_sub(1)?)?;
+    interface.is_match(lines[head]).then_some(())?;
+    Some(MODULE.captures(lines[outer(head)?])?[1].to_owned())
+}

@@ -4,6 +4,7 @@ use super::{
 };
 
 mod accessor;
+mod augmented;
 mod calls;
 mod checked;
 mod declared;
@@ -120,7 +121,13 @@ impl App {
                 assigned
             })
             .or_else(|| self.eslint_parent(kind, here, &text, line, chain, word))
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                if kind == Kind::TsJs {
+                    self.ts_augmentations(&ty, word)
+                } else {
+                    Vec::new()
+                }
+            });
         if hits.is_empty()
             && search::reads_jsdoc(kind, here)
             && ty
