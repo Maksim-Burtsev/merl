@@ -477,7 +477,8 @@ impl App {
         if a.kind == Kind::TsJs
             && a.dotted
             && matches!(a.chain.as_slice(), [t] if t == "this")
-            && let Some(key) = search::ts_literal_this_key(&a.text, self.line + 1, &a.word)
+            && let Some(key) =
+                search::ts_literal_this_key(&a.text, self.line + 1, a.range.start, &a.word)
         {
             let reason = super::Reason::Receiver("this: object literal".to_owned());
             let found = self.lines_here(a, [key], &reason);
