@@ -726,9 +726,10 @@ impl App {
         let (on, off): (Vec<Hit>, Vec<Hit>) = extensions
             .into_iter()
             .partition(|h| self.jvm_receiver_of(h, word).as_deref() == Some(name));
-        let elsewhere = off
-            .iter()
-            .any(|h| self.jvm_extension_receiver(h, word).is_some());
+        let elsewhere = off.iter().any(|h| {
+            search::scala(&h.path) == search::scala(here)
+                && self.jvm_extension_receiver(h, word).is_some()
+        });
         (!elsewhere || !on.is_empty()).then_some(on)
     }
 

@@ -88,6 +88,7 @@ impl App {
         };
         if self.answered_by_go_ts_swift(&a, &near, &p, walk.declares_here)
             || self.answered_by_cs(&a, &near, &p, &mut walk)
+            || self.answered_by_literal_this(&a)
             || self.answered_by_typed(&a, &near, &p, &mut walk)
             || self.answered_by_rust_crate(&a, &near)
         {

@@ -155,6 +155,7 @@ pub use symbols::*;
 pub use syntax::*;
 pub use ts_arrows::*;
 pub use ts_patterns::*;
+pub use ts_rebound::ts_literal_this_key;
 pub use types::*;
 pub use words::*;
 

@@ -111,3 +111,53 @@ pub fn cs_rebound(text: &str, line1: usize, before: &str, name: &str) -> bool {
     };
     !trusted || rebound_above(text, line1, name, bound)
 }
+
+pub fn cs_anonymous_member(text: &str, bound1: usize, var: &str, member: &str) -> Option<usize> {
+    let made = Regex::new(&format!(r"\b{}\s*=\s*new\s*(?:\{{|$)", regex::escape(var))).ok()?;
+    let named = Regex::new(&format!(
+        r"^\s*(?:[\w.]+\.)?{}\s*(?:=[^=>]|[,}}]|$)",
+        regex::escape(member)
+    ))
+    .ok()?;
+    let lines: Vec<String> = text.lines().map(|l| uncommented(Kind::CSharp, l)).collect();
+    let mut from = bound1.checked_sub(1)?;
+    let mut start = made.find(lines.get(from)?)?.end();
+    if !lines[from].get(..start)?.ends_with('{') {
+        from += 1;
+        let next = lines.get(from)?;
+        start = next.len() - next.trim_start().len() + 1;
+        next.trim_start().starts_with('{').then_some(())?;
+    }
+    let (mut depth, mut fresh) = (1i32, true);
+    for (i, line) in lines.iter().enumerate().skip(from) {
+        let mut field = (depth == 1 && fresh).then_some(start);
+        for (at, c) in code(Kind::CSharp, line).filter(|&(at, _)| at >= start) {
+            match c {
+                b'{' | b'(' | b'[' => depth += 1,
+                b'}' | b')' | b']' => depth -= 1,
+                _ => {}
+            }
+            if !c.is_ascii_whitespace() {
+                fresh = c == b',' && depth == 1;
+            }
+            if matches!((c, depth), (b',', 1) | (b'}', 0)) {
+                if let Some(f) = field
+                    && named.is_match(line.get(f..=at)?)
+                {
+                    return Some(i + 1);
+                }
+                field = Some(at + 1);
+            }
+            if depth == 0 {
+                return None;
+            }
+        }
+        if let Some(f) = field.filter(|_| depth == 1)
+            && named.is_match(line.get(f..)?)
+        {
+            return Some(i + 1);
+        }
+        start = 0;
+    }
+    None
+}
