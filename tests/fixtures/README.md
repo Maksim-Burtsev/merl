@@ -896,6 +896,10 @@ three; a class of that shape in a template string declares nothing. `tray.ts` ty
 one-line implementation under its overload signature leaves the jump to the signature. A one-line
 getter is left as it was, beside its setter in `coffee/cezve.js`.
 
+`typescript/gantry/dish.ts` (#1481) declares a class named `T` beside a `Dish<T>` whose `lid(): T`
+and `pick<T>(x: T): T` return a type parameter: `d.lid().scour()` on a `Dish<Tub>`, on a `Mug
+extends Dish<Tub[]>` and `d.pick(j).scour()` keep the picker, where they jumped to `T.scour`.
+
 `kylix/` (TypeScript, Rust, Swift, C#, PHP, Dart and Ruby, each in its own fixture) declares
 classes whose whole body sits on their declaration line (#1486): `Kylix` alone in its file,
 `Skyphos` (two members) and `Rhyton` above a multi-line `Kantharos` in another, each with a
@@ -974,8 +978,10 @@ guard removed.
 `swift/Sources/Shop/Gantry/` (#1481) has a `Perch: Gantry<Ewer>` whose inherited `first() -> T`
 types `brim()` as `Ewer`'s, through `self.`, a bare call, a `Lofty: Perch` and a `Twin: Pair<Ladle,
 Ewer>`'s second parameter; a base without arguments, a subclass's own `U`, a method's own `<T>`,
-a base written with three arguments for two parameters and a method of an `extension Gantry` keep
-the picker.
+a base written with three arguments for two parameters and a field typed `T?` keep the picker; a
+method and a computed property of an `extension Gantry` and a stored `load: T` type it too. `Dish<T>`
+beside a project class named `T` pins the picker of `d.lid.scour()`, whose `lid: T` sits in an
+`extension Dish` (it jumped to `T.scour`).
 `swift/Sources/Shop/Infuse/` is the third corner (#1126), its answers sourcekit-lsp's: `Sencha`
 declares `uppercased` and `append` beside a `String` and an `[Int]` local, a builder chain over
 lines, members of a constructor's and a method's result, an override in the subclass `Gyokuro`,

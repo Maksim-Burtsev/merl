@@ -58,11 +58,57 @@ func hoist(p: Perch, l: Lofty, r: Bare, t: Twin, o: Odd) {
 
 extension Gantry {
     func last() -> T { load }
+    func pick<T>(_ x: T) -> T { x }
+    var top: T { load }
+    var maybe: T? { load }
 }
 
-func reach(p: Perch) {
+extension Rung {
+    func tidier() {
+        self.load.brim()
+        //        ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13
+    }
+}
+
+func reach(p: Perch, l: Lofty, r: Bare) {
     p.last().brim()
-    //       ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13; want Sources/Shop/Gantry/Gantry.swift:9 (#1481)
+    //       ^ d: Sources/Shop/Gantry/Gantry.swift:9
     p.load.brim()
-    //     ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13; want Sources/Shop/Gantry/Gantry.swift:9 (#1481)
+    //     ^ d: Sources/Shop/Gantry/Gantry.swift:9
+    l.load.brim()
+    //     ^ d: Sources/Shop/Gantry/Gantry.swift:9
+    l.last().brim()
+    //       ^ d: Sources/Shop/Gantry/Gantry.swift:9
+    p.top.brim()
+    //    ^ d: Sources/Shop/Gantry/Gantry.swift:9
+    p.maybe!.brim()
+    //       ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13
+    r.load.brim()
+    //     ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13
+    r.last().brim()
+    //       ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13
+    p.pick(Ladle()).brim()
+    //              ^ d: picker Sources/Shop/Gantry/Gantry.swift:9, Sources/Shop/Gantry/Gantry.swift:13
+}
+
+final class T {
+    func scour() {}
+}
+
+final class Jar {
+    func scour() {}
+}
+
+final class Dish<T> {
+    var held: T
+    init(_ held: T) { self.held = held }
+}
+
+extension Dish {
+    var lid: T { held }
+}
+
+func lift(d: Dish<Jar>) {
+    d.lid.scour()
+    //    ^ d: picker Sources/Shop/Gantry/Gantry.swift:95, Sources/Shop/Gantry/Gantry.swift:99
 }
