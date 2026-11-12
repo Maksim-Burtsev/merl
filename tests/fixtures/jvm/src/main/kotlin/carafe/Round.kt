@@ -47,9 +47,6 @@ class Round(val f: Flagon) {
     }
 
     fun elvis(x: Flagon?) {
-        val y = x ?: return
-        y.pour()
-        //^ d: src/main/kotlin/carafe/Flagon.kt:4
         val z = (x as? Stein) ?: return
         z.rinse()
         //^ d: src/main/kotlin/carafe/Stein.kt:6
