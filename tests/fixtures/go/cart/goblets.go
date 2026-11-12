@@ -167,3 +167,11 @@ func Held[T interface{ Clink() }](c Cup[T]) {
 	c.held.Clink()
 	//     ^ d: cart/goblets.go:166
 }
+
+func Shadow[T interface{ Clink() }](x T) {
+	{
+		x := Goblet{}
+		x.Clink()
+		//^ d: cart/goblets.go:35
+	}
+}

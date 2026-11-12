@@ -21,3 +21,15 @@ lift(c => { for (const c of mugs) c.slosh(); });
 //                                  ^ d: !jump
 lift(c => { const k = c; k.heft(); c.slosh(); });
 //                                   ^ d: ladle/cup.ts:2
+function each(f: (c: Cup) => void) {}
+const pots = { each(f: (m: Mug) => void) {} };
+pots.each(c => c.slosh());
+//               ^ d: !jump
+function stir() {
+  each(c => c.slosh());
+  //          ^ d: ladle/cup.ts:2
+  pots.each(c => c.slosh());
+  //               ^ d: !jump
+  both(1, (c, m) => m.heft());
+  //                  ^ d: ladle/mug.ts:3
+}
