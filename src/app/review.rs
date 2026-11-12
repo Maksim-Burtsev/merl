@@ -461,9 +461,7 @@ impl App {
     }
 
     fn ticked(&self, rel: &Path) -> bool {
-        self.viewed
-            .get(rel)
-            .is_some_and(|&h| h == self.disk_hash(rel))
+        self.viewed.get(rel) == Some(&self.disk_hash(rel))
     }
 
     fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
@@ -609,7 +607,9 @@ impl App {
     pub fn review_status(&self) -> Option<String> {
         let r = self.review.as_ref()?;
         r.file(&self.rel_current()?)?;
-        let ticked = self.stops(r).filter(|f| self.ticked(&f.path)).count();
+        let ticked = (self.stops(r))
+            .filter(|f| self.viewed.contains_key(&f.path))
+            .count();
         let viewed = format!("viewed {ticked}/{}", self.stops(r).count());
         if self.folded_here().is_some() {
             return Some(format!("folded  {viewed}"));

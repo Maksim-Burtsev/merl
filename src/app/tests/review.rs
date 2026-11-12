@@ -41,6 +41,15 @@ fn review_walks_past_files_without_hunks() {
     assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
     assert_eq!(a.message, "skipped 1 file without hunks");
     assert_eq!(a.review_status().unwrap(), "hunk 2/2  viewed 2/5");
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("a.png"));
+    press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    assert!(a.viewed.contains_key(Path::new("a.png")));
+    assert_eq!(
+        a.review_status().unwrap(),
+        "hunk 2/2  viewed 2/5",
+        "a.png is ticked, but c does not stop on it"
+    );
     drop(std::fs::remove_dir_all(dir));
 }
 
@@ -645,6 +654,14 @@ fn the_status_counts_the_ticked_stops_and_reads_all_of_them_after_the_walk() {
     assert_eq!(viewed(&a), "viewed 4/4");
     c(&mut a, 'm');
     assert_eq!(viewed(&a), "viewed 3/4", "m takes a tick off");
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("src/a.rs"));
+    c(&mut a, 'm');
+    assert_eq!(
+        viewed(&a),
+        "viewed 4/5",
+        "a ticked skipped file is a stop again"
+    );
     drop(std::fs::remove_dir_all(dir));
 }
 

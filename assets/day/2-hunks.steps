@@ -5,10 +5,10 @@ sleep 0.5
 show
 sleep 1.6
 key c
-wait file 2/5
+wait models/repo/star_test.go
 sleep 1.4
 key c
-wait file 3/5
+wait models/repo/watch.go
 sleep 1.4
 key c
 wait hunk 1/10
