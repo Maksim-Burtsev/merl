@@ -43,4 +43,11 @@ pub fn rinse_all() {
     //^ d: src/ewers.rs:8
     let _ = Laver;
 }
+
+pub fn roll_carts(w: carts::Wagon, s: &carts::Sled) -> u32 {
+    w.roll();
+    //^ d: src/carts.rs:7
+    s.roll()
+    //^ d: src/carts.rs:19
+}
 pub mod servings;

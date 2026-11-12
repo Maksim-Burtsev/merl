@@ -786,7 +786,7 @@ impl App {
                 .find(|m| !m.is_empty());
             match members {
                 Some(m) => m,
-                None if matches!(ext, Some("kt" | "kts")) => {
+                None if matches!(ext, Some("kt" | "kts" | "scala")) => {
                     vec![search::kotlin_constructor_parameter(text, line1, name)?]
                 }
                 None => return None,
