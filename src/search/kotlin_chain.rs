@@ -262,3 +262,28 @@ pub fn kotlin_backing_property(text: &str, line1: usize, col: usize) -> Option<u
         at = s;
     }
 }
+
+pub fn kotlin_map_read(before: &str) -> Option<String> {
+    static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.])([a-z]\w*)\s*(?:\[[^\[\]]*\]|\.\s*(?:getValue|get)\s*\([^()]*\))",
+            r"\s*(?:!!|\?)?\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    Some(READ.captures(before.trim_end())?[1].to_owned())
+}
+
+pub fn kotlin_map_value(line: &str, name: &str) -> Option<(String, String)> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"(?:^|[^\w.]){}\s*:\s*(Map|MutableMap|HashMap|LinkedHashMap|SortedMap|TreeMap)<",
+            r"\s*[A-Z][\w.]*\??\s*,\s*(?:out\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\??\s*>\??\s*(?:[=,)]|$)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}

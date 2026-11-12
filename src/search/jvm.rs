@@ -278,6 +278,7 @@ pub(super) fn jvm_bindings(
     let text = lines.join("\n");
     let literal = path_literal_lines(Kind::Jvm, path, &text);
     let scala = super::scala(path);
+    let call = col.is_some_and(|c| super::jvm_rebound::called(lines[at], c, name));
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
@@ -330,7 +331,10 @@ pub(super) fn jvm_bindings(
             }
             continue;
         }
-        if scala && super::jvm_rebound::local_def_header(lines, i, name) {
+        let keyword = if scala { "def " } else { "fun " };
+        if (scala || (call && super::kotlin(path)))
+            && super::jvm_rebound::local_def_header(lines, i, name, keyword)
+        {
             out.push(binding(i + 1));
         }
         out.extend(
@@ -865,15 +869,15 @@ fn kotlin_int_type(value: &str) -> Option<&'static str> {
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let rule = if kotlin {
-        format!(r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??")
+        format!(
+            r"\bfun\s+(?:<[^>]*>\s*)?{n}\s*\([^)]*\)\s*:\s*([A-Z]\w*){GENERIC}\??|\bdef\s+{n}\s*(?:\([^)]*\))*\s*:\s*([A-Z]\w*)\s*(?:=|\{{|$)"
+        )
     } else {
         format!(r"(?:^|\s)([A-Z]\w*){GENERIC}\s+{n}\s*\(")
     };
     let code = uncommented(Kind::Jvm, line);
-    Regex::new(&rule)
-        .ok()?
-        .captures(&code)
-        .map(|c| c[1].to_owned())
+    let c = Regex::new(&rule).ok()?.captures(&code)?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
 static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -1147,7 +1151,7 @@ pub fn java_element_access(before: &str) -> Option<String> {
     static ACCESS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:get|getFirst|getLast|peek|peekFirst|peekLast",
-            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse)\s*\([^()]*\)\s*\.$"
+            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse|getOrDefault)\s*\([^()]*\)\s*\.$"
         ))
         .expect("the regex is a literal")
     });

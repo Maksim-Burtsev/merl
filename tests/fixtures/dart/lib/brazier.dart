@@ -12,9 +12,25 @@ class Grate {
 
 void stoke() {
   Brazier.forge().light();
-  //              ^ d: picker lib/brazier.dart:5, lib/brazier.dart:10; want lib/brazier.dart:5 (#1489)
+  //              ^ d: lib/brazier.dart:5
   Brazier.make().light();
   //             ^ d: lib/brazier.dart:5
   Brazier.forge();
   //      ^ d: lib/brazier.dart:2
+}
+
+void rake() {
+  Grate.make().light();
+  //           ^ d: lib/brazier.dart:10
+}
+
+class Hearth {
+  Hearth();
+  static Grate forge() => Grate();
+  void light() {}
+}
+
+void bank() {
+  Hearth.forge().light();
+  //             ^ d: lib/brazier.dart:10
 }

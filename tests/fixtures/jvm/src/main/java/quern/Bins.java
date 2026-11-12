@@ -14,7 +14,7 @@ public class Bins {
         int total = byName.get("a").turn();
         //                          ^ d: src/main/java/quern/Stone.java:4
         total += byName.getOrDefault("a", null).turn();
-        //                                      ^ d: !jump
+        //                                      ^ d: src/main/java/quern/Stone.java:4
         total += rows.get("a").get(0).turn();
         //                            ^ d: !jump
         return total + spare.orElseThrow().turn();
