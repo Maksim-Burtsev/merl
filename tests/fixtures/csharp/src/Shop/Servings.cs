@@ -14,7 +14,7 @@ public class Wok
     }
 }
 
-public class Kit
+public class Hamper
 {
     public void Deconstruct(out Crock crock, out Wok wok)
     {
@@ -33,14 +33,19 @@ public static class Serving
     {
         var (c, w) = ServePair();
         w.Stew();
-//        ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12; want src/Shop/Servings.cs:12 (#1484)
+//        ^ d: src/Shop/Servings.cs:12
         c.Stew();
-//        ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12; want src/Shop/Servings.cs:5 (#1484)
+//        ^ d: src/Shop/Servings.cs:5
         (Crock nc, Wok nw) = ServeNamed();
         nw.Stew();
 //         ^ d: src/Shop/Servings.cs:12
-        var (kc, kw) = new Kit();
+        var (kc, kw) = new Hamper();
         kw.Stew();
-//         ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12; want src/Shop/Servings.cs:12 (#1484)
+//         ^ d: src/Shop/Servings.cs:12
+        kc.Stew();
+//         ^ d: src/Shop/Servings.cs:5
+        var (mc, mw, mx) = new Hamper();
+        mw.Stew();
+//         ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12
     }
 }
