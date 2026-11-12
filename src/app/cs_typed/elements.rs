@@ -207,6 +207,39 @@ impl App {
         })
     }
 
+    pub(super) fn cs_indexed_read(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        head: &str,
+        hops: usize,
+    ) -> Option<Proven> {
+        let p = self.cs_chain_type(file, text, line1, head, hops)?;
+        let CsWrittenType { ty, written, from } = self.cs_dictionary(&p)?;
+        let link = format!("{} \u{2192} [{written}]", p.link);
+        Some(Proven {
+            ty,
+            link,
+            written,
+            from,
+        })
+    }
+
+    pub(super) fn cs_dictionary(&self, of: &Proven) -> Option<CsWrittenType> {
+        let CsType::Outside(outer) = &of.ty else {
+            return None;
+        };
+        let written = search::cs_dictionary_value(outer, &of.written)?;
+        let (path, line1) = &of.from;
+        let text = self.text_of(path)?;
+        Some(CsWrittenType {
+            ty: self.cs_resolve(path, &text, *line1, &written)?,
+            written,
+            from: of.from.clone(),
+        })
+    }
+
     pub(in crate::app) fn cs_new_call(&self) -> bool {
         let line = self.line_str();
         let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@' || c == '.';
