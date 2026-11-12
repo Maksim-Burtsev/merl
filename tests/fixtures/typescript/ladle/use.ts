@@ -46,3 +46,12 @@ cups.forEach(c => c.slosh()); mugs.forEach(c => {
   c.heft();
 //  ^ d: ladle/mug.ts:3
 });
+const o = { c: 1, k: 2 };
+cups.forEach(c => { const { c: n } = o; c.slosh(); });
+//                                        ^ d: ladle/cup.ts:2
+cups.forEach(c => { const { k: c } = o; c.slosh(); });
+//                                        ^ d: !jump
+cups.forEach(c => { const { c } = o; c.slosh(); });
+//                                     ^ d: !jump
+cups.forEach(c => { for (const [k, v] of Object.entries(c)) c.slosh(); });
+//                                                            ^ d: ladle/cup.ts:2
