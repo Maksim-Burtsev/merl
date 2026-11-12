@@ -115,7 +115,7 @@ pub fn cs_rebound(text: &str, line1: usize, before: &str, name: &str) -> bool {
 pub fn cs_anonymous_member(text: &str, bound1: usize, var: &str, member: &str) -> Option<usize> {
     let made = Regex::new(&format!(r"\b{}\s*=\s*new\s*(?:\{{|$)", regex::escape(var))).ok()?;
     let named = Regex::new(&format!(
-        r"(?:^|[{{,])\s*(?:[\w.]+\.)?{}\s*(?:=[^=>]|[,}}]|$)",
+        r"^\s*(?:[\w.]+\.)?{}\s*(?:=[^=>]|[,}}]|$)",
         regex::escape(member)
     ))
     .ok()?;
@@ -128,14 +128,17 @@ pub fn cs_anonymous_member(text: &str, bound1: usize, var: &str, member: &str) -
         start = next.len() - next.trim_start().len() + 1;
         next.trim_start().starts_with('{').then_some(())?;
     }
-    let mut depth = 1i32;
+    let (mut depth, mut fresh) = (1i32, true);
     for (i, line) in lines.iter().enumerate().skip(from) {
-        let mut field = (depth == 1).then_some(start);
+        let mut field = (depth == 1 && fresh).then_some(start);
         for (at, c) in code(Kind::CSharp, line).filter(|&(at, _)| at >= start) {
             match c {
                 b'{' | b'(' | b'[' => depth += 1,
                 b'}' | b')' | b']' => depth -= 1,
                 _ => {}
+            }
+            if !c.is_ascii_whitespace() {
+                fresh = c == b',' && depth == 1;
             }
             if matches!((c, depth), (b',', 1) | (b'}', 0)) {
                 if let Some(f) = field

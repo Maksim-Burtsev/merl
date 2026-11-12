@@ -51,13 +51,16 @@ pub(super) fn ts_this_on_line(code: &str, col: usize, line1: usize) -> Option<Bi
     None
 }
 
-pub fn ts_literal_this_key(text: &str, line1: usize, name: &str) -> Option<usize> {
+pub fn ts_literal_this_key(text: &str, line1: usize, col: usize, name: &str) -> Option<usize> {
     static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"^(?:(?:async|get|set)\s+)?\*?\s*([\w$]+)\s*\([^()]*\)\s*(?::[^{}()]*)?\{$",
             r"|^[\w$]+\s*:\s*(?:async\s+)?function\b\s*\*?\s*[\w$]*\s*\([^()]*\)\s*(?::[^{}()]*)?\{$"
         ))
         .expect("the regex is a literal")
+    });
+    static THIS_PARAM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\(\s*this\s*[:,)]").expect("the regex is a literal")
     });
     static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:(?:export\s+)?(?:const|let|var)\s+[\w$]+(?:\s*:[^=]*)?|[\w$.]+)\s*=\s*\{$")
@@ -71,7 +74,16 @@ pub fn ts_literal_this_key(text: &str, line1: usize, name: &str) -> Option<usize
             .rev()
             .find(|&i| !code(i).trim().is_empty() && super::indent(lines[i]) < depth)
     };
-    let mut at = scope(line1.checked_sub(1).filter(|&i| i < lines.len())?)?;
+    let own = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let prefix = lines[own].get(..col)?;
+    if ts_this_on_line(lines[own], col, line1).is_some()
+        || prefix
+            .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+            .any(|w| w == "class")
+    {
+        return None;
+    }
+    let mut at = scope(own)?;
     loop {
         let header = code(at);
         let header = header.trim();
@@ -84,6 +96,9 @@ pub fn ts_literal_this_key(text: &str, line1: usize, name: &str) -> Option<usize
             })
         });
         if method {
+            if THIS_PARAM.is_match(header) {
+                return None;
+            }
             break;
         }
         if this_opener(header, 0).is_some() {

@@ -29,3 +29,31 @@ export const stash = {
     return 0;
   },
 };
+
+export class Other {
+  heft = 4;
+}
+
+export const tray = {
+  heft: 2,
+  lift() {
+    return [1].map(function (x) { return this.heft + x; });
+//                                            ^ d: !jump
+  },
+  pack() {
+    return { heft: 9, get() { return this.heft; } };
+//                                        ^ d: !jump
+  },
+  cart() {
+    return new (class { heft = 7; get() { return this.heft; } })();
+//                                                    ^ d: !jump
+  },
+  shrink: function (this: Other) {
+    return this.heft;
+//              ^ d: literal_this.ts:34
+  },
+  grow(this: Other) {
+    return this.heft;
+//              ^ d: !jump
+  },
+};
