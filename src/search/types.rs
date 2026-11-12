@@ -664,6 +664,19 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
+pub fn indexed_value(kind: Kind, written: &str) -> Option<String> {
+    match kind {
+        Kind::Python => python_dict_value(written),
+        Kind::TsJs => {
+            let t = written.trim().trim_end_matches([';', ',']).trim();
+            let rest = t.strip_prefix("Record<")?.strip_suffix('>')?;
+            let [_, value] = <[&str; 2]>::try_from(split_top(kind, rest, b',')).ok()?;
+            let value = value.trim();
+            (!value.is_empty()).then(|| value.to_owned())
+        }
+        _ => None,
+    }
+}
 pub fn python_dict_value(written: &str) -> Option<String> {
     let t = written.trim().trim_matches(['"', '\'']);
     let open = t.find('[').filter(|_| t.ends_with(']'))?;

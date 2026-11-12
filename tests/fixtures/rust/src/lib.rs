@@ -30,6 +30,7 @@ pub mod kylix;
 pub mod vessels;
 pub mod feast;
 pub mod ewers;
+pub mod braziers;
 
 use ewers::{Ewer, Laver};
 

@@ -542,9 +542,17 @@ impl App {
         }
         let mut scope = here.to_path_buf();
         let compared = search::dart_compared(before).filter(|_| chain.is_empty());
+        let shorthand = (chain.is_empty() && compared.is_none())
+            .then(|| self.dart_shorthand_type(here, text, before))
+            .flatten();
         let ty = match chain {
             [] if compared.is_some() => {
                 let (ty, s) = self.dart_bound(here, text, compared.as_deref()?, 0)?;
+                scope = s;
+                ty
+            }
+            [] if shorthand.is_some() => {
+                let (ty, s) = shorthand?;
                 scope = s;
                 ty
             }
@@ -709,6 +717,9 @@ impl App {
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
         if let Some((receiver, getter)) = search::dart_awaited(value) {
             return self.dart_awaited(here, text, receiver, getter, depth + 1);
+        }
+        if let Some(links) = search::dart_read_links(value).filter(|l| l[0] != name) {
+            return self.dart_links_type(here, text, &links, false, true, depth + 1);
         }
         let value = format!("{value}.");
         let (links, _, start) = search::dart_call_links(&value)?;
@@ -877,7 +888,15 @@ impl App {
             };
             return Some((ty, here.to_path_buf()));
         }
-        if search::dart_body_at(text, self.line).is_none_or(|(body, _)| !body.is_empty()) {
+        let c = self.dart_top_function(here, text, name)?;
+        let ty = search::dart_returns(&c.hit.text, name)?;
+        Some((ty, c.hit.path))
+    }
+
+    fn dart_top_function(&self, here: &Path, text: &str, name: &str) -> Option<Candidate> {
+        if !search::bindings(Kind::Dart, text, self.line + 1, name).is_empty()
+            || search::dart_body_at(text, self.line).is_none_or(|(body, _)| !body.is_empty())
+        {
             return None;
         }
         let reason = Reason::Receiver(name.to_owned());
@@ -886,12 +905,38 @@ impl App {
             .iter()
             .flat_map(|f| self.dart_declared_in(f, name, None, &[None], &reason))
             .collect();
-        let [c] = found.as_slice() else {
-            return None;
+        let [c] = found.try_into().ok()?;
+        (!c.hit.text.starts_with(char::is_whitespace)).then_some(c)
+    }
+
+    fn dart_shorthand_type(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let (range, _) = self.word_here(Some(Kind::Dart))?;
+        let at = line_offset(text, self.line + 1) + range.start;
+        let after = self.line_str().get(range.end..)?;
+        let (ty, scope) = match search::dart_shorthand(text, at, before, after)? {
+            search::DartShorthand::Case(subject) => self.dart_bound(here, text, &subject, 0)?,
+            search::DartShorthand::Returned(ty) => {
+                let params = search::dart_this_super(text, self.line, false)
+                    .and_then(|o| search::dart_type_params(text, &o.class))
+                    .unwrap_or_default();
+                if params.contains(&ty.class) {
+                    return None;
+                }
+                (ty, here.to_path_buf())
+            }
+            search::DartShorthand::Argument(callee, slot) => {
+                let c = self.dart_top_function(here, text, &callee)?;
+                let ty = search::dart_param_type(&c.hit.text, &callee, &slot)?;
+                (ty, c.hit.path)
+            }
         };
-        let ty = search::dart_returns(&c.hit.text, name)
-            .filter(|_| !c.hit.text.starts_with(char::is_whitespace))?;
-        Some((ty, c.hit.path.clone()))
+        self.dart_class_file(&scope, &ty)?;
+        Some((ty, scope))
     }
 
     fn dart_accessor_side(&self, before: &str, word: &str, found: &mut Vec<Candidate>) {

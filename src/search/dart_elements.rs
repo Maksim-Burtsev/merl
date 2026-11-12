@@ -75,3 +75,12 @@ pub fn dart_for_in_call<'a>(line: &'a str, name: &str) -> Option<(&'a str, bool)
     let c = re.captures(line)?;
     Some((c.get(2)?.as_str(), c.get(1).is_some()))
 }
+
+pub fn dart_read_links(value: &str) -> Option<Vec<String>> {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[a-z_$][\w$]*(?:\.[a-z_$][\w$]*)+$").expect("the regex is a literal")
+    });
+    PATTERN
+        .is_match(value)
+        .then(|| value.split('.').map(str::to_owned).collect())
+}

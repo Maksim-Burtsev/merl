@@ -13,4 +13,6 @@ public class Samovar
     public void Whistle()
     {
     }
+    public static Samovar Shared { get; } = new Samovar();
+    public Samovar Reserve { get; } = new Samovar();
 }
