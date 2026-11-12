@@ -684,3 +684,19 @@ fn kotlin_keeps_this(line: &str) -> bool {
                 .rsplit_once(')')
                 .is_some_and(|(_, after)| after.contains('=')))
 }
+
+pub fn jvm_named_this_owner(text: &str, line1: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    loop {
+        at = super::jvm::scope_of(&lines, at)?;
+        if super::jvm::opens_type(lines[at])
+            && !anonymous(lines[at])
+            && super::jvm_type_name(lines[at]).as_deref() == Some(name)
+        {
+            return Some(
+                super::qualified(Kind::Jvm, text, at + 1, name).unwrap_or_else(|| name.to_owned()),
+            );
+        }
+    }
+}
