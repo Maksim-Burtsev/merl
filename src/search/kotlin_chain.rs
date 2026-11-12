@@ -334,13 +334,18 @@ pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str
         return false;
     }
     let depth = indent(head);
-    for line in lines.iter().take(line1 - 1).skip(mention1) {
+    for (i, line) in lines.iter().enumerate().take(line1 - 1).skip(mention1) {
         let code = uncommented(Kind::Jvm, line);
         if code.trim().is_empty() {
             continue;
         }
         if indent(line) <= depth {
-            return code.trim() == "}" && indent(line) == depth;
+            let next = lines[i + 1..]
+                .iter()
+                .map(|l| uncommented(Kind::Jvm, l))
+                .find(|c| !c.trim().is_empty());
+            let else_below = next.is_some_and(|c| c.trim_start().starts_with("else"));
+            return code.trim() == "}" && indent(line) == depth && !else_below;
         }
         if EXIT.is_match(&code) {
             return false;
