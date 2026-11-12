@@ -330,7 +330,11 @@ impl App {
         let line1 = self.line + 1;
         let alias = match a.chain.as_slice() {
             [s] if s != "this" && search::scala(&a.here) => {
-                search::scala_alias_owner(&a.text, line1, s)
+                let bound: Vec<usize> = search::path_bindings(kind, &a.here, &a.text, line1, s)
+                    .iter()
+                    .map(|b| b.line1)
+                    .collect();
+                search::scala_alias_owner(&a.text, line1, s, &bound)
             }
             _ => None,
         };
@@ -338,9 +342,11 @@ impl App {
             && a.own()
             && (a.dotted || a.before.ends_with("::"))
             && !search::jvm_anonymous_open(&a.before);
+        let kotlin = search::kotlin(&a.here).then_some(a.before.as_str());
         if applies
             && alias.is_none()
-            && let Some(anon) = search::jvm_anonymous_scope(&a.text, line1)
+            && matches!(a.chain.as_slice(), [s] if s == "this")
+            && let Some(anon) = search::jvm_anonymous_scope(&a.text, line1, kotlin)
         {
             let reason = Reason::Path("this".to_owned());
             let lines = search::jvm_members_of(&a.here, &a.text, anon, &a.word);
