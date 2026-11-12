@@ -32,6 +32,28 @@ impl App {
         })
     }
 
+    pub(super) fn keyed_read(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        callee: &str,
+        hops: usize,
+    ) -> Option<TypeVia> {
+        let (receiver, method) = callee.rsplit_once('.')?;
+        match (kind, method) {
+            (Kind::Python, "get" | "pop" | "setdefault") if !receiver.contains('.') => {
+                self.dict_value(file, text, line1, receiver, method)
+            }
+            (Kind::TsJs, "get") if hops > 0 => {
+                let read = format!("{callee}()");
+                self.element_binding_type(kind, file, text, line1, &read, hops)
+            }
+            _ => None,
+        }
+    }
+
     pub(super) fn dict_value(
         &self,
         file: &Path,
