@@ -1,6 +1,6 @@
-package vessel;
+package chalice;
 
-public class Cup implements Vessel {
+public class Noggin implements Chalice {
     public int fill() {
         return 1;
     }

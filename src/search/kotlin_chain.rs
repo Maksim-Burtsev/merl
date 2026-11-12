@@ -1,6 +1,8 @@
 use regex::Regex;
 
-use super::jvm::{anonymous, jvm_declared_type, opens_type, param_names, scope_of};
+use super::jvm::{
+    anonymous, jvm_declared_type, opens_type, param_names, params_open_byte, scope_of,
+};
 use super::{Group, Kind, group, indent, split_top, uncommented};
 
 pub struct KotlinCallChain {
@@ -347,22 +349,24 @@ pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str
     false
 }
 
-pub fn kotlin_function_start(lines: &[&str], line1: usize) -> Option<usize> {
-    static FUN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bfun\s").expect("the regex is a literal"));
+pub fn jvm_function_start(lines: &[&str], line1: usize) -> Option<usize> {
     let mut depth = indent(lines.get(line1.checked_sub(1)?)?);
+    let mut start = None;
     for j in (0..line1 - 1).rev() {
         let code = uncommented(Kind::Jvm, lines[j]);
         if code.trim().is_empty() || indent(lines[j]) >= depth {
             continue;
         }
-        if FUN.is_match(&code) {
-            return Some(j + 1);
-        }
         if opens_type(lines[j]) {
+            return start;
+        }
+        if start.is_some() {
             return None;
+        }
+        if params_open_byte(&code).is_some() {
+            start = Some(j + 1);
         }
         depth = indent(lines[j]);
     }
-    None
+    start
 }

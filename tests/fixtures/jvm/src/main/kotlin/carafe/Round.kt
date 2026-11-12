@@ -34,7 +34,7 @@ class Round(val f: Flagon) {
         } else {
             return
         }
-        x.pour()
-        //^ d: picker src/main/kotlin/carafe/Flagon.kt:4
+        x.swirl()
+        //^ d: picker src/main/kotlin/carafe/Flagon.kt:8, src/main/kotlin/carafe/Stein.kt:8, src/main/kotlin/carafe/Tankard.kt:8, src/main/kotlin/ladle/LadleExt.kt:8, src/main/kotlin/press/Brewing.kt:5, src/main/kotlin/press/Carafe.kt:8
     }
 }

@@ -191,7 +191,7 @@ pub(super) fn ident(s: &str) -> bool {
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
-fn params_open_byte(line: &str) -> Option<usize> {
+pub(super) fn params_open_byte(line: &str) -> Option<usize> {
     static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?[A-Za-z_]\w*\s*\(",

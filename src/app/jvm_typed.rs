@@ -765,17 +765,18 @@ impl App {
             .flatten();
         let lines: Vec<&str> = text.lines().collect();
         let ext = file.extension().and_then(|e| e.to_str());
-        let start = search::kotlin_function_start(&lines, line1)
-            .filter(|_| matches!(ext, Some("kt" | "kts")));
+        let start = search::jvm_function_start(&lines, line1);
         let elsewhere = |at: usize| {
             start.is_some_and(|s| {
                 at > line1 || at < s || search::kotlin_check_closed(text, line1, at, name)
             })
         };
-        if narrowed.find_iter(text).any(|m| {
-            let at = text.get(..m.start()).map(|t| t.matches('\n').count() + 1);
-            at != own_when && !at.is_some_and(elsewhere)
-        }) {
+        let mentions: Vec<Option<usize>> = narrowed
+            .find_iter(text)
+            .map(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1))
+            .filter(|&at| at != own_when)
+            .collect();
+        if !mentions.iter().all(|at| at.is_some_and(elsewhere)) {
             return None;
         }
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
@@ -837,7 +838,7 @@ impl App {
             }
             found = Some(this);
         }
-        found
+        found.filter(|f| mentions.is_empty() || matches!(f.resolved, JvmType::Project(_)))
     }
 
     fn jvm_held_member(

@@ -133,6 +133,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         let ty = self.cs_new_type(here, &text, self.line + 1, &written)?;
         self.cs_member_answer(here, &ty, word, &written)
+            .filter(|a| matches!(a, CsAnswer::Found(_)))
     }
 
     pub(super) fn cs_call_result(&self, here: &Path, word: &str, start: usize) -> Option<CsAnswer> {
