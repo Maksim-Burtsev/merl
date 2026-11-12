@@ -38,3 +38,28 @@ fn swift_top_level(lines: &[&str], literal: &[bool], line1: usize, name: &str) -
         value: Value::Unknown,
     })
 }
+pub fn swift_member_scope_top(
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    at: usize,
+    name: &str,
+) -> Option<usize> {
+    let mut top = match super::swift_scope(lines, literal, line1 + 1).header_line1 {
+        h if h == line1 && h > at && line1 < lines.len() => line1,
+        _ if line1 > at && super::swift_func_decl(lines[line1 - 1]) => {
+            if super::swift_binds_on(lines[line1 - 1], name) {
+                return None;
+            }
+            line1
+        }
+        _ => super::swift_scope(lines, literal, line1).header_line1,
+    };
+    while top > at {
+        match super::swift_scope(lines, literal, top).header_line1 {
+            up if up > at => top = up,
+            _ => break,
+        }
+    }
+    Some(top)
+}
