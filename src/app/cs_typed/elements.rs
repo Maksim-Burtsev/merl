@@ -148,8 +148,14 @@ impl App {
                 return true;
             };
             let ns = search::cs_namespace(&t, h.line1);
-            search::cs_owner(&t, h.line1).is_some()
-                || (own != Some(ns.as_str()) && levels.contains(&ns))
+            match search::cs_owner(&t, h.line1) {
+                Some(owner) => t
+                    .lines()
+                    .nth(owner - 1)
+                    .and_then(search::cs_type_decl)
+                    .is_none_or(|o| cs_may_see_nested(text, line1, &o.name, &h.text)),
+                None => own != Some(ns.as_str()) && levels.contains(&ns),
+            }
         })
     }
 
@@ -297,4 +303,26 @@ impl App {
         }
         found
     }
+}
+
+fn cs_may_see_nested(text: &str, line1: usize, owner: &str, nested: &str) -> bool {
+    let inherited = nested
+        .split_whitespace()
+        .any(|w| matches!(w, "public" | "protected" | "internal"));
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1;
+    while let Some(decl) = search::cs_owner(text, at).filter(|&d| d < at) {
+        let Some(l) = lines.get(decl - 1) else {
+            return true;
+        };
+        let sees = search::cs_type_decl(l).is_none_or(|d| d.name == owner)
+            || (inherited
+                && (l.split_whitespace().any(|w| w == "partial")
+                    || !search::cs_bases(text, decl).is_empty()));
+        if sees {
+            return true;
+        }
+        at = decl;
+    }
+    false
 }
