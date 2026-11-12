@@ -111,3 +111,24 @@ export function noisy(c: Cruet): number {
   return c.stopper();
   //       ^ d: !jump
 }
+
+export class Rack {
+  held: Cruet = new Vial();
+
+  pour(): void {
+    if (this.held instanceof Vial) {
+      this.held.stopper();
+      //        ^ d: cruets/vial.ts:5
+    }
+    this.held.stopper();
+    //        ^ d: cruets/cruet.ts:3
+  }
+
+  swap(p: Phial): void {
+    if (this.held instanceof Vial) {
+      this.held = p;
+      this.held.uncork();
+      //        ^ d: !jump
+    }
+  }
+}

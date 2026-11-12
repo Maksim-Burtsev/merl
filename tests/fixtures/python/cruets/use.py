@@ -105,3 +105,21 @@ def noisy(c: Cruet) -> int:
         return 0
     return c.stopper()
     #        ^ d: !jump
+
+
+class Rack:
+    def __init__(self, held: Cruet) -> None:
+        self.held = held
+
+    def pour(self) -> None:
+        if isinstance(self.held, Vial):
+            self.held.stopper()
+            #         ^ d: cruets/vial.py:8
+        self.held.stopper()
+        #         ^ d: cruets/cruet.py:5
+
+    def swap(self, p: Phial) -> None:
+        if isinstance(self.held, Vial):
+            self.held = p
+            self.held.uncork()
+            #         ^ d: !jump

@@ -18,6 +18,7 @@ struct Shapes {
     function: Regex,
     class: Regex,
     named: Regex,
+    assigned: Regex,
 }
 
 fn shapes(kind: Kind, name: &str) -> Shapes {
@@ -40,6 +41,7 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
             function: re(r"^\s*(?:async\s+)?def\s|\blambda\b"),
             class: re(r"^\s*class\s"),
             named: re(r"\b{n}\b"),
+            assigned: re(r"(?:^|[^\w.]){n}\s*[-+*/%&|^]*=(?:[^=]|$)"),
         };
     }
     let not = r"if\s*\(\s*!\s*\(\s*{n}\s+instanceof\s+(?P<t>[\w$.]+)\s*\)\s*\)\s*";
@@ -61,15 +63,17 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
         function: re(r"\bfunction\b|=>"),
         class: re(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s"),
         named: re(r"(?:^|[^\w$.]){n}(?:[^\w$]|$)"),
+        assigned: re(r"(?:^|[^\w$.]){n}\s*[-+*/%&|^?]*=(?:[^=>]|$)"),
     }
 }
 
 pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Checked> {
-    if !text.contains(if kind == Kind::Python {
-        "isinstance"
-    } else {
-        "instanceof"
-    }) {
+    let word = match kind {
+        Kind::Python => "isinstance",
+        Kind::TsJs => "instanceof",
+        _ => return None,
+    };
+    if !text.contains(word) {
         return None;
     }
     let s = shapes(kind, name);
@@ -87,7 +91,8 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
     }
     let mut crossed = s.function.is_match(&here);
     let found = |t: &str, k: usize, crossed: bool| {
-        Some(if crossed {
+        let rebound = name.contains('.') && (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
+        Some(if crossed || rebound {
             Checked::Unreadable
         } else {
             Checked::To(t.to_owned(), k + 1)

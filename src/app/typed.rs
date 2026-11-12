@@ -508,6 +508,17 @@ impl App {
         let start = self
             .value_type(kind, file, text, line1, &chain[0], hops)
             .ok_or_else(|| chain[0].clone())?;
+        if let [own, field, rest @ ..] = chain
+            && matches!(own.as_str(), "self" | "this")
+            && let name = format!("{own}.{field}")
+            && search::checked_type(kind, text, line1, &name).is_some()
+        {
+            let declared = || self.typed_field(kind, &start.ty, field);
+            let via = self
+                .checked_or(kind, file, text, line1, &name, &declared)
+                .ok_or_else(|| field.clone())?;
+            return self.follow(kind, via, &name, false, rest);
+        }
         self.follow(kind, start, &chain[0], true, &chain[1..])
     }
 
@@ -569,6 +580,18 @@ impl App {
         hops: usize,
     ) -> Option<TypeVia> {
         let declared = || self.declared_value_type(kind, file, text, line1, name, hops);
+        self.checked_or(kind, file, text, line1, name, &declared)
+    }
+
+    fn checked_or(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        declared: &dyn Fn() -> Option<TypeVia>,
+    ) -> Option<TypeVia> {
         if !matches!(kind, Kind::TsJs | Kind::Python) {
             return declared();
         }
@@ -577,10 +600,11 @@ impl App {
             Some(search::Checked::Unreadable) => return None,
             Some(search::Checked::To(written, guard)) => (written, guard),
         };
-        if self
-            .bindings_of(kind, file, text, line1, name)
-            .iter()
-            .any(|b| b.line1 >= guard)
+        if !name.contains('.')
+            && self
+                .bindings_of(kind, file, text, line1, name)
+                .iter()
+                .any(|b| b.line1 >= guard)
         {
             return declared();
         }
