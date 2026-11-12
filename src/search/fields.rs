@@ -320,7 +320,7 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
         .filter(|c| c[1].split(',').any(|p| p.trim() == name))
         .map(|c| Value::Type(c[2].to_owned()))
 }
-fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+pub(super) fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
     let at = line.find(keyword)?;
     let open = at + line.get(at..)?.find('{')?;
     let close = close_of(Kind::Go, line, open)?;

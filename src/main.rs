@@ -26,7 +26,7 @@ mod web;
 mod wrap;
 
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::io::{Write, stdout};
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
@@ -434,7 +434,7 @@ struct Watching {
     project_watcher: Option<RecommendedWatcher>,
     project_watched: HashSet<PathBuf>,
     repo: Option<live::Repo>,
-    tmux: Option<Sender<String>>,
+    copier: Option<Sender<String>>,
 }
 
 impl Watching {
@@ -457,7 +457,7 @@ impl Watching {
             project_watcher,
             project_watched,
             repo,
-            tmux: spawn_tmux_copier(),
+            copier: spawn_copier(),
         }
     }
 
@@ -518,8 +518,8 @@ impl Watching {
         }
         if let Some(text) = app.clipboard.take() {
             osc52_copy(&text);
-            if let Some(tmux) = &self.tmux {
-                drop(tmux.send(text));
+            if let Some(copier) = &self.copier {
+                drop(copier.send(text));
             }
         }
         ControlFlow::Continue(true)
@@ -695,12 +695,22 @@ fn watcher(tx: Sender<Msg>) -> Option<RecommendedWatcher> {
     .ok()
 }
 
-fn spawn_tmux_copier() -> Option<Sender<String>> {
-    let (mut taken, mut calls) = tmux_copy(std::env::var_os("TMUX").as_deref())?;
+fn spawn_copier() -> Option<Sender<String>> {
+    let mut tmux = tmux_copy(std::env::var_os("TMUX").as_deref());
+    let ssh = ["SSH_TTY", "SSH_CONNECTION"].map(std::env::var_os);
+    let mut pbcopy = pbcopy(cfg!(target_os = "macos"), &ssh);
+    if tmux.is_none() && pbcopy.is_none() {
+        return None;
+    }
     let (tx, texts) = mpsc::channel::<String>();
     std::thread::spawn(move || {
         for text in texts {
-            hand_to_tmux(&mut taken, &mut calls, &text);
+            if let Some(pbcopy) = &mut pbcopy {
+                pipe_to(pbcopy, &text);
+            }
+            if let Some((taken, calls)) = &mut tmux {
+                hand_to_tmux(taken, calls, &text);
+            }
         }
     });
     Some(tx)
@@ -884,15 +894,28 @@ fn hand_to_tmux(taken: &mut Command, calls: &mut [Command], text: &str) {
     if taken.output().is_ok_and(|o| o.stdout.trim_ascii() == b"on") {
         return;
     }
-    for call in calls {
-        let Ok(mut child) = call.spawn() else { break };
-        if let Some(mut stdin) = child.stdin.take() {
-            drop(stdin.write_all(text.as_bytes()));
-        }
-        if child.wait().is_ok_and(|s| s.success()) {
-            break;
-        }
+    calls.iter_mut().any(|call| pipe_to(call, text));
+}
+
+fn pbcopy(macos: bool, ssh: &[Option<OsString>]) -> Option<Command> {
+    let over_ssh = ssh.iter().flatten().any(|v| !v.is_empty());
+    (macos && !over_ssh).then(|| {
+        let mut cmd = Command::new("pbcopy");
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        cmd
+    })
+}
+
+fn pipe_to(cmd: &mut Command, text: &str) -> bool {
+    let Ok(mut child) = cmd.spawn() else {
+        return false;
+    };
+    if let Some(mut stdin) = child.stdin.take() {
+        drop(stdin.write_all(text.as_bytes()));
     }
+    child.wait().is_ok_and(|s| s.success())
 }
 
 fn git_toplevel(dir: &Path) -> Option<PathBuf> {
@@ -944,6 +967,19 @@ mod tests {
             calls.each_ref().map(line),
             ["tmux load-buffer -w -", "tmux load-buffer -"]
         );
+    }
+
+    #[test]
+    fn on_a_local_mac_a_copy_also_goes_to_pbcopy_on_stdin() {
+        use std::ffi::OsString;
+        let set = |v: &str| Some(OsString::from(v));
+        let cmd = super::pbcopy(true, &[None, None]).unwrap();
+        assert_eq!(cmd.get_program(), "pbcopy");
+        assert_eq!(cmd.get_args().count(), 0);
+        assert!(super::pbcopy(true, &[set(""), None]).is_some());
+        assert!(super::pbcopy(false, &[None, None]).is_none());
+        assert!(super::pbcopy(true, &[set("/dev/ttys003"), None]).is_none());
+        assert!(super::pbcopy(true, &[None, set("10.0.0.2 52814 10.0.0.1 22")]).is_none());
     }
 
     #[cfg(unix)]
