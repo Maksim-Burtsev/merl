@@ -76,3 +76,38 @@ export function own(f: Flute): void {
     //^ d: cruets/vial.ts:11
   }
 }
+
+export function wrapped(c: Cruet): void {
+  if (
+    c instanceof Vial
+  ) {
+    c.stopper();
+    //^ d: cruets/vial.ts:5
+  }
+  if (c instanceof Phial &&
+      c.stopper() > 0) {
+    c.uncork();
+    //^ d: !jump
+  }
+}
+
+export function otherwise(c: Cruet): number {
+  if (c instanceof Vial) {
+    c.uncork();
+  } else {
+    return 0;
+  }
+  return c.stopper();
+  //       ^ d: cruets/vial.ts:5
+}
+
+export function noisy(c: Cruet): number {
+  if (c instanceof Phial) {
+    c.uncork();
+  } else {
+    console.log(c);
+    return 0;
+  }
+  return c.stopper();
+  //       ^ d: !jump
+}

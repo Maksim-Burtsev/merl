@@ -13,6 +13,7 @@ struct Shapes {
     header: Regex,
     negated_header: Regex,
     guard: Regex,
+    otherwise: Regex,
     exit: Regex,
     function: Regex,
     class: Regex,
@@ -34,6 +35,7 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
             guard: re(&format!(
                 r"^\s*(?:{not}\s*(?:(?:return|raise|continue|break)\b.*|(?P<open>))|assert\s+isinstance\(\s*{{n}}\s*,\s*(?P<a>[\w.]+)\s*\))\s*$"
             )),
+            otherwise: re(r"^\s*else\s*:\s*(?:(?:return|raise|continue|break)\b.*|(?P<open>))$"),
             exit: re(r"^\s*(?:return|raise|continue|break)\b"),
             function: re(r"^\s*(?:async\s+)?def\s|\blambda\b"),
             class: re(r"^\s*class\s"),
@@ -51,6 +53,9 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
         negated_header: re(&format!(r"^\s*(?:\}}\s*else\s+)?{not}\{{\s*$")),
         guard: re(&format!(
             r"^\s*{not}(?:{exit}|\{{\s*{exit}\s*\}}|\{{(?P<open>))\s*$"
+        )),
+        otherwise: re(&format!(
+            r"^\s*\}}\s*else\s*(?:{exit}|\{{\s*{exit}\s*\}}|\{{(?P<open>))\s*$"
         )),
         exit: re(&format!(r"^\s*{exit}\s*$")),
         function: re(r"\bfunction\b|=>"),
@@ -89,8 +94,11 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
         })
     };
     let mut within = indent(&here);
-    for k in (0..at).rev().filter(filled) {
-        let l = line(k);
+    let logical = |end: usize| logical(end, &line, &filled);
+    let mut next = at;
+    while let Some(end) = (0..next).rev().find(filled) {
+        let (k, l) = logical(end);
+        next = k;
         let ind = indent(&l);
         if ind > within {
             continue;
@@ -98,10 +106,37 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
         if ind == within {
             if let Some(c) = s.guard.captures(&l) {
                 let t = c.name("t").or_else(|| c.name("a"))?.as_str();
-                if c.name("open").is_none() || closed_by_exit(kind, &raw, k, &s, &filled) {
-                    return found(t, k, crossed);
+                if c.name("open").is_none() || closed_by_exit(kind, &raw, end, &s, &filled) {
+                    return found(t, end, crossed);
                 }
                 return Some(Checked::Unreadable);
+            }
+            if let Some(c) = s.otherwise.captures(&l) {
+                let Some(top) = (0..k)
+                    .rev()
+                    .filter(filled)
+                    .find(|j| indent(&line(*j)) <= ind)
+                else {
+                    continue;
+                };
+                let (_, h) = logical(top);
+                let exact =
+                    c.name("open").is_none() || closed_by_exit(kind, &raw, end, &s, &filled);
+                let chained = h.trim_start().starts_with('}') || h.trim_start().starts_with("elif");
+                if let Some(t) = s.header.captures(&h).and_then(|c| c.name("t"))
+                    && exact
+                    && !chained
+                    && indent(&h) == ind
+                {
+                    return found(t.as_str(), top, crossed);
+                }
+                let exits = (end + 1..raw.len())
+                    .filter(filled)
+                    .take_while(|j| indent(&line(*j)) > ind)
+                    .any(|j| s.exit.is_match(&line(j)));
+                if s.mention.is_match(&h) && (exact || exits) {
+                    return Some(Checked::Unreadable);
+                }
             }
             if s.negated.is_match(&l) {
                 return Some(Checked::Unreadable);
@@ -119,13 +154,42 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
             crossed = true;
         }
         if let Some(c) = s.header.captures(&l) {
-            return found(c.name("t")?.as_str(), k, crossed);
+            return found(c.name("t")?.as_str(), end, crossed);
         }
         if s.mention.is_match(&l) && !s.negated_header.is_match(&l) {
             return Some(Checked::Unreadable);
         }
     }
     None
+}
+
+fn logical(
+    end: usize,
+    line: &dyn Fn(usize) -> String,
+    filled: &dyn Fn(&usize) -> bool,
+) -> (usize, String) {
+    static QUOTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`"#)
+            .expect("the quoted-text pattern is valid")
+    });
+    let balance = |j: usize| {
+        let l = line(j);
+        let bare = QUOTED.replace_all(&l, "");
+        bare.matches('(').count().cast_signed() - bare.matches(')').count().cast_signed()
+    };
+    let mut open = balance(end);
+    let mut start = end;
+    for j in (end.saturating_sub(30)..end).rev().filter(filled) {
+        if open >= 0 {
+            break;
+        }
+        open += balance(j);
+        if open >= 0 {
+            start = j;
+        }
+    }
+    let joined = (start..=end).filter(filled).map(line).collect::<Vec<_>>();
+    (start, joined.join(" "))
 }
 
 fn closed_by_exit(
