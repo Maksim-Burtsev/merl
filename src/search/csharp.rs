@@ -421,7 +421,7 @@ pub enum CsValue {
     Element(String),
     Indexed(String),
     Position {
-        of: Box<CsValue>,
+        of: Box<Self>,
         at: usize,
         count: usize,
     },
