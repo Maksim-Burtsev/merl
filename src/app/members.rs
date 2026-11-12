@@ -698,6 +698,32 @@ impl App {
         (!methods.is_empty()).then(|| methods.into_iter().map(hit).collect())
     }
 
+    pub(super) fn ts_static_callee(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        receiver: &[String],
+        method: &str,
+    ) -> Option<Hit> {
+        let kind = Kind::TsJs;
+        let [class] = receiver else {
+            return None;
+        };
+        if !class.starts_with(char::is_uppercase)
+            || !search::path_bindings(kind, file, text, line1, class).is_empty()
+        {
+            return None;
+        }
+        let ty = self.type_decl(kind, file, class)?;
+        let statics: Vec<Hit> = self
+            .members_of(kind, &ty, method)
+            .into_iter()
+            .filter(|h| ts_modifiers(&h.text).contains(&"static"))
+            .collect();
+        <[Hit; 1]>::try_from(statics).ok().map(|[hit]| hit)
+    }
+
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
         if kind != Kind::TsJs {
             let own = self.own_member(kind, t, word);
