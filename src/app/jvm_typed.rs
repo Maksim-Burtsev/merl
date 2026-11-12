@@ -757,20 +757,27 @@ impl App {
         let narrowing = if kotlin {
             r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
         } else {
-            r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b"
+            r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
         };
         let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
         let own_when = kotlin
             .then(|| search::jvm_when_else(text, line1, name))
             .flatten();
-        if narrowed
-            .find_iter(text)
-            .any(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1) != own_when)
-        {
-            return None;
-        }
         let lines: Vec<&str> = text.lines().collect();
         let ext = file.extension().and_then(|e| e.to_str());
+        let start = search::kotlin_function_start(&lines, line1)
+            .filter(|_| matches!(ext, Some("kt" | "kts")));
+        let elsewhere = |at: usize| {
+            start.is_some_and(|s| {
+                at > line1 || at < s || search::kotlin_check_closed(text, line1, at, name)
+            })
+        };
+        if narrowed.find_iter(text).any(|m| {
+            let at = text.get(..m.start()).map(|t| t.matches('\n').count() + 1);
+            at != own_when && !at.is_some_and(elsewhere)
+        }) {
+            return None;
+        }
         let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
         let cursor_line = line1 == self.line + 1 && lines.get(self.line) == Some(&self.line_str());
         let bindings: Vec<usize> = if cursor_line {

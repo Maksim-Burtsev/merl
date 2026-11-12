@@ -128,6 +128,13 @@ impl App {
         Some(ty)
     }
 
+    pub(super) fn cs_cast(&self, here: &Path, word: &str, before: &str) -> Option<CsAnswer> {
+        let written = search::cs_cast(before)?;
+        let text = self.buf.lines.join("\n");
+        let ty = self.cs_new_type(here, &text, self.line + 1, &written)?;
+        self.cs_member_answer(here, &ty, word, &written)
+    }
+
     pub(super) fn cs_call_result(&self, here: &Path, word: &str, start: usize) -> Option<CsAnswer> {
         let receiver = search::cs_receiver(&self.buf.lines, self.line, start)?;
         let text = self.buf.lines.join("\n");

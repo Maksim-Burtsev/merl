@@ -977,6 +977,9 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     if let Some(t) = narrowed(before, at) {
         return Some(t);
     }
+    if let Some(t) = super::kotlin_guarded(&lines, at, name) {
+        return Some(t);
+    }
     let mut i = at;
     while let Some(h) = header_of(i) {
         let head = lines[h];
@@ -1323,7 +1326,7 @@ pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {
 pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
-            r"(?:^|[^\w.])\(\s*\(\s*([A-Z]\w*){GENERIC}\s*\)\s*[a-z]{CAST_OPERAND}\s*\)\.$"
+            r"(?:^|[^\w.])\(\s*\(\s*([A-Z]\w*){GENERIC}\s*\)\s*(?:\(\s*[A-Z][\w.]*\s*\)\s*)*[a-z](?:{CAST_OPERAND})?\s*\)\.$"
         ))
         .expect("the regex is a literal")
     });

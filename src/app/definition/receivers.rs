@@ -428,6 +428,7 @@ impl App {
             }
             true if chain.is_empty() => self
                 .cs_constructed(&a.here, word, &a.before)
+                .or_else(|| self.cs_cast(&a.here, word, &a.before))
                 .or_else(|| self.cs_call_result(&a.here, word, a.range.start))
                 .map(Ok),
             true => None,

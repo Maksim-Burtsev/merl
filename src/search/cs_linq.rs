@@ -244,3 +244,15 @@ pub fn cs_dictionary_value(outer: &str, written: &str) -> Option<String> {
         .filter(|_| !value.contains(['<', '[', '(']))
         .map(|_| value.trim().to_owned())
 }
+
+pub fn cs_cast(before: &str) -> Option<String> {
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.@])\(\s*(?:\(\s*([A-Z][\w.]*)\s*\)\s*(?:\(\s*[A-Z][\w.]*\s*\)\s*)*",
+            r"@?[a-z_][\w.]*|@?[a-z_][\w.]*\s+as\s+([A-Z][\w.]*))\s*\)\s*[?!]?\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let c = CAST.captures(before.trim_end())?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
+}

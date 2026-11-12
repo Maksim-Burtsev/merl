@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::jvm::{anonymous, jvm_declared_type, opens_type, param_names, scope_of};
-use super::{Group, Kind, group, split_top, uncommented};
+use super::{Group, Kind, group, indent, split_top, uncommented};
 
 pub struct KotlinCallChain {
     pub head: String,
@@ -286,4 +286,83 @@ pub fn kotlin_map_value(line: &str, name: &str) -> Option<(String, String)> {
     let code = uncommented(Kind::Jvm, line);
     let c = re.captures(&code)?;
     Some((c[1].to_owned(), c[2].to_owned()))
+}
+
+pub fn kotlin_guarded(lines: &[&str], at: usize, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let guard = rule(format!(
+        r"^\s*if\s*\(\s*{n}\s*!is\s+([A-Z]\w*)(?:<[^>]*>)?\??\s*\)\s*(?:return|throw|continue|break)\b"
+    ));
+    let touched = rule(format!(r"\b{n}\s*(?:[-+*/%]?=[^=]|!?is\b|as\b)"));
+    let depth = indent(lines[at]);
+    for j in (0..at).rev() {
+        let code = uncommented(Kind::Jvm, lines[j]);
+        if code.trim().is_empty() {
+            continue;
+        }
+        if indent(lines[j]) < depth {
+            return None;
+        }
+        if let Some(c) = guard.captures(&code).filter(|_| indent(lines[j]) == depth) {
+            return Some(c[1].to_owned());
+        }
+        if touched.is_match(&code) {
+            return None;
+        }
+    }
+    None
+}
+
+pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str) -> bool {
+    let n = regex::escape(name);
+    let Ok(check) = Regex::new(&format!(
+        r"^\s*(?:if\s*\(\s*{n}\s+is\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
+    )) else {
+        return false;
+    };
+    static EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:return|throw|continue|break)\b").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(head) = mention1.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    if mention1 >= line1 || !check.is_match(&uncommented(Kind::Jvm, head)) {
+        return false;
+    }
+    let depth = indent(head);
+    for line in lines.iter().take(line1 - 1).skip(mention1) {
+        let code = uncommented(Kind::Jvm, line);
+        if code.trim().is_empty() {
+            continue;
+        }
+        if indent(line) <= depth {
+            return code.trim() == "}" && indent(line) == depth;
+        }
+        if EXIT.is_match(&code) {
+            return false;
+        }
+    }
+    false
+}
+
+pub fn kotlin_function_start(lines: &[&str], line1: usize) -> Option<usize> {
+    static FUN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfun\s").expect("the regex is a literal"));
+    let mut depth = indent(lines.get(line1.checked_sub(1)?)?);
+    for j in (0..line1 - 1).rev() {
+        let code = uncommented(Kind::Jvm, lines[j]);
+        if code.trim().is_empty() || indent(lines[j]) >= depth {
+            continue;
+        }
+        if FUN.is_match(&code) {
+            return Some(j + 1);
+        }
+        if opens_type(lines[j]) {
+            return None;
+        }
+        depth = indent(lines[j]);
+    }
+    None
 }
