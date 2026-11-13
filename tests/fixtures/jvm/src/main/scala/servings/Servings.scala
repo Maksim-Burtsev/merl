@@ -55,4 +55,28 @@ object Servings {
     w.stew()
 //    ^ d: src/main/scala/servings/Servings.scala:9
   }
+
+  def serveBoxed(): (Crock, Option[Wok]) = (new Crock, Some(new Wok))
+
+  def serveSplit():
+    (Crock, Wok) = (new Crock, new Wok)
+
+  def unread(): Unit = {
+    val (bc, bw) = serveBoxed()
+    bw.stew()
+//     ^ d: !jump
+    val (sc, sw) = serveSplit()
+    sw.stew()
+//     ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:9 (#1484)
+    val (uc, uw) = Servings.servePair()
+    uw.stew()
+//     ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:9 (#1484)
+  }
+
+  def local(): Unit = {
+    def servePair() = (new Wok, new Crock)
+    val (c, w) = servePair()
+    w.stew()
+//    ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:4 (#1484)
+  }
 }

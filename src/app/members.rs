@@ -725,6 +725,16 @@ impl App {
     }
 
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        self.member_through(kind, t, word, true)
+    }
+
+    pub(super) fn member_through(
+        &self,
+        kind: Kind,
+        t: &Typed,
+        word: &str,
+        instance: bool,
+    ) -> Option<Vec<Hit>> {
         if kind != Kind::TsJs {
             let own = self.own_member(kind, t, word);
             return match kind {
@@ -736,9 +746,10 @@ impl App {
             return self.constructed_member(t, &name, word);
         }
         let mut members = self.members_of(kind, t, word);
-        if members
-            .iter()
-            .any(|m| !ts_modifiers(&m.text).contains(&"static"))
+        if instance
+            && members
+                .iter()
+                .any(|m| !ts_modifiers(&m.text).contains(&"static"))
         {
             members.retain(|m| !ts_modifiers(&m.text).contains(&"static"));
         }
