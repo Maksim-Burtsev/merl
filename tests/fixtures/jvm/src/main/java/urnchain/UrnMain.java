@@ -23,4 +23,23 @@ public class UrnMain {
         //                ^ d: !jump
         //                        ^ d: !jump
     }
+
+    void stockLocals() {
+        var b = Urn.builder();
+        b.size(2);
+        //^ d: src/main/java/urnchain/UrnBuilder.java:4
+        var u = Urn.builder().size(2).build();
+        u.boil();
+        //^ d: src/main/java/urnchain/Urn.java:4
+        var w = Urn.builder()
+            .size(2);
+        w.build();
+        //^ d: src/main/java/urnchain/UrnBuilder.java:8
+        var m = Mystery.builder();
+        m.size(2);
+        //^ d: !jump
+        var s = Urn.builder().size(2).build().mystery();
+        s.boil();
+        //^ d: !jump
+    }
 }

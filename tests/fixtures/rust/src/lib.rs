@@ -55,3 +55,4 @@ pub mod servings;
 pub mod kettles;
 pub mod creels;
 pub mod cauldrons;
+pub mod gravy;

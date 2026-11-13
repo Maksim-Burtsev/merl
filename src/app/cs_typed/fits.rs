@@ -103,6 +103,31 @@ impl App {
         })
     }
 
+    pub(super) fn cs_alias_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<Proven> {
+        let (_, target) = self.cs_alias_target(file, text, line1, name)?;
+        if !search::bindings(Kind::CSharp, text, line1, name).is_empty()
+            || owner_of(file, text, line1)
+                .is_some_and(|o| !matches!(self.cs_up(&o, name, 0), Up::Missing { .. }))
+        {
+            return None;
+        }
+        let ty @ CsType::Project(_) = self.cs_new_type(file, text, line1, &target)? else {
+            return None;
+        };
+        Some(Proven {
+            ty,
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (file.to_path_buf(), line1),
+        })
+    }
+
     pub(super) fn cs_static_field_head(
         &self,
         file: &Path,

@@ -6,19 +6,19 @@ class TubUse {
     func a() { tubs.forEach { _ = $0.dunk() } }
     //                               ^ d: Sources/Shop/Tubs/Tub.swift:2
     func b() { tubs.forEach { x in _ = x.dunk() } }
-    //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                   ^ d: Sources/Shop/Tubs/Tub.swift:2
     func b2() { _ = tubs.map { c in c.dunk() } }
-    //                                ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                ^ d: Sources/Shop/Tubs/Tub.swift:2
     func d() { _ = tubs.filter { x in x.dunk() } }
-    //                                  ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                  ^ d: Sources/Shop/Tubs/Tub.swift:2
     func e() { _ = tubs.map { (x: Tub) in x.dunk() } }
     //                                      ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func f() { _ = tubs.sorted { $0.slop() < $1.slop() } }
     //                              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
     //                                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
     func g() { _ = tubs.sorted { a, b in a.slop() < b.slop() } }
-    //                                     ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
-    //                                                ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
+    //                                     ^ d: Sources/Shop/Tubs/Tub.swift:3
+    //                                                ^ d: Sources/Shop/Tubs/Tub.swift:3
     func each(_ f: (Tub) -> Void) {}
     func h() { each { x in _ = x.dunk() } }
     //                           ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
@@ -33,7 +33,7 @@ class TubUse {
     func m() { _ = tubs.map { $0.dunk() } }
     //                           ^ d: Sources/Shop/Tubs/Tub.swift:2
     func n() { _ = tubs.first { x in x.dunk() } }
-    //                                 ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                 ^ d: Sources/Shop/Tubs/Tub.swift:2
     func o() { tubs.forEach { x in let x = Tun(); _ = x.dunk() } }
     //                                                  ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
 }

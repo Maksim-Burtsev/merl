@@ -2,7 +2,7 @@ use regex::Regex;
 
 use super::{
     Kind, close_of, code,
-    dart::{ANY_TYPE, TYPE_BODY, dart_header_binds, dart_local},
+    dart::{ANY_TYPE, DartType, TYPE_BODY, dart_header_binds, dart_local},
     indent, literal_lines,
 };
 
@@ -58,7 +58,7 @@ pub(super) fn dart_binder_at(line: &str, col: usize, name: &str) -> Option<usize
 
 fn dart_binder(line: &str, col: usize, name: &str, reach: bool) -> Option<usize> {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w$])(if|for|catch)\s*$").expect("the regex is a literal")
+        Regex::new(r"(?:^|[^\w$])(if|for|catch|switch)\s*$").expect("the regex is a literal")
     });
     let b = dart_masked(line);
     let line = String::from_utf8_lossy(&b).into_owned();
@@ -241,4 +241,19 @@ pub fn dart_promoted(text: &str, line1: usize, col: usize, name: &str) -> bool {
         }
     }
     false
+}
+
+pub fn dart_cast(before: &str) -> Option<DartType> {
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:^|[^\w$.])\(\s*[\w$.]+\s+as\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\??\s*\)[?!]?\.$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = CAST.captures(before.trim_end())?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
 }

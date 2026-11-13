@@ -18,9 +18,11 @@ impl App {
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.python_locals(a, self.locals_of(a, declared), declared);
+        let go_local_type = a.lead.trim() == "type" && a.lead.starts_with(char::is_whitespace);
         let go_own = kind == Kind::Go
-            && locals.contains(&(self.line + 1))
-            && search::go_binds_here(self.line_str(), word, range.start);
+            && (go_local_type
+                || locals.contains(&(self.line + 1))
+                    && search::go_binds_here(self.line_str(), word, range.start));
         if go_own {
             locals = vec![self.line + 1];
         }
@@ -280,10 +282,7 @@ impl App {
                     .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
-        let rust_path = kind == Kind::Rust
-            && (before.ends_with("::")
-                || after.starts_with("::")
-                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_path = rust_not_local(a);
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -403,6 +402,17 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_not_local(a: &Asked) -> bool {
+    let after = a.tail.trim_start();
+    a.kind == Kind::Rust
+        && (a.before.ends_with("::")
+            || after.starts_with("::")
+            || (after.starts_with('!') && !after.starts_with("!="))
+            || (a.chain.is_empty()
+                && a.first().starts_with(|c: char| c.is_ascii_uppercase())
+                && !after.starts_with('.')))
 }
 
 fn rust_type_position(a: &Asked) -> bool {

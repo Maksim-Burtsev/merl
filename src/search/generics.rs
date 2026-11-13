@@ -251,9 +251,13 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
         header.push_str(code.get(..end.unwrap_or(code.len()))?);
         header.push(' ');
         if end.is_some() {
-            let clauses = header
-                .split(|c: char| !c.is_alphanumeric())
-                .any(|w| w == clause);
+            let clauses = match kind {
+                Kind::CSharp => Regex::new(&format!(r"\bwhere\s+{}\s*:", regex::escape(name)))
+                    .is_ok_and(|r| r.is_match(&header)),
+                _ => header
+                    .split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == clause),
+            };
             return Some(TypeParam {
                 bound: clauses.then(|| clause.to_owned()),
             });
@@ -363,7 +367,7 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
         Kind::Rust => angled(&RUST),
         Kind::Swift => angled(&SWIFT),
         Kind::CSharp => angled(&CSHARP_TYPE).or_else(|| {
-            let (list, inherits) = csharp_method_list(t)?;
+            let (list, inherits) = csharp_method_list(super::csharp::cs_after_attributes(t))?;
             let inherits = inherits
                 || t.split(|c: char| !c.is_alphanumeric())
                     .any(|w| w == "override");
@@ -383,11 +387,9 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
                 })
                 .map(|b| (k, b))
         }
-        Kind::C => (0..=k)
-            .rev()
-            .take_while(|&i| i == k || bare_template(&uncommented(kind, lines[i])))
-            .find_map(|i| {
-                let l = coded(kind, lines[i]);
+        Kind::C => cpp_templates_above(lines, k)
+            .into_iter()
+            .find_map(|(i, l)| {
                 CPP.find_iter(&l)
                     .filter_map(|m| list_after(l.get(m.end()..)?, b'<', b'>'))
                     .find_map(|l| named(l, true))
@@ -454,6 +456,35 @@ fn param_bound(kind: Kind, parts: &[&str], i: usize) -> Option<String> {
         _ => part.split_once(':').map(|(_, b)| b.trim()),
     };
     bound.map(str::to_owned)
+}
+
+fn cpp_templates_above(lines: &[&str], k: usize) -> Vec<(usize, String)> {
+    let mut out = vec![(k, coded(Kind::C, lines[k]))];
+    let mut below = k;
+    while let Some(mut end) = below.checked_sub(1) {
+        if coded(Kind::C, lines[end])
+            .trim_start()
+            .starts_with("requires")
+        {
+            let Some(e) = end.checked_sub(1) else { break };
+            end = e;
+        }
+        let mut joined = String::new();
+        let head = (end.saturating_sub(5)..=end).rev().find_map(|i| {
+            let l = coded(Kind::C, lines[i]);
+            joined = format!("{l} {joined}");
+            if l.contains([';', '{', '}']) {
+                return Some(None);
+            }
+            l.trim_start().starts_with("template").then_some(Some(i))
+        });
+        let Some(Some(start)) = head.filter(|_| bare_template(&joined)) else {
+            break;
+        };
+        out.push((start, joined));
+        below = start;
+    }
+    out
 }
 
 fn bare_template(line: &str) -> bool {
