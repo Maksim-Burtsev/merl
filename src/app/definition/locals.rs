@@ -282,10 +282,7 @@ impl App {
                     .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
-        let rust_path = kind == Kind::Rust
-            && (before.ends_with("::")
-                || after.starts_with("::")
-                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_path = rust_not_local(a);
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -405,6 +402,17 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_not_local(a: &Asked) -> bool {
+    let after = a.tail.trim_start();
+    a.kind == Kind::Rust
+        && (a.before.ends_with("::")
+            || after.starts_with("::")
+            || (after.starts_with('!') && !after.starts_with("!="))
+            || (a.chain.is_empty()
+                && a.first().starts_with(|c: char| c.is_ascii_uppercase())
+                && !after.starts_with('.')))
 }
 
 fn rust_type_position(a: &Asked) -> bool {
