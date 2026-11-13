@@ -21,5 +21,6 @@ public class Samovar
         public void Grow()
         {
         }
+        public Size Next { get; } = new Size();
     }
 }
