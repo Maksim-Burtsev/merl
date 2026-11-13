@@ -22,7 +22,7 @@ impl App {
         }
         let calls: Vec<String> = calls.into_iter().map(|c| format!("{c}()")).collect();
         let (ty, links, rest) = self.jvm_static_head(file, text, &head, &calls)?;
-        let (resolved, links) = self.jvm_follow(ty, links, &head, rest)?;
+        let (resolved, links) = self.jvm_follow(ty, links, &head, rest, false)?;
         matches!(resolved, JvmType::Project(_)).then_some(())?;
         let written = links.last()?.rsplit(": ").next()?.to_owned();
         Some(WrittenType { resolved, written })
@@ -42,7 +42,7 @@ impl App {
             let JvmType::Project(decl) = self.jvm_type_at(file, text, &owner) else {
                 return None;
             };
-            let TypedField { hit, written } = self.jvm_call_type(&decl, &method)?;
+            let TypedField { hit, written } = self.jvm_call_type(&decl, &method, false)?;
             if !written.starts_with(|c: char| c.is_ascii_uppercase())
                 || !written
                     .chars()
@@ -100,7 +100,7 @@ impl App {
                     }
                     JvmType::Unknown => return None,
                 };
-                let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+                let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new(), false);
                 let found = java_shaped(found, |h| h, &method, true);
                 if let Some(class) = search::java_class_argument(&args) {
                     let taking: Vec<&Hit> = (found.iter())
@@ -144,7 +144,7 @@ impl App {
         let JvmType::Project(decl) = owner else {
             return None;
         };
-        let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+        let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new(), false);
         let [hit] = &java_shaped(found, |h| h, &method, true)[..] else {
             return None;
         };
