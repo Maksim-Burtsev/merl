@@ -28,3 +28,12 @@ export function lift(d: Dish<Tub>, m: Mug, j: Tub): void {
   d.pick(j).scour();
   //        ^ d: picker gantry/dish.ts:2, gantry/dish.ts:6
 }
+
+export function make(): Dish<Tub> {
+  return new Dish(new Tub());
+}
+
+export function chained(): void {
+  make().lid().scour();
+  //           ^ d: picker gantry/dish.ts:2, gantry/dish.ts:6
+}
