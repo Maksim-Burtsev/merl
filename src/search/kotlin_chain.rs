@@ -389,7 +389,26 @@ pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> bool {
         .checked_sub(1)
         .filter(|&at| at < lines.len() && !uncommented(Kind::Jvm, ahead).contains('{'))
         .and_then(|at| scope_of(&lines, at))
-        .is_some_and(|k| FUN.is_match(lines[k]))
+        .is_some_and(|k| FUN.is_match(lines[k]) && opens_its_own_body(&lines[k..]))
+}
+
+fn opens_its_own_body(header: &[&str]) -> bool {
+    static TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?::\s*[\w.<>,?\s]*)?[{=]?\s*$").expect("the regex is a literal")
+    });
+    let mut depth = 0usize;
+    for line in header {
+        let code = uncommented(Kind::Jvm, line);
+        for (i, c) in code.char_indices() {
+            match c {
+                '(' => depth += 1,
+                ')' if depth == 1 => return code.get(i + 1..).is_some_and(|t| TAIL.is_match(t)),
+                ')' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+    }
+    false
 }
 
 pub fn kotlin_top_level_return(line: &str, name: &str) -> Option<String> {
