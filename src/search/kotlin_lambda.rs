@@ -50,11 +50,10 @@ fn kotlin_binding_lambda(
     for _ in 0..6 {
         let s = scope_of(&lines, at)?;
         let code = uncommented(Kind::Jvm, lines[s]);
-        if opens_type(&code)
-            || code
-                .split(|c: char| !c.is_alphanumeric())
-                .any(|w| w == "fun")
-        {
+        let fun = code
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|w| w == "fun");
+        if opens_type(&code) || (fun && fun_header(&code).is_none_or(|(_, block)| block)) {
             return None;
         }
         let opens = code.trim_end().ends_with('{') || code.trim_end().ends_with("->");
@@ -63,6 +62,9 @@ fn kotlin_binding_lambda(
             && bound == name
         {
             return (name == "it" || nearest == [s + 1]).then_some((s, head));
+        }
+        if fun {
+            return None;
         }
         at = s;
     }
@@ -81,6 +83,9 @@ pub fn kotlin_lambda_callee(
     });
     let (mut at, head) = kotlin_binding_lambda(path, text, line1, before, name)?;
     (head.matches('{').count() == head.matches('}').count() + 1).then_some(())?;
+    fun_header(&head)
+        .is_none_or(|(fun, _)| !fun.contains('.'))
+        .then_some(())?;
     let callee = CALL.captures(&head)?[1].to_owned();
     let lines: Vec<&str> = text.lines().collect();
     let class = loop {
@@ -90,11 +95,8 @@ pub fn kotlin_lambda_callee(
             let generic = code.split('(').next().is_some_and(|h| h.contains('<'));
             break (!generic).then_some(scope)?;
         }
-        let fun = code
-            .split(|c: char| !c.is_alphanumeric())
-            .any(|w| w == "fun");
-        let one_block = code.matches('{').count() == 1 && code.trim_end().ends_with('{');
-        (fun && one_block).then_some(())?;
+        let (fun, block) = fun_header(&code)?;
+        (block && !fun.contains('.')).then_some(())?;
         at = scope;
     };
     let named = |pattern: &str| Regex::new(&pattern.replace("NAME", &regex::escape(&callee)));
@@ -113,6 +115,17 @@ pub fn kotlin_lambda_callee(
         .is_empty()
         .then_some(())?;
     Some(typed.captures(lines[only])?[1].to_owned())
+}
+
+fn fun_header(code: &str) -> Option<(String, bool)> {
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"\bfun\s+(?:<[^>]*>\s*)?([^\s(=]+)\s*\((?:[^()]|\([^()]*\))*\)(\s*(?::[^={]*)?\{\s*$)?",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = FUN.captures(code)?;
+    Some((c[1].to_owned(), c.get(2).is_some()))
 }
 
 pub fn kotlin_lambda_subject(text: &str, line1: usize, before: &str, name: &str) -> Option<String> {
