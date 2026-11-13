@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::jvm::{anonymous, ident, jvm_bindings, param_lists_line1_binding, param_names};
-use super::{Binding, Kind, Value, code, indent, uncommented};
+use super::{Binding, Kind, Value, code, indent, split_top, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
     let mut bytes = vec![b' '; s.len()];
@@ -283,7 +283,14 @@ pub(super) fn lambda_binders(line: &str, scala: bool) -> Vec<(String, std::ops::
     let mut out = Vec::new();
     for c in KOTLIN.captures_iter(line) {
         let at = c.get(0).map_or(0..0, |m| m.range());
-        for entry in c[1].split(',') {
+        let entries = split_top(Kind::Jvm, &c[1], b',').into_iter().flat_map(|e| {
+            if e.trim_start().starts_with('(') {
+                e.split(',').collect()
+            } else {
+                vec![e]
+            }
+        });
+        for entry in entries {
             let e = entry.trim().trim_matches(['(', ')']).trim();
             let name = e.split(':').next().unwrap_or("").trim();
             if ident(name) {
