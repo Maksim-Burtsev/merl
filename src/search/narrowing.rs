@@ -14,6 +14,7 @@ struct Shapes {
     class: Regex,
     named: Regex,
     assigned: Regex,
+    looped: Regex,
 }
 
 fn shapes(kind: Kind, name: &str) -> Shapes {
@@ -21,6 +22,11 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
     let re = |p: &str| {
         Regex::new(&p.replace("{n}", &n)).expect("an escaped name keeps the pattern valid")
     };
+    let unpacked = r"^\s*[\[({]?(?:[^=;()]*[,\[{(]\s*)?\*?{n}\s*[,\]})][^=;]*=(?:[^=>]|$)";
+    let called = name.split_once('.').map_or(String::new(), |(head, _)| {
+        format!(r"|(?:^|[^\w$.]){}\.\w+\s*\(", regex::escape(head))
+    });
+    let assigned = |own: &str| re(&format!("{own}|{unpacked}{called}"));
     if kind == Kind::Python {
         let not = r"if\s+not\s+isinstance\(\s*{n}\s*,\s*(?P<t>[\w.]+)\s*\)\s*:";
         return Shapes {
@@ -36,7 +42,8 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
             function: re(r"^\s*(?:async\s+)?def\s|\blambda\b"),
             class: re(r"^\s*class\s"),
             named: re(r"\b{n}\b"),
-            assigned: re(r"(?:^|[^\w.]){n}\s*[-+*/%&|^]*=(?:[^=]|$)"),
+            assigned: assigned(r"(?:^|[^\w.]){n}\s*[-+*/%&|^]*=(?:[^=]|$)"),
+            looped: re(r"^\s*(?:async\s+)?(?:for|while)\b"),
         };
     }
     let not = r"if\s*\(\s*!\s*\(\s*{n}\s+instanceof\s+(?P<t>[\w$.]+)\s*\)\s*\)\s*";
@@ -58,7 +65,10 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
         function: re(r"\bfunction\b|=>"),
         class: re(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s"),
         named: re(r"(?:^|[^\w$.]){n}(?:[^\w$]|$)"),
-        assigned: re(r"(?:^|[^\w$.]){n}\s*[-+*/%&|^?]*=(?:[^=>]|$)|\bfor\s*\(\s*{n}\s+(?:of|in)\b"),
+        assigned: assigned(
+            r"(?:^|[^\w$.]){n}\s*[-+*/%&|^?]*=(?:[^=>]|$)|\bfor\s*\(\s*{n}\s+(?:of|in)\b",
+        ),
+        looped: re(r"^\s*(?:\}\s*)?(?:for|while|do)\b"),
     }
 }
 
@@ -87,7 +97,22 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
     let mut crossed = s.function.is_match(&here);
     let found = |t: &str, k: usize, crossed: bool| {
         let rebound = (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
-        (!crossed && !rebound).then(|| (t.to_owned(), k + 1))
+        let mut top = indent(&here);
+        let mut outer = None;
+        for j in (k + 1..at).rev().filter(filled) {
+            let l = line(j);
+            if indent(&l) < top {
+                top = indent(&l);
+                outer = s.looped.is_match(&l).then_some(top).or(outer);
+            }
+        }
+        let again = outer.is_some_and(|i| {
+            (at..raw.len())
+                .filter(filled)
+                .take_while(|j| indent(&line(*j)) > i)
+                .any(|j| s.assigned.is_match(&line(j)))
+        });
+        (!crossed && !rebound && !again).then(|| (t.to_owned(), k + 1))
     };
     let mut within = indent(&here);
     let logical = |end: usize| logical(end, &line, &filled);
