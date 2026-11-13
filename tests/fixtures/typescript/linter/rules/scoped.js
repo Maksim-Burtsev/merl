@@ -10,13 +10,13 @@ module.exports = {
     const sourceCode = context.sourceCode;
     const scope = sourceCode.getScope(context);
     scope.variables;
-    //    ^ d: none
+    //    ^ d: picker linter/rules/scoped.js:2, linter/types/index.d.ts:47; want linter/types/index.d.ts:47 (#1337)
     sourceCode.getScope(context).variables;
-    //                           ^ d: none
+    //                           ^ d: picker linter/rules/scoped.js:2, linter/types/index.d.ts:47; want linter/types/index.d.ts:47 (#1337)
     sourceCode.getOuter(context).references;
-    //                           ^ d: none
+    //                           ^ d: picker linter/rules/scoped.js:3, linter/types/index.d.ts:51; want linter/types/index.d.ts:51 (#1337)
     sourceCode.ast.tokens;
-    //             ^ d: none
+    //             ^ d: linter/types/index.d.ts:40
     return new Decoy();
   },
 };
