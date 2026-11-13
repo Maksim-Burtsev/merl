@@ -332,7 +332,7 @@ impl App {
         let focused = (self.notes.focus)
             .and_then(|i| self.notes.here.iter().find(|h| h.idx == i))
             .map(|h| (h.at, if h.top.is_some() { 0 } else { 2 }, Some(h.idx)));
-        let here = stop_order(&focused.unwrap_or((self.hunk_place(self.at()), 1, None)));
+        let here = stop_order(&focused.unwrap_or_else(|| (self.hunk_place(self.at()), 1, None)));
         let mut stops: Vec<_> = self.diff.hunks.iter().map(|&h| (h, 1, None)).collect();
         stops.extend(self.waiting_stops());
         stops.sort_by_key(stop_order);
@@ -844,6 +844,10 @@ fn write_viewed<'a>(
     crate::stats::write(store, &text)
 }
 
+fn stop_order(s: &(TextLine, u8, Option<usize>)) -> (bool, TextLine, u8, usize) {
+    (s.1 != 0, s.0, s.1, s.2.unwrap_or(usize::MAX))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -889,8 +893,4 @@ mod tests {
         assert!(paths.iter().all(|p| read.get(p) == Some(&7)), "{read:?}");
         drop(std::fs::remove_dir_all(dir));
     }
-}
-
-fn stop_order(s: &(TextLine, u8, Option<usize>)) -> (bool, TextLine, u8, usize) {
-    (s.1 != 0, s.0, s.1, s.2.unwrap_or(usize::MAX))
 }
