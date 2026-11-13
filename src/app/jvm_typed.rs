@@ -3,6 +3,7 @@ use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, se
 
 mod head;
 mod lambda;
+mod scala_unpacked;
 mod top_level;
 
 struct WrittenType {
@@ -855,9 +856,9 @@ impl App {
                     None if ext == Some("java") => self
                         .java_static_initialized(file, text, l, name)
                         .or_else(|| self.java_lambda_element(file, text, l, name))?,
-                    None if ext == Some("scala") => {
-                        self.scala_tuple_returned(file, text, l, at, name)?
-                    }
+                    None if ext == Some("scala") => self
+                        .scala_tuple_returned(file, text, l, at, name)
+                        .or_else(|| self.scala_extracted(file, text, l, at, name))?,
                     None => return None,
                 },
                 (None, None) => return None,
@@ -965,31 +966,6 @@ impl App {
             return None;
         };
         Some(decl)
-    }
-
-    fn scala_tuple_returned(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        line: &str,
-        name: &str,
-    ) -> Option<WrittenType> {
-        let call = search::scala_tuple_call(line, name)?;
-        (call.receiver.is_some()
-            || search::path_bindings(Kind::Jvm, file, text, line1, &call.method).is_empty())
-        .then_some(())?;
-        let decl = self.jvm_call_owner(file, text, line1, call.receiver.as_deref(), true)?;
-        let found = self.jvm_hierarchy_member(&decl, &call.method, 0, &mut Vec::new());
-        let [m] = java_shaped(found, |h| h, &call.method, true)
-            .try_into()
-            .ok()?;
-        let written = search::scala_tuple_item(&m.text, &call.method, call.at, call.count)?;
-        let t = self.text_of(&m.path)?;
-        Some(WrittenType {
-            resolved: self.jvm_type_at(&m.path, &t, &written),
-            written,
-        })
     }
 
     fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
