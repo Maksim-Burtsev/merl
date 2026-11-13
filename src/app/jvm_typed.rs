@@ -824,7 +824,17 @@ impl App {
             let literal = literal_typed
                 .then(|| search::jvm_literal_type(at, name, ext == Some("java")))
                 .flatten();
-            let declared = search::jvm_declared_type(at, name, kotlin);
+            let declared = search::jvm_declared_type(at, name, kotlin).or_else(|| {
+                (ext == Some("scala"))
+                    .then(|| search::scala_generic_declared_type(at, name))
+                    .flatten()
+                    .filter(|t| {
+                        matches!(
+                            self.jvm_type_on(file, text, t, Some(l)),
+                            JvmType::Project(_)
+                        )
+                    })
+            });
             let this = match (declared, literal) {
                 (None, Some(t)) => WrittenType {
                     resolved: JvmType::Outside(t.to_owned()),
