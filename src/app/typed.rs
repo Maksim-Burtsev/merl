@@ -218,6 +218,7 @@ impl App {
         head: Option<&search::CallHead>,
     ) -> Result<ProvenType, String> {
         let (text, line) = self.scope(here, chain.first())?;
+        let hops = if kind == Kind::TsJs { 2 } else { 1 };
         match head {
             Some(search::CallHead {
                 call_without_arguments: call,
@@ -233,7 +234,7 @@ impl App {
                         here,
                         &text,
                         &search::Binding { line1: line, value },
-                        1,
+                        hops,
                     )
                     .ok_or_else(|| call.clone())?;
                 let start = TypeVia {
@@ -242,7 +243,7 @@ impl App {
                 };
                 self.follow(kind, start, call, false, fields)
             }
-            None => self.chain_type(kind, here, &text, line, chain, 1),
+            None => self.chain_type(kind, here, &text, line, chain, hops),
         }
     }
 
