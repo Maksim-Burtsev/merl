@@ -456,6 +456,21 @@ fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
     );
     assert_eq!(at(2, "    glasses.let { ", "it"), None, "not one element");
     assert_eq!(
+        at(2, "    glasses.sortedWith { a, b -> a.dose() - ", "b").as_deref(),
+        Some("glasses"),
+        "a comparator"
+    );
+    assert_eq!(
+        at(2, "    n.forEach { k, v -> ", "v"),
+        None,
+        "two parameters, no comparator"
+    );
+    assert_eq!(
+        at(2, "    glasses.sortedWith { a -> ", "a"),
+        None,
+        "one parameter, a comparator"
+    );
+    assert_eq!(
         at(2, "    glasses.sumOf { a.let { ", "it"),
         None,
         "an inner lambda"

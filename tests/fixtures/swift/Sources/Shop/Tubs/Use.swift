@@ -14,8 +14,8 @@ class TubUse {
     func e() { _ = tubs.map { (x: Tub) in x.dunk() } }
     //                                      ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func f() { _ = tubs.sorted { $0.slop() < $1.slop() } }
-    //                              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
-    //                                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:3, Sources/Shop/Tubs/Tub.swift:3, Sources/Shop/Tubs/Tun.swift:3; want Sources/Shop/Tubs/Tub.swift:3 (#1488)
+    //                              ^ d: Sources/Shop/Tubs/Tub.swift:3
+    //                                          ^ d: Sources/Shop/Tubs/Tub.swift:3
     func g() { _ = tubs.sorted { a, b in a.slop() < b.slop() } }
     //                                     ^ d: Sources/Shop/Tubs/Tub.swift:3
     //                                                ^ d: Sources/Shop/Tubs/Tub.swift:3
