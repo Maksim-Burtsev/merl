@@ -1415,6 +1415,16 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     assert_eq!(swift_closure_sequence("    a.b().map { $0."), None);
     assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $0."), None);
     assert_eq!(
+        swift_closure_sequence("    leaves.sorted { $0.a < $1."),
+        Some("leaves".into())
+    );
+    assert_eq!(
+        swift_closure_sequence("    leaves.max(by: { $1."),
+        Some("leaves".into())
+    );
+    assert_eq!(swift_closure_sequence("    leaves.map { $1."), None);
+    assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $1."), None);
+    assert_eq!(
         swift_call_links("Whisk().sift(1).finish()."),
         Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
     );

@@ -20,8 +20,20 @@ class Use(private val tubs: List<Tub>, private val c: Tun) {
         //                     ^ d: src/main/kotlin/tubs/Tub.kt:4
     }
     fun k() = tubs.sortedWith { a, b -> a.slop() - b.slop() }
-    //                                    ^ d: picker src/main/kotlin/tubs/Hogshead.kt:5, src/main/kotlin/tubs/Tub.kt:5, src/main/kotlin/tubs/Tun.kt:5; want src/main/kotlin/tubs/Tub.kt:5 (#1488)
-    //                                               ^ d: picker src/main/kotlin/tubs/Hogshead.kt:5, src/main/kotlin/tubs/Tub.kt:5, src/main/kotlin/tubs/Tun.kt:5; want src/main/kotlin/tubs/Tub.kt:5 (#1488)
+    //                                    ^ d: src/main/kotlin/tubs/Tub.kt:5
+    //                                               ^ d: src/main/kotlin/tubs/Tub.kt:5
+    fun k2(byName: Map<String, Tub>) = byName.forEach { k, v -> v.dunk() }
+    //                                                            ^ d: !jump
+    fun k3(tuns: List<Tun>) = tubs.sortedWith { a, b -> tuns.maxOf { a.slop() } }
+    //                                                                 ^ d: !jump
+    fun k4() = tubs.sortedWith { a, b -> val a = c; a.slop() - b.slop() }
+    //                                                ^ d: !jump
+    //                                                           ^ d: src/main/kotlin/tubs/Tub.kt:5
+    fun k5(tuns: List<Tun>) = tuns.sortedWith { a, b -> b.slop() - a.slop() }
+    //                                                    ^ d: src/main/kotlin/tubs/Tun.kt:5
+    //                                                               ^ d: src/main/kotlin/tubs/Tun.kt:5
+    fun k6() = tubs.sortedBy { a, b -> a.slop() }
+    //                                   ^ d: !jump
     fun l(more: List<Tub>) = more.forEach { c -> c.dunk() }
     //                                             ^ d: src/main/kotlin/tubs/Tub.kt:4
     fun m() = c.dunk()
