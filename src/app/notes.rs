@@ -83,6 +83,10 @@ impl Note {
         Some(n)
     }
 
+    pub fn same_thread(&self, other: &Self) -> bool {
+        (&self.path, &self.text, self.by_agent) == (&other.path, &other.text, other.by_agent)
+    }
+
     pub fn agent_text(&self) -> String {
         let mut s = String::new();
         if self.by_agent {
@@ -163,9 +167,14 @@ fn label_of(line: &str) -> Option<(bool, &str)> {
         .map(|t| (false, t.strip_prefix(' ').unwrap_or(t)))
 }
 
+fn needs_escape(line: &str) -> bool {
+    let t = line.trim_start_matches(' ');
+    is_quote(t) || label_of(t).is_some()
+}
+
 fn unescape(line: &str) -> &str {
     match line.strip_prefix(' ') {
-        Some(t) if is_quote(t) || label_of(t).is_some() => t,
+        Some(t) if needs_escape(t) => t,
         _ => line,
     }
 }
@@ -234,7 +243,7 @@ fn push_msg(s: &mut String, label: Option<&str>, text: &str) {
                 *s += l;
                 *s += ": ";
             }
-            _ if is_quote(line) || label_of(line).is_some() => *s += " ",
+            _ if needs_escape(line) => *s += " ",
             _ => {}
         }
         *s += line;
@@ -360,7 +369,8 @@ impl App {
         for (idx, n) in self.notes.list.iter().enumerate() {
             if rel.as_deref() != Some(n.path.as_path()) {
                 if on_first && n.quote.last().is_some() {
-                    let gone = !self.root.join(&n.path).exists();
+                    let gone = !self.root.join(&n.path).exists()
+                        && (self.review.as_ref()).is_none_or(|r| r.file(&n.path).is_none());
                     if gone {
                         tops.push(Here {
                             first: TextLine::File(0),
@@ -785,6 +795,13 @@ impl App {
     }
 
     pub(super) fn add_note(&mut self) {
+        if (self.notes.focus)
+            .and_then(|idx| self.here_of(idx))
+            .is_some_and(|h| h.top.is_some())
+        {
+            self.message = "its lines are gone: Enter answers it".into();
+            return;
+        }
         let on = self
             .notes
             .focus
@@ -862,7 +879,11 @@ impl App {
             .collect::<Vec<_>>()
             .join("\n");
         self.notes_reload();
-        let pos = (e.old.as_ref()).and_then(|o| self.notes.list.iter().position(|n| n == o));
+        let pos = (e.old.as_ref()).and_then(|o| {
+            (self.notes.list.iter().position(|n| n == o)).or_else(|| {
+                (self.notes.list.iter()).position(|n| o.agent_last() && n.same_thread(o))
+            })
+        });
         let old = pos.map(|p| self.notes.list[p].clone());
         if old.is_none() && e.old.as_ref().is_some_and(|o| o.mine() == text) {
             return None;

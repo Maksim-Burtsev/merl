@@ -73,6 +73,7 @@ fn the_notes_file_reads_back_what_was_written() {
             text: "- a list item".into(),
             by_agent: false,
             replies: vec![
+                (false, " - kept as typed\n agent: too".into()),
                 (
                     true,
                     "agent: not a label\n- nor a quote\nuser: nor this".into(),
@@ -716,7 +717,7 @@ fn a_thread_whose_code_is_gone_waits_above_its_file_or_above_the_review() {
     let (dir, mut a) = on_a_rs("notes-gone", 1);
     agent_wrote(
         &dir,
-        "\nsrc/a.rs:2\n> b\nwhy b\nagent: it is B now\n\ngone:1\n> x\ndrop it\nagent: deleted\n",
+        "\nsrc/a.rs:2\n> b\nwhy b\nagent: it is B now\n\nold.rs:1\n> x\ndrop it\nagent: deleted\n\ngone:1\n> x\nwhy drop it\nagent: unused\n",
     );
     let s = screen(&mut a);
     let lines: Vec<&str> = s.lines().collect();
@@ -734,13 +735,17 @@ fn a_thread_whose_code_is_gone_waits_above_its_file_or_above_the_review() {
     );
     let one = lines.iter().position(|l| l.contains("1 a")).unwrap();
     assert!(top < one, "above the file's first line: {s}");
-    assert!(!s.contains("gone, file deleted"), "{s}");
+    assert!(!s.contains("old.rs, file deleted"), "{s}");
     assert_eq!(a.notes.home.as_deref(), Some(Path::new("new")));
     a.jump_to(&dir.join("new"), 1);
     let s = screen(&mut a);
     assert!(
-        s.contains("\u{270e} gone, file deleted") && s.contains("deleted"),
+        s.contains("\u{270e} old.rs, file deleted") && s.contains("deleted"),
         "{s}"
+    );
+    assert!(
+        !s.contains("why drop it"),
+        "a file the branch deletes is not gone: its thread stays in its own view: {s}"
     );
     assert!(!s.contains("line 2, changed"), "{s}");
     drop(std::fs::remove_dir_all(dir));
@@ -769,5 +774,112 @@ fn c_stops_at_a_thread_the_agent_answered_between_the_hunks() {
     );
     keys(&mut a, &[(KeyCode::Char('C'), NONE)]);
     assert_eq!((a.line, a.notes.focus), (3, Some(0)), "and back");
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn c_and_shift_c_stop_at_each_of_two_answers_above_the_file() {
+    let (dir, mut a) = on_a_rs("notes-two-tops", 1);
+    agent_wrote(
+        &dir,
+        "\nsrc/a.rs:2\n> zz\none\nagent: first\n\nsrc/a.rs:3\n> yy\ntwo\nagent: second\n",
+    );
+    screen(&mut a);
+    keys(&mut a, &[(KeyCode::Char('C'), NONE)]);
+    assert_eq!(a.notes.focus, Some(1), "back onto the second answer");
+    keys(&mut a, &[(KeyCode::Char('C'), NONE)]);
+    assert_eq!(a.notes.focus, Some(0), "and the first, not skipped");
+    keys(&mut a, &[(KeyCode::Char('c'), NONE)]);
+    assert_eq!(a.notes.focus, Some(1));
+    keys(&mut a, &[(KeyCode::Char('c'), NONE)]);
+    assert_eq!((a.notes.focus, a.line), (None, 1), "then the first hunk");
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn c_into_a_file_stops_first_at_an_answer_above_its_first_hunk() {
+    let (dir, mut a) = review_app("notes-enter");
+    a.show_tree = false;
+    agent_wrote(&dir, "\ntail:1\n> t1\nwhy t1\nagent: t1 stays\n");
+    screen(&mut a);
+    assert_eq!(a.rel_current().as_deref(), Some(Path::new("new")));
+    keys(&mut a, &[(KeyCode::Char('c'), NONE)]);
+    assert_eq!(a.rel_current().as_deref(), Some(Path::new("tail")));
+    assert_eq!(
+        (a.at(), a.notes.focus),
+        (TextLine::File(0), Some(0)),
+        "on the answer at line 1, above the lines deleted under it"
+    );
+    keys(&mut a, &[(KeyCode::Char('c'), NONE)]);
+    assert_eq!(
+        (a.at(), a.notes.focus),
+        (TextLine::Deleted(1, 0), None),
+        "then the hunk"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn an_answer_stays_in_its_thread_when_the_agent_rewrites_it_meanwhile() {
+    let (dir, mut a) = on_a_rs("notes-race", 5);
+    agent_wrote(&dir, "\nsrc/a.rs:3\n> c\nwhy c\nagent: c reads better\n");
+    screen(&mut a);
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Up, NONE),
+            (KeyCode::Enter, NONE),
+        ],
+    );
+    typed(&mut a, "fine");
+    agent_wrote(
+        &dir,
+        "\nsrc/a.rs:3\n> c\nwhy c\nagent: c reads better, and is shorter\n",
+    );
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert!(
+        read(&dir).ends_with("why c\nagent: c reads better, and is shorter\nuser: fine\n"),
+        "{}",
+        read(&dir)
+    );
+    assert_eq!(a.notes.list.len(), 1);
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn the_agent_s_own_thread_takes_an_answer_and_a_moved_up_one_takes_no_new_note() {
+    let (dir, mut a) = on_a_rs("notes-own", 5);
+    agent_wrote(
+        &dir,
+        "\nsrc/a.rs:3\n> c\nagent: rename it?\n\nsrc/a.rs:2\n> zz\ngone line\nagent: yes\n",
+    );
+    let s = screen(&mut a);
+    assert!(s.contains("\u{270e} agent  rename it?"), "{s}");
+    keys(
+        &mut a,
+        &[
+            (KeyCode::Up, NONE),
+            (KeyCode::Up, NONE),
+            (KeyCode::Enter, NONE),
+        ],
+    );
+    typed(&mut a, "no");
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert!(
+        read(&dir).contains("\nsrc/a.rs:3\n> c\nagent: rename it?\nuser: no\n"),
+        "{}",
+        read(&dir)
+    );
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    keys(&mut a, &[(KeyCode::Up, NONE)]);
+    assert_eq!(a.notes.focus, Some(1), "on the thread above the file");
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    assert_eq!(
+        (a.mode, a.notes.list.len()),
+        (Mode::Normal, 2),
+        "{}",
+        a.message
+    );
     drop(std::fs::remove_dir_all(dir));
 }
