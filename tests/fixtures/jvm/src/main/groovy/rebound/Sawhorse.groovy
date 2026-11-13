@@ -62,4 +62,13 @@ class Sawhorse {
           //^ d: src/main/groovy/rebound/Sawhorse.groovy:4
         }
     }
+
+    def defaultWithComma() {
+        def f = { Auger c = make(1, 2) -> c.bore() }
+        //                                ^ d: src/main/groovy/rebound/Sawhorse.groovy:67
+    }
+
+    def defaultWithCommaClosed() { def f = { Auger c = make(1, 2) -> c }; c.bore() }
+    //                                                               ^ d: src/main/groovy/rebound/Sawhorse.groovy:71
+    //                                                                    ^ d: src/main/groovy/rebound/Sawhorse.groovy:4
 }
