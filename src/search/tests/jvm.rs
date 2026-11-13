@@ -268,7 +268,12 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         None,
         "no call: a qualifier"
     );
-    assert_eq!(chain("    val x = pour().brim."), None, "a bare call");
+    assert_eq!(
+        chain("    val x = pour().brim."),
+        Some(("pour".into(), false, vec!["brim".into()]))
+    );
+    assert!(kotlin_call_chain("    pour().").is_some_and(|c| c.called && c.links.is_empty()));
+    assert_eq!(chain("    val x = a..pour()."), None);
     assert_eq!(chain("    val x = xs[0].pour()."), None);
     assert_eq!(chain("    val x = \"a\".pour()."), None);
     let text =
@@ -284,6 +289,30 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((0, "plunger".into(), false)));
     assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
+    let d = kotlin_destructured("    val (a, b) = pair()", "b").map(|d| (d.index, d.source));
+    assert_eq!(d, Some((1, "pair()".into())));
+    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b").is_none());
+    let body = "fun f() {\n    g()\n    run {\n        g()\n    }\n}\nclass C {\n    fun h() {\n        g()\n    }\n}\nfun Cup.e() {\n    g()\n}\n";
+    assert!(kotlin_top_level_body(body, 2, "    "));
+    assert!(!kotlin_top_level_body(body, 4, "        "));
+    assert!(!kotlin_top_level_body(body, 9, "        "));
+    assert!(!kotlin_top_level_body(body, 13, "    "));
+    assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
+    let ret = |l: &str| kotlin_top_level_return(l, "pot");
+    assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
+    assert_eq!(
+        ret("private fun pot(n: Int): Cup? {").as_deref(),
+        Some("Cup")
+    );
+    assert_eq!(ret("fun pot(): Box<Cup> = Box()"), None);
+    assert_eq!(ret("    fun pot(): Cup = Cup()"), None);
+    assert_eq!(ret("fun <T> pot(): T = x()"), None);
+    let pair = |l: &str| kotlin_top_level_pair(l, "pot");
+    assert_eq!(
+        pair("fun pot(): Pair<Cup, Mug> = x"),
+        Some(("Pair".into(), vec!["Cup".into(), "Mug".into()]))
+    );
+    assert_eq!(pair("fun pot(): Pair<Cup, List<Mug>> = x"), None);
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");

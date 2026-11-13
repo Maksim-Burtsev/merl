@@ -2,6 +2,7 @@ use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 mod lambda;
+mod top_level;
 
 struct WrittenType {
     resolved: JvmType,
@@ -84,7 +85,8 @@ impl App {
                 }
                 safe = search::qualifier(&plain, plain.len());
                 if let ([], true, Some(c)) = (&safe[..], kt, search::kotlin_call_chain(&plain)) {
-                    let (ty, links) = self.kotlin_chain_type(here, text, Some(before), &c)?;
+                    let (ty, links) =
+                        self.kotlin_chain_type(here, text, self.line + 1, Some(before), &c)?;
                     return self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word);
                 }
                 if safe.is_empty() {
@@ -149,8 +151,8 @@ impl App {
         plain: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        let c =
-            search::kotlin_call_chain(plain).filter(|c| search::scala(here) && !c.constructed)?;
+        let c = search::kotlin_call_chain(plain)
+            .filter(|c| search::scala(here) && !c.constructed && !c.called)?;
         let (ty, links, rest) = self.jvm_static_head(here, text, &c.head, &c.links)?;
         let (ty, links) = self.jvm_follow(ty, links, &c.head, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
@@ -295,6 +297,7 @@ impl App {
         &self,
         here: &Path,
         text: &str,
+        line1: usize,
         before: Option<&str>,
         c: &search::KotlinCallChain,
     ) -> Option<(JvmType, Vec<String>)> {
@@ -307,6 +310,11 @@ impl App {
                 vec![format!("{}()", c.head)],
                 &c.links[..],
             )
+        } else if c.called {
+            let ahead = before.or_else(|| text.lines().nth(line1.checked_sub(1)?))?;
+            let w = self.kotlin_top_level_returned(here, text, line1, ahead, &c.head)?;
+            let link = format!("{}(): {}", c.head, w.written);
+            (w.resolved, vec![link], &c.links[..])
         } else if let Some(head) = self.jvm_static_head(here, text, &c.head, &c.links) {
             head
         } else {
@@ -325,6 +333,9 @@ impl App {
     ) -> Option<WrittenType> {
         let at = text.lines().nth(line1.checked_sub(1)?)?;
         if let Some(d) = search::kotlin_destructured(at, name) {
+            if let Some(call) = d.source.strip_suffix("()") {
+                return self.kotlin_top_level_component(file, text, line1, call, d.index);
+            }
             let source = if d.in_loop {
                 let element = Self::jvm_element(file, text, line1, &d.source)?;
                 self.jvm_type_at(file, text, &element)
@@ -364,7 +375,7 @@ impl App {
         {
             return None;
         }
-        let (resolved, links) = self.kotlin_chain_type(file, text, None, &chain)?;
+        let (resolved, links) = self.kotlin_chain_type(file, text, line1, None, &chain)?;
         let written = links.last()?.rsplit(": ").next()?.to_owned();
         Some(WrittenType { resolved, written })
     }
@@ -911,6 +922,10 @@ impl App {
         call: &str,
         kotlin: bool,
     ) -> Option<WrittenType> {
+        if recv.is_none() && search::jvm_enclosing_types(text, line1).is_empty() {
+            let at = text.lines().nth(line1.checked_sub(1)?)?;
+            return self.kotlin_top_level_returned(file, text, line1, at, call);
+        }
         let decl = self.jvm_call_owner(file, text, line1, recv, kotlin)?;
         let TypedField { hit: m, written } = self.jvm_call_type(&decl, call)?;
         (!search::scala(&m.path)).then_some(())?;
