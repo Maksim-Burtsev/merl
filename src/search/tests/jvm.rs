@@ -292,27 +292,6 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
     let d = kotlin_destructured("    val (a, b) = pair()", "b").map(|d| (d.index, d.source));
     assert_eq!(d, Some((1, "pair()".into())));
     assert!(kotlin_destructured("    val (a, b) = pair(x)", "b").is_none());
-    let body = "fun f() {\n    g()\n    run {\n        g()\n    }\n}\nclass C {\n    fun h() {\n        g()\n    }\n}\nfun Cup.e() {\n    g()\n}\n";
-    assert!(kotlin_top_level_body(body, 2, "    "));
-    assert!(!kotlin_top_level_body(body, 4, "        "));
-    assert!(!kotlin_top_level_body(body, 9, "        "));
-    assert!(!kotlin_top_level_body(body, 13, "    "));
-    assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
-    let ret = |l: &str| kotlin_top_level_return(l, "pot");
-    assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
-    assert_eq!(
-        ret("private fun pot(n: Int): Cup? {").as_deref(),
-        Some("Cup")
-    );
-    assert_eq!(ret("fun pot(): Box<Cup> = Box()"), None);
-    assert_eq!(ret("    fun pot(): Cup = Cup()"), None);
-    assert_eq!(ret("fun <T> pot(): T = x()"), None);
-    let pair = |l: &str| kotlin_top_level_pair(l, "pot");
-    assert_eq!(
-        pair("fun pot(): Pair<Cup, Mug> = x"),
-        Some(("Pair".into(), vec!["Cup".into(), "Mug".into()]))
-    );
-    assert_eq!(pair("fun pot(): Pair<Cup, List<Mug>> = x"), None);
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");
@@ -555,4 +534,29 @@ fn a_getter_chain_is_read_up_to_the_name_it_starts_from() {
     assert_eq!(chain("new User().getSpec()."), "");
     assert_eq!(chain("list.get(0).getSpec()."), "");
     assert_eq!(chain("Foo::getSpec()."), "");
+}
+
+#[test]
+fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
+    let body = "fun f() {\n    g()\n    run {\n        g()\n    }\n}\nclass C {\n    fun h() {\n        g()\n    }\n}\nfun Cup.e() {\n    g()\n}\n";
+    assert!(kotlin_top_level_body(body, 2, "    "));
+    assert!(!kotlin_top_level_body(body, 4, "        "));
+    assert!(!kotlin_top_level_body(body, 9, "        "));
+    assert!(!kotlin_top_level_body(body, 13, "    "));
+    assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
+    let ret = |l: &str| kotlin_top_level_return(l, "pot");
+    assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
+    assert_eq!(
+        ret("private fun pot(n: Int): Cup? {").as_deref(),
+        Some("Cup")
+    );
+    assert_eq!(ret("fun pot(): Box<Cup> = Box()"), None);
+    assert_eq!(ret("    fun pot(): Cup = Cup()"), None);
+    assert_eq!(ret("fun <T> pot(): T = x()"), None);
+    let pair = |l: &str| kotlin_top_level_pair(l, "pot");
+    assert_eq!(
+        pair("fun pot(): Pair<Cup, Mug> = x"),
+        Some(("Pair".into(), vec!["Cup".into(), "Mug".into()]))
+    );
+    assert_eq!(pair("fun pot(): Pair<Cup, List<Mug>> = x"), None);
 }
