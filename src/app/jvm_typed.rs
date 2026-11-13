@@ -1251,9 +1251,11 @@ impl App {
             return ty;
         }
         let types: Vec<Hit> = hits.iter().filter(|h| is_type(h)).cloned().collect();
-        let others = hits
-            .iter()
-            .any(|h| !is_type(h) && !types.iter().any(|t| t.path == h.path));
+        let others = hits.iter().any(|h| {
+            !is_type(h)
+                && !types.iter().any(|t| t.path == h.path)
+                && !self.jvm_hidden_elsewhere(file, h)
+        });
         if others {
             return JvmType::Unknown;
         }
