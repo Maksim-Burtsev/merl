@@ -544,6 +544,10 @@ fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
     assert!(!kotlin_top_level_body(body, 9, "        "));
     assert!(!kotlin_top_level_body(body, 13, "    "));
     assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
+    let lambda = "fun f() = with(x) {\n    g()\n}\nfun h(\n    n: Int = 1,\n): Cup = tx {\n    g()\n}\nfun e(): Cup =\n    g()\n";
+    assert!(!kotlin_top_level_body(lambda, 2, "    "));
+    assert!(!kotlin_top_level_body(lambda, 7, "    "));
+    assert!(kotlin_top_level_body(lambda, 10, "    "));
     let ret = |l: &str| kotlin_top_level_return(l, "pot");
     assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
     assert_eq!(
