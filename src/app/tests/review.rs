@@ -186,6 +186,38 @@ fn marks(a: &App) -> (Vec<PathBuf>, Vec<PathBuf>) {
 }
 
 #[test]
+fn a_file_the_agent_answered_in_loses_its_tick_and_one_nobody_touched_keeps_it() {
+    let (dir, mut a) = review_app("viewedanswered");
+    let paths = |p: &[&str]| p.iter().map(PathBuf::from).collect::<Vec<_>>();
+    a.focus = Focus::Tree;
+    for f in ["tail", "src/a.rs"] {
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
+    let notes = dir.join(".git/merl/notes/feature");
+    std::fs::create_dir_all(notes.parent().unwrap()).unwrap();
+    std::fs::write(
+        &notes,
+        "# merl notes\n\ntail:1\n> t1\nwhy t1\n\nsrc/a.rs:2\n> B\nwhy B\n",
+    )
+    .unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(
+        marks(&a),
+        (paths(&["src/a.rs", "tail"]), vec![]),
+        "the user's own notes take no tick"
+    );
+    std::fs::write(
+        &notes,
+        "# merl notes\n\ntail:1\n> t1\nwhy t1\nagent: it was\n\nsrc/a.rs:2\n> B\nwhy B\n",
+    )
+    .unwrap();
+    let a = review_start(&dir, None);
+    assert_eq!(marks(&a), (paths(&["src/a.rs"]), paths(&["tail"])));
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
     let (dir, mut a) = review_app("viewedkept");
     let git = |args: &[&str]| {

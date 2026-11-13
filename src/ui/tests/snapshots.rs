@@ -16,6 +16,29 @@ const CODES: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456
 
 type State = (&'static str, fn(&mut App));
 
+const THREADS: &str = "# merl notes
+
+old.py:3
+> def gone():
+delete this file
+agent: deleted it; store.py reads the file itself now
+
+store.py:13
+>         self.config = config or load_config()
+why not pass the config in?
+agent: the CLI builds it once; tests pass their own
+
+store.py:13
+>         self.config = config or load_settings()
+rename the call in config.py too
+agent: config.py has no call to it, only cli.py, renamed there
+user: then the docstring of cli.py too
+
+store.py:14
+>         self.notes: list[Note] = self._read()
+agent: read lazily, on the first access? the CLI often lists nothing
+";
+
 fn on_call(a: &mut App) {
     at(a, "store.py", 13, "load_config");
 }
@@ -139,6 +162,14 @@ const STATES: &[State] = &[
             a,
             "<S-Down><S-Down>aa test for count?<Enter>and one for an empty store<Esc>",
         );
+    }),
+    ("review-thread", |a| {
+        review(a, &[], None, Some("store.py"));
+        let dir = a.root.join(".git/merl/notes");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("feature"), THREADS).unwrap();
+        a.jump_to(&a.root.join("store.py"), 1);
+        a.notes_sync();
     }),
     ("review-skipped", |a| {
         review_branch(a, &["tests/__init__.py"], None);
@@ -484,6 +515,7 @@ snapshots! {
     snapshot_image: "image",
     snapshot_review: "review",
     snapshot_review_notes: "review-notes",
+    snapshot_review_thread: "review-thread",
     snapshot_review_skipped: "review-skipped",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",
