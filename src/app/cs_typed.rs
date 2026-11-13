@@ -704,46 +704,6 @@ impl App {
         found
     }
 
-    fn cs_callee_lambda(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        name: &str,
-    ) -> Option<CsWrittenType> {
-        let callee = search::cs_callee_lambda(text.lines().nth(line1 - 1)?, name)?;
-        if !search::bindings(Kind::CSharp, text, line1, &callee).is_empty() {
-            return None;
-        }
-        let Up::Found(hits) = self.cs_up(&owner_of(file, text, line1)?, &callee, 0) else {
-            return None;
-        };
-        let [hit] = hits.as_slice() else {
-            return None;
-        };
-        let written = search::cs_callee_delegate(&hit.text, &callee)?;
-        let at = self.text_of(&hit.path)?;
-        Some(CsWrittenType {
-            ty: self.cs_resolve(&hit.path, &at, hit.line1, &written)?,
-            written,
-            from: (hit.path.clone(), hit.line1),
-        })
-    }
-
-    fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
-        let owner = owner_of(file, text, line1)?;
-        let [base] = search::cs_bases(text, owner.line).try_into().ok()?;
-        let written = search::cs_validated(&base)?;
-        let CsType::Outside(_) = self.cs_resolve(file, text, owner.line, &base)? else {
-            return None;
-        };
-        Some(CsWrittenType {
-            ty: self.cs_resolve(file, text, owner.line, &written)?,
-            written,
-            from: (file.to_path_buf(), owner.line),
-        })
-    }
-
     fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
         let t = owner_of(file, text, line1)?;
         if name == "this" {
