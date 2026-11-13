@@ -102,8 +102,7 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
         !(t.is_empty()
             || comment(Kind::CSharp, t)
             || t.starts_with(['#', '{', ')', ':'])
-            || (t.starts_with('[')
-                && matches!(cs_after_attributes(t).bytes().next(), None | Some(b'[')))
+            || (t.starts_with('[') && cs_type_decl(t).is_none())
             || t.starts_with("where ")
             || indent(lines[i]) >= depth
             || literal
