@@ -37,5 +37,7 @@ class Pour {
             x.size();
             //^ d: picker src/main/java/chalice/Chalice.java:6, src/main/java/chalice/Goblet.java:8, src/main/java/chalice/Noggin.java:8, src/main/java/ladle/Cup.java:5, src/main/java/ladle/Jar.java:5, src/main/java/ladle/Mug.java:5
         }
+        x.size();
+        //^ d: src/main/java/chalice/Chalice.java:6
     }
 }

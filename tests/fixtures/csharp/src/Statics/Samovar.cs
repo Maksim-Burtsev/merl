@@ -15,4 +15,11 @@ public class Samovar
     }
     public static Samovar Shared { get; } = new Samovar();
     public Samovar Reserve { get; } = new Samovar();
+    public class Size
+    {
+        public static readonly Size Large = new Size();
+        public void Grow()
+        {
+        }
+    }
 }

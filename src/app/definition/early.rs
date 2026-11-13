@@ -536,6 +536,40 @@ impl App {
             search::GoKey::No
         };
         a.go_keyed = go_key != search::GoKey::No;
+        if let search::GoKey::Of(written) = &go_key
+            && let Some(line) = search::go_local_type(&a.here, &a.text, self.line + 1, written)
+            && let Some(hit) = self.field_of(
+                kind,
+                &super::Typed {
+                    name: written.clone(),
+                    path: a.here.clone(),
+                    line,
+                },
+                &a.word,
+                false,
+            )
+        {
+            let found = vec![Candidate {
+                hit,
+                reason: Reason::Receiver(format!("{written}{{\u{2026}}}")),
+            }];
+            return self.show_found(a, found);
+        }
+        if let search::GoKey::Of(written) = &go_key
+            && let Some(line) = search::go_local_type(&a.here, &a.text, self.line + 1, written)
+            && let Some(over) = a.text.lines().nth(line - 1).and_then(|l| {
+                let rest = l.trim_start().strip_prefix("type")?.trim_start();
+                let rest = rest.strip_prefix(written.as_str())?.trim_start();
+                let over = rest.strip_prefix('=').unwrap_or(rest).trim();
+                (!over.is_empty() && over.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                    .then(|| over.to_owned())
+            })
+            && search::go_local_type(&a.here, &a.text, line, &over).is_none()
+            && let Ok(Some(found)) = self.literal_field(kind, &a.here, &over, &a.word)
+            && !found.is_empty()
+        {
+            return self.show_found(a, found);
+        }
         if kind == Kind::Go
             && (dotted || matches!(go_key, search::GoKey::Of(_) | search::GoKey::ElementOf(_)))
         {

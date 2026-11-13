@@ -104,9 +104,12 @@ impl App {
                     .collect());
             }
         };
+        let instance = !matches!(chain, [only] if kind == Kind::TsJs && only == "this");
         let declared = match self.union_arms(kind, &ty) {
             Some(arms) => self.shared_member(kind, &arms, word),
-            None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
+            None => self.hierarchy(kind, &ty, 0, &mut |t| {
+                self.member_through(kind, t, word, instance)
+            }),
         };
         let hits = declared
             .map(|hits| self.accessor_side(kind, word, hits))
@@ -1068,6 +1071,7 @@ impl App {
         }
         let (written, scope) = match search::ts_awaited(kind, text, line1, callee, &written) {
             Some(inner) => (inner, decl.line1),
+            None if ts_declared_param(kind, &at, decl.line1, &written) => return None,
             None => (written, 0),
         };
         let ty = self.annotated_type(kind, &decl.path, &at, scope, &written)?;
@@ -1472,4 +1476,11 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
 fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
     search::reads_jsdoc(kind, file)
         && (search::js_constructor(line).is_some() || search::js_exported_class(line))
+}
+
+pub(super) fn ts_declared_param(kind: Kind, text: &str, line1: usize, written: &str) -> bool {
+    kind == Kind::TsJs
+        && search::type_path(kind, written)
+            .filter(|p| p.len() == 1)
+            .is_some_and(|p| search::ts_type_param(text, line1, &p[0]).is_some())
 }

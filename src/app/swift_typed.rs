@@ -210,7 +210,9 @@ impl App {
                 written: next,
                 call_signature: link,
             } = match ty {
-                Some(ty) => self.swift_field(here, &ty, field, hops),
+                Some(ty) => self
+                    .swift_field(here, &ty, field, hops)
+                    .or_else(|| self.swift_base_field(here, &ty, field)),
                 None => self.swift_requirement(here, &written, field, hops),
             }
             .filter(|v| (i == 0 && names[0] == "self") || !generic::bound(&v.written))?;
@@ -686,7 +688,13 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, text);
         let mut at = line1;
         while at > 0 {
-            if search::swift_generics(lines[at - 1]).contains(&name) {
+            let generics = match search::swift_type_header(lines[at - 1]) {
+                Some(h) if h.keyword == "extension" && !name.is_empty() => self
+                    .swift_extended_generics(file, &h.name)
+                    .unwrap_or_default(),
+                _ => search::swift_generics(lines[at - 1]),
+            };
+            if generics.contains(&name) {
                 return self
                     .swift_generic_outside(here, &lines, at, &name, &via.written)
                     .map(WrittenVia::plain);

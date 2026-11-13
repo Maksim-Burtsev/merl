@@ -427,7 +427,11 @@ impl App {
                     }
                 }
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
-                let narrowed = smart.flatten().or_else(|| {
+                let callee = || {
+                    kt.then(|| search::kotlin_lambda_callee(here, text, line, before, f))
+                        .flatten()
+                };
+                let narrowed = smart.flatten().or_else(callee).or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(here, text, line, before, f));
                     let lambda = lambda.flatten()?;
@@ -836,6 +840,9 @@ impl App {
                         self.kotlin_initialized(file, text, l, name)?
                     }
                     None if ext == Some("java") => self.java_lambda_element(file, text, l, name)?,
+                    None if ext == Some("scala") => {
+                        self.scala_tuple_returned(file, text, l, at, name)?
+                    }
                     None => return None,
                 },
                 (None, None) => return None,
@@ -902,6 +909,24 @@ impl App {
         call: &str,
         kotlin: bool,
     ) -> Option<WrittenType> {
+        let decl = self.jvm_call_owner(file, text, line1, recv, kotlin)?;
+        let TypedField { hit: m, written } = self.jvm_call_type(&decl, call)?;
+        (!search::scala(&m.path)).then_some(())?;
+        let t = self.text_of(&m.path)?;
+        Some(WrittenType {
+            resolved: self.jvm_type_at(&m.path, &t, &written),
+            written,
+        })
+    }
+
+    fn jvm_call_owner(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        recv: Option<&str>,
+        kotlin: bool,
+    ) -> Option<Hit> {
         let owner = if let Some(r) = recv {
             self.jvm_value(file, text, line1, r, kotlin, 0)?.resolved
         } else {
@@ -920,8 +945,27 @@ impl App {
         let JvmType::Project(decl) = owner else {
             return None;
         };
-        let TypedField { hit: m, written } = self.jvm_call_type(&decl, call)?;
-        (!search::scala(&m.path)).then_some(())?;
+        Some(decl)
+    }
+
+    fn scala_tuple_returned(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        line: &str,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let call = search::scala_tuple_call(line, name)?;
+        (call.receiver.is_some()
+            || search::path_bindings(Kind::Jvm, file, text, line1, &call.method).is_empty())
+        .then_some(())?;
+        let decl = self.jvm_call_owner(file, text, line1, call.receiver.as_deref(), true)?;
+        let found = self.jvm_hierarchy_member(&decl, &call.method, 0, &mut Vec::new());
+        let [m] = java_shaped(found, |h| h, &call.method, true)
+            .try_into()
+            .ok()?;
+        let written = search::scala_tuple_item(&m.text, &call.method, call.at, call.count)?;
         let t = self.text_of(&m.path)?;
         Some(WrittenType {
             resolved: self.jvm_type_at(&m.path, &t, &written),

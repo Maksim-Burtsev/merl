@@ -71,9 +71,9 @@ pub fn written_element(kind: Kind, written: &str, at: usize, count: usize) -> Op
 }
 
 use super::{
-    Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, group, indent,
-    literal_lines, member_or_signature, names, names_a_type_param, python_def_open, python_header,
-    python_header_open, split_top, ts_header, uncommented, value_of,
+    Group, Kind, Value, bindings, body_of, close_of, code, comment, go_embedded, go_one_line,
+    group, indent, literal_lines, member_or_signature, names, names_a_type_param, python_def_open,
+    python_header, python_header_open, split_top, ts_header, uncommented, value_of,
 };
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
@@ -301,6 +301,13 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
             .captures(&ts_header(&lines, k).one_line_without_type_params)
             .map_or_else(Vec::new, |c| list(&c[1])),
         Kind::Go if lines[k].contains("struct") || lines[k].contains("interface") => {
+            if let Some(one) = go_one_line(lines[k].split("//").next().unwrap_or(""), "struct") {
+                return one
+                    .split(';')
+                    .filter_map(|f| go_embedded(f.split('`').next().unwrap_or("").trim()))
+                    .map(str::to_owned)
+                    .collect();
+            }
             let body = body_of(kind, &lines, k);
             let base = lines[body.clone()]
                 .iter()
