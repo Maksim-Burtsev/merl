@@ -54,3 +54,18 @@ object Granary {
 //  ^ d: src/main/scala/husk/Thresher.scala:36
   }
 }
+
+object Silo {
+  def winnow(k: Int): Int = 7
+
+  def one(n: Int): Int = { def winnow(k: Int): Int = if (k == 0) 1 else winnow(k - 1); winnow(n) }
+  //                                                                    ^ d: src/main/scala/husk/Thresher.scala:61
+  //                                                                                     ^ d: src/main/scala/husk/Thresher.scala:61
+
+  def tail(n: Int): Int = {
+    @annotation.tailrec def winnow(k: Int): Int = if (k == 0) 1 else winnow(k - 1)
+    //                                                               ^ d: src/main/scala/husk/Thresher.scala:66
+    winnow(n)
+//  ^ d: src/main/scala/husk/Thresher.scala:66
+  }
+}
