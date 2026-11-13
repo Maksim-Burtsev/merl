@@ -1427,7 +1427,7 @@ fn a_variant_field_typed_elsewhere_or_rebound_keeps_master_s_answer() {
     );
     let library = std.join("lib/rustlib/src/rust/library");
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
-    for code in ["err.clone", "glob.len|()).sum", "key.len"] {
+    for code in ["err.clone", "key.len"] {
         d_on(&mut a, "src/lib.rs", code);
         let got = shown(&mut a);
         assert!(
@@ -1435,6 +1435,11 @@ fn a_variant_field_typed_elsewhere_or_rebound_keeps_master_s_answer() {
             "{code}: {got:?}"
         );
     }
+    d_on(&mut a, "src/lib.rs", "glob.len|()).sum");
+    assert!(
+        matches!(shown(&mut a), Shown::Jump(_, place) if place == "src/lib.rs:12"),
+        "the closure's `glob` is an item of `names: &[Glob]`, not the variant's field"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }

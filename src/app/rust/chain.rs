@@ -19,6 +19,51 @@ struct Walked {
     rest: usize,
 }
 
+const SAME_ITEM: [&str; 11] = [
+    "by_ref",
+    "filter",
+    "fuse",
+    "inspect",
+    "peekable",
+    "rev",
+    "skip",
+    "skip_while",
+    "step_by",
+    "take",
+    "take_while",
+];
+
+const ITEM_CLOSURES: [&str; 14] = [
+    "all",
+    "any",
+    "filter",
+    "filter_map",
+    "find",
+    "find_map",
+    "flat_map",
+    "for_each",
+    "inspect",
+    "map",
+    "position",
+    "skip_while",
+    "take_while",
+    "try_for_each",
+];
+
+fn std_iterated<'a>(w: &'a Walked, before: &str) -> Option<(&'a str, &'a str)> {
+    let before = before.trim_end();
+    let led = before.is_empty() || before.ends_with(['=', '>', '(', ',', '{', '&', '!', '|', ';']);
+    let kept = w
+        .links
+        .iter()
+        .rposition(|l| !(l.call && SAME_ITEM.contains(&l.name.as_str())))?;
+    let ([head], [iter]) = (&w.head[..], &w.links[..=kept]) else {
+        return None;
+    };
+    let named = ["iter", "iter_mut", "into_iter"].contains(&iter.name.as_str());
+    (named && led && iter.call && !w.head_call).then_some((head.as_str(), &iter.name))
+}
+
 pub(super) fn trailing_name(s: &str) -> &str {
     let start = s
         .char_indices()
@@ -556,9 +601,19 @@ impl App {
             Regex::new(r"[(,]\s*(?:move\s+)?\|([\w\s,]*)\|").expect("the regex is a literal")
         });
         let lines: Vec<&str> = text.lines().collect();
-        let line = lines.get(at)?;
+        let mut i = at;
+        let mut line = (*lines.get(at)?).to_owned();
+        let opened = at.checked_sub(1).map(|p| lines[p].trim_end());
+        if let Some(opened) = opened.filter(|o| o.ends_with('('))
+            && CLOSURE
+                .find(&format!("({}", line.trim_start()))
+                .is_some_and(|m| m.start() == 0)
+        {
+            line = format!("{opened}{}", line.trim_start());
+            i -= 1;
+        }
         let found: Vec<(usize, usize)> = CLOSURE
-            .captures_iter(line)
+            .captures_iter(&line)
             .filter_map(|c| {
                 let params: Vec<&str> = c[1].split(',').map(str::trim).collect();
                 let input = params
@@ -571,7 +626,6 @@ impl App {
             return None;
         };
         let mut expr = line.get(..start)?.trim().to_owned();
-        let mut i = at;
         while expr.starts_with('.') && i > 0 {
             i -= 1;
             expr.insert_str(0, lines[i].trim());
@@ -580,6 +634,12 @@ impl App {
         let arg = search::top_split(expr.get(open + 1..)?).len() - 1;
         let mut w = walk_back(expr.get(..open)?)?;
         let method = w.links.pop().filter(|l| !l.call)?.name;
+        if (arg, input) == (0, 0)
+            && ITEM_CLOSURES.contains(&method.as_str())
+            && let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?)
+        {
+            return self.rust_place_element(file, text, at, head, Some(iter));
+        }
         if w.rest != 0 {
             return None;
         }
@@ -909,16 +969,32 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
+        let (expr, place) = for_iterated(text, at, name)?;
+        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            if expr != place {
+                return None;
+            }
+            let w = walk_back(expr)?;
+            if let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?) {
+                return self.rust_place_element(file, text, at, head, Some(iter));
+            }
+            return self.rust_for_project_item(file, text, at, expr);
+        }
+        self.rust_place_element(file, text, at, place, None)
+    }
+
+    fn rust_place_element(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        place: &str,
+        iter: Option<&str>,
+    ) -> Option<Typed> {
         static MAP_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
                 .expect("the regex is a literal")
         });
-        let (expr, place) = for_iterated(text, at, name)?;
-        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return (expr == place)
-                .then(|| self.rust_for_project_item(file, text, at, expr))
-                .flatten();
-        }
         let bindings = search::bindings(Kind::Rust, text, at + 1, place);
         let [b] = bindings.as_slice() else {
             return None;
@@ -929,8 +1005,18 @@ impl App {
             return None;
         };
         let (container, element) = rust_element(&w)?;
-        if container.is_some_and(|c| !self.rust_std_named(text, &c)) {
+        if container
+            .as_deref()
+            .is_some_and(|c| !self.rust_std_named(text, c))
+        {
             return None;
+        }
+        if let Some(iter) = iter {
+            let slice = if w.contains(';') { "[T; N]" } else { "[T]" };
+            let std = container.as_deref().unwrap_or(slice);
+            if !self.rust_std_method_kept(iter, std) {
+                return None;
+            }
         }
         if element != "_" {
             return self.rust_resolve(file, &element, let_at);
@@ -954,6 +1040,22 @@ impl App {
         self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
     }
 
+    fn rust_std_method_kept(&self, method: &str, std: &str) -> bool {
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let pattern = format!(r"\bfn\s+{}\b", regex::escape(method));
+        let Ok(hits) = self.grep(&pattern, false, false, rs) else {
+            return false;
+        };
+        let mut seen = std::collections::HashMap::new();
+        hits.iter().all(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                let lines: Vec<&str> = t.lines().collect();
+                search::rust_method_at(&lines, h.line1)
+                    .is_some_and(|m| self.rust_std_hides(&m.owner, std, &mut seen))
+            })
+        })
+    }
+
     fn rust_for_project_item(
         &self,
         file: &Path,
@@ -961,19 +1063,6 @@ impl App {
         at: usize,
         expr: &str,
     ) -> Option<Typed> {
-        const SAME_ITEM: [&str; 11] = [
-            "by_ref",
-            "filter",
-            "fuse",
-            "inspect",
-            "peekable",
-            "rev",
-            "skip",
-            "skip_while",
-            "step_by",
-            "take",
-            "take_while",
-        ];
         let mut w = walk_back(expr)?;
         if w.rest != 0 {
             return None;
