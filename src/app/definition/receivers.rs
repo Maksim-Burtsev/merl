@@ -238,6 +238,9 @@ impl App {
         if kind == Kind::Rust && self.rust_blanket_method(&a.word) {
             return false;
         }
+        if kind == Kind::CSharp && self.cs_generic_extension(&a.here, &a.word) {
+            return false;
+        }
         self.none_found(format!(
             "no definition for {} in the project (via {}: type parameter {param})",
             a.word,
@@ -708,6 +711,26 @@ impl App {
                 (self.text_of(&h.path))
                     .is_none_or(|t| search::rust_trait_declares(&t, h.line1, word))
             })
+    }
+
+    fn cs_generic_extension(&self, here: &Path, word: &str) -> bool {
+        let Ok(re) = Regex::new(&format!(
+            r"\b{}\s*<([^>]*)>\s*\(\s*this\s+(\w+)\s",
+            regex::escape(word)
+        )) else {
+            return false;
+        };
+        self.cs_extensions(here, word).iter().any(|(_, sig)| {
+            re.captures(sig).is_some_and(|c| {
+                let (Some(params), Some(this)) = (c.get(1), c.get(2)) else {
+                    return false;
+                };
+                params
+                    .as_str()
+                    .split(',')
+                    .any(|p| p.trim() == this.as_str())
+            })
+        })
     }
 
     fn none_found(&mut self, message: String) -> bool {

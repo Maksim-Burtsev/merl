@@ -84,4 +84,21 @@ namespace Shop.Situlas
         //              ^ d: src/Shop/Situlas.cs:79
         //                            ^ d: none
     }
+    public static class SitulaSplash
+    {
+        public static void Splash<U>(this U x) { }
+        public static void Slosh(this Situla s) { }
+    }
+    public class SitulaScoop<T, U> where U : class
+    {
+        public void M(T item) { item.Splash(); item.Slosh(); }
+        //                           ^ d: src/Shop/Situlas.cs:89
+        //                                          ^ d: none
+    }
+    public class SitulaPail<T>
+    {
+        public void M(T item) { item.Splash(); item.Slosh(); }
+        //                           ^ d: src/Shop/Situlas.cs:89
+        //                                          ^ d: none
+    }
 }

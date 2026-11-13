@@ -296,3 +296,34 @@ pub fn closure_shelved(held: Caps, v: std::collections::VecDeque<Grain>) {
         //   ^ d: !jump
     });
 }
+
+pub struct Bin;
+pub struct BinIter;
+
+impl Bin {
+    pub fn iter(&self) -> BinIter {
+        BinIter
+    }
+}
+
+impl Iterator for BinIter {
+    type Item = Grain;
+    fn next(&mut self) -> Option<Grain> {
+        None
+    }
+}
+
+pub fn for_project_iter(held: Caps, bin: &Bin) {
+    for held in bin.iter() {
+        held.get();
+        //   ^ d: tests/rebinds.rs:14
+    }
+}
+
+pub fn for_project_iter_let(held: Caps) {
+    let bin = Bin;
+    for held in bin.iter() {
+        held.get();
+        //   ^ d: tests/rebinds.rs:14
+    }
+}
