@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::super::{Binding, Kind, Value, indent};
-use super::{Binds, swift_code, swift_statement_binds};
+use super::{Binds, swift_code, swift_generics, swift_statement_binds, swift_text};
 
 pub fn swift_bindings_or_top(
     text: &str,
@@ -62,4 +62,31 @@ pub fn swift_member_scope_top(
         }
     }
     Some(top)
+}
+
+pub(super) fn swift_extended_generic(
+    lines: &[&str],
+    literal: &[bool],
+    head: &str,
+    name: &str,
+) -> Option<usize> {
+    static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}extension\s+`?(\w+)`?\s*(?:[:{{]|where\b|$)",
+            super::super::swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let ty = regex::escape(EXTENSION.captures(head)?.get(1)?.as_str());
+    let decl = Regex::new(&format!(
+        r"{}(?:class|struct|enum|actor)\s+`?{ty}`?\s*<",
+        super::super::swift_mods!()
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    (0..lines.len())
+        .filter(|&i| swift_code(lines, literal, i) && indent(lines[i]) == 0)
+        .map(|i| (i, swift_text(lines, i)))
+        .find(|(_, t)| decl.is_match(t))
+        .filter(|(_, t)| swift_generics(t).iter().any(|g| g == name))
+        .map(|(i, _)| i)
 }

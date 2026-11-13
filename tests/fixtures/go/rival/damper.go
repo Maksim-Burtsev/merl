@@ -50,7 +50,7 @@ func Wrapped() int {
 
 func Field() int {
 	rows := []struct{ Flue Flue }{}
-	//                ^ d: rival/damper.go:9; want none (#1470)
+	//                ^ d: none
 	//                     ^ d: rival/damper.go:9
 	return len(rows)
 }
@@ -99,4 +99,17 @@ func Aliased() int {
 	o := Opts{Draft: 1}
 	//        ^ d: rival/damper.go:4
 	return o.Draft
+}
+
+func Fields() int {
+	rows := []struct {
+		Draft int
+	}{}
+	pairs := []struct{ Soot int; Flue, Damper Flue }{}
+	//                           ^ d: none
+	//                                 ^ d: none
+	//                                        ^ d: rival/damper.go:9
+	held := struct{ Flue }{}
+	//              ^ d: rival/damper.go:9
+	return len(rows) + len(pairs) + held.Soot
 }

@@ -37,7 +37,7 @@ class SitulaKeg<Situla: Tippler & Hashable> {
 
 extension SitulaCask {
     func again(_ z: Situla) {
-    //              ^ d: Sources/Shop/Situlas.swift:1; want Sources/Shop/Situlas.swift:21 (#1438)
+    //              ^ d: Sources/Shop/Situlas.swift:21
         z.tipple()
         //^ d: picker Sources/Shop/Situlas.swift:2, Sources/Shop/Situlas.swift:6
     }
@@ -53,7 +53,7 @@ typealias SitulaPair<Situla> = (Situla, Situla)
 
 extension SitulaCask where Situla: Equatable {
     func third(_ w: Situla) -> Bool { w == w }
-    //              ^ d: Sources/Shop/Situlas.swift:1; want Sources/Shop/Situlas.swift:21 (#1438)
+    //              ^ d: Sources/Shop/Situlas.swift:21
 }
 
 struct SitulaInit {
@@ -68,4 +68,14 @@ func situlaPlain(_ x: Situla) {
 //                    ^ d: Sources/Shop/Situlas.swift:1
     x.tipple()
     //^ d: Sources/Shop/Situlas.swift:2
+}
+
+extension SitulaInit {
+    func plain(_ v: Situla) {}
+    //              ^ d: Sources/Shop/Situlas.swift:1
+}
+
+public extension SitulaKeg where Situla: Equatable {
+    func fourth(_ k: Situla) {}
+    //               ^ d: Sources/Shop/Situlas.swift:33
 }

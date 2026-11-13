@@ -196,7 +196,14 @@ impl App {
     }
 
     fn needs_no_lookup(&self, kind: Kind, word: &str, lead: &str, start: usize) -> bool {
-        (kind == Kind::Go && word == "_")
+        (kind == Kind::Go
+            && (word == "_"
+                || search::go_anonymous_field_name(
+                    lead,
+                    self.line_str()
+                        .get(start + word.len()..)
+                        .unwrap_or_default(),
+                )))
             || (kind == Kind::Graphql && lead.ends_with('$'))
             || (kind == Kind::TsJs
                 && search::jsx_hyphenated_attribute(
