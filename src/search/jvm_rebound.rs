@@ -188,7 +188,10 @@ pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str, keyword: &s
         Regex::new(r"^\s*(?:tailrec\s+|@[\w.]+\s+)*").expect("the regex is a literal")
     });
     let header = uncommented(Kind::Jvm, lines[i]);
-    let bare = MODIFIERS.find(&header).map_or("", |m| &header[m.end()..]);
+    let bare = MODIFIERS
+        .find(&header)
+        .and_then(|m| header.get(m.end()..))
+        .unwrap_or_default();
     bare.starts_with(keyword)
         && declares_local(header.trim(), name)
         && super::jvm::scope_of(lines, i).is_some_and(|s| !super::jvm::opens_type(lines[s]))
