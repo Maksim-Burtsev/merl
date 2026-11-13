@@ -516,6 +516,12 @@ namespaces, only where `using Shop.Larder;` opens it.
 `csharp/src/Shop/Goblets.cs`'s `Carafe` and `Jug` (#1438) call `x.Quaff()` in an `override` and in
 explicit `ITip.Tip<T>` implementations, which inherit `where T : Goblet` unwritten: they keep
 master's jump to `Goblet.Quaff`.
+`csharp/src/Shop/Situlas.cs`, `swift/Sources/Shop/Situlas.swift` and `c/src/situlas.cc` (#1438)
+declare type parameters named like the project's `Situla` in the shapes the earlier files lack:
+an attribute with arguments on the header line, a `where` on another parameter, delegates,
+records, local functions, a bound (`<Situla: Tippler>`), a Swift extension of the generic type,
+and a C++ template list wrapped over lines, with a default, a pack, a `requires` line under it,
+a template template parameter and an explicit specialisation, which means the project type.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
