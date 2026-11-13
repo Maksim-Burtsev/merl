@@ -385,11 +385,27 @@ pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> bool {
         Regex::new(&format!(r"{KOTLIN_TOP_FUN}[a-z]\w*\s*\(")).expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
+    fun_body(&lines, line1, ahead, &FUN).is_some()
+}
+
+pub fn kotlin_member_body(text: &str, line1: usize, ahead: &str, type_line1: usize) -> bool {
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:private|internal|public|protected|override|open|final|suspend|inline|operator)\s+)*fun\s+[a-z]\w*\s*\(",
+        )
+        .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    fun_body(&lines, line1, ahead, &FUN)
+        .is_some_and(|k| scope_of(&lines, k).is_some_and(|s| s + 1 == type_line1))
+}
+
+fn fun_body(lines: &[&str], line1: usize, ahead: &str, fun: &Regex) -> Option<usize> {
     line1
         .checked_sub(1)
         .filter(|&at| at < lines.len() && !uncommented(Kind::Jvm, ahead).contains('{'))
-        .and_then(|at| scope_of(&lines, at))
-        .is_some_and(|k| FUN.is_match(lines[k]) && opens_its_own_body(&lines[k..]))
+        .and_then(|at| scope_of(lines, at))
+        .filter(|&k| fun.is_match(lines[k]) && opens_its_own_body(&lines[k..]))
 }
 
 fn opens_its_own_body(header: &[&str]) -> bool {
