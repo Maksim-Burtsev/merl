@@ -127,7 +127,7 @@ pub fn two_rebinds_on_a_line(held: Caps) {
 pub fn closure_untyped(held: Caps, v: Vec<Grain>) {
     v.iter().for_each(|held| {
         held.get();
-        //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+        //   ^ d: tests/rebinds.rs:14
     });
 }
 
@@ -140,7 +140,7 @@ pub fn closure_wrapped(held: Caps, v: Vec<Grain>) {
     v.iter().for_each(
         |held| {
             held.get();
-            //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+            //   ^ d: tests/rebinds.rs:14
         },
     );
 }
@@ -148,7 +148,7 @@ pub fn closure_wrapped(held: Caps, v: Vec<Grain>) {
 pub fn for_chain(held: Caps, v: Vec<Grain>) {
     for held in v.iter().filter(|g| g.get() > 0) {
         held.get();
-        //   ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+        //   ^ d: tests/rebinds.rs:14
     }
 }
 
@@ -230,4 +230,69 @@ pub fn let_else_closure_scrutinee(held: Caps, sack: Sack) {
     };
     held.get();
     //   ^ d: !jump
+}
+
+pub fn for_chain_array(held: Caps, v: [Grain; 2]) {
+    for held in v.into_iter().rev().skip(1) {
+        held.get();
+        //   ^ d: tests/rebinds.rs:14
+    }
+}
+
+pub fn closure_map(held: Caps, v: Vec<Grain>) {
+    let n: Vec<usize> = v.iter().take(2).map(|held| held.get()).collect();
+    //                                                   ^ d: tests/rebinds.rs:14
+}
+
+pub fn for_chain_mapped(held: Caps, v: Vec<Grain>) {
+    for held in v.iter().map(|g| Caps) {
+        held.get();
+        //   ^ d: !jump
+    }
+}
+
+pub fn closure_enumerated(held: Caps, v: Vec<Grain>) {
+    v.iter().enumerate().for_each(|held| {
+        held.get();
+        //   ^ d: !jump
+    });
+}
+
+pub fn closure_fold(held: Caps, v: Vec<Grain>) {
+    v.iter().fold(0, |held, g| {
+        held.get();
+        //   ^ d: !jump
+        0
+    });
+}
+
+pub fn closure_second_input(held: Caps, v: Vec<Grain>, w: Vec<Caps>) {
+    v.iter().zip(w.iter()).for_each(|held| {
+        held.get();
+        //   ^ d: !jump
+    });
+}
+
+pub trait Racked {
+    fn iter(&self) -> std::vec::IntoIter<Caps>;
+}
+
+impl Racked for std::collections::VecDeque<Grain> {
+    fn iter(&self) -> std::vec::IntoIter<Caps> {
+        vec![Caps].into_iter()
+    }
+}
+
+pub fn for_chain_shelved(held: Caps, v: std::collections::VecDeque<Grain>) {
+    for held in v.iter().filter(|g| true) {
+        held.get();
+        //   ^ d: !jump
+    }
+}
+
+pub fn closure_shelved(held: Caps, v: std::collections::VecDeque<Grain>) {
+    v.iter().for_each(|held| {
+        held.get();
+        //   ^ d: !jump
+    });
 }
