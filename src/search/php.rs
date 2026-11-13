@@ -216,7 +216,7 @@ pub fn php_enclosing_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usiz
         at = php_outer_line(lines, at)?;
         let l = lines[at].as_ref();
         if ANONYMOUS.is_match(l) {
-            return None;
+            return php_anonymous_class(l).map(|_| at);
         }
         if php_class_header(l).is_some() {
             return Some(at);
@@ -692,6 +692,7 @@ pub enum PhpBinding {
     ThisProperty(String),
     Captured,
     Anonymous,
+    This,
 }
 
 pub fn php_captures(line: &str, name: &str) -> bool {
@@ -868,6 +869,8 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         LazyLock::new(|| Regex::new(r"^\$(\w+)->(\w+)\s*\(").expect("the regex is a literal"));
     static PROPERTY: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
+    static THIS_ITSELF: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$this\s*;").expect("the regex is a literal"));
     static FUNCTION: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").expect("the regex is a literal"));
     let first = statement.lines().next().unwrap_or_default();
@@ -889,6 +892,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
             .starts_with(';')
             .then_some(())
     };
+    if THIS_ITSELF.is_match(value) {
+        return Some(PhpBinding::This);
+    }
     if value.starts_with("new") && php_anonymous_class(first).is_some() {
         return Some(PhpBinding::Anonymous);
     }
@@ -999,7 +1005,7 @@ pub fn php_anonymous_class(line: &str) -> Option<PhpClassHeader<'_>> {
     });
     ANONYMOUS.captures(line).map(|c| PhpClassHeader {
         keyword: "class",
-        name: "class",
+        name: "new class",
         extends: c.get(1).map(|m| m.as_str()),
     })
 }
