@@ -827,9 +827,22 @@ impl App {
         .map(|b| b.line1)
         .collect();
         let declared = if bindings.is_empty() {
-            let members = search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .map(|d| search::jvm_members_of(file, text, d, name))
+            let upper = name.starts_with(|c: char| c.is_ascii_uppercase());
+            let types = search::jvm_enclosing_types(text, line1);
+            let members = types
+                .iter()
+                .take(if upper { 1 } else { types.len() })
+                .map(|&d| {
+                    let mut m = search::jvm_members_of(file, text, d, name);
+                    m.retain(|&l| {
+                        !upper
+                            || lines
+                                .get(l - 1)
+                                .and_then(|l| search::jvm_type_name(l))
+                                .is_none_or(|t| t != name)
+                    });
+                    m
+                })
                 .find(|m| !m.is_empty());
             match members {
                 Some(m) => m,
