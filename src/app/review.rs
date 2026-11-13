@@ -293,7 +293,12 @@ impl App {
 
     fn waiting_stops(&self) -> Vec<(TextLine, u8, Option<usize>)> {
         (self.notes.here.iter())
-            .filter(|h| self.notes.list.get(h.idx).is_some_and(|n| n.agent_last()))
+            .filter(|h| {
+                self.notes
+                    .list
+                    .get(h.idx)
+                    .is_some_and(super::notes::Note::agent_last)
+            })
             .map(|h| {
                 let rank = if h.top.is_some() { 0 } else { 2 };
                 (h.at, rank, Some(h.idx))

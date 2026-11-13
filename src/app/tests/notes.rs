@@ -701,7 +701,7 @@ fn an_answer_replaces_the_user_s_last_message_and_an_empty_one_is_dropped() {
         answered.with_mine("fine".into()).unwrap().replies.last(),
         Some(&(false, "fine".into()))
     );
-    assert_eq!(answered.with_mine(String::new()), Some(note.clone()));
+    assert_eq!(answered.with_mine(String::new()), Some(note));
     let first = parse("a.rs:1\n> a\nwhy\n")[0].clone();
     assert_eq!(
         (first.mine(), first.with_mine(String::new())),
@@ -725,7 +725,7 @@ fn a_thread_whose_code_is_gone_waits_above_its_file_or_above_the_review() {
         .position(|l| l.contains("\u{270e} line 2, changed"))
         .unwrap();
     assert!(
-        lines[top + 1].trim_end().ends_with("b"),
+        lines[top + 1].trim_end().ends_with('b'),
         "the old line quoted: {s}"
     );
     assert!(

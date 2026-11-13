@@ -60,7 +60,7 @@ impl Note {
         }
     }
 
-    pub fn with_mine(&self, text: String) -> Option<Note> {
+    pub fn with_mine(&self, text: String) -> Option<Self> {
         let mut n = self.clone();
         if self.agent_last() {
             if !text.is_empty() {
