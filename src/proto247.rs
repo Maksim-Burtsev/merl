@@ -252,8 +252,12 @@ pub fn next_args() -> Option<Vec<OsString>> {
     item_args(at)
 }
 
+fn says_less() -> bool {
+    env_is("MERL_PROTO_247_SAYS", "less")
+}
+
 pub fn arrival() -> Option<String> {
-    lock(&ARRIVAL).take()
+    lock(&ARRIVAL).take().filter(|_| !says_less())
 }
 
 pub fn switch_pending() -> bool {
@@ -327,11 +331,16 @@ pub fn at_end(dir: isize) -> String {
             cross(b, to, &passed);
             String::new()
         }
+        Some(_) if says_less() => {
+            END.store(sign, Ordering::Relaxed);
+            format!("{edge} hunk of the branch")
+        }
         Some((to, _)) => {
             END.store(sign, Ordering::Relaxed);
             let name = b.items.get(to).map(Item::name).unwrap_or_default();
             format!("{edge} hunk of the branch, {key} opens {name}")
         }
+        None if says_less() => format!("{edge} hunk of the batch"),
         None if dir > 0 => {
             let n = b.items.iter().filter(|i| !i.gone).count();
             let unread = b.items.iter().filter(|i| !i.gone && !i.done).count();
@@ -385,6 +394,9 @@ pub fn pick(index: usize) -> Option<String> {
 }
 
 pub fn farewell() -> Option<String> {
+    if says_less() {
+        return None;
+    }
     let g = lock(&BATCH);
     let b = g.as_ref()?;
     let n = b.items.iter().filter(|i| !i.gone).count();
