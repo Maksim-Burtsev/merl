@@ -104,9 +104,12 @@ impl App {
                     .collect());
             }
         };
+        let instance = !matches!(chain, [only] if kind == Kind::TsJs && only == "this");
         let declared = match self.union_arms(kind, &ty) {
             Some(arms) => self.shared_member(kind, &arms, word),
-            None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
+            None => self.hierarchy(kind, &ty, 0, &mut |t| {
+                self.member_through(kind, t, word, instance)
+            }),
         };
         let hits = declared
             .map(|hits| self.accessor_side(kind, word, hits))
