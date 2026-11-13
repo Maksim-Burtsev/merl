@@ -797,10 +797,35 @@ fn local_name(name: &str) -> bool {
         && name != "_"
         && !KEYWORDS.contains(&name)
 }
+fn plain_variable(line: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    let Ok(re) = Regex::new(&format!(
+        r"^\s*let\s+(?:mut\s+)?{n}\s*(?::[^=]*)?=\s*(\w*)|[(,]\s*(?:mut\s+)?{n}\s*:\s*&?\s*(?:mut\s+)?(\w+)"
+    )) else {
+        return false;
+    };
+    re.captures(&uncommented(Kind::Rust, line))
+        .and_then(|c| c.get(1).or_else(|| c.get(2)))
+        .is_some_and(|m| m.as_str() != name)
+}
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    if name.starts_with(|c: char| c.is_ascii_uppercase()) && name != "Self" {
+        let found = scoped_bindings(lines, at, name);
+        return if found
+            .iter()
+            .all(|b| plain_variable(lines[b.line1 - 1], name))
+        {
+            found
+        } else {
+            Vec::new()
+        };
+    }
     if !local_name(name) {
         return Vec::new();
     }
+    scoped_bindings(lines, at, name)
+}
+fn scoped_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let literal = literal_lines(Kind::Rust, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Rust, lines[i]).trim().to_owned();
     let found = |i: usize| Binding {

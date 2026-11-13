@@ -132,12 +132,19 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let (ty, links, rest) = if let Some(head) = self.jvm_static_head(here, text, first, rest) {
-            head
-        } else {
-            let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
-            (ty, links, rest)
-        };
+        let variable = (outer.is_none() && upper(first))
+            .then(|| self.jvm_chain_head(here, text, before, first, outer))
+            .flatten()
+            .map(|(ty, links)| (ty, links, rest));
+        let (ty, links, rest) =
+            match variable.or_else(|| self.jvm_static_head(here, text, first, rest)) {
+                Some(head) => head,
+                None if outer.is_none() && upper(first) => return None,
+                None => {
+                    let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+                    (ty, links, rest)
+                }
+            };
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
     }
@@ -409,7 +416,7 @@ impl App {
                 }
                 None => (own(outer)?, Vec::new()),
             },
-            f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
+            f if f.starts_with(|c: char| c.is_ascii_alphabetic()) => {
                 if search::jvm_rebound_before(before, f)
                     && !search::path_bindings(Kind::Jvm, here, text, line, f)
                         .iter()
