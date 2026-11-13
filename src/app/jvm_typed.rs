@@ -309,7 +309,9 @@ impl App {
             )
         } else if c.called {
             let ahead = before.or_else(|| text.lines().nth(line1.checked_sub(1)?))?;
-            let w = self.kotlin_top_level_returned(here, text, line1, ahead, &c.head)?;
+            let w = self
+                .kotlin_top_level_returned(here, text, line1, ahead, &c.head)
+                .or_else(|| self.kotlin_member_returned(here, text, line1, ahead, &c.head))?;
             let link = format!("{}(): {}", c.head, w.written);
             (w.resolved, vec![link], &c.links[..])
         } else if let Some(head) = self.jvm_static_head(here, text, &c.head, &c.links) {
@@ -574,15 +576,11 @@ impl App {
     ) -> Option<Hit> {
         let (owner, package) = chain.split_last()?;
         let first = package.first()?;
-        let line1 = self.line + 1;
         if !owner.starts_with(|c: char| c.is_ascii_uppercase())
             || !package
                 .iter()
                 .all(|p| p.starts_with(|c: char| c.is_ascii_lowercase()))
-            || !search::path_bindings(Kind::Jvm, here, text, line1, first).is_empty()
-            || search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .any(|d| !search::jvm_members_of(here, text, d, first).is_empty())
+            || self.jvm_value_named(here, text, first)
         {
             return None;
         }
