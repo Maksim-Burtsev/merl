@@ -9,7 +9,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use regex::Regex;
 
-use crate::app::{App, Mode};
+use crate::app::{App, Mode, Tone};
 use crate::buffer::{Buffer, shown_str};
 use crate::git::{Mark, TextLine};
 use crate::intraline;
@@ -264,23 +264,24 @@ impl<'a> Painter<'a> {
         let (rows, at) = app.slot_layout(s);
         let lines = rows
             .into_iter()
-            .map(|(r, lab, mark, kind, ch)| {
-                let input = kind & 8 != 0;
+            .map(|row| {
+                let (r, lab, mark) = (row.text, row.label, row.sel);
+                let input = row.tone == Tone::Input;
                 let bg = match () {
                     () if input => input_bg,
                     () if picked => base.bg(theme.selection),
                     () if focused => hl_bg,
                     () => base,
                 };
-                let style = match kind & 7 {
-                    _ if input => input_bg,
-                    0 => bg.fg(theme.accent),
-                    1 => bg.fg(theme.fg),
-                    _ => bg.fg(theme.ghost_fg),
+                let style = match row.tone {
+                    Tone::Input => input_bg,
+                    Tone::Note => bg.fg(theme.accent),
+                    Tone::Agent => bg.fg(theme.fg),
+                    Tone::Dim => bg.fg(theme.ghost_fg),
                 };
-                let ch_style = match ch {
-                    '\u{270e}' => bg.fg(theme.accent),
-                    _ => bg.fg(theme.gutter_fg),
+                let ch_style = match row.mark {
+                    '\u{21b3}' => bg.fg(theme.gutter_fg),
+                    _ => bg.fg(theme.accent),
                 };
                 let label_style = if input {
                     input_bg
@@ -289,7 +290,7 @@ impl<'a> Painter<'a> {
                 };
                 let mut row = vec![
                     Span::styled(" ".repeat(self.gutter_w - 1), base.fg(theme.gutter_fg)),
-                    Span::styled(ch.to_string(), ch_style),
+                    Span::styled(row.mark.to_string(), ch_style),
                     Span::styled(" ", bg),
                 ];
                 if lab > 0 {

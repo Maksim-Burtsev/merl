@@ -45,7 +45,7 @@ mod lua;
 mod members;
 mod missed;
 pub(crate) mod notes;
-pub use notes::Slot;
+pub use notes::{Slot, Tone};
 mod ml;
 mod open;
 mod perl;

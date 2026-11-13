@@ -8,7 +8,33 @@ use crate::git::{self, TextLine};
 use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 use crate::line_edit::LineEdit;
 
-pub type SlotRow = (String, usize, Option<std::ops::Range<usize>>, u8, char);
+const PEN: char = '\u{270e}';
+const ARROW: char = '\u{21b3}';
+const AGENT: &str = "agent";
+const YOU: &str = "you";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tone {
+    Note,
+    Agent,
+    Dim,
+    Input,
+}
+
+pub struct SlotRow {
+    pub text: String,
+    pub label: usize,
+    pub sel: Option<std::ops::Range<usize>>,
+    pub tone: Tone,
+    pub mark: char,
+}
+
+struct Part {
+    mark: char,
+    label: String,
+    text: String,
+    tone: Tone,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Note {
@@ -497,8 +523,14 @@ impl App {
         v
     }
 
-    fn parts(&self, s: &Slot) -> Vec<(char, String, String, u8, bool)> {
+    fn parts(&self, s: &Slot) -> Vec<Part> {
         let prompt = format!("{} ", &*self.prompt);
+        let part = |mark, label: &str, text: String, tone| Part {
+            mark,
+            label: label.to_owned(),
+            text,
+            tone,
+        };
         let (n, label, top, stale, input) = match s {
             Slot::Note(i) => {
                 let h = &self.notes.here[*i];
@@ -523,63 +555,52 @@ impl App {
                 (old, self.note_label(first, last), top, false, true)
             }
         };
-        let mut v = Vec::new();
         let Some(n) = n else {
-            v.push(('\u{270e}', label, prompt, 0, true));
-            return v;
+            return vec![part(PEN, &label, prompt, Tone::Input)];
         };
-        let mut first_mark = '\u{270e}';
-        let mut label = label;
-        if let Some(t) = &top {
-            v.push(('\u{270e}', String::new(), t.clone(), 2, false));
+        let mut v = Vec::new();
+        let (mut mark, mut label) = (PEN, label);
+        if let Some(t) = top {
+            v.push(part(PEN, "", t, Tone::Dim));
             for q in &n.quote {
-                v.push((
+                v.push(part(
                     ' ',
-                    String::new(),
-                    q.get(2..).unwrap_or("").to_string(),
-                    3,
-                    false,
+                    "",
+                    q.get(2..).unwrap_or("").to_owned(),
+                    Tone::Dim,
                 ));
             }
-            first_mark = ' ';
-            label = String::new();
+            (mark, label) = (' ', String::new());
         }
-        let reply_input = input && (n.agent_last() || !n.replies.is_empty());
-        let first_input = input && !reply_input;
-        let first_text = match (first_input, stale) {
+        let replying = input && (n.agent_last() || !n.replies.is_empty());
+        let first_input = input && !replying;
+        let text = match (first_input, stale) {
             (true, _) => prompt.clone(),
             (false, true) => format!("{} (changed)", n.text),
             (false, false) => n.text.clone(),
         };
-        if n.by_agent {
-            let who = if label.is_empty() {
-                "agent".to_owned()
-            } else {
-                format!("{label}  agent")
-            };
-            v.push((first_mark, who, first_text, 1, false));
-        } else {
-            v.push((
-                first_mark,
-                label,
-                first_text,
-                if stale { 2 } else { 0 },
-                first_input,
-            ));
-        }
+        let tone = match () {
+            () if first_input => Tone::Input,
+            () if n.by_agent => Tone::Agent,
+            () if stale => Tone::Dim,
+            () => Tone::Note,
+        };
+        let label = match (n.by_agent, label.is_empty()) {
+            (true, true) => AGENT.to_owned(),
+            (true, false) => format!("{label}  {AGENT}"),
+            (false, _) => label,
+        };
+        v.push(part(mark, &label, text, tone));
         let k = n.replies.len();
         for (j, (agent, t)) in n.replies.iter().enumerate() {
-            let mine_input = input && j + 1 == k && !agent;
-            let text = if mine_input {
-                prompt.clone()
-            } else {
-                t.clone()
-            };
-            let who = if *agent { "agent" } else { "you" };
-            v.push(('\u{21b3}', who.into(), text, u8::from(*agent), mine_input));
+            v.push(match (agent, replying && j + 1 == k) {
+                (true, _) => part(ARROW, AGENT, t.clone(), Tone::Agent),
+                (false, true) => part(ARROW, YOU, prompt.clone(), Tone::Input),
+                (false, false) => part(ARROW, YOU, t.clone(), Tone::Note),
+            });
         }
-        if input && n.agent_last() {
-            v.push(('\u{21b3}', "you".into(), prompt, 0, true));
+        if replying && n.agent_last() {
+            v.push(part(ARROW, YOU, prompt, Tone::Input));
         }
         v
     }
@@ -592,36 +613,44 @@ impl App {
         let w = self.view_w.saturating_sub(2).max(1);
         let mut rows = Vec::new();
         let mut at = None;
-        for (mark_ch, label, text, kind, input) in self.parts(s) {
-            let head = match label.as_str() {
+        for p in self.parts(s) {
+            let input = p.tone == Tone::Input;
+            let head = match p.label.as_str() {
                 "" => String::new(),
-                "agent" | "you" => format!("{label:<5}  "),
-                _ if text.is_empty() => label.clone(),
-                _ => format!("{label}  "),
+                AGENT | YOU => format!("{:<5}  ", p.label),
+                _ if p.text.is_empty() => p.label.clone(),
+                l => format!("{l}  "),
             };
             let pad = head.len();
+            let hang =
+                !input && pad > 0 && pad + 8 < w && (p.tone == Tone::Agent || p.mark == ARROW);
             let cursor = input.then(|| self.prompt.cursor());
             let sel = input.then(|| self.prompt.selection()).flatten();
             let mut off = 0;
-            let mut first_row = true;
-            for (i, line) in text.split('\n').enumerate() {
+            let mut mark = p.mark;
+            for (i, line) in p.text.split('\n').enumerate() {
                 let lead = match i {
                     0 => head.clone(),
                     _ => " ".repeat(pad),
                 };
-                if !input && pad > 0 && pad + 8 < w && (kind == 1 || mark_ch == '\u{21b3}') {
+                if hang {
                     for (j, r) in crate::wrap::wrap_shown(line, w - pad)
                         .into_iter()
                         .enumerate()
                     {
-                        let (row, lab) = match j {
-                            0 => (format!("{lead}{}", &line[r]), lead.len().min(pad)),
+                        let (text, label) = match (i, j) {
+                            (0, 0) => (format!("{lead}{}", &line[r]), pad),
                             _ => (format!("{}{}", " ".repeat(pad), &line[r]), 0),
                         };
-                        let m = if first_row { mark_ch } else { ' ' };
-                        first_row = false;
-                        let lab = if i == 0 { lab } else { 0 };
-                        rows.push((row, lab, None, kind, m));
+                        let row = SlotRow {
+                            text,
+                            label,
+                            sel: None,
+                            tone: p.tone,
+                            mark,
+                        };
+                        rows.push(row);
+                        mark = ' ';
                     }
                     off += line.len() + 1;
                     continue;
@@ -637,19 +666,24 @@ impl App {
                     {
                         at = Some((rows.len(), crate::wrap::width(&full[r.start..p])));
                     }
-                    let lab = match i {
+                    let label = match i {
                         0 => r.end.min(pad).saturating_sub(r.start),
                         _ => 0,
                     };
-                    let mark = sel.as_ref().and_then(|x| {
+                    let sel = sel.as_ref().and_then(|x| {
                         let a = (x.start.max(off).min(off + line.len()) - off + pad).max(r.start);
                         let b = (x.end.max(off).min(off + line.len()) - off + pad).min(r.end);
                         (a < b).then(|| a - r.start..b - r.start)
                     });
-                    let m = if first_row { mark_ch } else { ' ' };
-                    first_row = false;
-                    let k = if input { kind | 8 } else { kind };
-                    rows.push((full[r].to_string(), lab, mark, k, m));
+                    let text = full[r].to_string();
+                    rows.push(SlotRow {
+                        text,
+                        label,
+                        sel,
+                        tone: p.tone,
+                        mark,
+                    });
+                    mark = ' ';
                 }
                 off += line.len() + 1;
             }

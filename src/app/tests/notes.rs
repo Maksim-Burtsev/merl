@@ -62,6 +62,8 @@ fn the_notes_file_reads_back_what_was_written() {
             last: 10,
             quote: vec!["> a = 1".into(), "- b = 2".into()],
             text: "# not a header\n> not a quote either\nsecond line".into(),
+            by_agent: false,
+            replies: vec![],
         },
         Note {
             path: "C:x/y.rs".into(),
@@ -69,6 +71,14 @@ fn the_notes_file_reads_back_what_was_written() {
             last: 3,
             quote: vec![">     ".into()],
             text: "- a list item".into(),
+            by_agent: false,
+            replies: vec![
+                (
+                    true,
+                    "agent: not a label\n- nor a quote\nuser: nor this".into(),
+                ),
+                (false, "> mine".into()),
+            ],
         },
         Note {
             path: "b.md".into(),
@@ -76,6 +86,8 @@ fn the_notes_file_reads_back_what_was_written() {
             last: 1,
             quote: vec!["> x".into()],
             text: "- first\n- second".into(),
+            by_agent: true,
+            replies: vec![(false, "ok".into())],
         },
     ];
     let text = format(&notes, "feat/x \u{2190} main \u{b7} abc1234");
