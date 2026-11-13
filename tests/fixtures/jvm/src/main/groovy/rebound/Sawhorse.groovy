@@ -71,4 +71,35 @@ class Sawhorse {
     def defaultWithCommaClosed() { def f = { Auger c = make(1, 2) -> c }; c.bore() }
     //                                                               ^ d: src/main/groovy/rebound/Sawhorse.groovy:71
     //                                                                    ^ d: src/main/groovy/rebound/Sawhorse.groovy:4
+
+    def commandCall(Auger c) {
+        Thread.sleep c
+        c.bore()
+      //^ d: src/main/groovy/rebound/Sawhorse.groovy:75
+    }
+
+    def commandCallCapital(Auger c) {
+        Utils.log c
+        c.bore()
+      //^ d: src/main/groovy/rebound/Sawhorse.groovy:81
+    }
+
+    def defCommandCall() {
+        def x = new Auger()
+        def r = add 1, x
+        x.bore()
+      //^ d: src/main/groovy/rebound/Sawhorse.groovy:88
+    }
+
+    def siblingClosures() {
+        foo(1,
+            { x ->
+                x
+              //^ d: src/main/groovy/rebound/Sawhorse.groovy:96
+            },
+            {
+                x
+              //^ d: src/main/groovy/rebound/Sawhorse.groovy:5
+            })
+    }
 }

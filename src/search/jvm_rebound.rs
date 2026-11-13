@@ -65,10 +65,10 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
                     return None;
                 };
                 let tail = after.trim_start();
+                let initialized = tail.starts_with('=') && !tail.starts_with("==");
                 if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
-                    && (tail.is_empty()
-                        || tail.starts_with([',', ';'])
-                        || tail.starts_with('=') && !tail.starts_with("=="))
+                    && (initialized
+                        || &head[1] != "def" && (tail.is_empty() || tail.starts_with([',', ';'])))
                 {
                     return Some((head[1].to_owned(), at));
                 }
@@ -145,9 +145,14 @@ pub(super) fn continued_closure_header(
         if !lines[k].contains("->") {
             continue;
         }
+        let mut open = joined.clone();
+        for l in &lines[k + 1..before] {
+            open.push(' ');
+            open.push_str(&blanked(&uncommented(Kind::Jvm, l)));
+        }
         let (_, at) = lambda_binders(&joined, false)
             .into_iter()
-            .find(|(n, at)| n == name && lambda_open_at(&joined, at, joined.len()))?;
+            .find(|(n, at)| n == name && lambda_open_at(&open, at, open.len()))?;
         let word = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
         let found = at.start + word.find(joined.get(at)?)?.start();
         return starts
@@ -170,8 +175,9 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
     let t = t.get(case_label_end(t)..).unwrap_or(t).trim_start();
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
+    let typ = r"(?:int|long|short|byte|char|boolean|float|double|(?:\w+\.)*[A-Z]\w*)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*";
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*(?:[=;,:]|$))"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
     ))
     .is_ok_and(|re| re.is_match(t))
         || later_declarator(&blanked(t), name).is_some()
