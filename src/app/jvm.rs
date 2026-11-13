@@ -125,6 +125,14 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    pub(super) fn jvm_value_named(&self, here: &Path, text: &str, name: &str) -> bool {
+        let line1 = self.line + 1;
+        !search::path_bindings(Kind::Jvm, here, text, line1, name).is_empty()
+            || search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .any(|d| !search::jvm_members_of(here, text, d, name).is_empty())
+    }
+
     pub(super) fn jvm_package_sees(
         &self,
         here: &Path,
