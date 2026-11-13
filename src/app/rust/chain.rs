@@ -975,8 +975,10 @@ impl App {
                 return None;
             }
             let w = walk_back(expr)?;
-            if let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?) {
-                return self.rust_place_element(file, text, at, head, Some(iter));
+            if let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?)
+                && let Some(t) = self.rust_place_element(file, text, at, head, Some(iter))
+            {
+                return Some(t);
             }
             return self.rust_for_project_item(file, text, at, expr);
         }
