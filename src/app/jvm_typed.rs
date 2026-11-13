@@ -132,21 +132,29 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let variable = (outer.is_none() && upper(first))
-            .then(|| self.jvm_chain_head(here, text, before, first, outer))
-            .flatten()
-            .map(|(ty, links)| (ty, links, rest));
-        let (ty, links, rest) =
-            match variable.or_else(|| self.jvm_static_head(here, text, first, rest)) {
-                Some(head) => head,
-                None if outer.is_none() && upper(first) => return None,
-                None => {
-                    let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
-                    (ty, links, rest)
-                }
-            };
+        let (ty, links, rest) = self.jvm_head(here, text, before, first, rest, outer)?;
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_head<'r>(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        first: &str,
+        rest: &'r [String],
+        outer: Option<&str>,
+    ) -> Option<(JvmType, Vec<String>, &'r [String])> {
+        let chained = || {
+            self.jvm_chain_head(here, text, before, first, outer)
+                .map(|(ty, links)| (ty, links, rest))
+        };
+        if outer.is_none() && first.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return chained().or_else(|| self.jvm_static_head(here, text, first, rest));
+        }
+        self.jvm_static_head(here, text, first, rest)
+            .or_else(chained)
     }
 
     fn scala_static_chain(
