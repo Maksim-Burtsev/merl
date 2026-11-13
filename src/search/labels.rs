@@ -112,7 +112,7 @@ pub fn label_at(
     };
     if !opened.as_ref().is_some_and(after_the_bracket) {
         return (kind == Kind::Ruby)
-            .then(|| ruby_command_label(kind, l, line0, range.start))
+            .then(|| ruby_command_label(kind, &lines, &literal, line0, range.start))
             .flatten();
     }
     let OpenBracket {
@@ -228,7 +228,29 @@ fn julia_named_tuple_key(kind: Kind, lines: &[&str], at: usize, open: usize) -> 
     })
 }
 
-fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Option<Label> {
+fn ruby_command_label(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    line0: usize,
+    start: usize,
+) -> Option<Label> {
+    let continues = |i: usize| {
+        !literal.get(i).copied().unwrap_or(true)
+            && uncommented(kind, lines[i]).trim_end().ends_with(',')
+    };
+    let mut top = line0;
+    if lines[line0].get(..start)?.trim().is_empty() {
+        while top > 0 && continues(top - 1) {
+            top -= 1;
+        }
+    }
+    let head: Vec<String> = lines[top..line0]
+        .iter()
+        .map(|l| uncommented(kind, l) + " ")
+        .collect();
+    let line = head.concat() + lines[line0];
+    let start = start + line.len() - lines[line0].len();
     let lead = line.get(..start)?;
     let head = lead.trim_end();
     if head.trim_start().is_empty()
@@ -244,9 +266,10 @@ fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Opt
         Some(start)
     };
     let owner = args
-        .and_then(|a| callee(kind, line, a))
+        .and_then(|a| callee(kind, &line, a))
+        .filter(|&c| c < lines[top].len())
         .map(|byte_col| LabelOwner {
-            line0,
+            line0: top,
             byte_col,
             how: Owner::Args,
         });
@@ -271,7 +294,15 @@ fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
     };
     let mut depth = 0i32;
     let mut out = None;
-    for (i, c) in code(kind, first) {
+    let mut coded = vec![false; b.len()];
+    for (i, _) in code(kind, first) {
+        coded[i] = true;
+    }
+    for (i, &c) in b.iter().enumerate() {
+        let string = !coded[i] && matches!(c, b'"' | b'\'') && (i == 0 || coded[i - 1]);
+        if !coded[i] && !string {
+            continue;
+        }
         match c {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
@@ -279,6 +310,7 @@ fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
         }
         let gap = i > 0 && b[i - 1].is_ascii_whitespace();
         let starts_arg = name(c)
+            || string
             || matches!(c, b'@' | b'$' | b'(' | b'[')
             || (matches!(c, b':' | b'-' | b'*' | b'&' | b'!') && unary(i));
         if depth == i32::from(matches!(c, b'(' | b'['))

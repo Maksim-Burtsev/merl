@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::jvm::{anonymous, ident, jvm_bindings, param_lists_line1_binding, param_names};
-use super::{Binding, Kind, Value, code, indent, uncommented};
+use super::{Binding, Kind, Value, code, indent, split_top, uncommented};
 
 pub(super) fn blanked(s: &str) -> String {
     let mut bytes = vec![b' '; s.len()];
@@ -38,7 +38,7 @@ pub fn jvm_rebound_before(before: &str, name: &str) -> bool {
 fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
-            r"^\s*(?:(?:final|@[\w.]+)\s+)*(",
+            r"^\s*(?:(?:final|@[\w.]+)\s+)*(def|",
             super::jvm_return_type!(),
             r")\s+[A-Za-z_]\w*\s*(?:=[^=]|,)"
         ))
@@ -65,10 +65,10 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
                     return None;
                 };
                 let tail = after.trim_start();
+                let initialized = tail.starts_with('=') && !tail.starts_with("==");
                 if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
-                    && (tail.is_empty()
-                        || tail.starts_with([',', ';'])
-                        || tail.starts_with('=') && !tail.starts_with("=="))
+                    && (initialized
+                        || &head[1] != "def" && (tail.is_empty() || tail.starts_with([',', ';'])))
                 {
                     return Some((head[1].to_owned(), at));
                 }
@@ -88,6 +88,7 @@ pub(super) fn later_declarator_type(line: &str, name: &str) -> Option<String> {
         .chain(line.match_indices([';', '{', '}']).map(|(i, _)| i + 1))
         .chain(FOR.find_iter(&line).map(|m| m.end()))
         .find_map(|s| later_declarator(line.get(s..)?, name).map(|(t, _)| t))
+        .filter(|t| t != "def")
 }
 
 pub(super) fn for_init_declarators(line: &str, name: &str) -> Vec<(usize, usize)> {
@@ -122,6 +123,47 @@ pub(super) fn continued_declarator(
     starts.iter().rev().find(|(s, _)| *s <= at).map(|&(_, k)| k)
 }
 
+pub(super) fn continued_closure_header(
+    lines: &[&str],
+    i: usize,
+    before: usize,
+    name: &str,
+) -> Option<usize> {
+    let head = blanked(&uncommented(Kind::Jvm, lines[i]));
+    if !head.trim_end().ends_with(',') {
+        return None;
+    }
+    let mut joined = head.trim_end().to_owned();
+    let mut starts = vec![(0, i)];
+    for k in i + 1..before {
+        if indent(lines[k]) <= indent(lines[i]) && !lines[k].trim().is_empty() {
+            return None;
+        }
+        joined.push(' ');
+        starts.push((joined.len(), k));
+        joined.push_str(&blanked(&uncommented(Kind::Jvm, lines[k])));
+        if !lines[k].contains("->") {
+            continue;
+        }
+        let mut open = joined.clone();
+        for l in &lines[k + 1..before] {
+            open.push(' ');
+            open.push_str(&blanked(&uncommented(Kind::Jvm, l)));
+        }
+        let (_, at) = lambda_binders(&joined, false)
+            .into_iter()
+            .find(|(n, at)| n == name && lambda_open_at(&open, at, open.len()))?;
+        let word = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
+        let found = at.start + word.find(joined.get(at)?)?.start();
+        return starts
+            .iter()
+            .rev()
+            .find(|(s, _)| *s <= found)
+            .map(|&(_, k)| k);
+    }
+    None
+}
+
 pub(super) fn case_label_end(t: &str) -> usize {
     static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:case\b[^;{}:]*|default)\s*:").expect("the regex is a literal")
@@ -133,8 +175,9 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
     let t = t.get(case_label_end(t)..).unwrap_or(t).trim_start();
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
+    let typ = r"(?:int|long|short|byte|char|boolean|float|double|(?:\w+\.)*[A-Z]\w*)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*";
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
     ))
     .is_ok_and(|re| re.is_match(t))
         || later_declarator(&blanked(t), name).is_some()
@@ -240,18 +283,31 @@ pub(super) fn lambda_binders(line: &str, scala: bool) -> Vec<(String, std::ops::
             .expect("the regex is a literal")
     });
     static GROOVY_TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:final\s+)?(?:def|int|long|short|byte|char|boolean|float|double|[A-Z][\w.]*(?:<[^<>]*>)?(?:\[\])*)\s+([A-Za-z_]\w*)$")
+        Regex::new(r"^(?:final\s+)?(?:def|int|long|short|byte|char|boolean|float|double|[A-Z][\w.]*(?:<[^<>]*>)?(?:\[\])*)\s+([A-Za-z_]\w*)(?:\s*=([^=;][^;]*))?$")
             .expect("the regex is a literal")
     });
     let mut out = Vec::new();
     for c in KOTLIN.captures_iter(line) {
         let at = c.get(0).map_or(0..0, |m| m.range());
-        for entry in c[1].split(',') {
+        let entries = split_top(Kind::Jvm, &c[1], b',').into_iter().flat_map(|e| {
+            if e.trim_start().starts_with('(') {
+                e.split(',').collect()
+            } else {
+                vec![e]
+            }
+        });
+        for entry in entries {
             let e = entry.trim().trim_matches(['(', ')']).trim();
             let name = e.split(':').next().unwrap_or("").trim();
             if ident(name) {
                 out.push((name.to_owned(), at.clone()));
-            } else if let Some(typed) = GROOVY_TYPED.captures(e) {
+            } else if let Some(typed) = [entry.trim(), e].into_iter().find_map(|s| {
+                GROOVY_TYPED.captures(s).filter(|t| {
+                    t.get(2).is_none_or(|d| {
+                        d.as_str().matches('(').count() == d.as_str().matches(')').count()
+                    })
+                })
+            }) {
                 out.push((typed[1].to_owned(), at.clone()));
             }
         }

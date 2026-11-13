@@ -24,6 +24,12 @@ public class JugStand
         Mystery.Builder().Size(2).Boil();
         //                ^ d: !jump
         //                        ^ d: !jump
+        var b = Jug.Builder();
+        b.Size(2);
+        //^ d: src/Shop/Jugs/Jug.cs:12
+        var j = Jug.Builder().Size(2).Build();
+        j.Boil();
+        //^ d: src/Shop/Jugs/Jug.cs:5
     }
 }
 

@@ -342,6 +342,11 @@ pub(super) fn jvm_bindings(
                 .into_iter()
                 .map(binding),
         );
+        if super::groovy(path)
+            && let Some(k) = super::jvm_rebound::continued_closure_header(lines, i, at, name)
+        {
+            out.push(binding(k + 1));
+        }
     }
     if out.is_empty()
         && let Some(k) = script_binding(path, lines, &text, &literal, at, col, name)

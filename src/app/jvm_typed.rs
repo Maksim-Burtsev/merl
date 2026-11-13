@@ -839,7 +839,9 @@ impl App {
                     None if literal_typed && kotlin => {
                         self.kotlin_initialized(file, text, l, name)?
                     }
-                    None if ext == Some("java") => self.java_lambda_element(file, text, l, name)?,
+                    None if ext == Some("java") => self
+                        .java_static_initialized(file, text, l, name)
+                        .or_else(|| self.java_lambda_element(file, text, l, name))?,
                     None if ext == Some("scala") => {
                         self.scala_tuple_returned(file, text, l, at, name)?
                     }

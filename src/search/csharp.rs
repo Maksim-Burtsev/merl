@@ -101,7 +101,8 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
         let t = lines[i].trim();
         !(t.is_empty()
             || comment(Kind::CSharp, t)
-            || t.starts_with(['#', '{', ')', ':', '['])
+            || t.starts_with(['#', '{', ')', ':'])
+            || (t.starts_with('[') && cs_type_decl(t).is_none())
             || t.starts_with("where ")
             || indent(lines[i]) >= depth
             || literal
@@ -110,6 +111,18 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
                 .copied()
                 .unwrap_or(false))
     })
+}
+
+pub(super) fn cs_after_attributes(l: &str) -> &str {
+    let mut l = l.trim_start();
+    while let Some(end) = l
+        .starts_with('[')
+        .then(|| close_of(Kind::CSharp, l, 0))
+        .flatten()
+    {
+        l = l.get(end..).unwrap_or_default().trim_start();
+    }
+    l
 }
 
 fn cs_block_end(lines: &[&str], k: usize) -> usize {
@@ -824,14 +837,7 @@ fn cs_generic_params(text: &str, line: usize, name: &str, strict: bool) -> Optio
     let lines: Vec<&str> = text.lines().collect();
     let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     let declares = |l: &str| {
-        let mut l = l.trim_start();
-        while let Some(end) = l
-            .starts_with('[')
-            .then(|| close_of(Kind::CSharp, l, 0))
-            .flatten()
-        {
-            l = l.get(end..).unwrap_or_default().trim_start();
-        }
+        let l = cs_after_attributes(l);
         let b = l.as_bytes();
         let assigned = code(Kind::CSharp, l).find(|&(i, c)| {
             c == b'=' && b.get(i + 1) != Some(&b'=') && !(i > 0 && b"=!<>".contains(&b[i - 1]))

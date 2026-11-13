@@ -2,6 +2,32 @@ use super::{JvmType, TypedField, WrittenType, java_shaped};
 use crate::app::{App, Hit, Kind, Path, search};
 
 impl App {
+    pub(super) fn java_static_initialized(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let init = search::kotlin_initializer(text, line1, name)?;
+        let init = init.trim().strip_suffix(';')?.trim_end();
+        let (head, calls) = search::java_fluent_chain(&format!("{init}."))?;
+        if !init.starts_with(&format!("{head}."))
+            || !search::path_bindings(Kind::Jvm, file, text, line1, &head).is_empty()
+            || search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .any(|d| !search::jvm_members_of(file, text, d, &head).is_empty())
+        {
+            return None;
+        }
+        let calls: Vec<String> = calls.into_iter().map(|c| format!("{c}()")).collect();
+        let (ty, links, rest) = self.jvm_static_head(file, text, &head, &calls)?;
+        let (resolved, links) = self.jvm_follow(ty, links, &head, rest)?;
+        matches!(resolved, JvmType::Project(_)).then_some(())?;
+        let written = links.last()?.rsplit(": ").next()?.to_owned();
+        Some(WrittenType { resolved, written })
+    }
+
     pub(super) fn java_lambda_element(
         &self,
         file: &Path,
