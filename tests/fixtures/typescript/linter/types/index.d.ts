@@ -7,6 +7,7 @@ export class SourceCode implements TextSourceCode<{
   ast: AST.Program;
   getScope(node: object): Scope.Scope;
   getOuter(node: object): Scope.Variable;
+  getLost(node: object): Lost.Scope;
 }
 
 export namespace SourceCode {

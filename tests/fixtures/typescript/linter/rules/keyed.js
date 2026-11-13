@@ -5,10 +5,10 @@ module.exports = {
   //^ d: node_modules/@lint/core/index.d.ts:14
   },
   create(context) {
-//^ d: linter/types/index.d.ts:22
+//^ d: linter/types/index.d.ts:23
     return {
       onCodePathStart() {},
-    //^ d: linter/types/index.d.ts:30
+    //^ d: linter/types/index.d.ts:31
     };
   },
 };
