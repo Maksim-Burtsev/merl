@@ -573,15 +573,11 @@ impl App {
     ) -> Option<Hit> {
         let (owner, package) = chain.split_last()?;
         let first = package.first()?;
-        let line1 = self.line + 1;
         if !owner.starts_with(|c: char| c.is_ascii_uppercase())
             || !package
                 .iter()
                 .all(|p| p.starts_with(|c: char| c.is_ascii_lowercase()))
-            || !search::path_bindings(Kind::Jvm, here, text, line1, first).is_empty()
-            || search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .any(|d| !search::jvm_members_of(here, text, d, first).is_empty())
+            || self.jvm_value_named(here, text, first)
         {
             return None;
         }
