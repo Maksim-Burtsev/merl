@@ -1,0 +1,16 @@
+wait services $
+type # the agent has five branches ready, in four repositories
+key Enter
+type cat today.txt
+key Enter
+sleep 1
+type merl --new-batch < today.txt
+key Enter
+wait && merl --batch
+sleep 2
+type # you run the line it printed
+key Enter
+type merl --batch
+key Enter
+wait ACME-56
+sleep 3

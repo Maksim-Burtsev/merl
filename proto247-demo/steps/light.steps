@@ -1,0 +1,16 @@
+wait services $
+type merl --batch -t tokyonight-day
+key Enter
+wait branch 1/5
+sleep 2
+key c c c c
+sleep 0.6
+key c
+wait c opens web
+sleep 1.8
+key c
+wait branch 2/5
+sleep 1.5
+key b
+wait Batch:
+sleep 2

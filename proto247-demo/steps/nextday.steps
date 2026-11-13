@@ -1,0 +1,18 @@
+wait services $
+type # the next evening
+key Enter
+type merl --batch
+key Enter
+wait branch 4/5
+sleep 2.5
+key b
+wait Batch:
+sleep 2
+key Escape
+sleep 0.5
+key c c
+wait c opens bot
+sleep 1.5
+key q
+wait goes on
+sleep 2.5

@@ -1,0 +1,8 @@
+wait services $
+type merl --batch
+key Enter
+wait branch 1/5
+sleep 3
+key b
+wait Batch:
+sleep 1.5

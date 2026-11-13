@@ -1,0 +1,29 @@
+wait services $
+type # everything is read
+key Enter
+type merl --batch
+key Enter
+wait nothing left
+sleep 2
+type # a folder where no agent made a batch
+key Enter
+type cd ../elsewhere && merl --batch
+key Enter
+wait no batch
+sleep 2
+type cd ../services
+key Enter
+type # the agent misspells a branch
+key Enter
+type cat typo.txt
+key Enter
+type merl --new-batch < typo.txt
+key Enter
+wait nothing saved
+sleep 2
+type # you tell the agent to drop the batch
+key Enter
+type merl --new-batch < /dev/null
+key Enter
+wait batch removed
+sleep 2

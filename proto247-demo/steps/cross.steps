@@ -1,0 +1,19 @@
+wait services $
+type merl --batch
+key Enter
+wait branch 1/5
+sleep 1
+key c c c c
+sleep 0.8
+key c
+wait c opens web
+sleep 2
+key c
+wait branch 2/5
+sleep 2
+key C
+wait C opens api
+sleep 1.8
+key C
+wait branch 1/5
+sleep 1.5

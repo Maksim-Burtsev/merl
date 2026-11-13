@@ -1,0 +1,36 @@
+wait services $
+type cd api && merl -r ACME-56
+key Enter
+wait hunk 1/3
+sleep 1
+key c c c
+sleep 0.6
+key q
+wait api $
+type cd ../web && merl -r ACME-56
+key Enter
+wait hunk 1/2
+sleep 0.8
+key c
+sleep 0.6
+key q
+wait web $
+type cd ../docs && merl -r ACME-56
+key Enter
+wait hunk 1/1
+sleep 0.8
+key q
+wait docs $
+type cd ../web && merl -r ACME-91
+key Enter
+wait hunk 1/2
+sleep 0.8
+key q
+wait web $
+type cd ../bot && merl -r ACME-11
+key Enter
+wait hunk 1/2
+sleep 0.8
+key q
+wait bot $
+sleep 1

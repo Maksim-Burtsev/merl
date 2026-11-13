@@ -1,0 +1,17 @@
+wait services $
+type # web ACME-91 was merged and deleted on origin overnight
+key Enter
+type merl --batch
+key Enter
+wait branch 3/
+sleep 2.5
+key b
+wait Batch:
+sleep 2.5
+key Escape
+sleep 0.5
+key c
+sleep 1.5
+key c
+wait bot
+sleep 2.5

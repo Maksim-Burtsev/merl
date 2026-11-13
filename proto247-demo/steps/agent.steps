@@ -1,0 +1,21 @@
+wait services $
+type # next morning: the agent looks at what is left
+key Enter
+type merl --batch --list
+key Enter
+wait unread
+sleep 2
+type cat tomorrow.txt
+key Enter
+sleep 1.5
+type merl --new-batch < tomorrow.txt
+key Enter
+wait 2 new
+sleep 2
+type merl --batch
+key Enter
+wait branch 1/4
+sleep 1.5
+key b
+wait Batch:
+sleep 2.5

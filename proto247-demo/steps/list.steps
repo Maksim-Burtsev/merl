@@ -1,0 +1,20 @@
+wait services $
+type merl --batch
+key Enter
+wait branch 3/5
+sleep 1
+key b
+wait Batch:
+sleep 2
+key Down Down
+sleep 0.8
+key Enter
+wait branch 5/5
+sleep 1.5
+key b
+wait Batch:
+sleep 1.2
+type acme-9
+sleep 1.5
+key Escape
+sleep 0.8
