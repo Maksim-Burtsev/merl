@@ -71,6 +71,47 @@ impl App {
         self.project_grep(Kind::Jvm, file, &reach).is_empty()
     }
 
+    pub(super) fn java_field_owner(&self, here: &Path, text: &str, name: &str) -> Option<Hit> {
+        let line = self.line + 1;
+        let narrowed = Regex::new(&format!(r"\b{}\s+instanceof\b", regex::escape(name))).ok()?;
+        (here.extension().is_some_and(|e| e == "java")
+            && search::path_bindings(Kind::Jvm, here, text, line, name).is_empty()
+            && search::jvm_bindings_at(here, text, line, self.col, name).is_empty()
+            && !narrowed.is_match(text))
+        .then_some(())?;
+        let lines: Vec<&str> = text.lines().collect();
+        let enclosing = search::jvm_enclosing_types(text, line);
+        let top = |t: &str, l| search::jvm_enclosing_types(t, l).last().copied();
+        let seen = |h: &Hit| {
+            let words: Vec<&str> = h.text.split_whitespace().collect();
+            if words.contains(&"private") {
+                h.path == here && top(text, h.line1) == enclosing.last().copied()
+            } else {
+                words.iter().any(|w| ["public", "protected"].contains(w))
+                    || self.text_of(&h.path).and_then(|t| search::jvm_package(&t))
+                        == search::jvm_package(text)
+            }
+        };
+        enclosing
+            .iter()
+            .map(|&d| Hit {
+                deleted: None,
+                path: here.to_path_buf(),
+                line1: d,
+                byte_col: None,
+                text: lines[d - 1].to_owned(),
+            })
+            .find(|decl| {
+                self.jvm_hierarchy_member(decl, name, 0, &mut Vec::new())
+                    .iter()
+                    .any(|h| {
+                        search::jvm_type_name(&h.text).is_none()
+                            && !search::java_declares_method(&h.text, name)
+                            && seen(h)
+                    })
+            })
+    }
+
     pub(super) fn jvm_imported(
         &self,
         text: &str,
