@@ -98,7 +98,14 @@ pub(super) fn draw_status(frame: &mut Frame, app: &mut App, theme: &Theme, area:
             style.fg(theme.accent),
         ));
     }
-    if let Some(review) = app.review_status() {
+    let review = app.review_status();
+    let taken = wrap::width(&spans[1].content)
+        + review.as_deref().map_or(0, wrap::width)
+        + wrap::width(&app.message)
+        + 16;
+    let message_only =
+        crate::proto247::on() && !app.message.is_empty() && taken > area.width as usize;
+    if let Some(review) = review.filter(|_| !message_only) {
         spans.push(Span::styled(format!("  {review}"), style));
     }
     if !app.message.is_empty() {

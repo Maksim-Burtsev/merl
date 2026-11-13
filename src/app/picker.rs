@@ -126,8 +126,8 @@ impl App {
         }
     }
 
-    pub(super) fn open_batch_picker(&mut self) {
-        let Some((labels, at)) = crate::proto247::picker_labels() else {
+    pub(crate) fn open_batch_picker(&mut self) {
+        let Some((title, labels, at)) = crate::proto247::picker_labels() else {
             return;
         };
         let items = labels
@@ -146,6 +146,7 @@ impl App {
         self.show_picker(PickerKind::Batch, items);
         if let Some(p) = &mut self.picker {
             p.selected = at;
+            p.title = title;
         }
     }
 
@@ -195,7 +196,9 @@ impl App {
                 };
             }
             Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Batch) => {
-                crate::proto247::pick(item.line);
+                if let Some(m) = crate::proto247::pick(item.line) {
+                    self.message = m;
+                }
             }
             Pick::Accept(item) => self.jump_to_item(&item),
         }

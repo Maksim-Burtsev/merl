@@ -11,8 +11,8 @@ mod markdown;
 mod mermaid;
 mod picker;
 mod picture;
-mod real;
 mod proto247;
+mod real;
 mod reviews;
 mod search;
 mod stats;
@@ -300,6 +300,10 @@ fn run() -> Result<()> {
         None => (theme::load_configured(&config.theme)?, config.theme.clone()),
     };
     let (mut app, mut project) = build(&cli, &config, name.clone())?;
+    app.message = proto247::arrival().unwrap_or_default();
+    if proto247::starts_on_list() {
+        app.open_batch_picker();
+    }
 
     let (mut terminal, keyboard) = enter_terminal()?;
     mermaid::keep_panics_inside();
@@ -307,7 +311,14 @@ fn run() -> Result<()> {
     spawn_key_reader(&keyboard, tx.clone());
     quit_on_signals(tx.clone());
     let result = loop {
-        let result = event_loop(&mut terminal, &mut app, theme.clone(), &rx, tx.clone(), project);
+        let result = event_loop(
+            &mut terminal,
+            &mut app,
+            theme.clone(),
+            &rx,
+            tx.clone(),
+            project,
+        );
         drop(app.diagrams.clear(&mut stdout()));
         record_presses_and_reviews(&mut app);
         let Some(args) = result.is_ok().then(proto247::next_args).flatten() else {
@@ -316,7 +327,10 @@ fn run() -> Result<()> {
         while rx.try_recv().is_ok() {}
         cli = Cli::parse_from(args);
         match build(&cli, &config, name.clone()) {
-            Ok((a, p)) => (app, project) = (a, p),
+            Ok((a, p)) => {
+                (app, project) = (a, p);
+                app.message = proto247::arrival().unwrap_or_default();
+            }
             Err(e) => break Err(e),
         }
     };
@@ -325,6 +339,9 @@ fn run() -> Result<()> {
         remove_sample_project_and_print_drill(t);
     }
     if let Some(line) = app.notes_farewell() {
+        println!("{line}");
+    }
+    if let Some(line) = proto247::farewell().filter(|_| result.is_ok()) {
         println!("{line}");
     }
     result

@@ -449,6 +449,9 @@ fn tagged_line<'a>(
 }
 
 fn picker_title(picker: &Picker, pending: bool) -> String {
+    if picker.title.starts_with("Batch:") {
+        return picker.title.clone();
+    }
     let (matched, total) = picker.counts();
     if picker.live && pending {
         format!("{} (…)", picker.title)
