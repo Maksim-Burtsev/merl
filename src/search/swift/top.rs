@@ -1,7 +1,15 @@
 use regex::Regex;
 
-use super::super::{Binding, Kind, Value, indent};
+use super::super::{Binding, Kind, Value, indent, literal_lines, uncommented};
 use super::{Binds, swift_code, swift_generics, swift_statement_binds, swift_text};
+
+static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"{}extension\s+`?(\w+)`?\s*(?:[:{{]|where\b|$)",
+        super::super::swift_mods!()
+    ))
+    .expect("the regex is a literal")
+});
 
 pub fn swift_bindings_or_top(
     text: &str,
@@ -70,13 +78,6 @@ pub(super) fn swift_extended_generic(
     head: &str,
     name: &str,
 ) -> Option<usize> {
-    static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(
-            r"{}extension\s+`?(\w+)`?\s*(?:[:{{]|where\b|$)",
-            super::super::swift_mods!()
-        ))
-        .expect("the regex is a literal")
-    });
     let ty = regex::escape(EXTENSION.captures(head)?.get(1)?.as_str());
     let decl = Regex::new(&format!(
         r"{}(?:class|struct|enum|actor)\s+`?{ty}`?\s*<",
@@ -89,4 +90,27 @@ pub(super) fn swift_extended_generic(
         .find(|(_, t)| decl.is_match(t))
         .filter(|(_, t)| swift_generics(t).iter().any(|g| g == name))
         .map(|(i, _)| i)
+}
+
+pub fn swift_extended_elsewhere(text: &str, line1: usize) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let at = super::swift_enclosing_type(&lines, &literal, line1)?;
+    let head = swift_text(&lines, at - 1);
+    (indent(lines[at - 1]) == 0)
+        .then(|| EXTENSION.captures(&head))
+        .flatten()
+        .map(|c| c[1].to_owned())
+}
+
+pub fn swift_decl_generics(text: &str, line1: usize) -> Vec<String> {
+    let mut header = String::new();
+    for line in text.lines().skip(line1.saturating_sub(1)).take(8) {
+        header.push_str(&uncommented(Kind::Swift, line));
+        header.push(' ');
+        if line.contains('{') {
+            break;
+        }
+    }
+    swift_generics(&header)
 }

@@ -370,6 +370,9 @@ impl App {
         }
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
+            if near.locals.is_empty() {
+                self.swift_extended_param(&a.here, &a.text, word, &mut hits);
+            }
         }
         if p.ruby_local && !dotted && chain.is_empty() {
             hits.extend(
