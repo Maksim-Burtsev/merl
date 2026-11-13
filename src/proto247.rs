@@ -409,3 +409,11 @@ pub fn farewell() -> Option<String> {
         None => format!("all {n} branches of the batch are read"),
     })
 }
+
+pub fn counters(app: &crate::app::App, fixed: &str, columns: u16) -> Option<String> {
+    let width = crate::wrap::width;
+    let review = app.review_status()?;
+    let taken = width(fixed) + width(&review) + width(&app.message) + 16;
+    let message_wins = on() && !app.message.is_empty() && taken > usize::from(columns);
+    (!message_wins).then_some(review)
+}

@@ -1,0 +1,7 @@
+wait services $
+type # web ACME-91 was merged and deleted on origin overnight
+key Enter
+type cd web && merl -r ACME-91
+key Enter
+wait not fetched
+sleep 3
