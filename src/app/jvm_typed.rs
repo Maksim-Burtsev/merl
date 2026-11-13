@@ -855,9 +855,9 @@ impl App {
                     None if ext == Some("java") => self
                         .java_static_initialized(file, text, l, name)
                         .or_else(|| self.java_lambda_element(file, text, l, name))?,
-                    None if ext == Some("scala") => {
-                        self.scala_tuple_returned(file, text, l, at, name)?
-                    }
+                    None if ext == Some("scala") => self
+                        .scala_tuple_returned(file, text, l, at, name)
+                        .or_else(|| self.scala_extracted(file, text, l, at, name))?,
                     None => return None,
                 },
                 (None, None) => return None,
@@ -988,6 +988,27 @@ impl App {
         let t = self.text_of(&m.path)?;
         Some(WrittenType {
             resolved: self.jvm_type_at(&m.path, &t, &written),
+            written,
+        })
+    }
+
+    fn scala_extracted(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        line: &str,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let (class, at, count) = search::scala_extracted(line, name)?;
+        let JvmType::Project(decl) = self.jvm_type_on(file, text, &class, Some(line1)) else {
+            return None;
+        };
+        let t = self.text_of(&decl.path)?;
+        (!t.contains("def unapply")).then_some(())?;
+        let written = search::scala_case_field(&decl.text, &class, at, count)?;
+        Some(WrittenType {
+            resolved: self.jvm_type_at(&decl.path, &t, &written),
             written,
         })
     }
