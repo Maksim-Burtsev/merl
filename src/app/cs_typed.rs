@@ -681,9 +681,13 @@ impl App {
                     self.cs_validated(file, text, at)?
                 }
                 (None, search::CsValue::Unknown) if hops > 0 => {
-                    let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
-                    let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
-                    self.cs_element(&p, true)?
+                    match search::cs_lambda_call(&lines, at - 1, name) {
+                        Some(receiver) => {
+                            let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
+                            self.cs_element(&p, true)?
+                        }
+                        None => self.cs_callee_lambda(file, text, at, name)?,
+                    }
                 }
                 _ => return None,
             };
@@ -698,6 +702,32 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
+    }
+
+    fn cs_callee_lambda(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<CsWrittenType> {
+        let callee = search::cs_callee_lambda(text.lines().nth(line1 - 1)?, name)?;
+        if !search::bindings(Kind::CSharp, text, line1, &callee).is_empty() {
+            return None;
+        }
+        let Up::Found(hits) = self.cs_up(&owner_of(file, text, line1)?, &callee, 0) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        let written = search::cs_callee_delegate(&hit.text, &callee)?;
+        let at = self.text_of(&hit.path)?;
+        Some(CsWrittenType {
+            ty: self.cs_resolve(&hit.path, &at, hit.line1, &written)?,
+            written,
+            from: (hit.path.clone(), hit.line1),
+        })
     }
 
     fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
