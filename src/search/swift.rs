@@ -1183,10 +1183,12 @@ pub fn swift_opens_more(line: &str) -> bool {
 }
 pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|((?:sorted|sort|min|max)(?:\(\s*by:)?))\s*\{[^{}]*\$([01])\.[\w.]*$")
             .expect("the regex is a literal")
     });
-    Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+    let code = uncommented(Kind::Swift, lead);
+    let c = EACH.captures(&code)?;
+    (&c[3] == "0" || c.get(2).is_some()).then(|| c[1].to_owned())
 }
 pub fn swift_trailing_closure(line: &str, name: &str) -> Option<(String, String)> {
     let call = r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.([A-Za-z_]\w*)\s*\{";
