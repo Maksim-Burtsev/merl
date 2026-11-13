@@ -331,15 +331,12 @@ impl App {
             return self.swift_payload_value(here, file, text, line1, &payload, hops);
         }
         let top = around.is_none().then_some(literal.as_slice());
+        let each = |l: &str, at: usize| {
+            search::swift_sequence_closure(l, name)
+                .and_then(|each| self.swift_sequence_value(here, file, text, at, each, hops))
+        };
         match search::swift_bindings_or_top(text, &lines, top, line1, name).as_slice() {
-            _ if let Some(found) = lead
-                .and_then(|l| search::swift_sequence_closure(l, name))
-                .and_then(|each| {
-                    self.swift_sequence_value(here, file, text, line1, each, hops)
-                }) =>
-            {
-                Some(found)
-            }
+            _ if let Some(found) = lead.and_then(|l| each(l, line1)) => Some(found),
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
@@ -362,12 +359,8 @@ impl App {
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
                     }
-                    None if let Some(found) = (b.line1 < line1)
-                        .then(|| search::swift_sequence_closure(line, name))
-                        .flatten()
-                        .and_then(|each| {
-                            self.swift_sequence_value(here, file, text, b.line1, each, hops)
-                        }) =>
+                    None if let Some(found) =
+                        (b.line1 < line1).then(|| each(line, b.line1)).flatten() =>
                     {
                         Some(found)
                     }
