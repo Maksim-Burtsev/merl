@@ -22,7 +22,7 @@ pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
 pub fn swift_bare_closure(line: &str, name: &str) -> Option<(String, usize, usize)> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"(?:^|[^\w.)\]?!])(?:self\.)?([a-z_]\w*)\s*\{\s*(?:\[[^\]]*\]\s*)?([\w\s,`]+?)\s+in\b",
+            r"(?:^|[^\w.)\]?!])(?:self\.)?([a-z_]\w*)\s*\{\s*(?:\[[^\]]*\]\s*)?\(?([\w\s,`]+?)\)?\s+in\b",
         )
         .expect("the regex is a literal")
     });
@@ -458,4 +458,35 @@ pub fn swift_switch_subject(line: &str) -> Option<String> {
     });
     let t = uncommented(Kind::Swift, line);
     Some(HEADER.captures(t.trim())?[1].to_owned())
+}
+
+pub fn swift_sequence_closure(head: &str, name: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:(map|compactMap|flatMap|filter|forEach|allSatisfy",
+            r"|contains|first|last|drop|prefix|firstIndex|lastIndex)(?:\(\s*(?:where|while):\s*)?",
+            r"|(sorted|min|max)(?:\(\s*by:\s*)?)\s*\{\s*(?:\[[^\]]*\]\s*)?",
+            r"(\(\s*[\w\s,`]*\)|[\w\s,`]+?)\s+in\b([^{}]*)$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::Swift, head);
+    let c = HEAD.captures(&code)?;
+    let receiver = c[1].to_owned();
+    let params: Vec<&str> = c[4]
+        .trim_start_matches('(')
+        .trim_end_matches(')')
+        .split(',')
+        .map(|p| p.trim().trim_matches('`'))
+        .collect();
+    let arity = if c.get(3).is_some() { 2 } else { 1 };
+    let used = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
+    let body = Regex::new(&format!(r"\b{}\.[\w.]*$", regex::escape(name)))
+        .ok()?
+        .replace(&c[5], "");
+    (params.len() == arity
+        && params.contains(&name)
+        && !used.is_match(&body)
+        && receiver.split('.').next() != Some(name))
+    .then_some(receiver)
 }

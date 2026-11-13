@@ -7,7 +7,9 @@ use super::{
     split_top, swift_mods, uncommented,
 };
 mod top;
-pub use top::{swift_bindings_or_top, swift_member_scope_top};
+pub use top::{
+    swift_bindings_or_top, swift_decl_generics, swift_extended_elsewhere, swift_member_scope_top,
+};
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
@@ -731,6 +733,15 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     if generic(&code(at)) {
         return found(at + 1);
     }
+    let type_header = |i: usize, head: &str, text: &str, unproven: bool| {
+        if generic(text) {
+            return found(i + 1);
+        }
+        match top::swift_extended_generic(lines, &literal, head, name) {
+            Some(at) => found(at + 1),
+            None => (!unproven).then(Vec::new),
+        }
+    };
     let mut depth = indent(lines[at]);
     let mut bound_in_block_unless_type_body = None;
     let mut only_type_header_left = false;
@@ -761,11 +772,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
         if only_type_header_left {
-            return if generic(&text) {
-                found(i + 1)
-            } else {
-                (!unproven).then(Vec::new)
-            };
+            return type_header(i, &head, &text, unproven);
         }
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = bound_in_block_unless_type_body {
@@ -787,11 +794,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             continue;
         }
         if SWIFT_TYPE.is_match(&head) {
-            return if generic(&text) {
-                found(i + 1)
-            } else {
-                (!unproven).then(Vec::new)
-            };
+            return type_header(i, &head, &text, unproven);
         }
         if let Some(line) = bound_in_block_unless_type_body {
             return found(line);

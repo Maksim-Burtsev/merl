@@ -56,6 +56,7 @@ impl App {
         let Proven { mut ty, link, .. } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
             .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
+            .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
@@ -359,7 +360,7 @@ impl App {
         }
     }
 
-    fn cs_extensions(&self, here: &Path, name: &str) -> Vec<(Hit, String)> {
+    pub(super) fn cs_extensions(&self, here: &Path, name: &str) -> Vec<(Hit, String)> {
         let n = regex::escape(name);
         let pattern = format!(r"\bstatic\b.*\b{n}\s*(?:<[^>]*>)?\s*\(\s*(?:this\s|$)");
         self.project_grep(Kind::CSharp, here, &pattern)
@@ -680,9 +681,13 @@ impl App {
                     self.cs_validated(file, text, at)?
                 }
                 (None, search::CsValue::Unknown) if hops > 0 => {
-                    let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
-                    let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
-                    self.cs_element(&p, true)?
+                    match search::cs_lambda_call(&lines, at - 1, name) {
+                        Some(receiver) => {
+                            let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
+                            self.cs_element(&p, true)?
+                        }
+                        None => self.cs_callee_lambda(file, text, at, name)?,
+                    }
                 }
                 _ => return None,
             };
@@ -697,20 +702,6 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
-    }
-
-    fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
-        let owner = owner_of(file, text, line1)?;
-        let [base] = search::cs_bases(text, owner.line).try_into().ok()?;
-        let written = search::cs_validated(&base)?;
-        let CsType::Outside(_) = self.cs_resolve(file, text, owner.line, &base)? else {
-            return None;
-        };
-        Some(CsWrittenType {
-            ty: self.cs_resolve(file, text, owner.line, &written)?,
-            written,
-            from: (file.to_path_buf(), owner.line),
-        })
     }
 
     fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
