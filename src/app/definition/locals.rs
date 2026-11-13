@@ -288,6 +288,10 @@ impl App {
                 || (after.starts_with('!') && !after.starts_with("!=")));
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
+        let rust_type = kind == Kind::Rust
+            && chain.is_empty()
+            && first.starts_with(|c: char| c.is_ascii_uppercase())
+            && !after.starts_with('.');
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
         let required = match kind {
             Kind::TsJs => search::ts_import_lines1(&a.text, first),
@@ -316,6 +320,7 @@ impl App {
                         && (closure(n) || !self.declares_itself(kind, n, first) || bare)
                         && !import_line(kind, l)
                         && !rust_path
+                        && !rust_type
                         && (!rust_field || n == self.line + 1)
                 })
                 .map(|n| match kind {

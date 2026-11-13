@@ -808,12 +808,24 @@ fn plain_variable(line: &str, name: &str) -> bool {
         .and_then(|c| c.get(1).or_else(|| c.get(2)))
         .is_some_and(|m| m.as_str() != name)
 }
+fn named_fields_struct(lines: &[&str], name: &str) -> bool {
+    let Ok(re) = Regex::new(&format!(
+        r"^\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+{}\b[^;(]*$",
+        regex::escape(name)
+    )) else {
+        return false;
+    };
+    lines
+        .iter()
+        .any(|l| re.is_match(&uncommented(Kind::Rust, l)))
+}
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     if name.starts_with(|c: char| c.is_ascii_uppercase()) && name != "Self" {
         let found = scoped_bindings(lines, at, name);
-        return if found
-            .iter()
-            .all(|b| plain_variable(lines[b.line1 - 1], name))
+        return if named_fields_struct(lines, name)
+            && found
+                .iter()
+                .all(|b| plain_variable(lines[b.line1 - 1], name))
         {
             found
         } else {
