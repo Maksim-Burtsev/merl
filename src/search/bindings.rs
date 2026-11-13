@@ -570,6 +570,16 @@ fn go_local_type_line(lines: &[&str], i: usize, t: &str, name: &str) -> Option<u
                 )
         })
 }
+pub fn go_local_type(path: &Path, text: &str, line1: usize, name: &str) -> Option<usize> {
+    let b = path_bindings(Kind::Go, path, text, line1, name)
+        .into_iter()
+        .next()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let line = lines.get(b.line1.checked_sub(1)?)?;
+    let declared =
+        go_declares_type(line.trim_start(), name) || go_type_group_member(&lines, b.line1 - 1);
+    (line.starts_with(char::is_whitespace) && declared).then_some(b.line1)
+}
 pub fn go_type_group_member<S: AsRef<str>>(lines: &[S], i: usize) -> bool {
     let ind = indent(lines[i].as_ref());
     lines[..i]
@@ -710,6 +720,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
         let header;
         (i, header) = header_of(kind, lines, i, t);
+        let header = ts_call_opened_above(kind, lines, i, name, header);
         depth = ind.min(indent(lines[i]));
         go_block_statement_at = None;
         if !this {
@@ -734,6 +745,22 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn ts_call_opened_above(
+    kind: Kind,
+    lines: &[&str],
+    i: usize,
+    name: &str,
+    header: String,
+) -> String {
+    let arrow_first = header.starts_with('(') || header.starts_with(name);
+    match (kind == Kind::TsJs && i > 0 && arrow_first)
+        .then(|| uncommented(kind, lines[i - 1]).trim().to_owned())
+        .filter(|c| c.ends_with('('))
+    {
+        Some(call) => format!("{call}\n{header}"),
+        None => header,
+    }
 }
 fn type_switch_binding(types: &[String], line1: usize) -> Binding {
     let value = match types {

@@ -67,3 +67,26 @@ class KwNeighbours
     #    ^ d: app/kwcafe/uses.rb:65
   end
 end
+
+class KwContinued < KwNeighbours
+  def continued
+    mugful = 3
+    kwpair 1,
+      mugful: 2
+    # ^ d: app/kwcafe/uses.rb:24
+    kwpair 1, pot: 2,
+              mugful: mugful
+    #         ^ d: app/kwcafe/uses.rb:24
+    #                 ^ d: app/kwcafe/uses.rb:73
+    x = kwpair 1,
+               mugful: 2
+    #          ^ d: app/kwcafe/uses.rb:24
+    kwpair "a b", mugful: 2
+    #             ^ d: app/kwcafe/uses.rb:24
+    kwpair 'a', mugful: 2
+    #           ^ d: app/kwcafe/uses.rb:24
+    kwpair "#{mugful}", mugful: 2
+    #                   ^ d: app/kwcafe/uses.rb:24
+    x
+  end
+end

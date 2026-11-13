@@ -73,7 +73,7 @@ public class Shelf
     {
         if (o is not Ewer x) return;
         x.Decant();
-        //^ d: picker src/Shop/Rebound/Ewer.cs:5, …
+        //^ d: src/Shop/Rebound/Ewer.cs:5
     }
 
     void NegatedBlock(object o)

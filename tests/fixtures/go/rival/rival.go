@@ -244,7 +244,7 @@ func Stewed(hot bool) int {
 func Tabled() int {
 	type Kettle struct{ heat int }
 	cases := []struct{ Kettle Kettle }{}
-	//                 ^ d: rival/rival.go:20; want none (#1470)
+	//                 ^ d: none
 	//                        ^ d: rival/rival.go:245
 	return len(cases)
 }

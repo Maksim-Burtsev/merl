@@ -27,7 +27,13 @@ void pour() {
 void stock() {
   final b = Carafe.builder();
   b.size(2);
-  //^ d: picker lib/carafe/carafe.dart:8, lib/carafe/carafe.dart:16, lib/kwcafe/pot.dart:9, lib/saucer.dart:79; want lib/carafe/carafe.dart:8 (#1469)
+  //^ d: lib/carafe/carafe.dart:8
+  final c = Carafe.builder().size(2);
+  c.finish();
+  //^ d: lib/carafe/carafe.dart:10
+  final m = Mystery.builder();
+  m.size(2);
+  //^ d: !jump
   Missing.parse('1').weigh(500);
   //                 ^ d: !jump
 }
