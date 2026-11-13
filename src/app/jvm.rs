@@ -102,7 +102,7 @@ impl App {
                 text: lines[d - 1].to_owned(),
             })
             .find(|decl| {
-                self.jvm_hierarchy_member(decl, name, 0, &mut Vec::new())
+                self.jvm_hierarchy_member(decl, name, 0, &mut Vec::new(), false)
                     .iter()
                     .any(|h| {
                         search::jvm_type_name(&h.text).is_none()
@@ -448,7 +448,7 @@ impl App {
         {
             let reason = Reason::Receiver(format!("this: {}", ext.receiver));
             found = self
-                .jvm_hierarchy_member(&decl, word, 0, &mut Vec::new())
+                .jvm_hierarchy_member(&decl, word, 0, &mut Vec::new(), false)
                 .into_iter()
                 .map(|hit| Candidate {
                     hit,
@@ -500,7 +500,7 @@ impl App {
     }
 
     fn jvm_hierarchy_found(&self, ty: &Hit, name: &str, word: &str) -> Vec<Candidate> {
-        self.jvm_hierarchy_member(ty, word, 0, &mut Vec::new())
+        self.jvm_hierarchy_member(ty, word, 0, &mut Vec::new(), false)
             .into_iter()
             .map(|hit| Candidate {
                 hit,
