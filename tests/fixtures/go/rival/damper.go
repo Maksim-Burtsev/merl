@@ -113,3 +113,14 @@ func Fields() int {
 	//              ^ d: rival/damper.go:9
 	return len(rows) + len(pairs) + held.Soot
 }
+
+func Wrapped() int {
+	rows := []struct {
+		Draft int
+	//^ d: none
+		Flue  Flue
+	//^ d: rival/damper.go:9; want none (#1470)
+	//      ^ d: rival/damper.go:9
+	}{}
+	return len(rows)
+}

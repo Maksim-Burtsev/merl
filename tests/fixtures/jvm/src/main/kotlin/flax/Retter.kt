@@ -92,3 +92,18 @@ class Bolter(val sley: String) {
     //                                                       ^ d: src/main/kotlin/flax/Retter.kt:81
     //                                                              ^ d: src/main/kotlin/flax/Retter.kt:91
 }
+
+class Clamp {
+    fun scutch(k: Int): Int = 8
+
+    fun one(n: Int): Int { fun scutch(k: Int): Int = if (k == 0) 1 else scutch(k - 1); return scutch(n) }
+    //                                                                   ^ d: src/main/kotlin/flax/Retter.kt:99
+    //                                                                                         ^ d: src/main/kotlin/flax/Retter.kt:99
+
+    fun tail(n: Int): Int {
+        tailrec fun scutch(k: Int): Int = if (k == 0) 1 else scutch(k - 1)
+        //                                                   ^ d: src/main/kotlin/flax/Retter.kt:104
+        return scutch(n)
+//             ^ d: src/main/kotlin/flax/Retter.kt:104
+    }
+}
