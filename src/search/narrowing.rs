@@ -22,7 +22,13 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
     let re = |p: &str| {
         Regex::new(&p.replace("{n}", &n)).expect("an escaped name keeps the pattern valid")
     };
-    let unpacked = r"^\s*[\[({]?(?:[^=;()]*[,\[{(]\s*)?\*?{n}\s*[,\]})][^=;]*=(?:[^=>]|$)";
+    let open = r"[\[({,]\s*";
+    let close = r"[\]})]\s*";
+    let item = format!(r"(?:\.\.\.|\*)?[\w$.]+\s*(?:{close})*");
+    let sep = format!(r"[,:]\s*(?:{open})*");
+    let unpacked = format!(
+        r"^\s*(?:(?:const|let|var)\s+)?(?:{open})*(?:{item}{sep})*(?:\.\.\.|\*)?{{n}}\s*(?:{close})*(?:{sep}{item})*(?:,\s*)?=(?:[^=>]|$)"
+    );
     let called = name.split_once('.').map_or(String::new(), |(head, _)| {
         format!(r"|(?:^|[^\w$.]){}\.\w+\s*\(", regex::escape(head))
     });
