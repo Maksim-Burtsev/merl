@@ -1090,6 +1090,12 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
             .position(|p| p.trim().trim_matches('`') == name)?;
         return Some(SwiftGiven::Item(c[2].to_owned(), at));
     }
+    let arm = rule(format!(
+        r"^case\s+(?:let|var)\s+`?{n}`?\s+as\s+([A-Z][\w.]*\??)\s*(?:where\s.*)?:$"
+    ));
+    if let Some(c) = arm.captures(t) {
+        return Some(SwiftGiven::Type(c[1].to_owned()));
+    }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at.captures_iter(t).find(|c| {
         t.get(c.get_match().end()..)
