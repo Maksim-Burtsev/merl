@@ -85,7 +85,7 @@ fn scala_renames(line: &str) -> Vec<(String, Vec<String>)> {
             .expect("the regex is a literal")
     });
     static RENAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(\w+)\s*(?:=>|\bas\b)\s*([A-Za-z]\w*)\s*$")
+        Regex::new(r"^\s*(\w+)\s*(?:(?:=>|\bas\b)\s*([A-Za-z]\w*)\s*)?$")
             .expect("the regex is a literal")
     });
     let Some(c) = SELECTORS.captures(line) else {
@@ -97,7 +97,8 @@ fn scala_renames(line: &str) -> Vec<(String, Vec<String>)> {
         .map(|r| {
             let mut path = base.clone();
             path.push(r[1].to_owned());
-            (r[2].to_owned(), path)
+            let bound = r.get(2).map_or(&r[1], |m| m.as_str());
+            (bound.to_owned(), path)
         })
         .collect()
 }
