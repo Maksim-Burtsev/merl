@@ -17,7 +17,7 @@ class TubOneLine {
     var s: Bool { c.dunk() }
     //              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
     func t() { tubs.forEach { c in _ = c.dunk() } }
-    //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                   ^ d: Sources/Shop/Tubs/Tub.swift:2
     func u() { for c in tubs { _ = c.dunk() } }
     //                               ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
     func v() { guard let c = Optional(Hogshead()) else { return }; _ = c.dunk() }

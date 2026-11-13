@@ -37,7 +37,7 @@ public class Use
     //                                           ^ d: src/Shop/Tubs/Tub.cs:6
     void Each(Action<Tub> f) { }
     void I() => Each(x => x.Dunk());
-    //                      ^ d: picker src/Shop/Tubs/Hogshead.cs:5, src/Shop/Tubs/Tub.cs:5, src/Shop/Tubs/Tun.cs:5; want src/Shop/Tubs/Tub.cs:5 (#1488)
+    //                      ^ d: src/Shop/Tubs/Tub.cs:5
     void J() { Action<Tub> f = x => x.Dunk(); }
     //                                ^ d: src/Shop/Tubs/Tub.cs:5
     void K() => c.Dunk();
