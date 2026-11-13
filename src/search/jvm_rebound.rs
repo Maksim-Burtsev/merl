@@ -177,7 +177,7 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
     let ret = super::jvm_return_type!();
     let typ = r"(?:int|long|short|byte|char|boolean|float|double|(?:\w+\.)*[A-Z]\w*)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*";
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:val|var)\s+[A-Z]\w*\s*\([^()]*\b{n}\b[^()]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
     ))
     .is_ok_and(|re| re.is_match(t))
         || later_declarator(&blanked(t), name).is_some()
