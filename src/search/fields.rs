@@ -392,6 +392,30 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     enclosing_at(kind, lines, &levels(kind, lines), k)
 }
+pub fn ts_namespaced(text: &str, line1: usize, written: &str) -> Option<String> {
+    static NAMESPACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?namespace\s+([A-Za-z_$][\w$]*)\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let bare = !written.is_empty()
+        && written
+            .chars()
+            .all(|c| c.is_alphanumeric() || "_$".contains(c));
+    if !bare || super::ts_type_param(text, line1, written).is_some() {
+        return None;
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let owner = enclosing_type(Kind::TsJs, &lines, line1.checked_sub(1)?)?;
+    let depth = indent(lines[owner - 1]);
+    let above = lines[..owner - 1]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)?;
+    Some(format!(
+        "{}.{written}",
+        NAMESPACE.captures(above)?.get(1)?.as_str()
+    ))
+}
 fn levels(kind: Kind, lines: &[&str]) -> Vec<Option<usize>> {
     (lines.iter())
         .map(|l| {

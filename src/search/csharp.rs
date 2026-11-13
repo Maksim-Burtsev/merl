@@ -687,8 +687,23 @@ pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
     if c[3].contains("=>") {
         return None;
     }
-    let args = cs_split(&c[2]);
-    let wanted = if &c[1] == "Func" { 2 } else { 1 };
+    cs_delegate_input(&c[1], &c[2])
+}
+
+pub fn cs_callee_delegate(decl: &str, callee: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w.@])@?{}\s*\(\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*\)",
+        regex::escape(callee)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, decl);
+    let c = re.captures(&code)?;
+    cs_delegate_input(&c[1], &c[2])
+}
+
+fn cs_delegate_input(delegate: &str, args: &str) -> Option<String> {
+    let args = cs_split(args);
+    let wanted = if delegate == "Func" { 2 } else { 1 };
     let first = args.first()?.trim();
     (args.len() == wanted && cs_type_name(first).is_some()).then(|| first.to_owned())
 }

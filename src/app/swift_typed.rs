@@ -322,12 +322,7 @@ impl App {
                 let call = search::swift_trailing_closure(lead, name)?;
                 return self.swift_closure_value(here, file, text, line1, call, hops);
             };
-            let seq = self.swift_expr(here, file, text, line1, &each, hops)?;
-            if seq.written.trim_end().ends_with(['?', '!']) {
-                return None;
-            }
-            let given = search::SwiftGiven::Element(each);
-            return self.swift_given_type(here, file, text, line1, given, hops);
+            return self.swift_sequence_value(here, file, text, line1, each, hops);
         }
         if lead.is_some_and(|l| search::swift_projected(l, name)) {
             return None;
@@ -336,7 +331,12 @@ impl App {
             return self.swift_payload_value(here, file, text, line1, &payload, hops);
         }
         let top = around.is_none().then_some(literal.as_slice());
+        let each = |l: &str, at: usize| {
+            search::swift_sequence_closure(l, name)
+                .and_then(|each| self.swift_sequence_value(here, file, text, at, each, hops))
+        };
         match search::swift_bindings_or_top(text, &lines, top, line1, name).as_slice() {
+            _ if let Some(found) = lead.and_then(|l| each(l, line1)) => Some(found),
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
@@ -358,6 +358,11 @@ impl App {
                     }
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
+                    }
+                    None if let Some(found) =
+                        (b.line1 < line1).then(|| each(line, b.line1)).flatten() =>
+                    {
+                        Some(found)
                     }
                     None => match search::swift_trailing_closure(line, name) {
                         Some(call) => {
@@ -396,6 +401,23 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn swift_sequence_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        each: String,
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let seq = self.swift_expr(here, file, text, line1, &each, hops)?;
+        if seq.written.trim_end().ends_with(['?', '!']) {
+            return None;
+        }
+        let given = search::SwiftGiven::Element(each);
+        self.swift_given_type(here, file, text, line1, given, hops)
     }
 
     fn swift_own_value(&self, here: &Path, header: &str, name: &str) -> Option<WrittenVia> {
@@ -440,75 +462,6 @@ impl App {
             return None;
         }
         self.swift_given_type(here, file, text, line1, search::SwiftGiven::Type(arg), hops)
-    }
-
-    fn swift_bare_closure_value(
-        &self,
-        here: &Path,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        name: &str,
-        hops: usize,
-    ) -> Option<WrittenVia> {
-        let lines: Vec<&str> = text.lines().collect();
-        let (method, at, count) = search::swift_bare_closure(lines.get(line1 - 1)?, name)?;
-        if !search::bindings(Kind::Swift, text, line1, &method).is_empty() {
-            return None;
-        }
-        let literal = search::literal_lines(Kind::Swift, text);
-        let around = search::swift_enclosing_type(&lines, &literal, line1)?;
-        let ty = self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
-        ty.keyword.as_ref()?;
-        let mut inputs = None;
-        let mut generics = self.swift_scope_generics(here, text, line1);
-        for row in self.swift_member_rows(here, &ty, &method)? {
-            if !row.text.contains("func ") {
-                return None;
-            }
-            let params = search::swift_params(&row.text)?;
-            let (last, before) = params.split_last()?;
-            if before.iter().any(|p| {
-                p.contains("->")
-                    || search::swift_type_name(p)
-                        .is_some_and(|n| self.swift_project_alias(here, &n))
-            }) {
-                return None;
-            }
-            generics.extend(search::swift_generics(&row.text));
-            if last.is_empty() || last.contains("@autoclosure") {
-                continue;
-            }
-            let bare = last
-                .split_whitespace()
-                .filter(|w| !w.starts_with('@'))
-                .collect::<Vec<_>>()
-                .join(" ");
-            if search::swift_constrained_generic(&row.text, &bare) {
-                continue;
-            }
-            let takes = if let Some(takes) = search::swift_function_inputs(last) {
-                takes
-            } else {
-                let [alias] =
-                    <[Hit; 1]>::try_from(self.swift_member_rows(here, &ty, &bare)?).ok()?;
-                search::swift_function_inputs(&search::swift_alias(&alias.text, &bare)?)?
-            };
-            if inputs.as_ref().is_some_and(|i| *i != takes) {
-                return None;
-            }
-            inputs = Some(takes);
-        }
-        let inputs = inputs.filter(|i| i.len() == count)?;
-        let input = inputs.get(at)?;
-        let named = search::swift_type_name(input).or_else(|| search::swift_element(input))?;
-        if generics.contains(&named)
-            || ["Element", "Index", "Indices", "Iterator", "SubSequence"].contains(&named.as_str())
-        {
-            return None;
-        }
-        let given = search::SwiftGiven::Type(input.clone());
-        self.swift_given_type(here, file, text, line1, given, hops)
     }
 
     fn swift_project_alias(&self, here: &Path, name: &str) -> bool {

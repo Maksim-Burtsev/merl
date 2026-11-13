@@ -422,6 +422,32 @@ pub fn jvm_members_of(
     )
 }
 
+pub fn jvm_enclosing_members(
+    path: &std::path::Path,
+    text: &str,
+    line1: usize,
+    name: &str,
+) -> Option<Vec<usize>> {
+    let upper = name.starts_with(|c: char| c.is_ascii_uppercase());
+    let lines: Vec<&str> = text.lines().collect();
+    let types = jvm_enclosing_types(text, line1);
+    types
+        .iter()
+        .take(if upper { 1 } else { types.len() })
+        .map(|&d| {
+            let mut m = jvm_members_of(path, text, d, name);
+            m.retain(|&l| {
+                !upper
+                    || lines
+                        .get(l - 1)
+                        .and_then(|l| jvm_type_name(l))
+                        .is_none_or(|t| t != name)
+            });
+            m
+        })
+        .find(|m| !m.is_empty())
+}
+
 fn lexed_members_of(text: &str, literal: &[bool], decl_line1: usize, name: &str) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {

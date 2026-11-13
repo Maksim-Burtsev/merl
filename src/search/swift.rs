@@ -7,7 +7,9 @@ use super::{
     split_top, swift_mods, uncommented,
 };
 mod top;
-pub use top::{swift_bindings_or_top, swift_member_scope_top};
+pub use top::{
+    swift_bindings_or_top, swift_decl_generics, swift_extended_elsewhere, swift_member_scope_top,
+};
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(

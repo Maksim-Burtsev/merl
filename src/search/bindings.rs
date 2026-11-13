@@ -720,6 +720,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
         let header;
         (i, header) = header_of(kind, lines, i, t);
+        let header = ts_call_opened_above(kind, lines, i, name, header);
         depth = ind.min(indent(lines[i]));
         go_block_statement_at = None;
         if !this {
@@ -744,6 +745,22 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn ts_call_opened_above(
+    kind: Kind,
+    lines: &[&str],
+    i: usize,
+    name: &str,
+    header: String,
+) -> String {
+    let arrow_first = header.starts_with('(') || header.starts_with(name);
+    match (kind == Kind::TsJs && i > 0 && arrow_first)
+        .then(|| uncommented(kind, lines[i - 1]).trim().to_owned())
+        .filter(|c| c.ends_with('('))
+    {
+        Some(call) => format!("{call}\n{header}"),
+        None => header,
+    }
 }
 fn type_switch_binding(types: &[String], line1: usize) -> Binding {
     let value = match types {
