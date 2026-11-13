@@ -58,7 +58,7 @@ pub(super) fn dart_binder_at(line: &str, col: usize, name: &str) -> Option<usize
 
 fn dart_binder(line: &str, col: usize, name: &str, reach: bool) -> Option<usize> {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w$])(if|for|catch)\s*$").expect("the regex is a literal")
+        Regex::new(r"(?:^|[^\w$])(if|for|catch|switch)\s*$").expect("the regex is a literal")
     });
     let b = dart_masked(line);
     let line = String::from_utf8_lossy(&b).into_owned();
