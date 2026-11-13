@@ -8,7 +8,7 @@ use crate::git::{self, TextLine};
 use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 use crate::line_edit::LineEdit;
 
-pub type SlotRow = (String, usize, Option<std::ops::Range<usize>>);
+pub type SlotRow = (String, usize, Option<std::ops::Range<usize>>, u8, char);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Note {
@@ -17,6 +17,56 @@ pub struct Note {
     pub last: usize,
     pub quote: Vec<String>,
     pub text: String,
+    pub by_agent: bool,
+    pub replies: Vec<(bool, String)>,
+}
+
+impl Note {
+    pub fn agent_last(&self) -> bool {
+        self.replies.last().map_or(self.by_agent, |r| r.0)
+    }
+
+    pub fn mine(&self) -> &str {
+        match self.replies.last() {
+            _ if self.agent_last() => "",
+            Some(r) => &r.1,
+            None => &self.text,
+        }
+    }
+
+    pub fn with_mine(&self, text: String) -> Option<Note> {
+        let mut n = self.clone();
+        if self.agent_last() {
+            if !text.is_empty() {
+                n.replies.push((false, text));
+            }
+            return Some(n);
+        }
+        if n.replies.is_empty() {
+            if text.is_empty() {
+                return None;
+            }
+            n.text = text;
+            return Some(n);
+        }
+        if text.is_empty() {
+            n.replies.pop();
+        } else if let Some(r) = n.replies.last_mut() {
+            r.1 = text;
+        }
+        Some(n)
+    }
+
+    pub fn agent_text(&self) -> String {
+        let mut s = String::new();
+        if self.by_agent {
+            s += &self.text;
+        }
+        for r in self.replies.iter().filter(|r| r.0) {
+            s += &r.1;
+        }
+        s
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -25,6 +75,7 @@ pub struct Here {
     pub at: TextLine,
     pub idx: usize,
     pub stale: bool,
+    pub top: Option<String>,
 }
 
 pub enum Slot {
@@ -63,6 +114,7 @@ pub struct Notes {
     seen: Option<SystemTime>,
     loaded: bool,
     last_seen: HashMap<String, TextLine>,
+    pub home: Option<PathBuf>,
 }
 
 pub fn store(dirs: &git::GitDirs) -> Option<(PathBuf, String)> {
@@ -75,6 +127,21 @@ pub fn store(dirs: &git::GitDirs) -> Option<(PathBuf, String)> {
         dirs.common_refs_dir.join("merl/notes").join(&branch),
         branch,
     ))
+}
+
+fn label_of(line: &str) -> Option<(bool, &str)> {
+    if let Some(t) = line.strip_prefix("agent:") {
+        return Some((true, t.strip_prefix(' ').unwrap_or(t)));
+    }
+    line.strip_prefix("user:")
+        .map(|t| (false, t.strip_prefix(' ').unwrap_or(t)))
+}
+
+fn unescape(line: &str) -> &str {
+    match line.strip_prefix(' ') {
+        Some(t) if is_quote(t) || label_of(t).is_some() => t,
+        _ => line,
+    }
 }
 
 pub fn parse(text: &str) -> Vec<Note> {
@@ -101,17 +168,31 @@ pub fn parse(text: &str) -> Vec<Note> {
             .take_while(|l| is_quote(l))
             .count()
             .min(block.len().saturating_sub(1));
-        let text = block[quotes..].join("\n");
-        let text = match text.strip_prefix(' ') {
-            Some(t) if is_quote(t) => t.to_owned(),
-            _ => text,
-        };
+        let mut msgs: Vec<(bool, String)> = Vec::new();
+        for l in &block[quotes..] {
+            match label_of(l) {
+                Some((agent, t)) => msgs.push((agent, t.to_owned())),
+                _ if msgs.is_empty() => msgs.push((false, unescape(l).to_owned())),
+                _ => {
+                    if let Some(m) = msgs.last_mut() {
+                        m.1.push('\n');
+                        m.1 += unescape(l);
+                    }
+                }
+            }
+        }
+        if msgs.is_empty() {
+            continue;
+        }
+        let (by_agent, text) = msgs.remove(0);
         out.push(Note {
             path: path.into(),
             first,
             last,
             quote: block[..quotes].iter().map(ToString::to_string).collect(),
             text,
+            by_agent,
+            replies: msgs,
         });
     }
 }
@@ -120,9 +201,24 @@ fn is_quote(line: &str) -> bool {
     line.starts_with("> ") || line.starts_with("- ")
 }
 
+fn push_msg(s: &mut String, label: Option<&str>, text: &str) {
+    for (i, line) in text.split('\n').enumerate() {
+        match (i, label) {
+            (0, Some(l)) => {
+                *s += l;
+                *s += ": ";
+            }
+            _ if is_quote(line) || label_of(line).is_some() => *s += " ",
+            _ => {}
+        }
+        *s += line;
+        *s += "\n";
+    }
+}
+
 pub fn format(notes: &[Note], head: &str) -> String {
     let mut s = format!(
-        "# merl notes \u{b7} {head}\n# The user's review notes, for you. Delete this file when you have dealt with them.\n"
+        "# merl notes \u{b7} {head}\n# The user's review notes, for you. Answer under a note with `agent:`, or delete its block when it is done.\n"
     );
     for n in notes {
         let range = if n.first == n.last {
@@ -135,11 +231,10 @@ pub fn format(notes: &[Note], head: &str) -> String {
             s += q;
             s += "\n";
         }
-        if is_quote(&n.text) {
-            s += " ";
+        push_msg(&mut s, n.by_agent.then_some("agent"), &n.text);
+        for (agent, t) in &n.replies {
+            push_msg(&mut s, Some(if *agent { "agent" } else { "user" }), t);
         }
-        s += &n.text;
-        s += "\n";
     }
     s
 }
@@ -218,13 +313,38 @@ impl App {
         self.notes_resolve();
     }
 
+    fn top_label(n: &Note, gone: bool) -> String {
+        if gone {
+            return format!("{}, file deleted", n.path.display());
+        }
+        if n.first == n.last {
+            format!("line {}, changed", n.last)
+        } else {
+            format!("lines {} to {}, changed", n.first, n.last)
+        }
+    }
+
     pub fn notes_resolve(&mut self) {
         let rel = self.rel_current();
         let len = self.buf.lines.len();
+        let on_first = rel.is_some() && rel == self.notes.home;
         let mut here = Vec::new();
+        let mut tops = Vec::new();
         let mut seen_now = Vec::new();
         for (idx, n) in self.notes.list.iter().enumerate() {
             if rel.as_deref() != Some(n.path.as_path()) {
+                if on_first && n.quote.last().is_some() {
+                    let gone = !self.root.join(&n.path).exists();
+                    if gone {
+                        tops.push(Here {
+                            first: TextLine::File(0),
+                            at: TextLine::File(0),
+                            idx,
+                            stale: true,
+                            top: Some(Self::top_label(n, gone)),
+                        });
+                    }
+                }
                 continue;
             }
             let Some(last_q) = n.quote.last() else {
@@ -254,6 +374,16 @@ impl App {
                     .min_by_key(|l| l.abs_diff(k))
                     .map(TextLine::File)
             };
+            if found.is_none() && seen.is_none() {
+                tops.push(Here {
+                    first: TextLine::File(0),
+                    at: TextLine::File(0),
+                    idx,
+                    stale: true,
+                    top: Some(Self::top_label(n, false)),
+                });
+                continue;
+            }
             let (at, stale) = match found {
                 Some(at) => (at, false),
                 None => (
@@ -273,9 +403,11 @@ impl App {
                 at,
                 idx,
                 stale,
+                top: None,
             });
         }
-        self.notes.here = here;
+        tops.extend(here);
+        self.notes.here = tops;
         self.notes.last_seen.extend(seen_now);
     }
 
@@ -299,38 +431,65 @@ impl App {
         format!("lines {} to {}", num(first), num(at))
     }
 
+    fn editing_idx(&self) -> Option<usize> {
+        self.notes
+            .editing
+            .as_ref()
+            .filter(|_| self.mode == Mode::Note)
+            .and_then(|e| e.old.as_ref())
+            .and_then(|o| self.notes.list.iter().position(|n| n == o))
+    }
+
     pub fn note_span(&self) -> Option<(TextLine, TextLine)> {
         match self.mode {
-            Mode::Note => self.notes.editing.as_ref().map(|e| (e.first, e.last)),
+            Mode::Note => {
+                let top = self
+                    .editing_idx()
+                    .and_then(|i| self.here_of(i))
+                    .is_some_and(|h| h.top.is_some());
+                if top {
+                    return None;
+                }
+                self.notes.editing.as_ref().map(|e| (e.first, e.last))
+            }
             _ => self
                 .notes
                 .focus
                 .and_then(|i| self.here_of(i))
+                .filter(|h| h.top.is_none())
                 .map(|h| (h.first, h.at)),
         }
     }
 
+    fn slots_where(&self, pick: impl Fn(&Here) -> bool) -> Vec<Slot> {
+        let editing_idx = self.editing_idx();
+        let mut v = Vec::new();
+        for (i, h) in self.notes.here.iter().enumerate() {
+            if !pick(h) {
+                continue;
+            }
+            if editing_idx == Some(h.idx) {
+                v.push(Slot::Input);
+            } else {
+                v.push(Slot::Note(i));
+            }
+        }
+        v
+    }
+
+    pub fn slots_top(&self) -> Vec<Slot> {
+        self.slots_where(|h| h.top.is_some())
+    }
+
     pub fn slots_after(&self, l: TextLine) -> Vec<Slot> {
+        let mut v = self.slots_where(|h| h.at == l && h.top.is_none());
         let editing = self
             .notes
             .editing
             .as_ref()
             .filter(|_| self.mode == Mode::Note);
-        let editing_idx = editing
-            .and_then(|e| e.old.as_ref())
-            .and_then(|o| self.notes.list.iter().position(|n| n == o));
-        let mut v: Vec<Slot> = (self.notes.here.iter().enumerate())
-            .filter(|(_, h)| h.at == l)
-            .map(|(i, h)| {
-                if editing_idx == Some(h.idx) {
-                    Slot::Input
-                } else {
-                    Slot::Note(i)
-                }
-            })
-            .collect();
         if let Some(e) = editing
-            && editing_idx.is_none()
+            && self.editing_idx().is_none()
             && e.last == l
         {
             v.push(Slot::Input);
@@ -338,33 +497,91 @@ impl App {
         v
     }
 
-    pub fn slot_text(&self, s: &Slot) -> (String, String, bool) {
-        match s {
+    fn parts(&self, s: &Slot) -> Vec<(char, String, String, u8, bool)> {
+        let prompt = format!("{} ", &*self.prompt);
+        let (n, label, top, stale, input) = match s {
             Slot::Note(i) => {
                 let h = &self.notes.here[*i];
-                let t = &self.notes.list[h.idx].text;
-                let text = if h.stale {
-                    format!("{t} (changed)")
-                } else {
-                    t.clone()
-                };
-                (self.note_label(h.first, h.at), text, h.stale)
-            }
-            Slot::Input => {
-                let (first, last) = self
-                    .notes
-                    .editing
-                    .as_ref()
-                    .map_or((TextLine::File(0), TextLine::File(0)), |e| {
-                        (e.first, e.last)
-                    });
                 (
-                    self.note_label(first, last),
-                    format!("{} ", &*self.prompt),
+                    Some(&self.notes.list[h.idx]),
+                    self.note_label(h.first, h.at),
+                    h.top.clone(),
+                    h.stale && h.top.is_none(),
                     false,
                 )
             }
+            Slot::Input => {
+                let e = self.notes.editing.as_ref();
+                let (first, last) = e.map_or((TextLine::File(0), TextLine::File(0)), |e| {
+                    (e.first, e.last)
+                });
+                let old = e.and_then(|e| e.old.as_ref());
+                let top = self
+                    .editing_idx()
+                    .and_then(|i| self.here_of(i))
+                    .and_then(|h| h.top.clone());
+                (old, self.note_label(first, last), top, false, true)
+            }
+        };
+        let mut v = Vec::new();
+        let Some(n) = n else {
+            v.push(('\u{270e}', label, prompt, 0, true));
+            return v;
+        };
+        let mut first_mark = '\u{270e}';
+        let mut label = label;
+        if let Some(t) = &top {
+            v.push(('\u{270e}', String::new(), t.clone(), 2, false));
+            for q in &n.quote {
+                v.push((
+                    ' ',
+                    String::new(),
+                    q.get(2..).unwrap_or("").to_string(),
+                    3,
+                    false,
+                ));
+            }
+            first_mark = ' ';
+            label = String::new();
         }
+        let reply_input = input && (n.agent_last() || !n.replies.is_empty());
+        let first_input = input && !reply_input;
+        let first_text = match (first_input, stale) {
+            (true, _) => prompt.clone(),
+            (false, true) => format!("{} (changed)", n.text),
+            (false, false) => n.text.clone(),
+        };
+        if n.by_agent {
+            let who = if label.is_empty() {
+                "agent".to_owned()
+            } else {
+                format!("{label}  agent")
+            };
+            v.push((first_mark, who, first_text, 1, false));
+        } else {
+            v.push((
+                first_mark,
+                label,
+                first_text,
+                if stale { 2 } else { 0 },
+                first_input,
+            ));
+        }
+        let k = n.replies.len();
+        for (j, (agent, t)) in n.replies.iter().enumerate() {
+            let mine_input = input && j + 1 == k && !agent;
+            let text = if mine_input {
+                prompt.clone()
+            } else {
+                t.clone()
+            };
+            let who = if *agent { "agent" } else { "you" };
+            v.push(('\u{21b3}', who.into(), text, u8::from(*agent), mine_input));
+        }
+        if input && n.agent_last() {
+            v.push(('\u{21b3}', "you".into(), prompt, 0, true));
+        }
+        v
     }
 
     #[expect(
@@ -372,48 +589,70 @@ impl App {
         reason = "r is a row of wrap_shown and p is the prompt's cursor, char boundaries of full"
     )]
     pub fn slot_layout(&self, s: &Slot) -> (Vec<SlotRow>, Option<(usize, usize)>) {
-        let (label, text, _) = self.slot_text(s);
-        let head = if label.is_empty() {
-            String::new()
-        } else {
-            format!("{label}  ")
-        };
-        let pad = head.len();
         let w = self.view_w.saturating_sub(2).max(1);
-        let input = matches!(s, Slot::Input);
-        let cursor = input.then(|| self.prompt.cursor());
-        let sel = input.then(|| self.prompt.selection()).flatten();
         let mut rows = Vec::new();
         let mut at = None;
-        let mut off = 0;
-        for (i, line) in text.split('\n').enumerate() {
-            let lead = match i {
-                0 => head.clone(),
-                _ => " ".repeat(pad),
+        for (mark_ch, label, text, kind, input) in self.parts(s) {
+            let head = match label.as_str() {
+                "" => String::new(),
+                "agent" | "you" => format!("{label:<5}  "),
+                _ if text.is_empty() => label.clone(),
+                _ => format!("{label}  "),
             };
-            let full = format!("{lead}{line}");
-            let pos = cursor
-                .filter(|&c| c >= off && c <= off + line.len())
-                .map(|c| pad + c - off);
-            for r in crate::wrap::wrap_shown(&full, w) {
-                if let Some(p) = pos
-                    && at.is_none()
-                    && (r.contains(&p) || r.end == p)
-                {
-                    at = Some((rows.len(), crate::wrap::width(&full[r.start..p])));
-                }
-                let lab = match i {
-                    0 => r.end.min(pad).saturating_sub(r.start),
-                    _ => 0,
+            let pad = head.len();
+            let cursor = input.then(|| self.prompt.cursor());
+            let sel = input.then(|| self.prompt.selection()).flatten();
+            let mut off = 0;
+            let mut first_row = true;
+            for (i, line) in text.split('\n').enumerate() {
+                let lead = match i {
+                    0 => head.clone(),
+                    _ => " ".repeat(pad),
                 };
-                let mark = sel.as_ref().and_then(|x| {
-                    let a = (x.start.max(off).min(off + line.len()) - off + pad).max(r.start);
-                    let b = (x.end.max(off).min(off + line.len()) - off + pad).min(r.end);
-                    (a < b).then(|| a - r.start..b - r.start)
-                });
-                rows.push((full[r].to_string(), lab, mark));
+                if !input && pad > 0 && pad + 8 < w && (kind == 1 || mark_ch == '\u{21b3}') {
+                    for (j, r) in crate::wrap::wrap_shown(line, w - pad)
+                        .into_iter()
+                        .enumerate()
+                    {
+                        let (row, lab) = match j {
+                            0 => (format!("{lead}{}", &line[r]), lead.len().min(pad)),
+                            _ => (format!("{}{}", " ".repeat(pad), &line[r]), 0),
+                        };
+                        let m = if first_row { mark_ch } else { ' ' };
+                        first_row = false;
+                        let lab = if i == 0 { lab } else { 0 };
+                        rows.push((row, lab, None, kind, m));
+                    }
+                    off += line.len() + 1;
+                    continue;
+                }
+                let full = format!("{lead}{line}");
+                let pos = cursor
+                    .filter(|&c| c >= off && c <= off + line.len())
+                    .map(|c| pad + c - off);
+                for r in crate::wrap::wrap_shown(&full, w) {
+                    if let Some(p) = pos
+                        && at.is_none()
+                        && (r.contains(&p) || r.end == p)
+                    {
+                        at = Some((rows.len(), crate::wrap::width(&full[r.start..p])));
+                    }
+                    let lab = match i {
+                        0 => r.end.min(pad).saturating_sub(r.start),
+                        _ => 0,
+                    };
+                    let mark = sel.as_ref().and_then(|x| {
+                        let a = (x.start.max(off).min(off + line.len()) - off + pad).max(r.start);
+                        let b = (x.end.max(off).min(off + line.len()) - off + pad).min(r.end);
+                        (a < b).then(|| a - r.start..b - r.start)
+                    });
+                    let m = if first_row { mark_ch } else { ' ' };
+                    first_row = false;
+                    let k = if input { kind | 8 } else { kind };
+                    rows.push((full[r].to_string(), lab, mark, k, m));
+                }
+                off += line.len() + 1;
             }
-            off += line.len() + 1;
         }
         (rows, at)
     }
@@ -446,6 +685,11 @@ impl App {
 
     fn key_layout(&self, key: usize) -> Vec<(usize, Option<usize>)> {
         let mut out = Vec::new();
+        if key == 0 {
+            for s in self.slots_top() {
+                out.push((self.slot_rows(&s), self.slot_idx(&s)));
+            }
+        }
         let ghosts = self.diff.ghosts.get(&key).map_or(&[][..], Vec::as_slice);
         for (i, g) in ghosts.iter().enumerate() {
             out.push((self.text_rows(g).len(), None));
@@ -493,6 +737,13 @@ impl App {
             return 0;
         }
         self.slots_after(l).iter().map(|s| self.slot_rows(s)).sum()
+    }
+
+    pub fn note_rows_top(&self) -> usize {
+        if self.notes.here.iter().all(|h| h.top.is_none()) {
+            return 0;
+        }
+        self.slots_top().iter().map(|s| self.slot_rows(s)).sum()
     }
 
     pub fn notes_in(&self, rel: &Path) -> usize {
@@ -551,7 +802,7 @@ impl App {
             }
             l = next(self, l);
         }
-        let text = old.as_ref().map_or("", |n| n.text.as_str());
+        let text = old.as_ref().map_or("", Note::mine);
         self.prompt = if std::mem::take(&mut self.notes.selected) {
             LineEdit::selected(text)
         } else {
@@ -579,19 +830,21 @@ impl App {
         self.notes_reload();
         let pos = (e.old.as_ref()).and_then(|o| self.notes.list.iter().position(|n| n == o));
         let old = pos.map(|p| self.notes.list[p].clone());
-        if old.is_none() && e.old.as_ref().is_some_and(|o| o.text == text) {
+        if old.is_none() && e.old.as_ref().is_some_and(|o| o.mine() == text) {
             return None;
         }
         let new = match (&old, text.is_empty()) {
-            (Some(o), _) if o.text == text => return pos,
-            (_, true) => None,
-            (Some(o), false) => Some(Note { text, ..o.clone() }),
+            (Some(o), _) if o.mine() == text => return pos,
+            (Some(o), _) => o.with_mine(text),
+            (None, true) => None,
             (None, false) => Some(Note {
                 path: self.rel_current()?,
                 first: e.first.key() + 1,
                 last: e.last.key() + 1,
                 quote: e.quote,
                 text,
+                by_agent: false,
+                replies: Vec::new(),
             }),
         };
         if old.is_none() && new.is_none() {

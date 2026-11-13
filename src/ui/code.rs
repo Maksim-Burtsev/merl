@@ -44,6 +44,9 @@ pub(super) fn draw_code(
             l += 1;
             continue;
         }
+        if l == 0 {
+            p.top_slots(&mut out, &mut skip);
+        }
         for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
             p.ghost(&mut out, &mut skip, l, i, raw);
         }
@@ -234,33 +237,17 @@ impl<'a> Painter<'a> {
             .collect()
     }
 
-    fn slot_styles(&self, s: &crate::app::Slot) -> (bool, bool, Style, Style) {
-        let (app, theme, base) = (self.app, self.theme, self.base);
-        let input = matches!(s, crate::app::Slot::Input);
-        let (_, _, stale) = app.slot_text(s);
-        let focused = matches!(s, crate::app::Slot::Note(i) if Some(app.notes.here[*i].idx) == app.notes.focus)
-            && app.mode == Mode::Normal;
-        let picked = focused && app.notes.selected;
-        let hl_bg = base.bg(theme.line_hl);
-        let input_bg = Style::new().bg(theme.status_bg).fg(theme.status_fg);
-        let (bg, style) = match (input, stale) {
-            (true, _) => (input_bg, input_bg),
-            (false, _) if picked => (
-                base.bg(theme.selection),
-                base.bg(theme.selection).fg(theme.accent),
-            ),
-            (false, _) if focused => (
-                hl_bg,
-                if stale {
-                    hl_bg.fg(theme.ghost_fg)
-                } else {
-                    hl_bg.fg(theme.accent)
-                },
-            ),
-            (false, true) => (base, base.fg(theme.ghost_fg)),
-            (false, false) => (base, base.fg(theme.accent)),
-        };
-        (input, focused, bg, style)
+    fn top_slots(&self, out: &mut Rows<'a>, skip: &mut usize) {
+        for slot in self.app.slots_top() {
+            let (nls, at) = self.slot_lines(&slot);
+            for (j, nl) in nls.into_iter().enumerate() {
+                if *skip > 0 {
+                    *skip -= 1;
+                    continue;
+                }
+                out.push_slot(at, j, nl);
+            }
+        }
     }
 
     #[expect(
@@ -269,17 +256,40 @@ impl<'a> Painter<'a> {
     )]
     fn slot_lines(&self, s: &crate::app::Slot) -> (Vec<Line<'static>>, Option<(usize, usize)>) {
         let (app, theme, base) = (self.app, self.theme, self.base);
-        let (input, focused, bg, style) = self.slot_styles(s);
+        let focused = matches!(s, crate::app::Slot::Note(i) if Some(app.notes.here[*i].idx) == app.notes.focus)
+            && app.mode == Mode::Normal;
+        let picked = focused && app.notes.selected;
+        let hl_bg = base.bg(theme.line_hl);
+        let input_bg = Style::new().bg(theme.status_bg).fg(theme.status_fg);
         let (rows, at) = app.slot_layout(s);
-        let label_style = bg.fg(theme.gutter_fg);
-        let mark_style = bg.fg(theme.accent);
         let lines = rows
             .into_iter()
-            .enumerate()
-            .map(|(i, (r, lab, mark))| {
+            .map(|(r, lab, mark, kind, ch)| {
+                let input = kind & 8 != 0;
+                let bg = match () {
+                    () if input => input_bg,
+                    () if picked => base.bg(theme.selection),
+                    () if focused => hl_bg,
+                    () => base,
+                };
+                let style = match kind & 7 {
+                    _ if input => input_bg,
+                    0 => bg.fg(theme.accent),
+                    1 => bg.fg(theme.fg),
+                    _ => bg.fg(theme.ghost_fg),
+                };
+                let ch_style = match ch {
+                    '\u{270e}' => bg.fg(theme.accent),
+                    _ => bg.fg(theme.gutter_fg),
+                };
+                let label_style = if input {
+                    input_bg
+                } else {
+                    bg.fg(theme.gutter_fg)
+                };
                 let mut row = vec![
                     Span::styled(" ".repeat(self.gutter_w - 1), base.fg(theme.gutter_fg)),
-                    Span::styled(if i == 0 { "\u{270e}" } else { " " }, mark_style),
+                    Span::styled(ch.to_string(), ch_style),
                     Span::styled(" ", bg),
                 ];
                 if lab > 0 {
@@ -298,7 +308,7 @@ impl<'a> Painter<'a> {
                     None if lab < r.len() => row.push(Span::styled(r[lab..].to_string(), style)),
                     None => {}
                 }
-                if input || focused {
+                if input || focused || picked {
                     let used = 2 + wrap::width(&r);
                     row.push(Span::styled(
                         " ".repeat(app.view_w.saturating_sub(used) + 1),

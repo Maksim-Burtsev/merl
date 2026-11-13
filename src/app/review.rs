@@ -14,6 +14,7 @@ impl App {
             self.buf = link;
         }
         self.notes.on = true;
+        self.notes_sync();
         self.refresh_diff();
         self.load_viewed();
         let marks_failed =
@@ -55,6 +56,9 @@ impl App {
             {
                 self.jump_to(&p, 1);
             }
+        }
+        if self.notes.home.is_none() {
+            self.notes.home = self.rel_current();
         }
         self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
@@ -185,9 +189,15 @@ impl App {
             }
             next => next,
         };
+        let stop = self.next_stop(dir);
+        self.notes.focus = None;
         if let Next::Here(h) = next {
             let path = self.buf.path.clone().expect("hunks are of an open file");
             self.jump_to_hunk(&path, h);
+            if let Some((t, _, Some(idx))) = stop.filter(|s| s.0 == h) {
+                self.set_at(t);
+                self.notes.focus = Some(idx);
+            }
             self.remember_hunk();
             return;
         }
@@ -281,16 +291,52 @@ impl App {
         }
     }
 
-    pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
+    fn waiting_stops(&self) -> Vec<(TextLine, u8, Option<usize>)> {
+        (self.notes.here.iter())
+            .filter(|h| self.notes.list.get(h.idx).is_some_and(|n| n.agent_last()))
+            .map(|h| {
+                let rank = if h.top.is_some() { 0 } else { 2 };
+                (h.at, rank, Some(h.idx))
+            })
+            .collect()
+    }
+
+    pub(super) fn focus_top_waiting(&mut self) {
+        self.notes_sync();
+        let pick = self.waiting_stops().into_iter().find(|s| s.1 == 0);
+        if let Some((t, _, Some(idx))) = pick {
+            self.set_at(t);
+            self.notes.focus = Some(idx);
+            self.center = true;
+        }
+    }
+
+    pub(super) fn next_stop(&self, dir: isize) -> Option<(TextLine, u8, Option<usize>)> {
         if self.folded_here().is_some() {
             return None;
         }
-        let at = self.hunk_place(self.at());
+        let here = match self
+            .notes
+            .focus
+            .and_then(|i| self.notes.here.iter().find(|h| h.idx == i))
+        {
+            Some(h) if h.top.is_some() => (TextLine::File(0), 0),
+            Some(h) => (h.at, 2),
+            None => (self.hunk_place(self.at()), 1),
+        };
+        let mut stops: Vec<_> = self.diff.hunks.iter().map(|&h| (h, 1, None)).collect();
+        stops.extend(self.waiting_stops());
+        stops.sort_by_key(|s| (s.0, s.1));
+        stops.dedup_by_key(|s| (s.0, s.1));
         if dir > 0 {
-            self.diff.hunks.iter().find(|&&h| h > at).copied()
+            stops.into_iter().find(|s| (s.0, s.1) > here)
         } else {
-            self.diff.hunks.iter().rev().find(|&&h| h < at).copied()
+            stops.into_iter().rev().find(|s| (s.0, s.1) < here)
         }
+    }
+
+    pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
+        self.next_stop(dir).map(|s| s.0)
     }
 
     pub(super) fn hunk_place(&self, t: TextLine) -> TextLine {
@@ -479,11 +525,20 @@ impl App {
     fn disk_hash(&self, rel: &Path) -> u64 {
         let path = self.root.join(rel);
         let link = self.reviewed_link(&path).map(|b| b.to_bytes());
+        let answers = self.answers_of(rel);
         link.map_or_else(|| std::fs::read(&path), Ok)
             .map_or(0, |bytes| {
                 let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
-                bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+                let h = bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv);
+                answers.as_bytes().iter().fold(h, fnv)
             })
+    }
+
+    fn answers_of(&self, rel: &Path) -> String {
+        (self.notes.list.iter())
+            .filter(|n| n.path == rel)
+            .map(crate::app::notes::Note::agent_text)
+            .collect()
     }
 
     fn recheck_viewed(&mut self) -> bool {
@@ -584,7 +639,14 @@ impl App {
         let path = self.root.join(&f.path);
         let hunks = review_hunks(&self.root, r, f);
         let h = if last { hunks.last() } else { hunks.first() };
-        self.jump_to_hunk(&path, h.copied().unwrap_or(TextLine::File(0)));
+        let h = h.copied().unwrap_or(TextLine::File(0));
+        self.jump_to_hunk(&path, h);
+        if self.buf.path.as_deref() == Some(&path) && !last {
+            if self.notes.home.is_none() {
+                self.notes.home = self.rel_current();
+            }
+            self.focus_top_waiting();
+        }
         self.buf.path.as_deref() == Some(&path)
     }
 
