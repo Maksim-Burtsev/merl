@@ -46,7 +46,7 @@ impl App {
     }
 
     pub(super) fn jvm_hidden_elsewhere(&self, file: &Path, hit: &Hit) -> bool {
-        if hit.path == file {
+        if hit.path == file || file.extension().is_none_or(|e| e != "java") {
             return false;
         }
         let Some(text) = self.text_of(&hit.path) else {
@@ -66,7 +66,7 @@ impl App {
             .collect::<Vec<_>>()
             .join("|");
         let reach = format!(
-            r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\."
+            r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\.|\bnew\s+(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*\(.*\)\s*\{{|^\s*[:,]?\s*(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*(?:\(.*\))?\s*(?:,|\{{|$)"
         );
         self.project_grep(Kind::Jvm, file, &reach).is_empty()
     }

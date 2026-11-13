@@ -827,11 +827,7 @@ impl App {
         .map(|b| b.line1)
         .collect();
         let declared = if bindings.is_empty() {
-            let members = search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .map(|d| search::jvm_members_of(file, text, d, name))
-                .find(|m| !m.is_empty());
-            match members {
+            match search::jvm_enclosing_members(file, text, line1, name) {
                 Some(m) => m,
                 None if matches!(ext, Some("kt" | "kts" | "scala")) => {
                     vec![search::kotlin_constructor_parameter(text, line1, name)?]
