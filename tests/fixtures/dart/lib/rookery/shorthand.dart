@@ -33,16 +33,42 @@ int sort(Corvid bird) {
 int rank(Chessman piece) {
   return switch (piece) {
     .rook => 1,
-  // ^ d: picker lib/rookery/chessman.dart:1, lib/rookery/corvid.dart:1; want lib/rookery/chessman.dart:1 (#1448)
+  // ^ d: lib/rookery/chessman.dart:1
     .pawn => 0,
   };
 }
 
 int grade(Chessman piece) => switch (piece) {
       .rook => 1,
-    // ^ d: picker lib/rookery/chessman.dart:1, lib/rookery/corvid.dart:1; want lib/rookery/chessman.dart:1 (#1448)
+    // ^ d: lib/rookery/chessman.dart:1
       .pawn => 0,
     };
+
+int murky(dynamic seen) {
+  final piece = seen;
+  return switch (piece) {
+    .rook => 1,
+  // ^ d: picker lib/rookery/chessman.dart:1, lib/rookery/corvid.dart:1
+    _ => 0,
+  };
+}
+
+int relay(Chessman piece) {
+  final f = (piece) => switch (piece) {
+        .rook => 1,
+      // ^ d: picker lib/rookery/chessman.dart:1, lib/rookery/corvid.dart:1
+        _ => 0,
+      };
+  return f(piece);
+}
+
+int reread(Chessman piece) {
+  return switch (piece) {
+    .rook => piece.index,
+           // ^ d: lib/rookery/shorthand.dart:65
+    _ => 0,
+  };
+}
 
 Corvid pick(bool dark) {
   if (dark) {
