@@ -388,7 +388,7 @@ pub fn scala_implicit_receiver(text: &str, line: usize, name: &str) -> Option<St
 pub fn scala_generic_declared_type(line: &str, name: &str) -> Option<String> {
     let code = super::syntax::uncommented(Kind::Jvm, line);
     Regex::new(&format!(
-        r"(?:^|[^\w.]){}\s*:\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]\s*(?:[=,)]|$|\{{)",
+        r"(?:^|[^\w.]){}\s*:\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]\s*(?:[,)]|=(?:[^>]|$)|$|\{{)",
         regex::escape(name)
     ))
     .ok()?
