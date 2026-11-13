@@ -45,6 +45,32 @@ impl App {
         self.jvm_enum_constant(decl, word)
     }
 
+    pub(super) fn jvm_hidden_elsewhere(&self, file: &Path, hit: &Hit) -> bool {
+        if hit.path == file {
+            return false;
+        }
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let owners: Vec<String> = search::jvm_enclosing_types(&text, hit.line1)
+            .into_iter()
+            .filter_map(|l| lines.get(l - 1).and_then(|l| search::jvm_type_name(l)))
+            .collect();
+        if owners.is_empty() {
+            return false;
+        }
+        let names = owners
+            .iter()
+            .map(|o| regex::escape(o))
+            .collect::<Vec<_>>()
+            .join("|");
+        let reach = format!(
+            r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\."
+        );
+        self.project_grep(Kind::Jvm, file, &reach).is_empty()
+    }
+
     pub(super) fn jvm_imported(
         &self,
         text: &str,
