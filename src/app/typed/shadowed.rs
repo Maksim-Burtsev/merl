@@ -37,6 +37,16 @@ impl App {
         {
             return None;
         }
+        if let Some(line) = (kind == Kind::Go)
+            .then(|| search::go_local_type(file, text, b.line1, t))
+            .flatten()
+        {
+            return Some(Typed {
+                name: t.to_owned(),
+                path: file.to_path_buf(),
+                line,
+            });
+        }
         let constructed = matches!(b.value, search::Value::New(_));
         if let Some(ty) =
             imported.and_then(|n| local_class(kind, file, text, b.line1, n, constructed))

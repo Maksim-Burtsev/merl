@@ -116,6 +116,7 @@ pub fn import_line1(kind: Kind, text: &str, name: &str) -> Option<usize> {
     text.lines()
         .position(|l| imports_as_written(kind, l).iter().any(|i| i.name == name))
         .map(|i| i + 1)
+        .or_else(|| (kind == Kind::Python).then(|| python_wrapped_import_line1(text, name))?)
 }
 pub fn python_bound_once(text: &str, name: &str) -> bool {
     let w = regex::escape(name);
@@ -235,14 +236,27 @@ fn alias_and_name(item: &str) -> Option<(String, String)> {
     };
     (!name.is_empty()).then_some((alias, name))
 }
+static PY_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(
+        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
+    )
+    .expect("the regex is a literal")
+});
+fn python_wrapped_import_line1(text: &str, name: &str) -> Option<usize> {
+    let code = code_of(Kind::Python, text);
+    PY_IMPORT.captures_iter(&code).find_map(|c| {
+        let names = c.get(2).filter(|n| n.as_str().starts_with('('))?;
+        let at = names.as_str().lines().position(|l| {
+            (l.split('#').next().unwrap_or_default())
+                .trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace())
+                .split(',')
+                .any(|item| alias_and_name(item.trim()).is_some_and(|(alias, _)| alias == name))
+        })?;
+        Some(code.get(..names.start())?.matches('\n').count() + at + 1)
+    })
+}
 fn python_imports(text: &str, out: &mut Vec<Import>) {
-    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
-        )
-        .expect("the regex is a literal")
-    });
-    for c in IMPORT.captures_iter(text) {
+    for c in PY_IMPORT.captures_iter(text) {
         if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
             let module = module.as_str();
             let relative = module.trim_start_matches('.');

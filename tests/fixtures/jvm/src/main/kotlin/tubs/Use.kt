@@ -7,9 +7,9 @@ class Use(private val tubs: List<Tub>, private val c: Tun) {
     //                          ^ d: src/main/kotlin/tubs/Tub.kt:4
     fun e(f: (Tub) -> Unit) = Unit
     fun g() = e { it.dunk() }
-    //               ^ d: picker src/main/kotlin/tubs/Hogshead.kt:4, src/main/kotlin/tubs/Tub.kt:4, src/main/kotlin/tubs/Tun.kt:4; want src/main/kotlin/tubs/Tub.kt:4 (#1488)
+    //               ^ d: src/main/kotlin/tubs/Tub.kt:4
     fun g2() = e { x -> x.dunk() }
-    //                    ^ d: picker src/main/kotlin/tubs/Hogshead.kt:4, src/main/kotlin/tubs/Tub.kt:4, src/main/kotlin/tubs/Tun.kt:4; want src/main/kotlin/tubs/Tub.kt:4 (#1488)
+    //                    ^ d: src/main/kotlin/tubs/Tub.kt:4
     fun h() = tubs.sortedBy { it.slop() }
     //                           ^ d: src/main/kotlin/tubs/Tub.kt:5
     fun i(more: List<Tub>) = more.filter { x -> x.dunk() }
@@ -32,4 +32,15 @@ class Use(private val tubs: List<Tub>, private val c: Tun) {
     //                                          ^ d: src/main/kotlin/tubs/Tub.kt:4
     fun p() = tubs.forEach { x -> run { val x = Tun(); x.dunk() } }
     //                                                   ^ d: src/main/kotlin/tubs/Tun.kt:4
+    fun q() {
+        tubs.forEach { x ->
+            val x = Tun()
+            x.dunk()
+    //        ^ d: src/main/kotlin/tubs/Tun.kt:4
+        }
+    }
+    fun r() = tubs.forEach {
+        it.dunk()
+    //     ^ d: src/main/kotlin/tubs/Tub.kt:4
+    }
 }

@@ -1,4 +1,4 @@
-use super::{App, Hit, Kind, Path, ProvenType, TypeVia, search, signature};
+use super::{App, Hit, Kind, Path, ProvenType, TypeVia, search, signature, ts_declared_param};
 
 impl App {
     pub(super) fn calls_type(
@@ -39,8 +39,12 @@ impl App {
             );
             match self
                 .generic_base_type(kind, &ty, &holder, member, &written)
-                .or_else(|| self.annotated_type(kind, &decl.path, &text, 0, &written))
-            {
+                .or_else(|| {
+                    if ts_declared_param(kind, &text, decl.line1, &written) {
+                        return None;
+                    }
+                    self.annotated_type(kind, &decl.path, &text, 0, &written)
+                }) {
                 Some(next) => ty = next,
                 None if kind == Kind::Go && self.go_outside(&decl.path, &text, &written) => {
                     return Some(Err(links.join(" \u{2192} ")));
