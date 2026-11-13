@@ -374,7 +374,8 @@ impl App {
             keyword,
             name,
             extends: parent,
-        } = search::php_class_header(lines[class])?;
+        } = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))?;
         if keyword == "trait" {
             return None;
         }
@@ -765,7 +766,8 @@ impl App {
     fn php_self(path: &Path, text: &str, line0: usize) -> Option<PhpClass> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, line0)?;
-        let header = search::php_class_header(lines[class])?;
+        let header = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))?;
         (header.keyword != "trait").then(|| PhpClass {
             path: path.to_path_buf(),
             text: text.to_owned(),
@@ -854,6 +856,7 @@ impl App {
                     let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
                     (class, Some(link))
                 }
+                search::PhpBinding::This => (Self::php_self(here, text, at)?, None),
                 search::PhpBinding::Type(t) | search::PhpBinding::New(t) => {
                     (self.php_type(here, text, at, &t)?, None)
                 }
