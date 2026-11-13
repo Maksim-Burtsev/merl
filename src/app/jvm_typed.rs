@@ -153,7 +153,17 @@ impl App {
                 .map(|(ty, links)| (ty, links, rest))
         };
         if outer.is_none() && first.starts_with(|c: char| c.is_ascii_uppercase()) {
-            return chained().or_else(|| self.jvm_static_head(here, text, first, rest));
+            return chained().or_else(|| match self.java_field_owner(here, text, first) {
+                Some(owner) => self
+                    .jvm_follow(
+                        JvmType::Project(owner),
+                        Vec::new(),
+                        first,
+                        &[first.to_owned()],
+                    )
+                    .map(|(ty, links)| (ty, links, rest)),
+                None => self.jvm_static_head(here, text, first, rest),
+            });
         }
         self.jvm_static_head(here, text, first, rest)
             .or_else(chained)
