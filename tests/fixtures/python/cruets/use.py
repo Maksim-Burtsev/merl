@@ -214,3 +214,25 @@ class Shelf:
                 self.held.uncork()
                 #         ^ d: !jump
                 self.held = x
+
+
+def passed(c: Cruet, xs: list[Cruet]) -> None:
+    if isinstance(c, Vial):
+        print(c, end="")
+        c.uncork()
+        # ^ d: cruets/vial.py:5
+    if isinstance(c, Vial):
+        print(c, "a=b")
+        c.uncork()
+        # ^ d: cruets/vial.py:5
+    if isinstance(c, Vial):
+        ok = len(xs) >= 2
+        print(c, ok)
+        if len(c) >= 2:
+            c.uncork()
+            # ^ d: cruets/vial.py:5
+    if isinstance(c, Vial):
+        for x in xs:
+            c.uncork()
+            # ^ d: cruets/vial.py:5
+            print(c, x, sep="")

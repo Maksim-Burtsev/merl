@@ -261,3 +261,23 @@ export class Shelf {
     }
   }
 }
+
+export function passed(c: Cruet, xs: Cruet[], a: number, b: number): void {
+  if (c instanceof Vial) {
+    console.log(c, a >= b);
+    c.uncork();
+    //^ d: cruets/vial.ts:4
+  }
+  if (c instanceof Vial) {
+    console.log(c, "a=b");
+    c.uncork();
+    //^ d: cruets/vial.ts:4
+  }
+  if (c instanceof Vial) {
+    for (const x of xs) {
+      c.uncork();
+      //^ d: cruets/vial.ts:4
+      console.log(c, a >= b, x);
+    }
+  }
+}

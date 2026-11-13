@@ -134,14 +134,29 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let (ty, links, rest) = if let Some(head) = self.jvm_static_head(here, text, first, rest) {
-            head
-        } else {
-            let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
-            (ty, links, rest)
-        };
+        let (ty, links, rest) = self.jvm_head(here, text, before, first, rest, outer)?;
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_head<'r>(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        first: &str,
+        rest: &'r [String],
+        outer: Option<&str>,
+    ) -> Option<(JvmType, Vec<String>, &'r [String])> {
+        let chained = || {
+            self.jvm_chain_head(here, text, before, first, outer)
+                .map(|(ty, links)| (ty, links, rest))
+        };
+        if outer.is_none() && first.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return chained().or_else(|| self.jvm_static_head(here, text, first, rest));
+        }
+        self.jvm_static_head(here, text, first, rest)
+            .or_else(chained)
     }
 
     fn scala_static_chain(
@@ -420,7 +435,7 @@ impl App {
                 }
                 None => (own(outer)?, Vec::new()),
             },
-            f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
+            f if f.starts_with(|c: char| c.is_ascii_alphabetic()) => {
                 if search::jvm_rebound_before(before, f)
                     && !search::path_bindings(Kind::Jvm, here, text, line, f)
                         .iter()

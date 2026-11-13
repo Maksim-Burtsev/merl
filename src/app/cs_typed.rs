@@ -360,7 +360,7 @@ impl App {
         }
     }
 
-    fn cs_extensions(&self, here: &Path, name: &str) -> Vec<(Hit, String)> {
+    pub(super) fn cs_extensions(&self, here: &Path, name: &str) -> Vec<(Hit, String)> {
         let n = regex::escape(name);
         let pattern = format!(r"\bstatic\b.*\b{n}\s*(?:<[^>]*>)?\s*\(\s*(?:this\s|$)");
         self.project_grep(Kind::CSharp, here, &pattern)
