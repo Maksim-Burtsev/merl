@@ -582,6 +582,45 @@ impl App {
         }
     }
 
+    pub(super) fn swift_extended_param(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        hits: &mut Vec<Hit>,
+    ) {
+        let Some(ty) = search::swift_extended_elsewhere(text, self.line + 1) else {
+            return;
+        };
+        let decls: Vec<Hit> = self
+            .swift_defs(here, &ty, &ty, true)
+            .into_iter()
+            .filter(|h| search::swift_type_decl(&h.text))
+            .collect();
+        if decls.iter().any(|h| h.path == here) {
+            return;
+        }
+        let generic: Vec<Hit> = decls
+            .iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::swift_decl_generics(&t, h.line1)
+                        .iter()
+                        .any(|g| g == word)
+                })
+            })
+            .cloned()
+            .collect();
+        match (decls.len(), generic.len()) {
+            (_, 0) => {}
+            (1, 1) => *hits = generic,
+            _ => {
+                hits.extend(generic);
+                self.offer_only = true;
+            }
+        }
+    }
+
     pub(super) fn swift_nested_unseen(&self, hits: &mut Vec<Hit>) {
         let literal = search::literal_lines(Kind::Swift, &self.buf.lines.join("\n"));
         hits.retain(|h| {

@@ -320,7 +320,7 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
         .filter(|c| c[1].split(',').any(|p| p.trim() == name))
         .map(|c| Value::Type(c[2].to_owned()))
 }
-fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
+pub(super) fn go_one_line<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
     let at = line.find(keyword)?;
     let open = at + line.get(at..)?.find('{')?;
     let close = close_of(Kind::Go, line, open)?;
@@ -355,6 +355,21 @@ pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line, "struct")
         .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
+pub fn go_anonymous_field_name(lead: &str, tail: &str) -> bool {
+    static OPEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(.*?)\bstruct\s*\{(?:\s*\w+(?:\s*,\s*\w+)*\s+[^;{}]+;)*\s*(?:\w+\s*,\s*)*$")
+            .expect("the regex is a literal")
+    });
+    static NAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:type\s+)?\w+\s*$").expect("the regex is a literal")
+    });
+    let typed = tail.starts_with([' ', '\t'])
+        && tail
+            .trim_start()
+            .starts_with(|c: char| c.is_alphanumeric() || "_*[".contains(c));
+    (typed || tail.trim_start().starts_with(','))
+        && OPEN.captures(lead).is_some_and(|c| !NAMED.is_match(&c[1]))
+}
 pub fn go_one_line_method(line: &str, name: &str) -> bool {
     line.trim_start().starts_with("type ") && go_interface_declares(line, name)
 }
@@ -376,6 +391,30 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
 }
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     enclosing_at(kind, lines, &levels(kind, lines), k)
+}
+pub fn ts_namespaced(text: &str, line1: usize, written: &str) -> Option<String> {
+    static NAMESPACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?namespace\s+([A-Za-z_$][\w$]*)\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let bare = !written.is_empty()
+        && written
+            .chars()
+            .all(|c| c.is_alphanumeric() || "_$".contains(c));
+    if !bare || super::ts_type_param(text, line1, written).is_some() {
+        return None;
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let owner = enclosing_type(Kind::TsJs, &lines, line1.checked_sub(1)?)?;
+    let depth = indent(lines[owner - 1]);
+    let above = lines[..owner - 1]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)?;
+    Some(format!(
+        "{}.{written}",
+        NAMESPACE.captures(above)?.get(1)?.as_str()
+    ))
 }
 fn levels(kind: Kind, lines: &[&str]) -> Vec<Option<usize>> {
     (lines.iter())

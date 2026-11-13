@@ -545,7 +545,12 @@ impl App {
         let shorthand = (chain.is_empty() && compared.is_none())
             .then(|| self.dart_shorthand_type(here, text, before))
             .flatten();
+        let cast = chain
+            .is_empty()
+            .then(|| search::dart_cast(before))
+            .flatten();
         let ty = match chain {
+            [] if cast.is_some() => cast?,
             [] if compared.is_some() => {
                 let (ty, s) = self.dart_bound(here, text, compared.as_deref()?, 0)?;
                 scope = s;
@@ -643,31 +648,39 @@ impl App {
         let cut = self.truncated.get();
         let hits = self.project_definitions(Kind::Dart, here, word, &pattern);
         self.truncated.set(cut);
+        let unnamed =
+            Regex::new(r"^extension\s*(?:<[^>]*>)?\s+on\s+(\w+)(?:<[^{]*>)?\??\s*\{").ok()?;
         let mut found = Vec::new();
         for hit in hits {
             let text = self.text_of(&hit.path)?;
-            let Some(owner) = search::qualified(Kind::Dart, &text, hit.line1, word)
-                .and_then(|q| q.strip_suffix(&format!(".{word}")).map(str::to_owned))
-            else {
-                continue;
+            let owner = search::qualified(Kind::Dart, &text, hit.line1, word)
+                .and_then(|q| q.strip_suffix(&format!(".{word}")).map(str::to_owned));
+            let target = match &owner {
+                Some(owner) => {
+                    let o = regex::escape(owner);
+                    let named = Regex::new(&format!(r"^extension\s+{o}\b")).ok()?;
+                    let on = Regex::new(&format!(
+                        r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)(?:<[^{{]*>)?\??\s*\{{"
+                    ))
+                    .ok()?;
+                    let Some(head) = text.lines().find(|l| named.is_match(l)) else {
+                        continue;
+                    };
+                    on.captures(head)?[1].to_owned()
+                }
+                None => match Self::dart_extension_head(&text, hit.line1) {
+                    Some(head) => unnamed.captures(head)?[1].to_owned(),
+                    None => continue,
+                },
             };
-            let o = regex::escape(&owner);
-            let named = Regex::new(&format!(r"^extension\s+{o}\b")).ok()?;
-            let on = Regex::new(&format!(
-                r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)\??\s*\{{"
-            ))
-            .ok()?;
-            let Some(head) = text.lines().find(|l| named.is_match(l)) else {
-                continue;
-            };
-            let target = on.captures(head)?[1].to_owned();
             if !names.contains(&target) {
                 continue;
             }
-            if !self
-                .dart_visible_files(here, &owner, None)?
-                .contains(&hit.path)
-            {
+            let visible = match &owner {
+                Some(owner) => self.dart_visible_files(here, owner, None)?,
+                None => self.dart_library(here.to_path_buf(), None, false)?.0,
+            };
+            if !visible.contains(&hit.path) {
                 continue;
             }
             found.push(Candidate {
@@ -676,6 +689,23 @@ impl App {
             });
         }
         Some(found)
+    }
+
+    fn dart_extension_head(text: &str, line1: usize) -> Option<&str> {
+        let lines: Vec<&str> = text.lines().take(line1).collect();
+        let (member, above) = lines.split_last()?;
+        if !member.starts_with(char::is_whitespace) {
+            return None;
+        }
+        let head = above
+            .iter()
+            .rev()
+            .find(|l| !l.is_empty() && !l.starts_with(char::is_whitespace))?;
+        let extension = head.strip_prefix("extension").is_some_and(|rest| {
+            !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                && !rest.trim_start().starts_with("type ")
+        });
+        extension.then_some(*head)
     }
 
     fn dart_ancestors(&self, file: &Path, class: &str, depth: usize, names: &mut Vec<String>) {
@@ -743,6 +773,10 @@ impl App {
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
+            if self.dart_static_factory(here, &ty) {
+                let value = search::dart_value(line, name).filter(|_| depth < 4)?;
+                return self.dart_chain_type(here, text, &format!("{value}."), depth + 1);
+            }
             return Some((ty, here.to_path_buf()));
         }
         if let Some(list) = search::dart_list_element(line, name) {
@@ -1194,6 +1228,24 @@ impl App {
         text.lines().enumerate().any(|(i, l)| {
             !literal[i] && !l.starts_with(char::is_whitespace) && declares.is_match(l)
         })
+    }
+
+    fn dart_static_factory(&self, here: &Path, ty: &search::DartType) -> bool {
+        let (None, Some(made)) = (&ty.prefix, &ty.constructor) else {
+            return false;
+        };
+        let Some(file) = self.dart_class_file(here, ty) else {
+            return false;
+        };
+        let rows = self.dart_member_of(&file, &ty.class, made);
+        !rows.is_empty()
+            && rows.iter().all(|r| {
+                r.hit
+                    .text
+                    .split_whitespace()
+                    .take_while(|w| !w.contains('('))
+                    .any(|w| w == "static")
+            })
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {

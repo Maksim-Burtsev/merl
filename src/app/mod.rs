@@ -703,6 +703,7 @@ impl App {
             TextLine::File(l) => (l, None),
             TextLine::Deleted(k, i) => (k.min(last), Some((k, i))),
         };
+        self.col = self.clamp_place((t, self.col)).1;
     }
 
     pub(super) fn go(&mut self, (line, col): (usize, usize)) {

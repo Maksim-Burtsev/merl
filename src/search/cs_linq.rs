@@ -170,6 +170,24 @@ pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Opti
     (steps.new.is_none() && first != Some(name.trim_start_matches('@'))).then_some(receiver)
 }
 
+pub fn cs_callee_lambda(line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w.@])@?(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, line);
+    let mut found = re.captures_iter(&code);
+    let c = found.next()?;
+    let callee = c.get(1)?;
+    let fresh = code.get(..callee.start()).and_then(|b| {
+        b.trim_end()
+            .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
+            .next()
+    }) == Some("new");
+    (found.next().is_none() && !fresh).then(|| callee.as_str().to_owned())
+}
+
 pub fn cs_rule_lambda(line: &str, name: &str) -> bool {
     let n = regex::escape(name.trim_start_matches('@'));
     let (Ok(rule), Ok(bound)) = (
