@@ -97,21 +97,7 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
     let mut crossed = s.function.is_match(&here);
     let found = |t: &str, k: usize, crossed: bool| {
         let rebound = (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
-        let mut top = indent(&here);
-        let mut outer = None;
-        for j in (k + 1..at).rev().filter(filled) {
-            let l = line(j);
-            if indent(&l) < top {
-                top = indent(&l);
-                outer = s.looped.is_match(&l).then_some(top).or(outer);
-            }
-        }
-        let again = outer.is_some_and(|i| {
-            (at..raw.len())
-                .filter(filled)
-                .take_while(|j| indent(&line(*j)) > i)
-                .any(|j| s.assigned.is_match(&line(j)))
-        });
+        let again = assigned_next_round(&s, k, at, raw.len(), &line, &filled);
         (!crossed && !rebound && !again).then(|| (t.to_owned(), k + 1))
     };
     let mut within = indent(&here);
@@ -211,6 +197,31 @@ fn logical(
     }
     let joined = (start..=end).filter(filled).map(line).collect::<Vec<_>>();
     (start, joined.join(" "))
+}
+
+fn assigned_next_round(
+    s: &Shapes,
+    k: usize,
+    at: usize,
+    len: usize,
+    line: &dyn Fn(usize) -> String,
+    filled: &dyn Fn(&usize) -> bool,
+) -> bool {
+    let mut top = indent(&line(at));
+    let mut outer = None;
+    for j in (k + 1..at).rev().filter(filled) {
+        let l = line(j);
+        if indent(&l) < top {
+            top = indent(&l);
+            outer = s.looped.is_match(&l).then_some(top).or(outer);
+        }
+    }
+    outer.is_some_and(|i| {
+        (at..len)
+            .filter(filled)
+            .take_while(|j| indent(&line(*j)) > i)
+            .any(|j| s.assigned.is_match(&line(j)))
+    })
 }
 
 fn closed_by_exit(
