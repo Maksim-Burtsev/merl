@@ -86,3 +86,17 @@ func After(hot bool) int {
 	return d.Draft
 	//       ^ d: rival/damper.go:4
 }
+
+func Defined() int {
+	type Opts Damper
+	o := Opts{Draft: 1}
+	//        ^ d: rival/damper.go:4
+	return o.Draft
+}
+
+func Aliased() int {
+	type Opts = Damper
+	o := Opts{Draft: 1}
+	//        ^ d: rival/damper.go:4
+	return o.Draft
+}

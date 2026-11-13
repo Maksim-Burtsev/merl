@@ -663,14 +663,17 @@ impl App {
                         r"^extension\s+{o}\s*(?:<[^>]*>)?\s+on\s+(\w+)(?:<[^{{]*>)?\??\s*\{{"
                     ))
                     .ok()?;
-                    text.lines()
-                        .find(|l| named.is_match(l))
-                        .and_then(|head| on.captures(head))
-                        .map(|c| c[1].to_owned())
+                    let Some(head) = text.lines().find(|l| named.is_match(l)) else {
+                        continue;
+                    };
+                    on.captures(head)?[1].to_owned()
                 }
-                None => Self::dart_unnamed_on(&text, hit.line1, &unnamed),
+                None => match Self::dart_extension_head(&text, hit.line1) {
+                    Some(head) => unnamed.captures(head)?[1].to_owned(),
+                    None => continue,
+                },
             };
-            if !target.is_some_and(|t| names.contains(&t)) {
+            if !names.contains(&target) {
                 continue;
             }
             let visible = match &owner {
@@ -688,7 +691,7 @@ impl App {
         Some(found)
     }
 
-    fn dart_unnamed_on(text: &str, line1: usize, unnamed: &Regex) -> Option<String> {
+    fn dart_extension_head(text: &str, line1: usize) -> Option<&str> {
         let lines: Vec<&str> = text.lines().take(line1).collect();
         let (member, above) = lines.split_last()?;
         if !member.starts_with(char::is_whitespace) {
@@ -698,7 +701,11 @@ impl App {
             .iter()
             .rev()
             .find(|l| !l.is_empty() && !l.starts_with(char::is_whitespace))?;
-        unnamed.captures(head).map(|c| c[1].to_owned())
+        let extension = head.strip_prefix("extension").is_some_and(|rest| {
+            !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                && !rest.trim_start().starts_with("type ")
+        });
+        extension.then_some(*head)
     }
 
     fn dart_ancestors(&self, file: &Path, class: &str, depth: usize, names: &mut Vec<String>) {

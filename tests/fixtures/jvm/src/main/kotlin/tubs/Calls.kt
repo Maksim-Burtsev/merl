@@ -36,4 +36,27 @@ class Calls(private val x: Tun) {
     }
     fun r() = e { x -> val x = Tun(); x.dunk() }
     //                                  ^ d: src/main/kotlin/tubs/Tun.kt:4
+    fun s(f: Firkin) = with(f) {
+        e { it.dunk() }
+    //         ^ d: !jump
+    }
+    fun Firkin.t() {
+        e { it.dunk() }
+    //         ^ d: !jump
+    }
+    fun Firkin.u() = e { it.dunk() }
+    //                      ^ d: !jump
+    fun v(f: Firkin) = f.run {
+        e { it.dunk() }
+    //         ^ d: !jump
+    }
+    fun w(f: Firkin) = f.apply {
+        e { it.dunk() }
+    //         ^ d: !jump
+    }
+}
+
+class Drain : Firkin() {
+    fun m() = e { it.dunk() }
+    //               ^ d: !jump
 }

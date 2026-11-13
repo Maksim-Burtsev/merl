@@ -697,7 +697,10 @@ fn watcher(tx: Sender<Msg>) -> Option<RecommendedWatcher> {
 
 fn spawn_copier() -> Option<Sender<String>> {
     let mut tmux = tmux_copy(std::env::var_os("TMUX").as_deref());
-    let ssh = ["SSH_TTY", "SSH_CONNECTION"].map(std::env::var_os);
+    let ssh = match tmux {
+        Some(_) => [None, None],
+        None => ["SSH_TTY", "SSH_CONNECTION"].map(std::env::var_os),
+    };
     let mut pbcopy = pbcopy(cfg!(target_os = "macos"), &ssh);
     if tmux.is_none() && pbcopy.is_none() {
         return None;
@@ -705,11 +708,13 @@ fn spawn_copier() -> Option<Sender<String>> {
     let (tx, texts) = mpsc::channel::<String>();
     std::thread::spawn(move || {
         for text in texts {
-            if let Some(pbcopy) = &mut pbcopy {
+            if let Some(pbcopy) = &mut pbcopy
+                && !(tmux.as_mut()).is_some_and(|t| t.ssh.iter_mut().any(tmux_has_set))
+            {
                 pipe_to(pbcopy, &text);
             }
-            if let Some((taken, calls)) = &mut tmux {
-                hand_to_tmux(taken, calls, &text);
+            if let Some(t) = &mut tmux {
+                hand_to_tmux(&mut t.taken, &mut t.calls, &text);
             }
         }
     });
@@ -870,7 +875,13 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
-fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
+struct TmuxCopy {
+    taken: Command,
+    calls: [Command; 2],
+    ssh: [Command; 2],
+}
+
+fn tmux_copy(tmux: Option<&OsStr>) -> Option<TmuxCopy> {
     tmux.filter(|t| !t.is_empty())?;
     let tmux = |args: &[&str], stdin: Stdio, stdout: Stdio| {
         let mut cmd = Command::new("tmux");
@@ -887,7 +898,24 @@ fn tmux_copy(tmux: Option<&OsStr>) -> Option<(Command, [Command; 2])> {
     );
     let calls = [&["load-buffer", "-w", "-"][..], &["load-buffer", "-"]]
         .map(|args| tmux(args, Stdio::piped(), Stdio::null()));
-    Some((taken, calls))
+    let ssh = ["SSH_TTY", "SSH_CONNECTION"]
+        .map(|v| tmux(&["show-environment", v], Stdio::null(), Stdio::piped()));
+    Some(TmuxCopy { taken, calls, ssh })
+}
+
+fn tmux_has_set(show_environment: &mut Command) -> bool {
+    show_environment
+        .output()
+        .is_ok_and(|o| o.status.success() && shown_set(&o.stdout))
+}
+
+fn shown_set(line: &[u8]) -> bool {
+    let line = line.trim_ascii();
+    !line.starts_with(b"-")
+        && line
+            .split(|&b| b == b'=')
+            .nth(1)
+            .is_some_and(|v| !v.is_empty())
 }
 
 fn hand_to_tmux(taken: &mut Command, calls: &mut [Command], text: &str) {
@@ -956,17 +984,34 @@ mod tests {
         use std::ffi::OsStr;
         assert!(super::tmux_copy(None).is_none());
         assert!(super::tmux_copy(Some(OsStr::new(""))).is_none());
-        let (taken, calls) =
-            super::tmux_copy(Some(OsStr::new("/tmp/tmux-501/default,4242,0"))).unwrap();
+        let copy = super::tmux_copy(Some(OsStr::new("/tmp/tmux-501/default,4242,0"))).unwrap();
         let line = |c: &std::process::Command| {
             let args: Vec<_> = c.get_args().map(|a| a.to_str().unwrap()).collect();
             format!("{} {}", c.get_program().display(), args.join(" "))
         };
-        assert_eq!(line(&taken), "tmux show-options -sv set-clipboard");
+        assert_eq!(line(&copy.taken), "tmux show-options -sv set-clipboard");
         assert_eq!(
-            calls.each_ref().map(line),
+            copy.calls.each_ref().map(line),
             ["tmux load-buffer -w -", "tmux load-buffer -"]
         );
+        assert_eq!(
+            copy.ssh.each_ref().map(line),
+            [
+                "tmux show-environment SSH_TTY",
+                "tmux show-environment SSH_CONNECTION"
+            ]
+        );
+    }
+
+    #[test]
+    fn inside_tmux_over_ssh_is_what_the_session_s_environment_says_now() {
+        assert!(super::shown_set(
+            b"SSH_CONNECTION=10.0.0.2 52814 10.0.0.1 22\n"
+        ));
+        assert!(super::shown_set(b"SSH_TTY=/dev/ttys003\n"));
+        assert!(!super::shown_set(b"-SSH_CONNECTION\n"));
+        assert!(!super::shown_set(b"SSH_TTY=\n"));
+        assert!(!super::shown_set(b""));
     }
 
     #[test]
@@ -993,7 +1038,13 @@ mod tests {
             cmd.args(["-c", script]).stdin(Stdio::piped());
             cmd
         };
-        let mut calls = [sh("exit 1"), sh(&format!("cat > '{}'", got.display()))];
+        let mut missing = Command::new("/nonexistent");
+        missing.stdin(Stdio::piped());
+        let mut calls = [
+            missing,
+            sh("exit 1"),
+            sh(&format!("cat > '{}'", got.display())),
+        ];
         super::hand_to_tmux(&mut sh("echo external"), &mut calls, "one");
         assert_eq!(std::fs::read_to_string(&got).unwrap(), "one");
         std::fs::remove_file(&got).unwrap();

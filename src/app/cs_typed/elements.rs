@@ -326,3 +326,32 @@ fn cs_may_see_nested(text: &str, line1: usize, owner: &str, nested: &str) -> boo
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_partial_type_may_see_a_protected_nested_type_of_another() {
+        let text = |head: &str| {
+            format!("{head}\n{{\n    void Fire()\n    {{\n        Pot.Boil();\n    }}\n}}\n")
+        };
+        let protected = "    protected class Pot";
+        assert!(super::cs_may_see_nested(
+            &text("public partial class Kiln"),
+            5,
+            "Stove",
+            protected
+        ));
+        assert!(!super::cs_may_see_nested(
+            &text("public class Kiln"),
+            5,
+            "Stove",
+            protected
+        ));
+        assert!(!super::cs_may_see_nested(
+            &text("public partial class Kiln"),
+            5,
+            "Stove",
+            "    private class Pot"
+        ));
+    }
+}
