@@ -218,7 +218,7 @@ impl App {
         head: Option<&search::CallHead>,
     ) -> Result<ProvenType, String> {
         let (text, line) = self.scope(here, chain.first())?;
-        let hops = if kind == Kind::TsJs { 2 } else { 1 };
+        let hops = if kind == Kind::TsJs { 3 } else { 1 };
         match head {
             Some(search::CallHead {
                 call_without_arguments: call,
@@ -889,7 +889,10 @@ impl App {
                     0
                 };
                 (
-                    self.annotated_type(kind, &at, text, line1, &element)?,
+                    search::ts_namespaced(text, line1, &element)
+                        .filter(|_| kind == Kind::TsJs)
+                        .and_then(|q| self.annotated_type(kind, &at, text, line1, &q))
+                        .or_else(|| self.annotated_type(kind, &at, text, line1, &element))?,
                     Some(link),
                 )
             };
