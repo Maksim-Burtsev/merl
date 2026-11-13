@@ -157,3 +157,60 @@ def unrelated(p: Phial, both: Phial | Vial) -> None:
     if isinstance(both, Vial):
         both.uncork()
         #    ^ d: cruets/vial.py:5
+
+
+def looped(c: Cruet, p: Phial, xs: list[Cruet]) -> None:
+    if isinstance(c, Vial):
+        for x in xs:
+            c.uncork()
+            # ^ d: picker cruets/cruet.py:2, cruets/phial.py:5, cruets/vial.py:5, cruets/vial.py:13
+            c = x
+    if not isinstance(c, Vial):
+        return
+    while xs:
+        c.stopper()
+        # ^ d: picker cruets/cruet.py:5, cruets/phial.py:8, cruets/vial.py:8
+        if p:
+            c = p
+
+
+def unpacked(c: Cruet, xs: list[Cruet]) -> None:
+    if isinstance(c, Vial):
+        [c] = xs
+        c.uncork()
+        # ^ d: picker cruets/cruet.py:2, cruets/phial.py:5, cruets/vial.py:5, cruets/vial.py:13
+    if isinstance(c, Vial):
+        c, *rest = xs
+        c.uncork()
+        # ^ d: picker cruets/cruet.py:2, cruets/phial.py:5, cruets/vial.py:5, cruets/vial.py:13
+    if isinstance(c, Vial):
+        (first, c) = xs[0], xs[1]
+        c.uncork()
+        # ^ d: picker cruets/cruet.py:2, cruets/phial.py:5, cruets/vial.py:5, cruets/vial.py:13
+    if isinstance(c, Vial):
+        if (c := xs[0]) is not None:
+            c.uncork()
+            # ^ d: picker cruets/cruet.py:2, cruets/phial.py:5, cruets/vial.py:5, cruets/vial.py:13
+
+
+class Shelf:
+    held: Cruet
+
+    def __init__(self, held: Cruet) -> None:
+        self.held = held
+
+    def swap(self, p: Phial) -> None:
+        self.held = p
+
+    def pour(self, p: Phial) -> None:
+        if isinstance(self.held, Vial):
+            self.swap(p)
+            self.held.uncork()
+            #         ^ d: !jump
+
+    def spin(self, xs: list[Cruet]) -> None:
+        if isinstance(self.held, Vial):
+            for x in xs:
+                self.held.uncork()
+                #         ^ d: !jump
+                self.held = x
