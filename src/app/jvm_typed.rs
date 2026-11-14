@@ -1161,7 +1161,7 @@ impl App {
         let bound = |imports: &[search::JvmImport]| {
             imports
                 .iter()
-                .find(|i| i.bound_name == written)
+                .find(|i| self.jvm_binds(i, written))
                 .map(|i| i.path.clone())
         };
         if on.is_none()
@@ -1171,7 +1171,7 @@ impl App {
             return JvmType::Unknown;
         }
         if let Some(search::JvmImport { path, .. }) =
-            imports.iter().find(|i| i.bound_name == written)
+            imports.iter().find(|i| self.jvm_binds(i, written))
         {
             if self.rel_current().as_deref() == Some(file) {
                 let line1 = on.unwrap_or(self.line + 1);

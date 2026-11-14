@@ -19,3 +19,12 @@ fun stirPackage() {
     ladle.stir()
     //    ^ d: src/main/kotlin/ladle/Stir.kt:3
 }
+
+class Stirs {
+    fun mortar(): Int = 1
+
+    fun go() {
+        mortar.triturate()
+        //     ^ d: src/main/kotlin/mortar/Grind.kt:3
+    }
+}
