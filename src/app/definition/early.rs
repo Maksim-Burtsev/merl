@@ -177,6 +177,12 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return None;
         }
+        let quoted = kind == Kind::Swift && search::swift_in_string(&text, at);
+        let (chain, dotted) = if quoted {
+            (Vec::new(), false)
+        } else {
+            (chain, dotted)
+        };
         Some(Asked {
             kind,
             here,
