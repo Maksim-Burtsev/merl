@@ -883,7 +883,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                 let nested = is_dir && others.iter().any(|o| o == e.path());
                 let untaken = sysroot && is_dir && {
                     let name = e.file_name().to_string_lossy();
-                    name == "benches" || name.ends_with("tests")
+                    name == "benches" || name == "rtstartup" || name.ends_with("tests")
                 };
                 let patches = dart_sdk && is_dir && e.depth() == 1 && e.file_name() == "_internal";
                 let header = match e.depth() {
