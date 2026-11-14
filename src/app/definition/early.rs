@@ -199,6 +199,8 @@ impl App {
         (kind == Kind::Go
             && (word == "_"
                 || search::go_anonymous_field_name(
+                    &self.buf.lines,
+                    self.line,
                     lead,
                     self.line_str()
                         .get(start + word.len()..)
