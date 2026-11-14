@@ -401,6 +401,7 @@ pub struct App {
     pub prompt: LineEdit,
     pub find_re: Option<Regex>,
     find_query: String,
+    pub find_whole: bool,
     find_anchor: (TextLine, usize),
     find_view: (usize, usize, usize, usize),
     find_sel: Option<(TextLine, usize)>,
@@ -569,6 +570,7 @@ impl App {
             prompt: LineEdit::default(),
             find_re: None,
             find_query: String::new(),
+            find_whole: false,
             find_anchor: (TextLine::File(0), 0),
             find_view: (0, 0, 0, 0),
             find_sel: None,
@@ -939,14 +941,18 @@ pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> u
 }
 
 pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
+    line.match_indices(word)
+        .map(|(i, _)| i)
+        .find(|&i| whole(line, i..i + word.len(), word_chars_past_alnum))
+}
+
+pub(super) fn whole(line: &str, r: std::ops::Range<usize>, word_chars_past_alnum: &str) -> bool {
     let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
-    let whole = |(i, _): &(usize, &str)| {
-        line.get(..*i).is_some_and(|head| !head.ends_with(part))
-            && line
-                .get(i + word.len()..)
-                .is_some_and(|tail| !tail.starts_with(part))
-    };
-    line.match_indices(word).find(whole).map(|(i, _)| i)
+    line.get(..r.start)
+        .is_some_and(|head| !head.ends_with(part))
+        && line
+            .get(r.end..)
+            .is_some_and(|tail| !tail.starts_with(part))
 }
 
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
