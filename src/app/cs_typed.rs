@@ -7,6 +7,9 @@ mod deconstruct;
 mod elements;
 mod fits;
 mod generic_base;
+mod shapes;
+
+use shapes::{one_namespace, part_shape, partial_shape, plain_of};
 
 #[derive(Debug, Clone)]
 enum CsType {
@@ -1427,12 +1430,6 @@ fn owner_of(file: &Path, text: &str, line1: usize) -> Option<Typed> {
     })
 }
 
-fn plain_of<'h>(plain: bool, many: &[&'h Hit]) -> Vec<&'h Hit> {
-    (many.iter().copied())
-        .filter(|h| plain && search::cs_type_decl(&h.text).is_some_and(|d| !d.generic))
-        .collect()
-}
-
 fn generic(written: &str) -> bool {
     written.contains('<') || written.trim_end_matches('?').ends_with("[]")
 }
@@ -1474,35 +1471,4 @@ fn receivers(hits: Vec<Hit>, label: &str) -> Vec<Candidate> {
             reason: Reason::Receiver(label.to_owned()),
         })
         .collect()
-}
-
-fn partial_shape(name: &str) -> Regex {
-    Regex::new(&format!(
-        r"\bpartial\b.*?\b{}\s*(<[^>]*>)?\s*(\()?",
-        regex::escape(name)
-    ))
-    .expect("an escaped name keeps the pattern valid")
-}
-
-fn part_shape(shape: &Regex, header: &str) -> Option<(String, bool)> {
-    let c = shape.captures(header)?;
-    let generics = c.get(1).map_or("", |m| m.as_str());
-    Some((
-        generics.replace(char::is_whitespace, ""),
-        c.get(2).is_some(),
-    ))
-}
-
-fn one_namespace(text: &str, line1: Option<usize>) -> bool {
-    let mut namespaces = text.lines().filter(|l| search::cs_namespace_line(l));
-    match (namespaces.next(), namespaces.next()) {
-        (None, _) => true,
-        (Some(only), None) => {
-            only.trim_end().ends_with(';')
-                || line1.is_none_or(|n| {
-                    (text.lines().nth(n - 1)).is_some_and(|l| l.starts_with([' ', '\t']))
-                })
-        }
-        _ => false,
-    }
 }
