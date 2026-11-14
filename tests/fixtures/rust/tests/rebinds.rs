@@ -169,17 +169,57 @@ pub fn if_let_wrong_wrapper(held: Caps) {
 
 pub fn if_let_after_else(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else { 1 } + held.get();
-    //                                                          ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+    //                                                          ^ d: tests/rebinds.rs:5
 }
 
 pub fn if_let_else_if(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else if true { held.get() } else { 1 };
-    //                                                            ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+    //                                                            ^ d: tests/rebinds.rs:5
 }
 
 pub fn if_let_else_rebinds(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else { let held = Grain; held.get() };
     //                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}
+
+pub fn if_let_else_for(held: Caps, v: Vec<Grain>) {
+    let n = if let Some(held) = grain() { 0 } else { for held in v.iter() { held.get(); } 0 };
+    //                                                                           ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}
+
+pub fn if_let_else_while_let(held: Caps) {
+    let n = if let Some(held) = grain() { 0 } else { while let Some(held) = grain() { held.get(); } 0 };
+    //                                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}
+
+pub fn if_let_after_for(held: Caps, v: Vec<Grain>) {
+    let n = if let Some(held) = grain() { 0 } else { 1 } + { for held in v.iter() { held.get(); } 0 };
+    //                                                                                    ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+}
+
+pub fn if_let_then_for(held: Caps, w: Vec<Caps>) {
+    if let Some(held) = grain() { for held in w.iter() { held.get(); } }
+    //                                                        ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+}
+
+pub fn if_let_then_twice(held: Caps) {
+    if let Some(held) = grain() { held.get(); held.get(); }
+    //                                             ^ d: tests/rebinds.rs:14
+}
+
+pub fn if_let_after_used(held: Caps) {
+    if let Some(held) = grain() { 0 } else { held.get() } + held.get();
+    //                                                           ^ d: tests/rebinds.rs:5
+}
+
+pub fn if_let_statement_then_outer(held: Caps) {
+    if let Some(held) = grain() { held.get(); } held.get();
+    //                                               ^ d: tests/rebinds.rs:5
+}
+
+pub fn if_let_else_if_let(held: Caps) {
+    let n = if let Some(held) = caps().ok() { 0 } else if let Some(held) = grain() { held.get() } else { 0 };
+    //                                                                                    ^ d: tests/rebinds.rs:14
 }
 
 pub struct Sack {

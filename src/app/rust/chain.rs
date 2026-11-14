@@ -913,13 +913,20 @@ impl App {
         if bindings.first().is_none_or(|b| b.line1 != line0 + 1) {
             return None;
         }
-        let (header, then) = search::rust_if_let_branch(text.lines().nth(line0)?, name, col?)?;
-        if !then {
-            bindings.retain(|b| b.line1 != line0 + 1);
-            return None;
+        match search::rust_if_let_branch(text.lines().nth(line0)?, name, col?)? {
+            search::IfLetScope::Then(header) => {
+                bindings.clear();
+                self.rust_if_let_header_typed(file, text, line0, name, header)
+            }
+            search::IfLetScope::Outside => {
+                bindings.retain(|b| b.line1 != line0 + 1);
+                None
+            }
+            search::IfLetScope::Hidden => {
+                bindings.clear();
+                None
+            }
         }
-        bindings.clear();
-        self.rust_if_let_header_typed(file, text, line0, name, header)
     }
 
     fn rust_if_let_header_typed(
