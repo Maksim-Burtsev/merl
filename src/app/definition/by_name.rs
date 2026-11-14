@@ -88,6 +88,12 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Python
+            && p.members.is_some()
+            && self.answered_as_builtin(&a.here, &a.word, &found)
+        {
+            return;
+        }
         if kind == Kind::Julia {
             self.julia_found(a, p, &mut found);
         }
@@ -108,20 +114,24 @@ impl App {
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
         }
-        if kind == Kind::Ruby
+        self.ruby_unrelated_offered(a, &found);
+        self.top_level_only(a, near, &mut found);
+        self.offer_only |= self.template_name_elsewhere(a, near, &found);
+        self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
+        if let Some(note) = aside {
+            self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    fn ruby_unrelated_offered(&mut self, a: &Asked, found: &[Candidate]) {
+        if a.kind == Kind::Ruby
             && !a.dotted
             && a.chain.is_empty()
             && !a.before.ends_with("::")
             && a.word
                 .starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
         {
-            self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
-        }
-        self.top_level_only(a, near, &mut found);
-        self.offer_only |= self.template_name_elsewhere(a, near, &found);
-        self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
-        if let Some(note) = aside {
-            self.message = self.message.replacen("1 match", &note, 1);
+            self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, found);
         }
     }
 

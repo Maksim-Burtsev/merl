@@ -150,3 +150,54 @@ pub fn unpacked(p: Printer) -> u32 {
     //            ^ d: src/locals.rs:8
     h
 }
+
+pub fn drained(rows: Vec<Result<u32, u32>>) -> u32 {
+    let mut sum = 0;
+    for row in rows {
+        match row {
+            Ok(row) => sum += row,
+            //                ^ d: src/locals.rs:158
+            Err(row) => sum -= row,
+        }
+    }
+    sum
+}
+
+pub fn parsed(text: Option<&str>) -> usize {
+    match text {
+        Some(text) => text.len(),
+        //            ^ d: src/locals.rs:168
+        None => 0,
+    }
+}
+
+pub fn rels(rel: Option<&str>) -> Option<usize> {
+    rel.map(|rel| rel.len())
+    //^ d: src/locals.rs:174
+    //            ^ d: src/locals.rs:175
+}
+
+pub fn skipped(groups: Vec<Vec<u32>>) -> usize {
+    let mut n = 0;
+    for ig in groups {
+        n += ig.iter().skip_while(|ig| **ig > 1).count();
+        //   ^ d: src/locals.rs:182
+        //                               ^ d: src/locals.rs:183
+    }
+    n
+}
+
+pub fn held_get(held: u32, maybe: Option<u32>) -> u32 {
+    let a = if let Some(held) = maybe { held + 1 } else { held };
+    //                                  ^ d: src/locals.rs:191
+    //                                                    ^ d: src/locals.rs:190
+    a
+}
+
+pub fn either(v: u32, o: Option<u32>) -> u32 {
+    let w = if let Some(v) = o.or(Some(v)) { v } else { 0 };
+    //                                 ^ d: src/locals.rs:197
+    match o { Some(v) => v + w, None => v }
+    //                   ^ d: src/locals.rs:197; want src/locals.rs:200 (#1557)
+    //                                  ^ d: src/locals.rs:197
+}

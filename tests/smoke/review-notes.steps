@@ -46,9 +46,9 @@ wait app/models.py  1:1  [code]
 # and Enter again edits that answer. c skips repos.py, ticked and untouched, for service.py, where
 # the thread whose line changed waits above the file and the agent's own thread on its line
 merl --review=agent/refund
-wait hunk 1/1  file 2/8
+wait hunk 1/1  viewed 1/7
 key c
-wait file 3/8
+wait viewed 2/7
 run printf '# merl notes\n\napp/refund_rules.py:3\n> WINDOW_DAYS = 30\ndrop this file, the window is in Settings\nagent: deleted it; refunds.py reads settings.refund_window_days\n\napp/refunds.py:18\n>     return order.total\nwhy the whole total?\nagent: a partial refund needs the provider API; the whole order until then\n\napp/service.py:5\n> from app.refunds import refund_amount_v1\nname it refund_amount\nagent: renamed, and nothing else imported it\n\napp/service.py:44\n>         order.status = OrderStatus.REFUNDED\nagent: set it once the provider confirms, not before?\n' > "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 merl --review=agent/refund
 wait app/refund_rules.py, file deleted

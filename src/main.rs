@@ -295,11 +295,11 @@ fn run() -> Result<()> {
         start_tutor(&mut app, cli.drill, dir)?;
     }
 
+    let (tx, rx) = mpsc::channel();
+    quit_on_signals(tx.clone());
     let (mut terminal, keyboard) = enter_terminal()?;
     mermaid::keep_panics_inside();
-    let (tx, rx) = mpsc::channel();
     spawn_key_reader(&keyboard, tx.clone());
-    quit_on_signals(tx.clone());
     let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
     drop(app.diagrams.clear(&mut stdout()));
     leave_terminal(&keyboard);
@@ -354,7 +354,7 @@ fn restore_on_panic(enhanced: bool) {
 #[cfg(not(target_family = "wasm"))]
 fn spawn_key_reader(_after: &KeyboardQueried, keys: Sender<Msg>) {
     std::thread::spawn(move || {
-        while let Ok(ev) = ratatui::crossterm::event::read() {
+        while let Ok(ev) = crossterm::event::read() {
             let msg = match ev {
                 Event::Key(k) => Msg::Key(k),
                 Event::Paste(text) => Msg::Paste(text),
@@ -977,6 +977,37 @@ mod tests {
             assert!(out.ends_with("\x1b[2J\x1b[1;1H"), "{out:?}");
             assert_eq!(out.starts_with("\x1b[<1u"), enhanced, "{out:?}");
         }
+    }
+
+    #[test]
+    fn keys_are_polled_from_the_terminal_when_stdin_is_a_pipe() {
+        const POLLING: &str = "MERL_TEST_POLL_WITH_STDIN_A_PIPE";
+        if std::env::var_os(POLLING).is_some() {
+            crossterm::event::poll(std::time::Duration::ZERO).unwrap();
+            return;
+        }
+        let me = std::env::current_exe().unwrap();
+        let polling = format!(
+            "exec '{}' --exact tests::keys_are_polled_from_the_terminal_when_stdin_is_a_pipe \
+             --nocapture </dev/null",
+            me.display()
+        );
+        let mut on_a_terminal = std::process::Command::new("script");
+        if cfg!(target_os = "macos") {
+            on_a_terminal.args(["-q", "/dev/null", "sh", "-c", &polling]);
+        } else {
+            on_a_terminal.args(["-qec", &polling, "/dev/null"]);
+        }
+        let out = on_a_terminal
+            .env(POLLING, "1")
+            .stdin(std::process::Stdio::null())
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "`… | xargs merl` polls no key and spins (#1534): {}",
+            String::from_utf8_lossy(&out.stdout)
+        );
     }
 
     #[test]
@@ -1648,7 +1679,7 @@ b";
             .collect();
         for (name, spec) in &merl {
             let same = match (name.as_str(), web.get(name)) {
-                ("signal-hook", None) => true,
+                ("signal-hook" | "crossterm", None) => true,
                 ("ratatui", Some(w)) => w.get("version") == spec.get("version"),
                 (_, w) => w == Some(spec),
             };

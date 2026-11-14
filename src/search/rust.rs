@@ -738,18 +738,17 @@ fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
                 .iter()
                 .any(|p| binds(without_type(p), name))
     });
-    let arm = t.find("=>").is_some_and(|end| {
-        let Some(pat) = t.get(..end) else {
-            return false;
-        };
-        let pat = pat.trim().trim_start_matches('|');
-        let pat = pat.split(" if ").next().unwrap_or(pat);
-        let statement = ["let ", "if ", "while ", "for ", "return", "."]
-            .iter()
-            .any(|k| pat.starts_with(k));
-        !statement && !pat.contains("match ") && !pat.contains('$') && binds(pat, name)
-    });
+    let arm = arm_pattern(t).is_some_and(|pat| binds(pat, name));
     lets || each || closure || arm
+}
+pub(super) fn arm_pattern(t: &str) -> Option<&str> {
+    let pat = t.get(..t.find("=>")?)?;
+    let pat = pat.trim().trim_start_matches('|');
+    let pat = pat.split(" if ").next().unwrap_or(pat);
+    let statement = ["let ", "if ", "while ", "for ", "return", "."]
+        .iter()
+        .any(|k| pat.starts_with(k));
+    (!statement && !pat.contains("match ") && !pat.contains('$')).then_some(pat)
 }
 fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
     static FN: LazyLock<Regex> =

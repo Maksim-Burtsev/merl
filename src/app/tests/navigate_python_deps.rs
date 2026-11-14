@@ -931,3 +931,76 @@ fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
         }
     }
 }
+
+#[test]
+fn a_builtin_method_on_an_unknown_receiver_is_no_jump_to_its_lone_stdlib_namesake() {
+    let prefix = external_root(
+        "py-builtin-namesake-std",
+        &[
+            ("lib/python3.12/os.py", ""),
+            (
+                "lib/python3.12/collections/__init__.py",
+                "class UserString:\n    def startswith(self, prefix):\n        pass\n\n    def tidy(self):\n        pass\n",
+            ),
+            (
+                "lib/python3.12/_weakrefset.py",
+                "class WeakSet:\n    def issubset(self, other):\n        pass\n",
+            ),
+        ],
+    );
+    let std = prefix.join("lib/python3.12");
+    let site = external_root(
+        "py-builtin-namesake-site",
+        &[(
+            "acme/__init__.py",
+            "class Blob:\n    def removeprefix(self, p):\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-builtin-namesake-p",
+        &[
+            (
+                "app/t.py",
+                "def f(items, url, blob, s):\n    seen = {i.get(\"k\") for i in items}\n    assert seen.issubset({True, False})\n    s.tidy()\n    blob.removeprefix(\"a\")\n    return url.startswith(\"http\")\n",
+            ),
+            ("app/named.py", "def g(w):\n    return w.issubset(set())\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    d_on(&mut a, "app/t.py", "seen.issubset");
+    assert_eq!(a.message, "issubset: builtin, no source");
+    d_on(&mut a, "app/t.py", "url.startswith");
+    assert_eq!(a.message, "startswith: builtin, no source");
+    let collections = std.join("collections/__init__.py");
+    d_on(&mut a, "app/t.py", "s.tidy");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "tidy \u{2192} UserString.tidy (by name, 1 match)",
+            &format!("{}:5", collections.display())
+        ),
+        "a method no builtin type has keeps its lone namesake"
+    );
+    d_on(&mut a, "app/t.py", "blob.removeprefix");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "removeprefix \u{2192} Blob.removeprefix (by name, 1 match)",
+            &format!("{}:2", site.join("acme/__init__.py").display())
+        ),
+        "an installed package is not the standard library"
+    );
+    std::fs::write(dir.join("app/named.py"), "from weakref import WeakSet\n").unwrap();
+    d_on(&mut a, "app/t.py", "seen.issubset");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "issubset \u{2192} WeakSet.issubset (by name, 1 match)",
+            &format!("{}:2", std.join("_weakrefset.py").display())
+        ),
+        "a class the project names may be the receiver's"
+    );
+    for d in [dir, prefix, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

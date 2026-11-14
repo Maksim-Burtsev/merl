@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::rust::{
-    binds, rust_line_binds, rust_rebinds, top_split, top_stop, type_at, without_type,
+    arm_pattern, binds, rust_line_binds, rust_rebinds, top_split, top_stop, type_at, without_type,
 };
 use super::{Kind, code};
 
@@ -203,4 +203,28 @@ pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<If
     } else {
         IfLetScope::Outside
     })
+}
+fn arm_holds(line: &str, name: &str, at: usize) -> bool {
+    let Some(arrow) = line.find("=>").filter(|&a| a < at) else {
+        return false;
+    };
+    let mut depth = 0i32;
+    arm_pattern(line).is_some_and(|pat| binds(pat, name))
+        && code(Kind::Rust, line.get(arrow..at).unwrap_or_default()).all(|(_, b)| {
+            match b {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            depth > 0 || (depth == 0 && !matches!(b, b',' | b';'))
+        })
+}
+pub fn rust_bound_before(line: &str, name: &str, at: usize) -> bool {
+    arm_holds(line, name, at)
+        || rust_rebound_before(line, name, at)
+        || rust_closure_holds(line, name, at).is_some()
+        || matches!(
+            rust_if_let_branch(line, name, at),
+            Some(IfLetScope::Then(_))
+        )
 }

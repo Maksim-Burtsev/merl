@@ -1156,7 +1156,7 @@ impl App {
         if let Some(dir) = path.parent() {
             drop(std::fs::create_dir_all(dir));
         }
-        if let Err(e) = std::fs::write(&path, format(&self.notes.list, &head)) {
+        if let Err(e) = crate::real::write_file(&path, format(&self.notes.list, &head).as_bytes()) {
             self.message = format!("notes not saved: {e}");
         }
         self.notes.seen = std::fs::metadata(&path).and_then(|m| m.modified()).ok();

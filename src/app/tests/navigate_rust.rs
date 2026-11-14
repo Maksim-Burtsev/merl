@@ -2380,3 +2380,55 @@ fn a_crate_alias_re_exported_under_cfg_is_not_followed() {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
+
+#[test]
+fn a_marker_trait_lands_on_core_s_auto_trait_not_a_rtstartup_stub() {
+    let (dir, mut a) = project_app(
+        "rust-1544",
+        &[
+            ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+            (
+                "src/lib.rs",
+                "pub fn share<T>(value: T) -> T\nwhere\n    T: Send + Sync + Unpin + Copy + 'static,\n{\n    value\n}\n",
+            ),
+        ],
+    );
+    let std = external_root(
+        "rust-1544-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/core/src/marker.rs",
+                "pub unsafe auto trait Send {\n}\n\npub unsafe auto trait Sync {\n}\n\npub auto trait Unpin {}\n\npub trait Copy: Clone {\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/rtstartup/rsbegin.rs",
+                "auto trait Sync {}\ntrait Copy {}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/rtstartup/rsend.rs",
+                "trait Sync {}\ntrait Copy {}\n",
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, line) in [("Send", 1), ("Sync", 4), ("Unpin", 7), ("Copy", 9)] {
+        d_on(&mut a, "src/lib.rs", &format!("{code}| +"));
+        let Shown::Jump(status, place) = shown(&mut a) else {
+            panic!("{code}: a picker");
+        };
+        assert_eq!(
+            (
+                status,
+                place.replace(&format!("{}/", library.display()), "")
+            ),
+            (
+                format!("{code}: by name, 1 match"),
+                format!("core/src/marker.rs:{line}")
+            ),
+            "{code}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
