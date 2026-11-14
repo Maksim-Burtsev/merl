@@ -1,0 +1,47 @@
+def quay = 'eu'
+String zone = 'a'
+
+node('linux') {
+    echo quay
+    //   ^ d: ci/Jenkinsfile:1
+    echo env.quay
+    //       ^ d: none
+    timeout(time: 5) {
+        sh "deploy ${zone}"
+        //           ^ d: ci/Jenkinsfile:2
+    }
+}
+
+def helper() {
+    echo quay
+    //   ^ d: none
+    [1].each { echo quay }
+    //              ^ d: none
+}
+
+@NonCPS
+String other(
+    String a
+) {
+    echo zone
+    //   ^ d: none
+}
+
+if (true) {
+    echo zone
+    //   ^ d: ci/Jenkinsfile:2
+} else {
+    echo quay
+    //   ^ d: ci/Jenkinsfile:1
+}
+
+class Holder {
+    def m() { quay }
+    //        ^ d: none
+}
+
+stage('x') {
+    echo tardy
+    //   ^ d: none
+}
+def tardy = 1

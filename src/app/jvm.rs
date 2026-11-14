@@ -218,14 +218,18 @@ impl App {
                 if h.path != here && search::jvm_private(&h.text) {
                     return false;
                 }
-                if !h.text.starts_with([' ', '\t'])
-                    || (search::groovy(&h.path) && search::gradle_global(&h.text))
-                {
-                    return true;
-                }
                 let text = texts
                     .entry(h.path.clone())
                     .or_insert_with(|| self.text_of(&h.path));
+                if !h.text.starts_with([' ', '\t'])
+                    || (search::groovy(&h.path) && search::gradle_global(&h.text))
+                {
+                    let t = text.as_deref().unwrap_or("");
+                    return !search::groovy_script_local(&h.path, t, h.line1)
+                        || (!behind
+                            && h.path == here
+                            && search::groovy_script_sees(here, t, h.line1, self.line + 1));
+                }
                 match text
                     .as_deref()
                     .and_then(|t| search::jvm_local_block(t, h.line1))

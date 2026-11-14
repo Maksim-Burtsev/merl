@@ -773,12 +773,9 @@ impl App {
         kotlin: bool,
         hops: usize,
     ) -> Option<WrittenType> {
-        let narrowing = if kotlin {
-            r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
-        } else {
-            r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
-        };
-        let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
+        let groovy = search::groovy(file);
+        let narrowing = narrowing(groovy, kotlin).replace("{0}", &regex::escape(name));
+        let narrowed = Regex::new(&narrowing).ok()?;
         let own_when = kotlin
             .then(|| search::jvm_when_else(text, line1, name))
             .flatten();
@@ -825,7 +822,7 @@ impl App {
             let literal = literal_typed
                 .then(|| search::jvm_literal_type(at, name, ext == Some("java")))
                 .flatten();
-            let declared = search::jvm_declared_type(at, name, kotlin).or_else(|| {
+            let declared = search::jvm_declared_type(at, name, kotlin && !groovy).or_else(|| {
                 (ext == Some("scala"))
                     .then(|| search::scala_generic_declared_type(at, name))
                     .flatten()
@@ -841,9 +838,12 @@ impl App {
                     resolved: JvmType::Outside(t.to_owned()),
                     written: t.to_owned(),
                 },
-                (Some(t), _) => WrittenType {
-                    resolved: self.jvm_type_on(file, text, &t, Some(l)),
-                    written: t,
+                (Some(t), _) => match self.jvm_type_on(file, text, &t, Some(l)) {
+                    JvmType::Outside(_) | JvmType::Unknown if groovy => return None,
+                    resolved => WrittenType {
+                        resolved,
+                        written: t,
+                    },
                 },
                 (None, None) if hops > 0 => match search::jvm_assigned_call(at, name) {
                     Some(search::JvmAssignedCall {
@@ -1467,5 +1467,15 @@ fn one_type(mut hits: Vec<Hit>) -> JvmType {
     match hits.len() {
         1 => JvmType::Project(hits.remove(0)),
         _ => JvmType::Unknown,
+    }
+}
+
+const fn narrowing(groovy: bool, kotlin: bool) -> &'static str {
+    if groovy {
+        r"\b{0}\s+(?:as\s|!?instanceof\s)"
+    } else if kotlin {
+        r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
+    } else {
+        r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
     }
 }
