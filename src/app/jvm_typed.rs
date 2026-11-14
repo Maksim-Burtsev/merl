@@ -774,14 +774,8 @@ impl App {
         hops: usize,
     ) -> Option<WrittenType> {
         let groovy = search::groovy(file);
-        let narrowing = if groovy {
-            r"\b{0}\s+(?:as\s|!?instanceof\s)"
-        } else if kotlin {
-            r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
-        } else {
-            r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
-        };
-        let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
+        let narrowing = narrowing(groovy, kotlin).replace("{0}", &regex::escape(name));
+        let narrowed = Regex::new(&narrowing).ok()?;
         let own_when = kotlin
             .then(|| search::jvm_when_else(text, line1, name))
             .flatten();
@@ -1473,5 +1467,15 @@ fn one_type(mut hits: Vec<Hit>) -> JvmType {
     match hits.len() {
         1 => JvmType::Project(hits.remove(0)),
         _ => JvmType::Unknown,
+    }
+}
+
+const fn narrowing(groovy: bool, kotlin: bool) -> &'static str {
+    if groovy {
+        r"\b{0}\s+(?:as\s|!?instanceof\s)"
+    } else if kotlin {
+        r"\b{0}\s+(?:!?is|as\??)\s|\bwhen\s*\(\s*{0}\s*\)"
+    } else {
+        r"\b{0}\s+instanceof\s+[\w$.]+(?:<[^>]*>)?\s*(?:[^\w\s]|$)"
     }
 }
