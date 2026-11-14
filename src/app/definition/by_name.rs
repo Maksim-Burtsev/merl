@@ -1,6 +1,6 @@
 use super::{
     App, Asked, Candidate, HashMap, Hit, Imported, Kind, Near, PathBuf, Patterns, Reason, Walk,
-    enclosing_def_lines1, external, is_word, search, starts_by_assigning,
+    bound, enclosing_def_lines1, external, is_word, search, starts_by_assigning,
 };
 
 impl App {
@@ -25,9 +25,6 @@ impl App {
     ) {
         let kind = a.kind;
         let hits = self.hits_by_name(a, near, p, walk);
-        if self.answered_as_outside_value(a, &hits) {
-            return;
-        }
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !a.dotted && !a.before.ends_with("->") {
@@ -56,6 +53,8 @@ impl App {
                 return;
             };
             hits
+        } else if self.answered_as_outside_value(a, &hits) {
+            return;
         } else {
             hits
         };
@@ -165,7 +164,11 @@ impl App {
         let Some(first) = values.first() else {
             return false;
         };
+        let imports = search::imports(kind, &a.text);
         let declared = |n: &String| {
+            if bound(&imports, n).is_some() {
+                return true;
+            }
             let pattern = search::def_patterns(kind, n).join("|");
             !self
                 .project_definitions(kind, &a.here, n, &pattern)
