@@ -25,6 +25,9 @@ impl App {
     ) {
         let kind = a.kind;
         let hits = self.hits_by_name(a, near, p, walk);
+        if self.answered_as_outside_value(a, &hits) {
+            return;
+        }
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !a.dotted && !a.before.ends_with("->") {
@@ -121,6 +124,60 @@ impl App {
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    fn answered_as_outside_value(&mut self, a: &Asked, hits: &[Hit]) -> bool {
+        let kind = a.kind;
+        let [receiver] = a.chain.as_slice() else {
+            return false;
+        };
+        if !a.dotted
+            || !matches!(
+                kind,
+                Kind::Swift | Kind::TsJs | Kind::Jvm | Kind::CSharp | Kind::Dart
+            )
+            || hits.iter().any(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|t| search::declares_extension(&t, h.line1, &a.word))
+            })
+        {
+            return false;
+        }
+        let lines: Vec<&str> = a.text.lines().collect();
+        let bindings = search::bindings_at(
+            kind,
+            &a.here,
+            &a.text,
+            self.line + 1,
+            Some(self.col),
+            receiver,
+        );
+        let Some(values) = bindings
+            .iter()
+            .map(|b| {
+                let line = lines.get(b.line1.checked_sub(1)?)?;
+                search::outside_value(line, receiver)
+            })
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        let Some(first) = values.first() else {
+            return false;
+        };
+        let declared = |n: &String| {
+            let pattern = search::def_patterns(kind, n).join("|");
+            !self
+                .project_definitions(kind, &a.here, n, &pattern)
+                .is_empty()
+        };
+        if values.iter().flat_map(|v| &v.names).any(declared) {
+            return false;
+        }
+        self.none_found(format!(
+            "no definition for {} in the project (via {receiver} = {})",
+            a.word, first.written
+        ))
     }
 
     fn ruby_unrelated_offered(&mut self, a: &Asked, found: &[Candidate]) {

@@ -733,7 +733,7 @@ impl App {
         })
     }
 
-    fn none_found(&mut self, message: String) -> bool {
+    pub(super) fn none_found(&mut self, message: String) -> bool {
         self.offer_only = false;
         self.truncated.set(false);
         self.message = message;
