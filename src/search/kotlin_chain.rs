@@ -160,16 +160,66 @@ pub fn kotlin_component_type(text: &str, decl_line1: usize, index: usize) -> Opt
     Some(PROPERTY.captures(parameter)?[1].to_owned())
 }
 
+static KOTLIN_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
+        .expect("the regex is a literal")
+});
+
+fn in_kotlin_function(line: &str) -> bool {
+    KOTLIN_FUNCTION.is_match(&uncommented(Kind::Jvm, line))
+}
+
+pub fn jvm_class_parameter(text: &str, line1: usize, name: &str, scala: bool) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    if !scala && in_kotlin_function(lines[at]) {
+        return false;
+    }
+    while let Some(s) = scope_of(&lines, at) {
+        if opens_type(lines[s]) && class_lists_parameter(&lines, s, name) {
+            return true;
+        }
+        if !scala && (opens_type(lines[s]) || anonymous(lines[s]) || in_kotlin_function(lines[s])) {
+            return false;
+        }
+        at = s;
+    }
+    false
+}
+
+fn class_lists_parameter(lines: &[&str], decl: usize, name: &str) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:class|trait)\s+\w+[^(:{]*\(").expect("the regex is a literal")
+    });
+    let Some(head) = HEAD.find(lines[decl]) else {
+        return false;
+    };
+    let (mut line, mut open) = (decl, head.end() - 1);
+    while let Some(g) = group(Kind::Jvm, lines, line, open) {
+        if split_top(Kind::Jvm, &g.inner_uncommented, b',')
+            .iter()
+            .any(|e| param_names(e, false).iter().any(|p| p == name))
+        {
+            return true;
+        }
+        let rest = g.after_close.trim_start();
+        if !rest.starts_with('(') {
+            break;
+        }
+        line = g.close_line;
+        open = lines[line].len() - rest.len();
+    }
+    false
+}
+
 pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Option<usize> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bclass\s+\w+[^(:{]*\(").expect("the regex is a literal")
     });
-    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
-            .expect("the regex is a literal")
-    });
     let lines: Vec<&str> = text.lines().collect();
-    let in_function = |l: &str| FUNCTION.is_match(&uncommented(Kind::Jvm, l));
+    let in_function = in_kotlin_function;
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     if in_function(lines[at]) {
         return None;

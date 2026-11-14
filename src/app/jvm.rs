@@ -144,6 +144,7 @@ impl App {
                     .is_some_and(|l| !search::java_declares_method(l, name))
         };
         !search::path_bindings(Kind::Jvm, here, text, line1, name).is_empty()
+            || search::jvm_class_parameter(text, line1, name, search::scala(here))
             || search::jvm_enclosing_types(text, line1)
                 .into_iter()
                 .any(|d| {
