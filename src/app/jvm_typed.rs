@@ -930,7 +930,7 @@ impl App {
             return self.kotlin_top_level_returned(file, text, line1, at, call);
         }
         let decl = self.jvm_call_owner(file, text, line1, recv, kotlin)?;
-        let TypedField { hit: m, written } = self.jvm_call_type(&decl, call, recv.is_some())?;
+        let TypedField { hit: m, written } = self.jvm_call_type(&decl, call, true)?;
         (!search::scala(&m.path)).then_some(())?;
         let t = self.text_of(&m.path)?;
         Some(WrittenType {

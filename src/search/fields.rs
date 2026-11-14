@@ -372,7 +372,8 @@ fn go_one_line_field_name(lead: &str, tail: &str) -> bool {
             .expect("the regex is a literal")
     });
     static NAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:type\s+)?\w+\s*$").expect("the regex is a literal")
+        Regex::new(r"^\s*(?:type\s+)?\w+\s*$|^\s*type\s+\w+\s*\[.*\]\s*$")
+            .expect("the regex is a literal")
     });
     let typed = tail.starts_with([' ', '\t'])
         && tail

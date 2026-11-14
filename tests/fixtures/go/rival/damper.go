@@ -141,6 +141,23 @@ type Stack struct {
 	//   ^ d: rival/damper.go:9
 }
 
+type Queue[T any, K comparable] struct {
+	Hearth Flue
+	//^ d: rival/damper.go:145
+	//     ^ d: rival/damper.go:9
+}
+
+func Commented() int {
+	rows := []struct {
+		Draft int
+/* Ash int
+*/
+		Grate Flue
+	//^ d: none
+	}{}
+	return len(rows)
+}
+
 func Typed() func() struct {
 	Flue Flue
 	//^ d: none
