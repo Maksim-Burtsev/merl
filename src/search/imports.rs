@@ -238,17 +238,17 @@ fn alias_and_name(item: &str) -> Option<(String, String)> {
 }
 static PY_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(
-        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
+        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|(?:\\\n|[^\n])+)|import\s+((?:\\\n|[^\n])+))",
     )
     .expect("the regex is a literal")
 });
 fn python_wrapped_import_line1(text: &str, name: &str) -> Option<usize> {
     let code = code_of(Kind::Python, text);
     PY_IMPORT.captures_iter(&code).find_map(|c| {
-        let names = c.get(2).filter(|n| n.as_str().starts_with('('))?;
+        let names = c.get(2).filter(|n| n.as_str().contains('\n'))?;
         let at = names.as_str().lines().position(|l| {
             (l.split('#').next().unwrap_or_default())
-                .trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace())
+                .trim_matches(|c: char| c == '(' || c == ')' || c == '\\' || c.is_whitespace())
                 .split(',')
                 .any(|item| alias_and_name(item.trim()).is_some_and(|(alias, _)| alias == name))
         })?;
@@ -267,7 +267,13 @@ fn python_imports(text: &str, out: &mut Vec<Import>) {
             let names: Vec<&str> = names
                 .as_str()
                 .lines()
-                .map(|l| l.split('#').next().unwrap_or_default())
+                .map(|l| {
+                    l.split('#')
+                        .next()
+                        .unwrap_or_default()
+                        .trim_end()
+                        .trim_end_matches('\\')
+                })
                 .collect();
             for item in names
                 .join("\n")
@@ -282,7 +288,8 @@ fn python_imports(text: &str, out: &mut Vec<Import>) {
                 }
             }
         } else if let Some(list) = c.get(3) {
-            let list = list.as_str().split('#').next().unwrap_or_default();
+            let list = list.as_str().replace("\\\n", "\n");
+            let list = list.split('#').next().unwrap_or_default();
             for item in list.split(',') {
                 if let Some((alias, name)) = alias_and_name(item.trim()) {
                     if alias == name {
