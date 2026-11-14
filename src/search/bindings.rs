@@ -918,6 +918,15 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         ),
     ) {
         out.push(b);
+    } else if let Some(b) = element(
+        header,
+        line,
+        &format!(
+            r"^while\s*\(\(\s*{n}\s*=\s*((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\.(?:pop|shift)\(\)\s*\)"
+        ),
+    ) {
+        out.push(b);
+        return true;
     } else if TS_LOOP
         .captures_iter(header)
         .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))

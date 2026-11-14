@@ -850,6 +850,26 @@ impl App {
         let (file, text) = (file.as_path(), text.as_str());
         let mut found: Option<TypeVia> = None;
         for c in bindings {
+            let local = kind == Kind::TsJs && !n.contains('.') && !got && !values;
+            if let Some(value) = (local && c.value == search::Value::Unknown)
+                .then(|| text.lines().nth(c.line1 - 1))
+                .flatten()
+                .and_then(|l| search::ts_array_literal_element(l, n))
+            {
+                let at = search::Binding {
+                    line1: c.line1,
+                    value,
+                };
+                let this = self.binding_type(kind, file, text, &at, hops - 1)?;
+                match &found {
+                    Some(one) if (&one.ty.path, one.ty.line) != (&this.ty.path, this.ty.line) => {
+                        return None;
+                    }
+                    Some(_) => {}
+                    None => found = Some(this),
+                }
+                continue;
+            }
             let (written, at, link) = match &c.value {
                 search::Value::Type(t) => {
                     (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
