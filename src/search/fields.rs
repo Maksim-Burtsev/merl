@@ -4,9 +4,9 @@ use regex::Regex;
 
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
-    element_type, group, in_method, indent, jsdoc_getter_type, jsdoc_owner, jsdoc_properties,
-    literal_lines, python_header_open, python_rooted, python_statements, returns, split_top,
-    ts_header, type_path, uncommented, value_of,
+    element_type, go_type_group_member, group, in_method, indent, jsdoc_getter_type, jsdoc_owner,
+    jsdoc_properties, literal_lines, python_header_open, python_rooted, python_statements, returns,
+    split_top, ts_header, type_path, uncommented, value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -465,7 +465,7 @@ fn enclosing_at(kind: Kind, lines: &[&str], levels: &[Option<usize>], k: usize) 
             continue;
         };
         depth = level;
-        if declares_type(kind, lines[i]) {
+        if declares_type(kind, lines[i]) || (kind == Kind::Go && go_type_group_member(lines, i)) {
             return Some(i + 1);
         }
     }
