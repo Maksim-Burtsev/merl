@@ -13,7 +13,7 @@ public class Tun
         b.Append("x");
         //^ d: none
         b.Stir();
-        //^ d: src/Shop/Jugs/Foreign/Brew.cs:18
+        //^ d: src/Shop/Jugs/Foreign/Brew.cs:17
         new Brew().Append("x");
         //         ^ d: none
         Brew x = null;

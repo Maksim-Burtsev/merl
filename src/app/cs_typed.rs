@@ -58,6 +58,14 @@ impl App {
             .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
             .ok_or_else(|| first.clone())?;
+        if matches!(ty, CsType::Outside(_))
+            && !fields.is_empty()
+            && self
+                .cs_alias_target(here, &text, self.line + 1, first)
+                .is_some()
+        {
+            return Ok(CsAnswer::Outside { links: link });
+        }
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
             if i == 5 {
