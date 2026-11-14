@@ -589,7 +589,7 @@ impl App {
         word: &str,
         hits: &mut Vec<Hit>,
     ) {
-        let Some(ty) = search::swift_extended_elsewhere(text, self.line + 1) else {
+        let Some(ty) = search::swift_extended_elsewhere(text, self.line + 1, word) else {
             return;
         };
         let decls: Vec<Hit> = self

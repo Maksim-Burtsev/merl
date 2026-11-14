@@ -737,10 +737,8 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         if generic(text) {
             return found(i + 1);
         }
-        match top::swift_extended_generic(lines, &literal, head, name) {
-            Some(at) => found(at + 1),
-            None => (!unproven).then(Vec::new),
-        }
+        top::swift_extended_generic(lines, &literal, head, name)
+            .map_or_else(|| (!unproven).then(Vec::new), |at| found(at + 1))
     };
     let mut depth = indent(lines[at]);
     let mut bound_in_block_unless_type_body = None;
@@ -771,8 +769,17 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
-        if only_type_header_left {
-            return type_header(i, &head, &text, unproven);
+        if only_type_header_left || (!SWIFT_FUNC.is_match(&head) && SWIFT_TYPE.is_match(&head)) {
+            let r = type_header(i, &head, &text, unproven);
+            if depth == 0
+                || local.is_some()
+                || r.as_ref().is_none_or(|b| !b.is_empty())
+                || !SWIFT_TYPE.is_match(&head)
+            {
+                return r;
+            }
+            only_type_header_left = true;
+            continue;
         }
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = bound_in_block_unless_type_body {
@@ -792,9 +799,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             only_type_header_left = swift_in_a_type_body(lines, &literal, i);
             unproven |= !only_type_header_left;
             continue;
-        }
-        if SWIFT_TYPE.is_match(&head) {
-            return type_header(i, &head, &text, unproven);
         }
         if let Some(line) = bound_in_block_unless_type_body {
             return found(line);

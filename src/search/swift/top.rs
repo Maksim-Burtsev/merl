@@ -92,14 +92,22 @@ pub(super) fn swift_extended_generic(
         .map(|(i, _)| i)
 }
 
-pub fn swift_extended_elsewhere(text: &str, line1: usize) -> Option<String> {
+pub fn swift_extended_elsewhere(text: &str, line1: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let literal = literal_lines(Kind::Swift, text);
-    let at = super::swift_enclosing_type(&lines, &literal, line1)?;
-    let head = swift_text(&lines, at - 1);
-    (indent(lines[at - 1]) == 0)
-        .then(|| EXTENSION.captures(&head))
-        .flatten()
+    let mut at = super::swift_enclosing_type(&lines, &literal, line1)?;
+    while indent(lines[at - 1]) > 0 {
+        let mut body = (at..lines.len())
+            .filter(|&j| swift_code(&lines, &literal, j))
+            .take_while(|&j| indent(lines[j]) > indent(lines[at - 1]));
+        if body.any(|j| super::swift_local_decl(lines[j], name)) {
+            return None;
+        }
+        at = Some(super::swift_scope(&lines, &literal, at).header_line1)
+            .filter(|&up| up > 0 && super::swift_type_header(lines[up - 1]).is_some())?;
+    }
+    EXTENSION
+        .captures(&swift_text(&lines, at - 1))
         .map(|c| c[1].to_owned())
 }
 
