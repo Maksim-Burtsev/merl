@@ -186,5 +186,9 @@ class KwBlockOwn < KwNeighbours
     #                       ^ d: app/kwcafe/uses.rb:184
     p mugful
     # ^ d: app/kwcafe/uses.rb:145
+    items.each { (opts + 1).times }
+    #             ^ d: app/kwcafe/uses.rb:146
+    items.each do (blk).times end
+    #              ^ d: app/kwcafe/uses.rb:147
   end
 end

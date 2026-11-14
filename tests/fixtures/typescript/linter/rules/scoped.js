@@ -99,6 +99,48 @@ module.exports = {
       next.childScopes;
       //   ^ d: linter/rules/scoped.js:6
     }
+    const walked = [sourceCode.getScope(context)];
+    while ((next = walked.pop())) {
+      walked.push(sourceCode.getScope(context));
+      next.childScopes;
+      //   ^ d: linter/types/index.d.ts:47
+    }
+    const listed = [sourceCode.getScope(context)];
+    listed.push(new Decoy());
+    for (const one of listed) {
+      one.childScopes;
+      //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const piled = [sourceCode.getScope(context)];
+    while ((next = piled.pop())) {
+      piled.push(new Decoy());
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    let swapped = [sourceCode.getScope(context)];
+    swapped = [new Decoy()];
+    for (const one of swapped) {
+      one.childScopes;
+      //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const slots = [sourceCode.getScope(context)];
+    slots[0] = new Decoy();
+    slots[0].childScopes;
+    //       ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    while ((next = walked.pop())) {
+      [next] = [new Decoy()];
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    if (scope) {
+      var mixed = [sourceCode.getScope(context)];
+    } else {
+      var mixed = [new Decoy()];
+    }
+    for (const one of mixed) {
+      one.childScopes;
+      //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
     return new Decoy();
   },
 };
