@@ -798,6 +798,9 @@ impl App {
         }
         if written == name
             && let Some(own) = owner_of(file, text, line1).filter(|o| o.name == name)
+            && (text.lines().nth(own.line - 1))
+                .and_then(search::cs_type_decl)
+                .is_some_and(|d| !d.generic)
         {
             return Some(CsType::Project(own));
         }
@@ -822,7 +825,11 @@ impl App {
                 line: one.line1,
             })),
             ([], true) => Some(CsType::Outside(name)),
-            (many, true) => self.cs_one_of(text, line1, written, &name, many),
+            (many, true) => {
+                let plain = plain_of(written == name, many);
+                let many = if plain.is_empty() { many } else { &plain };
+                self.cs_one_of(text, line1, written, &name, many)
+            }
             _ => None,
         };
         self.truncated.set(cut);
@@ -1418,6 +1425,12 @@ fn owner_of(file: &Path, text: &str, line1: usize) -> Option<Typed> {
         path: file.to_path_buf(),
         line: decl,
     })
+}
+
+fn plain_of<'h>(plain: bool, many: &[&'h Hit]) -> Vec<&'h Hit> {
+    (many.iter().copied())
+        .filter(|h| plain && search::cs_type_decl(&h.text).is_some_and(|d| !d.generic))
+        .collect()
 }
 
 fn generic(written: &str) -> bool {

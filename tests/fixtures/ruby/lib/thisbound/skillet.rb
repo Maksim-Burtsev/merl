@@ -19,6 +19,16 @@ class Skillet
     end
   end
 
+  def anonymous
+    Class.new do
+      me = self
+      me.fry
+      #  ^ d: !jump
+      self.fry
+      #    ^ d: !jump
+    end
+  end
+
   def self.build
     klass = self
     klass.fry
