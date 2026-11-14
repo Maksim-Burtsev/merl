@@ -6,6 +6,7 @@ use std::path::Path;
 pub struct JvmImport {
     pub bound_name: String,
     pub path: Vec<String>,
+    pub selected: bool,
 }
 pub fn jvm_imports(path: &Path, text: &str) -> Vec<JvmImport> {
     imports_by_line(path, text)
@@ -64,28 +65,26 @@ fn imports_by_line(path: &Path, text: &str) -> Vec<(usize, JvmImport)> {
                 JvmImport {
                     bound_name: name,
                     path,
+                    selected: false,
                 },
             )
         })
         .collect();
     if super::scala(path) {
-        imports.extend(lines().flat_map(|(i, l)| {
-            scala_renames(l)
-                .into_iter()
-                .map(move |(bound_name, path)| (i, JvmImport { bound_name, path }))
-        }));
+        imports
+            .extend(lines().flat_map(|(i, l)| scala_renames(l).into_iter().map(move |s| (i, s))));
         imports.sort_by_key(|&(i, _)| i);
     }
     imports
 }
 
-fn scala_renames(line: &str) -> Vec<(String, Vec<String>)> {
+fn scala_renames(line: &str) -> Vec<JvmImport> {
     static SELECTORS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*import\s+([\w.]*\w)\.\{([^}]*)\}\s*;?\s*(?://.*)?$")
             .expect("the regex is a literal")
     });
     static RENAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(\w+)\s*(?:=>|\bas\b)\s*([A-Za-z]\w*)\s*$")
+        Regex::new(r"^\s*(\w+)\s*(?:(?:=>|\bas\b)\s*([A-Za-z]\w*)\s*)?$")
             .expect("the regex is a literal")
     });
     let Some(c) = SELECTORS.captures(line) else {
@@ -94,10 +93,16 @@ fn scala_renames(line: &str) -> Vec<(String, Vec<String>)> {
     let base: Vec<String> = c[1].split('.').map(str::to_owned).collect();
     c[2].split(',')
         .filter_map(|s| RENAME.captures(s))
+        .filter(|r| r.get(2).is_some() || !["_", "given"].contains(&&r[1]))
         .map(|r| {
             let mut path = base.clone();
             path.push(r[1].to_owned());
-            (r[2].to_owned(), path)
+            let bound = r.get(2).map_or(&r[1], |m| m.as_str());
+            JvmImport {
+                bound_name: bound.to_owned(),
+                path,
+                selected: r.get(2).is_none(),
+            }
         })
         .collect()
 }

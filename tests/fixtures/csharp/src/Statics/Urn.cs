@@ -7,11 +7,13 @@ public class Urn
     public void Pour()
     {
         Samovar.Size.Large.Grow();
-//                         ^ d: picker src/Statics/Kettle.cs:13, src/Statics/Samovar.cs:21; want src/Statics/Samovar.cs:21 (#1489)
+//                         ^ d: src/Statics/Samovar.cs:21
         Kettle.Size.Large.Grow();
-//                        ^ d: picker src/Statics/Kettle.cs:13, src/Statics/Samovar.cs:21; want src/Statics/Kettle.cs:13 (#1489)
+//                        ^ d: src/Statics/Kettle.cs:13
         Samovar.Size.Large;
 //                   ^ d: src/Statics/Samovar.cs:20
+        Samovar.Size.Large.Next.Grow();
+//                              ^ d: src/Statics/Samovar.cs:21
         Pot.Boil();
 //          ^ d: src/Statics/Samovar.cs:5
         Pot.Boil().Whistle();

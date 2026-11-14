@@ -99,6 +99,15 @@ impl App {
         if !head.trim().is_empty() {
             return None;
         }
+        if whole.trim() == "self" {
+            let class = search::ruby_class_path(text, at);
+            let line = text.lines().nth(at.checked_sub(1)?)?;
+            return (!class.is_empty()
+                && !search::ruby_self_is_class(text, at)
+                && !search::ruby_on_class(text, at)
+                && !search::ruby_self_rebound(text, at, line))
+            .then_some(class);
+        }
         self.ruby_value_class(here, text, at, "", whole, depth + 1)
     }
 

@@ -1,7 +1,9 @@
 use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
+mod head;
 mod lambda;
+mod scala_unpacked;
 mod top_level;
 
 struct WrittenType {
@@ -137,26 +139,6 @@ impl App {
         let (ty, links, rest) = self.jvm_head(here, text, before, first, rest, outer)?;
         let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
-    }
-
-    fn jvm_head<'r>(
-        &self,
-        here: &Path,
-        text: &str,
-        before: &str,
-        first: &str,
-        rest: &'r [String],
-        outer: Option<&str>,
-    ) -> Option<(JvmType, Vec<String>, &'r [String])> {
-        let chained = || {
-            self.jvm_chain_head(here, text, before, first, outer)
-                .map(|(ty, links)| (ty, links, rest))
-        };
-        if outer.is_none() && first.starts_with(|c: char| c.is_ascii_uppercase()) {
-            return chained().or_else(|| self.jvm_static_head(here, text, first, rest));
-        }
-        self.jvm_static_head(here, text, first, rest)
-            .or_else(chained)
     }
 
     fn scala_static_chain(
@@ -592,15 +574,11 @@ impl App {
     ) -> Option<Hit> {
         let (owner, package) = chain.split_last()?;
         let first = package.first()?;
-        let line1 = self.line + 1;
         if !owner.starts_with(|c: char| c.is_ascii_uppercase())
             || !package
                 .iter()
                 .all(|p| p.starts_with(|c: char| c.is_ascii_lowercase()))
-            || !search::path_bindings(Kind::Jvm, here, text, line1, first).is_empty()
-            || search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .any(|d| !search::jvm_members_of(here, text, d, first).is_empty())
+            || self.jvm_value_named(here, text, first)
         {
             return None;
         }
@@ -843,7 +821,17 @@ impl App {
             let literal = literal_typed
                 .then(|| search::jvm_literal_type(at, name, ext == Some("java")))
                 .flatten();
-            let declared = search::jvm_declared_type(at, name, kotlin);
+            let declared = search::jvm_declared_type(at, name, kotlin).or_else(|| {
+                (ext == Some("scala"))
+                    .then(|| search::scala_generic_declared_type(at, name))
+                    .flatten()
+                    .filter(|t| {
+                        matches!(
+                            self.jvm_type_on(file, text, t, Some(l)),
+                            JvmType::Project(_)
+                        )
+                    })
+            });
             let this = match (declared, literal) {
                 (None, Some(t)) => WrittenType {
                     resolved: JvmType::Outside(t.to_owned()),
@@ -864,9 +852,9 @@ impl App {
                     None if ext == Some("java") => self
                         .java_static_initialized(file, text, l, name)
                         .or_else(|| self.java_lambda_element(file, text, l, name))?,
-                    None if ext == Some("scala") => {
-                        self.scala_tuple_returned(file, text, l, at, name)?
-                    }
+                    None if ext == Some("scala") => self
+                        .scala_tuple_returned(file, text, l, at, name)
+                        .or_else(|| self.scala_extracted(file, text, l, at, name))?,
                     None => return None,
                 },
                 (None, None) => return None,
@@ -974,31 +962,6 @@ impl App {
             return None;
         };
         Some(decl)
-    }
-
-    fn scala_tuple_returned(
-        &self,
-        file: &Path,
-        text: &str,
-        line1: usize,
-        line: &str,
-        name: &str,
-    ) -> Option<WrittenType> {
-        let call = search::scala_tuple_call(line, name)?;
-        (call.receiver.is_some()
-            || search::path_bindings(Kind::Jvm, file, text, line1, &call.method).is_empty())
-        .then_some(())?;
-        let decl = self.jvm_call_owner(file, text, line1, call.receiver.as_deref(), true)?;
-        let found = self.jvm_hierarchy_member(&decl, &call.method, 0, &mut Vec::new());
-        let [m] = java_shaped(found, |h| h, &call.method, true)
-            .try_into()
-            .ok()?;
-        let written = search::scala_tuple_item(&m.text, &call.method, call.at, call.count)?;
-        let t = self.text_of(&m.path)?;
-        Some(WrittenType {
-            resolved: self.jvm_type_at(&m.path, &t, &written),
-            written,
-        })
     }
 
     fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
@@ -1198,7 +1161,7 @@ impl App {
         let bound = |imports: &[search::JvmImport]| {
             imports
                 .iter()
-                .find(|i| i.bound_name == written)
+                .find(|i| self.jvm_binds(i, written))
                 .map(|i| i.path.clone())
         };
         if on.is_none()
@@ -1208,7 +1171,7 @@ impl App {
             return JvmType::Unknown;
         }
         if let Some(search::JvmImport { path, .. }) =
-            imports.iter().find(|i| i.bound_name == written)
+            imports.iter().find(|i| self.jvm_binds(i, written))
         {
             if self.rel_current().as_deref() == Some(file) {
                 let line1 = on.unwrap_or(self.line + 1);
