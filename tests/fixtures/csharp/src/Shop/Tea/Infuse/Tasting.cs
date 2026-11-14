@@ -50,7 +50,7 @@ public class Tasting
         //   ^ d: src/Shop/Tea/Infuse/Cup.cs:36
         return made.Sip() + new Brew().Leaf("black").Build().Sip();
         //          ^ d: src/Shop/Tea/Infuse/Cup.cs:14
-        //                      ^ d: src/Shop/Tea/Infuse/Tasting.cs:3
+        //                      ^ d: src/Shop/Tea/Infuse/Cup.cs:30
         //                             ^ d: src/Shop/Tea/Infuse/Cup.cs:32
         //                                                   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }

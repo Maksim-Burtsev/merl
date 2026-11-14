@@ -783,16 +783,13 @@ fn an_import_inside_the_project_is_looked_up_in_its_module() {
             ),
         ),
         (
-            "",
+            "a name the barrel imports and lists in `export { }`, not the namesake in fakes.ts",
             "typescript",
             "jobs.ts",
             "  openSession",
-            picker(
-                "openSession: by name, 2 declarations",
-                &[
-                    ("openSession", "fakes.ts:5"),
-                    ("openSession", "store/sessions.ts:15"),
-                ],
+            jump(
+                "openSession: via import store/sessions.ts",
+                "store/sessions.ts:15",
             ),
         ),
         (
@@ -1089,9 +1086,9 @@ fn a_module_name_in_or_bound_by_an_import_opens_the_module() {
             jump("no definition for yaml", "app/modules.py:5"),
         ),
         (
-            "nothing of the name at the root: no module, and no search by name",
+            "nothing of the name at the root and on disk: the import, as in TypeScript (#1452)",
             "^    yaml|.load",
-            jump("no definition for yaml", "app/modules.py:12"),
+            jump("yaml: via import yaml (not installed)", "app/modules.py:5"),
         ),
         (
             "unchanged: what the import takes",
@@ -1853,7 +1850,7 @@ fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target
 }
 
 #[test]
-fn an_indexed_python_list_is_its_element_and_a_slice_is_not() {
+fn an_indexed_python_list_or_dict_is_its_element_and_a_slice_is_not() {
     let both = || {
         picker(
             "delete_user: by name, 2 declarations",
@@ -1892,7 +1889,10 @@ fn an_indexed_python_list_is_its_element_and_a_slice_is_not() {
             "a dict's value",
             "elements.py",
             "by_name[\"a\"].delete_user",
-            both(),
+            jump(
+                "delete_user \u{2192} UserRepository.delete_user (via by_name: dict[str, UserRepository])",
+                "repos.py:8",
+            ),
         ),
         (
             "an index of an index",

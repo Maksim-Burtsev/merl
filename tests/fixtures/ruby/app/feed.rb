@@ -14,6 +14,10 @@ class Feed
     #       ^ d: app/helpers.rb:4
     Paths.root
     #     ^ d: app/helpers.rb:12
+    Stamps::stamp(1)
+    #       ^ d: app/helpers.rb:28
+    Stamps.seal(1)
+    #      ^ d: app/helpers.rb:32
     Clock.tick
     #     ^ d: app/helpers.rb:18
     post.title = "x"

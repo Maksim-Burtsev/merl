@@ -33,6 +33,10 @@ points your task to.
 - Before every push, `tools/heavy tools/ci-local clippy tests` for kind `epic` (the dispatcher
   runs the rest once on the epic) and the whole `tools/heavy tools/ci-local` for kind `own PR`,
   its output to a file; push only when it ends in `all passed`.
+- A fixture under a gitignored folder (`tests/fixtures/typescript/node_modules/`) is committed
+  with `git add -f`: before the last push, `git status --short --ignored tests/fixtures` lists
+  nothing you made. On 2026-11-10 a branch passed on a file it never committed, and the epic
+  failed.
 - About an hour. Kill hung tmux sessions, builds and probes. Stuck: push what is good and report
   what is left.
 - Merging is the dispatcher's, but for the auto-merge below.

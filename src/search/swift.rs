@@ -6,6 +6,10 @@ use super::{
     Binding, Kind, SwiftCall, Value, close_of, code, comment, group, indent, literal_lines, names,
     split_top, swift_mods, uncommented,
 };
+mod top;
+pub use top::{
+    swift_bindings_or_top, swift_decl_generics, swift_extended_elsewhere, swift_member_scope_top,
+};
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
@@ -393,7 +397,7 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
             Some(r) if r.ends_with(')') => rest = r,
             Some(r) => {
                 static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                    Regex::new(r"(?:^|[^\w.)\]?!$`])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
+                    Regex::new(r"(?:^|[^\w.)\]?!$`])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
                         .expect("the regex is a literal")
                 });
                 let value = VALUE.captures(r)?;
@@ -729,6 +733,13 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     if generic(&code(at)) {
         return found(at + 1);
     }
+    let type_header = |i: usize, head: &str, text: &str, unproven: bool| {
+        if generic(text) {
+            return found(i + 1);
+        }
+        top::swift_extended_generic(lines, &literal, head, name)
+            .map_or_else(|| (!unproven).then(Vec::new), |at| found(at + 1))
+    };
     let mut depth = indent(lines[at]);
     let mut bound_in_block_unless_type_body = None;
     let mut only_type_header_left = false;
@@ -758,12 +769,18 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
-        if only_type_header_left {
-            return if generic(&text) {
-                found(i + 1)
-            } else {
-                (!unproven).then(Vec::new)
-            };
+        if only_type_header_left || (!SWIFT_FUNC.is_match(&head) && SWIFT_TYPE.is_match(&head)) {
+            let r = type_header(i, &head, &text, unproven);
+            if depth == 0
+                || local.is_some()
+                || r.as_ref().is_none_or(|b| !b.is_empty())
+                || !SWIFT_TYPE.is_match(&head)
+                || !swift_inherited(&text).is_empty()
+            {
+                return r;
+            }
+            only_type_header_left = true;
+            continue;
         }
         if SWIFT_FUNC.is_match(&head) {
             if let Some(line) = bound_in_block_unless_type_body {
@@ -783,13 +800,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             only_type_header_left = swift_in_a_type_body(lines, &literal, i);
             unproven |= !only_type_header_left;
             continue;
-        }
-        if SWIFT_TYPE.is_match(&head) {
-            return if generic(&text) {
-                found(i + 1)
-            } else {
-                (!unproven).then(Vec::new)
-            };
         }
         if let Some(line) = bound_in_block_unless_type_body {
             return found(line);
@@ -916,27 +926,47 @@ pub fn swift_file_private(line: &str) -> bool {
         })
 }
 pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
-    static FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).expect("the regex is a literal")
-    });
     let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
         return vec![PathBuf::from("Tests")];
     };
-    manifest
-        .match_indices(".testTarget(")
-        .filter_map(|(at, m)| {
-            let open = at + m.len() - 1;
-            let args = manifest.get(open..close_of(Kind::Swift, &manifest, open)?)?;
+    swift_targets(&manifest)
+        .into_iter()
+        .filter(|t| t.test)
+        .map(|t| t.dir)
+        .collect()
+}
+pub struct SwiftTarget {
+    pub name: String,
+    pub dir: PathBuf,
+    pub test: bool,
+}
+pub fn swift_targets(manifest: &str) -> Vec<SwiftTarget> {
+    static TARGET: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\.(target|executableTarget|testTarget|macro)\(")
+            .expect("the regex is a literal")
+    });
+    static FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).expect("the regex is a literal")
+    });
+    TARGET
+        .captures_iter(manifest)
+        .filter_map(|c| {
+            let whole = c.get(0)?;
+            let open = whole.end() - 1;
+            let args = manifest.get(open..close_of(Kind::Swift, manifest, open)?)?;
             let field = |key: &str| {
                 FIELD
                     .captures_iter(args)
                     .find(|c| &c[1] == key)
                     .map(|c| c[2].trim_start_matches("./").to_owned())
             };
-            match field("path") {
-                Some(path) => Some(PathBuf::from(path)),
-                None => field("name").map(|n| Path::new("Tests").join(n)),
-            }
+            let test = &c[1] == "testTarget";
+            let name = field("name")?;
+            let dir = field("path").map_or_else(
+                || Path::new(if test { "Tests" } else { "Sources" }).join(&name),
+                PathBuf::from,
+            );
+            Some(SwiftTarget { name, dir, test })
         })
         .collect()
 }
@@ -1058,12 +1088,18 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     if let Some(c) = mapped.captures(t) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
-    let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());
+    let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*(.+)$".to_owned());
     if let Some(c) = tuple.captures(t) {
         let at = c[1]
             .split(',')
             .position(|p| p.trim().trim_matches('`') == name)?;
         return Some(SwiftGiven::Item(c[2].to_owned(), at));
+    }
+    let arm = rule(format!(
+        r"^case\s+(?:let|var)\s+`?{n}`?\s+as\s+([A-Z][\w.]*\??)\s*(?:where\s.*)?:$"
+    ));
+    if let Some(c) = arm.captures(t) {
+        return Some(SwiftGiven::Type(c[1].to_owned()));
     }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at.captures_iter(t).find(|c| {
@@ -1152,10 +1188,12 @@ pub fn swift_opens_more(line: &str) -> bool {
 }
 pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|((?:sorted|sort|min|max)(?:\(\s*by:)?))\s*\{[^{}]*\$([01])\.[\w.]*$")
             .expect("the regex is a literal")
     });
-    Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+    let code = uncommented(Kind::Swift, lead);
+    let c = EACH.captures(&code)?;
+    (&c[3] == "0" || c.get(2).is_some()).then(|| c[1].to_owned())
 }
 pub fn swift_trailing_closure(line: &str, name: &str) -> Option<(String, String)> {
     let call = r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.([A-Za-z_]\w*)\s*\{";

@@ -13,8 +13,8 @@ class Wall {
 
     String read(Poster poster, Stamp stamp, Frozen frozen) {
         String caption = load().getCaption();
-        //                      ^ d: picker src/main/java/accessors/a/Poster.java:9
-        // status: getCaption: by name, 1 match
+        //                      ^ d: src/main/java/accessors/a/Poster.java:9
+        // status: getCaption → Poster.caption (via this.load(): Poster)
         String same = poster.getCaption();
         //                   ^ d: src/main/java/accessors/a/Poster.java:9
         // status: getCaption → Poster.caption (via poster: Poster)

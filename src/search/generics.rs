@@ -103,7 +103,12 @@ pub fn generic_param_line(
     None
 }
 
-fn wrapped_list(kind: Kind, lines: &[&str], literal: &[bool], i: usize) -> Option<usize> {
+pub(super) fn wrapped_list(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    i: usize,
+) -> Option<usize> {
     let (open, close) = match uncommented(kind, lines[i]).trim_end().chars().last()? {
         '<' => ('<', '>'),
         '[' => ('[', ']'),
@@ -236,7 +241,7 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
     let (at, bound) = type_param(kind, text, line1, name)?;
     let bound = bound?;
     let clause = match kind {
-        Kind::Rust | Kind::Swift if bound.is_none() => "where",
+        Kind::Rust | Kind::Swift | Kind::CSharp if bound.is_none() => "where",
         _ => return Some(TypeParam { bound }),
     };
     let mut header = String::new();
@@ -246,9 +251,13 @@ pub fn type_param_bound(kind: Kind, text: &str, line1: usize, name: &str) -> Opt
         header.push_str(code.get(..end.unwrap_or(code.len()))?);
         header.push(' ');
         if end.is_some() {
-            let clauses = header
-                .split(|c: char| !c.is_alphanumeric())
-                .any(|w| w == clause);
+            let clauses = match kind {
+                Kind::CSharp => Regex::new(&format!(r"\bwhere\s+{}\s*:", regex::escape(name)))
+                    .is_ok_and(|r| r.is_match(&header)),
+                _ => header
+                    .split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == clause),
+            };
             return Some(TypeParam {
                 bound: clauses.then(|| clause.to_owned()),
             });
@@ -327,13 +336,25 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
         Regex::new(r"\b(?:func\s+\w+|init[?!]?|subscript|(?:struct|class|enum|actor)\s+\w+)\s*<")
             .expect("the regex is a literal")
     });
+    static CSHARP_TYPE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:class|struct|interface|record)\s+\w+\s*<")
+            .expect("the regex is a literal")
+    });
     let line = coded(kind, lines[k]);
     let t = line.trim();
     let named = |list: &str, last: bool| {
         let parts = top_parts(list);
-        let i = parts
-            .iter()
-            .position(|p| param_name(p, last) == Some(name))?;
+        let i = parts.iter().position(|p| {
+            let p = p.trim_start();
+            let p = match kind {
+                Kind::CSharp => p
+                    .strip_prefix("out ")
+                    .or_else(|| p.strip_prefix("in "))
+                    .unwrap_or(p),
+                _ => p,
+            };
+            param_name(p, last) == Some(name)
+        })?;
         Some(Some(param_bound(kind, &parts, i)))
     };
     let angled = |re: &Regex| {
@@ -345,6 +366,13 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
     match kind {
         Kind::Rust => angled(&RUST),
         Kind::Swift => angled(&SWIFT),
+        Kind::CSharp => angled(&CSHARP_TYPE).or_else(|| {
+            let (list, inherits) = csharp_method_list(super::csharp::cs_after_attributes(t))?;
+            let inherits = inherits
+                || t.split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == "override");
+            named(list, false).map(|b| (k, b.filter(|_| !inherits)))
+        }),
         Kind::Go => {
             let list = |re: &Regex| list_after(t.get(re.find(t)?.end()..)?, b'[', b']');
             list(&GO)
@@ -359,11 +387,9 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
                 })
                 .map(|b| (k, b))
         }
-        Kind::C => (0..=k)
-            .rev()
-            .take_while(|&i| i == k || bare_template(&uncommented(kind, lines[i])))
-            .find_map(|i| {
-                let l = coded(kind, lines[i]);
+        Kind::C => cpp_templates_above(lines, k)
+            .into_iter()
+            .find_map(|(i, l)| {
                 CPP.find_iter(&l)
                     .filter_map(|m| list_after(l.get(m.end()..)?, b'<', b'>'))
                     .find_map(|l| named(l, true))
@@ -371,6 +397,27 @@ fn declares(kind: Kind, lines: &[&str], k: usize, name: &str) -> Option<(usize, 
             }),
         _ => None,
     }
+}
+
+fn csharp_method_list(t: &str) -> Option<(&str, bool)> {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([^=(]*[\w>\]?])\s+((?:\w+(?:<[^()]*?>)?\.)*)\w+\s*<")
+            .expect("the regex is a literal")
+    });
+    const STATEMENTS: [&str; 21] = [
+        "return", "await", "new", "throw", "yield", "else", "in", "is", "as", "case", "when",
+        "select", "let", "where", "orderby", "by", "into", "goto", "and", "or", "not",
+    ];
+    let c = HEAD.captures(t)?;
+    if STATEMENTS.contains(&c[1].split_whitespace().last()?) {
+        return None;
+    }
+    let rest = t.get(c.get(0)?.end()..)?;
+    let list = list_after(rest, b'<', b'>')?;
+    rest.get(list.len() + 1..)?
+        .trim_start()
+        .starts_with('(')
+        .then_some((list, !c[2].is_empty()))
 }
 
 fn go_constrained(list: &str) -> bool {
@@ -409,6 +456,35 @@ fn param_bound(kind: Kind, parts: &[&str], i: usize) -> Option<String> {
         _ => part.split_once(':').map(|(_, b)| b.trim()),
     };
     bound.map(str::to_owned)
+}
+
+fn cpp_templates_above(lines: &[&str], k: usize) -> Vec<(usize, String)> {
+    let mut out = vec![(k, coded(Kind::C, lines[k]))];
+    let mut below = k;
+    while let Some(mut end) = below.checked_sub(1) {
+        if coded(Kind::C, lines[end])
+            .trim_start()
+            .starts_with("requires")
+        {
+            let Some(e) = end.checked_sub(1) else { break };
+            end = e;
+        }
+        let mut joined = String::new();
+        let head = (end.saturating_sub(5)..=end).rev().find_map(|i| {
+            let l = coded(Kind::C, lines[i]);
+            joined = format!("{l} {joined}");
+            if l.contains([';', '{', '}']) {
+                return Some(None);
+            }
+            l.trim_start().starts_with("template").then_some(Some(i))
+        });
+        let Some(Some(start)) = head.filter(|_| bare_template(&joined)) else {
+            break;
+        };
+        out.push((start, joined));
+        below = start;
+    }
+    out
 }
 
 fn bare_template(line: &str) -> bool {
@@ -486,6 +562,7 @@ pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
         Kind::Rust | Kind::Swift => format!(
             r"(?:^|[^\w.])(?:_\s+)?{n}\s*:\s*(?:&\s*)?(?:mut\s+|inout\s+)?([A-Za-z_]\w*)[?!]?\s*(?:[,)=;{{]|$)"
         ),
+        Kind::CSharp => format!(r"(?:^|[\s(,])([A-Za-z_]\w*)\s+{n}\s*(?:[,)=;{{]|$)"),
         _ => return None,
     };
     let code = coded(kind, line);
@@ -522,12 +599,16 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         .iter()
         .enumerate()
         .skip(parent + 1)
+        .skip_while(|(_, l)| l.trim() == "{")
         .take_while(|(_, l)| l.trim().is_empty() || indent(l) > outer)
         .filter(|&(i, l)| indent(l) == base && literal.get(i) != Some(&true))
         .find_map(|(i, l)| {
             let t = coded(kind, l);
-            let field =
-                t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func ");
+            let field = if kind == Kind::CSharp {
+                !t.split(['=', '{']).next().unwrap_or_default().contains('(')
+            } else {
+                t.split_whitespace().any(|w| w == "var" || w == "let") && !t.contains("func ")
+            };
             Some(super::Binding {
                 line1: i + 1,
                 value: super::Value::Type(declared_type_on(kind, l, name).filter(|_| field)?),
@@ -535,7 +616,12 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
         })
 }
 
-pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
+pub fn rust_impl_field(
+    text: &str,
+    line1: usize,
+    name: &str,
+    elsewhere: impl FnOnce(&str, usize) -> Option<(String, usize)>,
+) -> Option<String> {
     fn angled(s: &str) -> Option<Vec<&str>> {
         Some(top_parts(list_after(
             s.get(s.find('<')? + 1..)?,
@@ -545,22 +631,54 @@ pub fn rust_impl_field(text: &str, line1: usize, name: &str) -> Option<String> {
     }
     let lines: Vec<&str> = text.lines().collect();
     let owner = super::rust_self_type(&lines, line1.checked_sub(1)?)?;
-    let head = coded(Kind::Rust, lines[owner.impl_line0]);
-    let generics = head.trim().strip_prefix("impl")?.trim_start();
+    let head = coded(
+        Kind::Rust,
+        &super::rust_impl_header(&lines, owner.impl_line0),
+    );
+    let head_trimmed = head.trim();
+    let generics = head_trimmed
+        .strip_prefix("unsafe")
+        .map_or(head_trimmed, str::trim_start)
+        .strip_prefix("impl")?
+        .trim_start();
     let params = angled(generics).filter(|_| generics.starts_with('<'))?;
     let args = angled(head.get(head.rfind(&format!("{}<", owner.written))?..)?)?;
     let decl = Regex::new(&super::rust_type_decl_pattern(&owner.written)).ok()?;
     let mut decls = (0..lines.len()).filter(|&i| decl.is_match(lines[i]));
-    let s = decls.next().filter(|_| decls.next().is_none())?;
+    let far;
+    let (lines, s) = match (decls.next(), decls.next()) {
+        (Some(s), None) => (lines, s),
+        (None, _) => {
+            let (t, s) = elsewhere(&owner.written, owner.impl_line0)?;
+            far = t;
+            (far.lines().collect(), s)
+        }
+        _ => return None,
+    };
     let written = super::rust_struct_field(&lines, s, name)?.written_type;
     let i = angled(&coded(Kind::Rust, lines[s]))?
         .iter()
-        .position(|p| param_name(p, false) == Some(&written))?;
+        .position(|p| param_name(p, false) == Some(rust_pointee(&written)))?;
     let arg = args.get(i)?.trim();
     params
         .iter()
         .any(|p| param_name(p, false) == Some(arg))
         .then(|| arg.to_owned())
+}
+
+fn rust_pointee(t: &str) -> &str {
+    let t = t.trim();
+    if let Some(r) = t.strip_prefix('&') {
+        let r = r.trim_start();
+        let r = r.strip_prefix('\'').map_or(r, |l| {
+            l.trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+                .trim_start()
+        });
+        return rust_pointee(r.strip_prefix("mut ").unwrap_or(r));
+    }
+    t.strip_prefix("Box<")
+        .and_then(|r| r.strip_suffix('>'))
+        .map_or(t, rust_pointee)
 }
 
 pub const RUST_BLANKET_IMPL: &str = r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::\s*\?\s*Sized\s*)?>\s*(?:[\w:]+::)?([A-Za-z_]\w*)\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:where\b|\{|$)";
@@ -570,6 +688,23 @@ pub fn rust_blanket_trait(line: &str) -> Option<String> {
         LazyLock::new(|| Regex::new(RUST_BLANKET_IMPL).expect("the regex is a literal"));
     let c = IMPL.captures(line)?;
     (c[1] == c[3]).then(|| c[2].to_owned())
+}
+
+pub fn rust_blanket_bounds(line: &str) -> Option<Vec<String>> {
+    static IMPL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:unsafe\s+)?impl\s*<\s*([A-Za-z_]\w*)\s*(?::([\w:\s+?]*))?>\s*(?:[\w:]+::)?[A-Za-z_]\w*\s*(?:<[^{;]*>)?\s+for\s+([A-Za-z_]\w*)\s*(?:\{|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = IMPL.captures(line)?;
+    (c[1] == c[3]).then(|| {
+        (c.get(2).map_or("", |m| m.as_str()).split('+'))
+            .map(str::trim)
+            .filter(|b| !b.is_empty() && *b != "?Sized")
+            .map(|b| b.rsplit("::").next().unwrap_or(b).to_owned())
+            .collect()
+    })
 }
 
 pub fn rust_trait_declares(text: &str, line1: usize, word: &str) -> bool {

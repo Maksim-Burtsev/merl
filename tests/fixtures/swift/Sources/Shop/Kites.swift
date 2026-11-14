@@ -40,7 +40,7 @@ func flights(kite: Kite, pier: Pier, buoy maybe: Buoy?, mooring: Mooring) {
     //                                     ^ d: picker Sources/Shop/Kites.swift:4, Sources/Shop/Kites.swift:8; want Sources/Shop/Kites.swift:8 (#1341)
     pier.buoys.forEach { kite in
         kite.fly(.squall)
-        //        ^ d: picker Sources/Shop/Kites.swift:4, Sources/Shop/Kites.swift:8; want Sources/Shop/Kites.swift:8 (#1341)
+        //        ^ d: Sources/Shop/Kites.swift:8
     }
     pier.buoys.forEach { (kite: Buoy) -> Void in
         kite.fly(.squall)

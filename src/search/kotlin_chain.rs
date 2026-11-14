@@ -1,11 +1,14 @@
 use regex::Regex;
 
-use super::jvm::{anonymous, jvm_declared_type, opens_type, param_names, scope_of};
-use super::{Group, Kind, group, split_top, uncommented};
+use super::jvm::{
+    anonymous, jvm_declared_type, opens_type, param_names, params_open_byte, scope_of,
+};
+use super::{Group, Kind, group, indent, split_top, uncommented};
 
 pub struct KotlinCallChain {
     pub head: String,
     pub constructed: bool,
+    pub called: bool,
     pub links: Vec<String>,
 }
 
@@ -47,8 +50,8 @@ pub fn kotlin_call_chain(before: &str) -> Option<KotlinCallChain> {
                 );
                 s = h.trim_end();
             }
-            _ if call && !upper(name) => return None,
             _ => {
+                let called = call && !upper(name);
                 let mut full = name.to_owned();
                 let mut h = head;
                 while let Some(q) = h.strip_suffix('.') {
@@ -63,14 +66,18 @@ pub fn kotlin_call_chain(before: &str) -> Option<KotlinCallChain> {
                 if h.ends_with(|c: char| ident(c) || ".)]}\"'$".contains(c)) {
                     return None;
                 }
-                let constructed = call;
-                if !constructed && upper(&full) {
+                let constructed = call && !called;
+                if !constructed
+                    && upper(&full)
+                    && (h.ends_with('@') || !links.first().is_some_and(|l| l.ends_with(')')))
+                {
                     return None;
                 }
-                links.iter().any(|l| l.ends_with(')')).then_some(())?;
+                (called || links.iter().any(|l| l.ends_with(')'))).then_some(())?;
                 return Some(KotlinCallChain {
                     head: full,
                     constructed,
+                    called,
                     links,
                 });
             }
@@ -109,7 +116,7 @@ pub struct KotlinDestructured {
 
 pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured> {
     static VAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\b(?:val|var)\s*\(([^()]*)\)\s*=\s*([a-z]\w*)\s*$")
+        Regex::new(r"\b(?:val|var)\s*\(([^()]*)\)\s*=\s*([a-z]\w*(?:\(\))?)\s*$")
             .expect("the regex is a literal")
     });
     static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -153,16 +160,66 @@ pub fn kotlin_component_type(text: &str, decl_line1: usize, index: usize) -> Opt
     Some(PROPERTY.captures(parameter)?[1].to_owned())
 }
 
+static KOTLIN_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
+        .expect("the regex is a literal")
+});
+
+fn in_kotlin_function(line: &str) -> bool {
+    KOTLIN_FUNCTION.is_match(&uncommented(Kind::Jvm, line))
+}
+
+pub fn jvm_class_parameter(text: &str, line1: usize, name: &str, scala: bool) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(mut at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    if !scala && in_kotlin_function(lines[at]) {
+        return false;
+    }
+    while let Some(s) = scope_of(&lines, at) {
+        if opens_type(lines[s]) && class_lists_parameter(&lines, s, name) {
+            return true;
+        }
+        if !scala && (opens_type(lines[s]) || anonymous(lines[s]) || in_kotlin_function(lines[s])) {
+            return false;
+        }
+        at = s;
+    }
+    false
+}
+
+fn class_lists_parameter(lines: &[&str], decl: usize, name: &str) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:class|trait)\s+\w+[^(:{]*\(").expect("the regex is a literal")
+    });
+    let Some(head) = HEAD.find(lines[decl]) else {
+        return false;
+    };
+    let (mut line, mut open) = (decl, head.end() - 1);
+    while let Some(g) = group(Kind::Jvm, lines, line, open) {
+        if split_top(Kind::Jvm, &g.inner_uncommented, b',')
+            .iter()
+            .any(|e| param_names(e, false).iter().any(|p| p == name))
+        {
+            return true;
+        }
+        let rest = g.after_close.trim_start();
+        if !rest.starts_with('(') {
+            break;
+        }
+        line = g.close_line;
+        open = lines[line].len() - rest.len();
+    }
+    false
+}
+
 pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Option<usize> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bclass\s+\w+[^(:{]*\(").expect("the regex is a literal")
     });
-    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
-            .expect("the regex is a literal")
-    });
     let lines: Vec<&str> = text.lines().collect();
-    let in_function = |l: &str| FUNCTION.is_match(&uncommented(Kind::Jvm, l));
+    let in_function = in_kotlin_function;
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     if in_function(lines[at]) {
         return None;
@@ -186,4 +243,262 @@ pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Opt
     (decl..=g.close_line)
         .find(|&i| jvm_declared_type(lines[i], name, true).as_ref() == Some(&declared))
         .map(|i| i + 1)
+}
+
+pub fn kotlin_typealias(line: &str) -> Option<(&str, &str)> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:(?:public|internal)\s+)*typealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)\s*$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = ALIAS.captures(line)?;
+    Some((c.get(1)?.as_str(), c.get(2)?.as_str()))
+}
+
+pub fn kotlin_backing_property(text: &str, line1: usize, col: usize) -> Option<usize> {
+    static ACCESSOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected|internal|public|override|inline)\s+)*(?:get|set)\s*\(([^)]*)\)")
+            .expect("the regex is a literal")
+    });
+    static PROPERTY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected|internal|public|override|open|final|lateinit|const|abstract)\s+)*(?:val|var)\s+[A-Za-z_]\w*\b")
+            .expect("the regex is a literal")
+    });
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:val|var)\s+field\b|\bfield\s*(?:->|:)|\bfun\b|\bclass\b|\bobject\b")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let here = uncommented(Kind::Jvm, lines[at]);
+    let before = here.get(..col)?;
+    if let Some(c) = ACCESSOR.captures(before) {
+        if c[1]
+            .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .any(|w| w == "field")
+        {
+            return None;
+        }
+        if PROPERTY.is_match(before) {
+            return Some(at + 1);
+        }
+        let s = scope_of(&lines, at)?;
+        return PROPERTY.is_match(lines[s]).then_some(s + 1);
+    }
+    if PROPERTY.is_match(before)
+        && Regex::new(r"\b(?:get|set)\s*\(").is_ok_and(|r| r.is_match(before))
+    {
+        return Some(at + 1);
+    }
+    if LOCAL.is_match(before) {
+        return None;
+    }
+    loop {
+        let s = scope_of(&lines, at)?;
+        let line = uncommented(Kind::Jvm, lines[s]);
+        if let Some(c) = ACCESSOR.captures(&line) {
+            if c[1]
+                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .any(|w| w == "field")
+            {
+                return None;
+            }
+            let p = scope_of(&lines, s)?;
+            return PROPERTY.is_match(lines[p]).then_some(p + 1);
+        }
+        if LOCAL.is_match(&line) || PROPERTY.is_match(&line) {
+            return None;
+        }
+        if (s + 1..at).any(|i| LOCAL.is_match(&uncommented(Kind::Jvm, lines[i]))) {
+            return None;
+        }
+        at = s;
+    }
+}
+
+pub fn kotlin_map_read(before: &str) -> Option<String> {
+    static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.])([a-z]\w*)\s*(?:\[[^\[\]]*\]|\.\s*(?:getValue|get)\s*\([^()]*\))",
+            r"\s*(?:!!|\?)?\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    Some(READ.captures(before.trim_end())?[1].to_owned())
+}
+
+pub fn kotlin_map_value(line: &str, name: &str) -> Option<(String, String)> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"(?:^|[^\w.]){}\s*:\s*(Map|MutableMap|HashMap|LinkedHashMap|SortedMap|TreeMap)<",
+            r"\s*[A-Z][\w.]*\??\s*,\s*(?:out\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\??\s*>\??\s*(?:[=,)]|$)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
+
+pub fn kotlin_guarded(lines: &[&str], at: usize, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let guard = rule(format!(
+        r"^\s*if\s*\(\s*{n}\s*!is\s+([A-Z]\w*)(?:<[^>]*>)?\??\s*\)\s*(?:return|throw|continue|break)\b"
+    ));
+    let touched = rule(format!(r"\b{n}\s*(?:[-+*/%]?=[^=]|!?is\b|as\b)"));
+    let depth = indent(lines[at]);
+    for j in (0..at).rev() {
+        let code = uncommented(Kind::Jvm, lines[j]);
+        if code.trim().is_empty() {
+            continue;
+        }
+        if indent(lines[j]) < depth {
+            return None;
+        }
+        if let Some(c) = guard.captures(&code).filter(|_| indent(lines[j]) == depth) {
+            return Some(c[1].to_owned());
+        }
+        if touched.is_match(&code) {
+            return None;
+        }
+    }
+    None
+}
+
+pub fn kotlin_check_closed(text: &str, line1: usize, mention1: usize, name: &str) -> bool {
+    static EXIT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:return|throw|continue|break)\b").expect("the regex is a literal")
+    });
+    let n = regex::escape(name);
+    let Ok(check) = Regex::new(&format!(
+        r"^\s*(?:if\s*\(\s*{n}\s+(?:is|instanceof)\s+[A-Z][\w.]*(?:<[^>]*>)?\??\s*\)|when\s*\(\s*{n}\s*\))\s*\{{\s*$"
+    )) else {
+        return false;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(head) = mention1.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    if mention1 >= line1 || !check.is_match(&uncommented(Kind::Jvm, head)) {
+        return false;
+    }
+    let depth = indent(head);
+    for (i, line) in lines.iter().enumerate().take(line1 - 1).skip(mention1) {
+        let code = uncommented(Kind::Jvm, line);
+        if code.trim().is_empty() {
+            continue;
+        }
+        if indent(line) <= depth {
+            let next = lines[i + 1..]
+                .iter()
+                .map(|l| uncommented(Kind::Jvm, l))
+                .find(|c| !c.trim().is_empty());
+            let else_below = next.is_some_and(|c| c.trim_start().starts_with("else"));
+            return code.trim() == "}" && indent(line) == depth && !else_below;
+        }
+        if EXIT.is_match(&code) {
+            return false;
+        }
+    }
+    false
+}
+
+pub fn jvm_function_start(lines: &[&str], line1: usize) -> Option<usize> {
+    let mut depth = indent(lines.get(line1.checked_sub(1)?)?);
+    let mut start = None;
+    for j in (0..line1 - 1).rev() {
+        let code = uncommented(Kind::Jvm, lines[j]);
+        if code.trim().is_empty() || indent(lines[j]) >= depth {
+            continue;
+        }
+        if opens_type(lines[j]) {
+            return start;
+        }
+        if start.is_some() {
+            return None;
+        }
+        if params_open_byte(&code).is_some() {
+            start = Some(j + 1);
+        }
+        depth = indent(lines[j]);
+    }
+    start
+}
+
+const KOTLIN_TOP_FUN: &str = r"^(?:(?:private|internal|public|suspend|inline)\s+)*fun\s+";
+
+pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> bool {
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{KOTLIN_TOP_FUN}[a-z]\w*\s*\(")).expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    fun_body(&lines, line1, ahead, &FUN).is_some()
+}
+
+pub fn kotlin_member_body(text: &str, line1: usize, ahead: &str, type_line1: usize) -> bool {
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:private|internal|public|protected|override|open|final|suspend|inline|operator)\s+)*fun\s+[a-z]\w*\s*\(",
+        )
+        .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    fun_body(&lines, line1, ahead, &FUN)
+        .is_some_and(|k| scope_of(&lines, k).is_some_and(|s| s + 1 == type_line1))
+}
+
+fn fun_body(lines: &[&str], line1: usize, ahead: &str, fun: &Regex) -> Option<usize> {
+    line1
+        .checked_sub(1)
+        .filter(|&at| at < lines.len() && !uncommented(Kind::Jvm, ahead).contains('{'))
+        .and_then(|at| scope_of(lines, at))
+        .filter(|&k| fun.is_match(lines[k]) && opens_its_own_body(&lines[k..]))
+}
+
+fn opens_its_own_body(header: &[&str]) -> bool {
+    static TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?::\s*[\w.<>,?\s]*)?[{=]?\s*$").expect("the regex is a literal")
+    });
+    let mut depth = 0usize;
+    for line in header {
+        let code = uncommented(Kind::Jvm, line);
+        for (i, c) in code.char_indices() {
+            match c {
+                '(' => depth += 1,
+                ')' if depth == 1 => return code.get(i + 1..).is_some_and(|t| TAIL.is_match(t)),
+                ')' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
+pub fn kotlin_top_level_return(line: &str, name: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"{KOTLIN_TOP_FUN}{}\s*\([^()]*\)\s*:\s*((?:[a-z]\w*\.)*[A-Z]\w*)\??\s*(?:=|\{{|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    Some(re.captures(code.trim_end())?[1].to_owned())
+}
+
+pub fn kotlin_top_level_pair(line: &str, name: &str) -> Option<(String, Vec<String>)> {
+    let re = Regex::new(&format!(
+        r"{KOTLIN_TOP_FUN}{}\s*\([^()]*\)\s*:\s*(Pair|Triple)<([^<>()]*)>\s*(?:=|\{{|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(code.trim_end())?;
+    let bare = Regex::new(r"^[A-Z]\w*$").ok()?;
+    let items: Vec<String> = c[2].split(',').map(|i| i.trim().to_owned()).collect();
+    items
+        .iter()
+        .all(|i| bare.is_match(i))
+        .then(|| (c[1].to_owned(), items))
 }

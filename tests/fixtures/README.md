@@ -337,6 +337,9 @@ beside its real definition, which `d` jumps to.
 `rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
 `/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
 its real definition, which `d` jumps to.
+`rust/src/sluices.rs` (#1497) calls methods a blanket impl (`impl<T: Lather> Sluice for T`) gives a
+type that meets its bound: `d` lands on the impl's method, as rust-analyzer does. A bound the
+project shows no impl of for the type (`b.soak()`) keeps the trait's declaration.
 `php/src/Husk.php` (#1427) declares functions and a class inside `'…'` and `"…"` strings over
 several lines, and `swift/Sources/Shop/Husk.swift` inside a nested `/* /* */ */` comment and a
 `#if false` block. Neither declares anything; `d` jumps to the real definitions beside them and
@@ -354,7 +357,9 @@ a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or 
 local or parameter named like an import or a field, and declaration-shaped lines in a string and
 a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
 `if` header and a closure re-declaring a local, a promoted method and one an embedding type
-overrides, an interface method, a function-typed field and a generic method, and its `twin`
+overrides, an interface method, a function-typed field and a generic method, a `Kettle` type
+local to a function and one local to an `if` block over the package's `Kettle` (#1470; `damper.go`
+does the same with a `Damper`: its own name, its keyed literal and its fields), and its `twin`
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
@@ -490,7 +495,33 @@ a `true` that no level takes keeps the nearest, an `override` beside a `String` 
 outside the project keeps the class's own.
 `csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
 `Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
-there, so `Ignite()` lands on the `Burners` the live `using static` opens.
+there, so `Ignite()` lands on the `Burners` the live `using static` opens. `Stool.cs`'s
+`new Beaker()` lands on the one of `Shop.Pricing`, which a `global using` opens, not on the one of
+`Shop.Lab`, whose `using` is commented out (#1452).
+`csharp/src/Shop/Crest/Doors.cs` (#1452), in `Shop.Doors`, writes `[Authorize(Roles = …)]`,
+`[Obsolete]` and `new Authorize()` beside an `Authorize` and an `Obsolete` declared in
+`Shop.Stray`, which no `using` opens: with no namesake in scope they keep master's jump there
+(annotated `want none`). `[ProjectAttr(…)]` and `[Local(…)]` land
+on `ProjectAttrAttribute` and `LocalAttribute` of the `Shop.Crest` it opens, not on the
+`ProjectAttr` of `Shop.Stray`, and their named arguments on the attribute's properties.
+`csharp/src/Shop/Hearth/` (#1452) writes `new Brazier()`, `new Tongs()` and `new Poker()` beside
+`Shop.Stray` namesakes: `Brazier` lands in the `Shop.Bellows` that `csharp/Directory.Build.props`
+opens with `<Using Include>`, and `Tongs` and `Poker` in the `Shop.Wares` that `using Wares;`
+opens inside `namespace Shop.Hearth`, block and file-scoped.
+`csharp/src/Shop/Gates/Posts.cs` (#1452) holds two block namespaces, each with a `using` of its
+own: in `Shop.Gates`, which opens `Shop.Crest`, `[ProjectAttr(…)]` lands on
+`ProjectAttrAttribute`, while in `Shop.Gates.Back` the same attribute finds nothing, and
+`new Hasp()` lands on the `Shop.Larder` class of `Gates/Kit.cs`, itself a file of two block
+namespaces, only where `using Shop.Larder;` opens it.
+`csharp/src/Shop/Goblets.cs`'s `Carafe` and `Jug` (#1438) call `x.Quaff()` in an `override` and in
+explicit `ITip.Tip<T>` implementations, which inherit `where T : Goblet` unwritten: they keep
+master's jump to `Goblet.Quaff`.
+`csharp/src/Shop/Situlas.cs`, `swift/Sources/Shop/Situlas.swift` and `c/src/situlas.cc` (#1438)
+declare type parameters named like the project's `Situla` in the shapes the earlier files lack:
+an attribute with arguments on the header line, a `where` on another parameter, delegates,
+records, local functions, a bound (`<Situla: Tippler>`), a Swift extension of the generic type,
+and a C++ template list wrapped over lines, with a default, a pack, a `requires` line under it,
+a template template parameter and an explicit specialisation, which means the project type.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -552,7 +583,8 @@ Its end (#1459) reads a generic def's return type (`make().sip()`), a constraint
 (`class Box[T: (Cup, Mug)]:`, so `Box().sip()` is no `Cup`'s) and as no parameters (`pick(first=..)`
 labels `first`). `generic_typevar.py` (#1459) has a module-level `Leaf = TypeVar("Leaf")` beside
 defs and a class with their own `[Leaf]`: those land on the list, a local in the body still wins,
-and a def without a list keeps the module's `Leaf`.
+and a def without a list keeps the module's `Leaf`. A list wrapped over lines and a `type`
+alias land on their own `[Leaf]` too, and a wrapped def's local or parameter still wins.
 `generic.py` also has a `-> Cup` that names the def's own `[Cup]` (a picker, no jump), a parameter named
 like the type parameter in a wrapped parameter list (lands on the parameter), and a constraint tuple
 before a wrapped base list whose class body is still read (`Jar().lid.sip()`).
@@ -797,6 +829,10 @@ keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the un
 `SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
 `optional`, declared by one, and `type`, declared by each apart, stay pickers. With
 `@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
+`parents` in `rule.js` reads `node.parent`, which no estree interface declares: in an `ObjectPattern`
+and a `"Property:exit"` visitor it jumps to the one `interface NodeParentExtension`, in
+`node_modules/eslint` (#1337); a nested function's own `node` and a `Program` visitor's, whose
+node has no parent, keep today's answer.
 `patterns.js` narrows a JSDoc-typed `Pattern` union by its `type` tag (#1078), as tsserver does:
 inside `switch (pattern.type)`'s `case "ObjectPattern":` after a `return;`, and in the
 consequent of `property.type === "Property" ? property.value`, each of a `for…of` element's
@@ -808,9 +844,9 @@ over lines through a renaming re-export (`Strainer as Filter`), an inherited and
 member of `strainer.ts`, a loop variable, a destructured local and an arrow parameter hiding
 namesakes, `basket = basket.next`, a nested function called above its declaration, a type behind
 `export * as mesh`, a dynamic `import()`, a call inside a template literal holding a declaration,
-a commented-out declaration, and `this` in a class expression. One answer is read from the code:
-`sieve.sift` on `const sieve: Sieve = { sift: … }` is the literal's `sift`, where tsserver
-answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
+a commented-out declaration, and `this` in a class expression. `sieve.sift` on
+`const sieve: Sieve = { sift: … }` is the interface's `sift`, as tsserver answers: a variable
+with a written type answers from the type, not from its literal (#1498). `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
 `rebound.ts` (and `coffee/rebound.js`) rebinds a `u` typed by `urn.ts`'s `Urn` to a `Flask`, both
@@ -866,6 +902,16 @@ three; a class of that shape in a template string declares nothing. `tray.ts` ty
 one-line implementation under its overload signature leaves the jump to the signature. A one-line
 getter is left as it was, beside its setter in `coffee/cezve.js`.
 
+`typescript/gantry/dish.ts` (#1481) declares a class named `T` beside a `Dish<T>` whose `lid(): T`
+and `pick<T>(x: T): T` return a type parameter: `d.lid().scour()` on a `Dish<Tub>`, on a `Mug
+extends Dish<Tub[]>` and `d.pick(j).scour()` keep the picker, where they jumped to `T.scour`.
+
+`kylix/` (TypeScript, Rust, Swift, C#, PHP, Dart and Ruby, each in its own fixture) declares
+classes whose whole body sits on their declaration line (#1486): `Kylix` alone in its file,
+`Skyphos` (two members) and `Rhyton` above a multi-line `Kantharos` in another, each with a
+`libate`, so `d` on `libate` through a value of each lands on its own class's, never on the
+multi-line namesake.
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
@@ -920,12 +966,28 @@ top-level `Lid`, computed properties, `pour` overloaded by argument label beside
 self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
+`swift/Sources/Shop/Attributes.swift` (#1452) writes compiler attributes (`@available`,
+`@discardableResult`, `@escaping`) beside project `func`s of their names, and `@MainActor` and
+`@Published` beside types of their names in the `Core` target (`path: "Sources/swift-core"`),
+which it does not import: all find nothing. `@Glow` lands on the property wrapper, not on a
+`func Glow`, and `Stamping.swift`'s `@Stamped` on the one of `Warehouse`, which it imports.
+A module is only what `Package.swift` declares (#1452 review): `Trunklet.swift` finds `@Wrap`
+through `import Core` although its folder is `swift-core`, and `@Boxed` of `Warehouse`, which
+`Core` re-exports with `@_exported import`; `Sources/Views/Lever.swift`'s `@Clamped` lands in
+`Sources/Utils/`, folders no target declares, as Xcode groups are.
 `swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
 name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
 in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions
 returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
 the expected type must not read (#1069): each jumps by name, and says "no definition" with its
 guard removed.
+`swift/Sources/Shop/Gantry/` (#1481) has a `Perch: Gantry<Ewer>` whose inherited `first() -> T`
+types `brim()` as `Ewer`'s, through `self.`, a bare call, a `Lofty: Perch` and a `Twin: Pair<Ladle,
+Ewer>`'s second parameter; a base without arguments, a subclass's own `U`, a method's own `<T>`,
+a base written with three arguments for two parameters and a field typed `T?` keep the picker; a
+method and a computed property of an `extension Gantry` and a stored `load: T` type it too. `Dish<T>`
+beside a project class named `T` pins the picker of `d.lid.scour()`, whose `lid: T` sits in an
+`extension Dish` (it jumped to `T.scour`).
 `swift/Sources/Shop/Infuse/` is the third corner (#1126), its answers sourcekit-lsp's: `Sencha`
 declares `uppercased` and `append` beside a `String` and an `[Int]` local, a builder chain over
 lines, members of a constructor's and a method's result, an override in the subclass `Gyokuro`,
@@ -1131,7 +1193,7 @@ CTE's outer query binds again to `urns`.
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
 `Kettle` whose field, constructor parameter and local share a name with a field of its base
 `Vessel`, `this.` and `super.`, a static import beside a member of the same name, overloads by
-arity and by type, a lambda parameter hiding a field, a nested `Lid` beside the package's `Lid`,
+arity and by type, a lambda parameter hiding a field (after `return` too, #1470), a nested `Lid` beside the package's `Lid`,
 a `Cart` whose nested `Tray` with two constructors hides the package's `Tray` (#965),
 a namesake `Kettle` in `tea.stale` imported over the package's own, and declaration-shaped lines
 in a Javadoc and a text block. `brew/` has a `Samovar` whose property is initialized from a
@@ -1140,6 +1202,16 @@ nested and a top-level `Cosy`, a companion object, `it`, a lambda parameter and 
 extension functions (one named like a member) with their implicit and labelled `this`, named and
 default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
 declaration-shaped lines in a KDoc, a raw string and a string template.
+`tea/Colander.java` (#1452) writes the `java.lang` annotations `@Override`, `@Deprecated` and
+`@SuppressWarnings` beside an `Override` and a `Deprecated` declared in `tea.stale`, which it does
+not import: they find nothing, while `tea/stale/Brand.java`, in that package, lands on them. Its
+`@Sieved(gauge = 5, pekoe = …)` lands each name on the element of the `@interface`, not on the
+class's own `gauge()`.
+`jvm/src/main/kotlin/gilded/Ledge.kt` (#1452) writes Kotlin's implicitly imported annotations
+(`@Deprecated`, `@JvmStatic`, `@Suppress`, also after `@file:` and `@get:`) beside namesakes
+declared in `gilded.stale`, which it does not import: they find nothing, while `stale/Seen.kt`,
+in that package, `Starred.kt`, importing it with `.*`, and `Pinned.kt`, importing the one name,
+land on them.
 
 `jvm/src/main/java/getters/` holds chains of getters (#1071): an `Account` whose Lombok `spec`
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
@@ -1164,6 +1236,9 @@ and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/
 calls through a type's name the extensions declared in another file: on its `Companion`
 (`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
 (`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+Its `Garnish.kt` (#1470) calls a bare `sprinkle()` whose namesake in `smears` is not imported,
+and `jvm/src/main/scala/husk/Thresher.scala` calls a local `def` over a member of its name and
+an object's `def` in another file: on one line, below it, inside its own body and in an `if` block.
 `jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
@@ -1279,7 +1354,14 @@ enum where the language lets it (#1448): Swift's `Rookery.swift`, Rust's `rooker
 C++'s `c/src/rookery/`, Dart's `lib/rookery/` and TypeScript's `rookery/`. Each JVM language has
 enums of its own names, since the three share one project. C#'s `Arms.cs` keeps the bare pattern
 of a switch-expression arm from reading as a lambda parameter, beside a declaration pattern and
-lambdas that still bind.
+lambdas that still bind. Java's `Shadow.java` keeps a static import from naming a case the
+enclosing enum declares itself, or a case label in a switch on a type merl cannot read;
+`Stray.java` imports an enum the project does not hold; Kotlin's `Both.kt` has an explicit
+import of a case win over a star import of its namesake's enum.
+C#'s `Shade.cs` has a member and a parameter named like a case of a `using static` enum keep
+their answer; Swift's `perchOver` switches on a parameter whose namesake a `for` shadows, and
+`Hopper.land` and `flutter` call a top-level function's namesake, a method and a local closure;
+Dart's `shadowed` compares a local that hides a parameter of the other enum.
 
 ### Adding a kind
 

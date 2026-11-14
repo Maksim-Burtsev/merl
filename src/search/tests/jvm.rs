@@ -268,7 +268,12 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         None,
         "no call: a qualifier"
     );
-    assert_eq!(chain("    val x = pour().brim."), None, "a bare call");
+    assert_eq!(
+        chain("    val x = pour().brim."),
+        Some(("pour".into(), false, vec!["brim".into()]))
+    );
+    assert!(kotlin_call_chain("    pour().").is_some_and(|c| c.called && c.links.is_empty()));
+    assert_eq!(chain("    val x = a..pour()."), None);
     assert_eq!(chain("    val x = xs[0].pour()."), None);
     assert_eq!(chain("    val x = \"a\".pour()."), None);
     let text =
@@ -284,6 +289,9 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((0, "plunger".into(), false)));
     assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
+    let d = kotlin_destructured("    val (a, b) = pair()", "b").map(|d| (d.index, d.source));
+    assert_eq!(d, Some((1, "pair()".into())));
+    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b").is_none());
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");
@@ -303,11 +311,17 @@ fn a_java_element_comes_out_of_a_written_collection() {
     assert_eq!(java_element_access("        x = q.size()."), None);
     assert_eq!(java_element_access("        x = a.b.get(0)."), None);
     let field = "    private final List<Stone> stones = new ArrayList<>();";
-    assert_eq!(java_element_type(field, "stones").as_deref(), Some("Stone"));
+    let both = |c: &str, e: &str| Some((c.to_owned(), e.to_owned()));
+    assert_eq!(java_element_type(field, "stones"), both("List", "Stone"));
     assert_eq!(
         java_element_type("    Map<K, Stone> stones;", "stones"),
+        both("Map", "Stone")
+    );
+    assert_eq!(
+        java_element_type("    Map<String, List<Stone>> stones;", "stones"),
         None
     );
+    assert_eq!(java_element_type("    Map<Stone> stones;", "stones"), None);
     assert_eq!(
         java_element_type("    Optional<? extends a.B> stones,", "stones"),
         None
@@ -442,6 +456,21 @@ fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
     );
     assert_eq!(at(2, "    glasses.let { ", "it"), None, "not one element");
     assert_eq!(
+        at(2, "    glasses.sortedWith { a, b -> a.dose() - ", "b").as_deref(),
+        Some("glasses"),
+        "a comparator"
+    );
+    assert_eq!(
+        at(2, "    n.forEach { k, v -> ", "v"),
+        None,
+        "two parameters, no comparator"
+    );
+    assert_eq!(
+        at(2, "    glasses.sortedWith { a -> ", "a"),
+        None,
+        "one parameter, a comparator"
+    );
+    assert_eq!(
         at(2, "    glasses.sumOf { a.let { ", "it"),
         None,
         "an inner lambda"
@@ -520,4 +549,33 @@ fn a_getter_chain_is_read_up_to_the_name_it_starts_from() {
     assert_eq!(chain("new User().getSpec()."), "");
     assert_eq!(chain("list.get(0).getSpec()."), "");
     assert_eq!(chain("Foo::getSpec()."), "");
+}
+
+#[test]
+fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
+    let body = "fun f() {\n    g()\n    run {\n        g()\n    }\n}\nclass C {\n    fun h() {\n        g()\n    }\n}\nfun Cup.e() {\n    g()\n}\n";
+    assert!(kotlin_top_level_body(body, 2, "    "));
+    assert!(!kotlin_top_level_body(body, 4, "        "));
+    assert!(!kotlin_top_level_body(body, 9, "        "));
+    assert!(!kotlin_top_level_body(body, 13, "    "));
+    assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
+    let lambda = "fun f() = with(x) {\n    g()\n}\nfun h(\n    n: Int = 1,\n): Cup = tx {\n    g()\n}\nfun e(): Cup =\n    g()\n";
+    assert!(!kotlin_top_level_body(lambda, 2, "    "));
+    assert!(!kotlin_top_level_body(lambda, 7, "    "));
+    assert!(kotlin_top_level_body(lambda, 10, "    "));
+    let ret = |l: &str| kotlin_top_level_return(l, "pot");
+    assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
+    assert_eq!(
+        ret("private fun pot(n: Int): Cup? {").as_deref(),
+        Some("Cup")
+    );
+    assert_eq!(ret("fun pot(): Box<Cup> = Box()"), None);
+    assert_eq!(ret("    fun pot(): Cup = Cup()"), None);
+    assert_eq!(ret("fun <T> pot(): T = x()"), None);
+    let pair = |l: &str| kotlin_top_level_pair(l, "pot");
+    assert_eq!(
+        pair("fun pot(): Pair<Cup, Mug> = x"),
+        Some(("Pair".into(), vec!["Cup".into(), "Mug".into()]))
+    );
+    assert_eq!(pair("fun pot(): Pair<Cup, List<Mug>> = x"), None);
 }

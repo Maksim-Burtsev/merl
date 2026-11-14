@@ -269,8 +269,7 @@ impl App {
         on_class: bool,
     ) -> Vec<Candidate> {
         let mut patterns = search::def_patterns(Kind::Ruby, word);
-        let assignment = search::ruby_assignment(word);
-        patterns.retain(|p| *p != assignment);
+        search::cut_def_patterns(Kind::Ruby, &mut patterns, &[search::ruby_assignment(word)]);
         let owned: Vec<Owned> = self
             .project_definitions(Kind::Ruby, here, word, &patterns.join("|"))
             .into_iter()
@@ -281,7 +280,7 @@ impl App {
                     return None;
                 }
                 Some(Owned {
-                    class: search::ruby_class_path(&t, h.line1),
+                    class: search::ruby_member_class(&t, h.line1, word),
                     on_class: search::ruby_on_class(&t, h.line1),
                     in_block: search::ruby_in_block(&t, h.line1),
                     module_method_on_both_sides: search::ruby_singleton(&t, h.line1),

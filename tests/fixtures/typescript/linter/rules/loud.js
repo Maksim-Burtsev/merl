@@ -28,7 +28,7 @@ module.exports.untyped = {
   create(context) {
     return {
       onCodePathStart() {
-    //^ d: picker linter/rules/loud.js:48, linter/token_store.js:16, linter/types/index.d.ts:27
+    //^ d: picker linter/rules/loud.js:48, linter/token_store.js:16, linter/types/index.d.ts:31
       },
     };
   },
@@ -46,7 +46,7 @@ const nested = {
     function inner() {
       return {
         onCodePathStart() {
-      //^ d: picker linter/rules/loud.js:30, linter/token_store.js:16, linter/types/index.d.ts:27
+      //^ d: picker linter/rules/loud.js:30, linter/token_store.js:16, linter/types/index.d.ts:31
         },
       };
     }

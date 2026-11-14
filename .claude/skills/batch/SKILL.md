@@ -118,6 +118,9 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   resolved, runs the two tests that own them and writes and stages the measured values. When
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
+  Once a branch is merged, delete its worktree's `target/` (3–6 GB each): on 2026-11-09 the
+  targets of 17 merged worktrees filled a disk that had 103 GB free at the start, and the
+  epic's final check failed on `No space left on device`.
   Before merging, `git diff --stat EPIC...BRANCH` lists only files the task needs: an agent
   that squashed or rebased on a stale tree can roll other files back without a conflict, and
   on 2026-10-17 a Ruby branch put back `src/git.rs` from before #973's guard against deleting
@@ -132,8 +135,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   shows a red one: a fixer agent pushes the fix to its branch. The finders run as
   `merl-finder` in the foreground inside the implementer (`run_in_background: false`), so the
   review comes back to it and not to you.
-- **The epic PR.** First the full `tools/heavy tools/ci-local` on the epic: its tasks ran only
-  `clippy tests`. Then one PR into master, a section per issue (before, after, the test that
+- **The epic PR.** First merge `origin/master` into the epic, then the full `tools/heavy
+  tools/ci-local` on it: its tasks ran only `clippy tests`, and nothing merges into that
+  worktree while the check runs. On 2026-11-10 a merge during the check spoiled it, and two
+  own PRs merged into master that night broke the epic's build and a fixture only together. Then one PR into master, a section per issue (before, after, the test that
   catches it): `.claude/skills/batch/bin/epic-body [RUN_DIR]` drafts `epic-body.md` and
   `squash-msg.txt` in the run's folder from the ledger's merged `epic` rows, each
   implementer's report and `COMMON.md`'s trailers; read every section, merge the ones of one

@@ -196,7 +196,16 @@ impl App {
     }
 
     fn needs_no_lookup(&self, kind: Kind, word: &str, lead: &str, start: usize) -> bool {
-        (kind == Kind::Go && word == "_")
+        (kind == Kind::Go
+            && (word == "_"
+                || search::go_anonymous_field_name(
+                    &self.buf.lines,
+                    self.line,
+                    lead,
+                    self.line_str()
+                        .get(start + word.len()..)
+                        .unwrap_or_default(),
+                )))
             || (kind == Kind::Graphql && lead.ends_with('$'))
             || (kind == Kind::TsJs
                 && search::jsx_hyphenated_attribute(
@@ -225,6 +234,9 @@ impl App {
         }
         if a.kind == Kind::Elixir {
             a.chain = search::elixir_unalias(&a.text, self.line, std::mem::take(&mut a.chain));
+            if a.chain.is_empty() && self.answered_by_elixir_alias(a) {
+                return true;
+            }
         }
         if a.kind == Kind::Ruby
             && a.dotted
@@ -240,6 +252,46 @@ impl App {
             || self.answered_by_renamed_require(a)
             || self.answered_by_go_key(a)
             || self.answered_by_sigil(a)
+    }
+
+    fn answered_by_elixir_alias(&mut self, a: &Asked) -> bool {
+        static DEFMODULE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*defmodule\s+([\w.]+)(?:\s|,|$)")
+                .expect("the regex is a literal")
+        });
+        let module = search::elixir_unalias(&a.text, self.line, vec![a.word.clone()]);
+        let Some(last) = module.last().filter(|l| **l != a.word) else {
+            return false;
+        };
+        let full = module.join(".");
+        let pattern = search::def_patterns(a.kind, last).join("|");
+        let modules: Vec<(Hit, String)> = self
+            .project_definitions(a.kind, &a.here, last, &pattern)
+            .into_iter()
+            .filter_map(|h| {
+                let name = DEFMODULE.captures(&h.text)?[1].to_owned();
+                Some((h, name))
+            })
+            .collect();
+        let nested = modules
+            .iter()
+            .any(|(_, n)| full.ends_with(&format!(".{n}")));
+        let found: Vec<Candidate> = modules
+            .into_iter()
+            .filter(|(_, n)| *n == full)
+            .map(|(hit, _)| Candidate {
+                hit,
+                reason: Reason::Path(full.clone()),
+            })
+            .collect();
+        if found.is_empty() && nested {
+            return false;
+        }
+        if found.is_empty() {
+            self.message = format!("no definition for {} in the project (via {full})", a.word);
+            return true;
+        }
+        self.show_found(a, found)
     }
 
     fn answered_by_renamed_require(&mut self, a: &Asked) -> bool {
@@ -389,6 +441,9 @@ impl App {
                     how => self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, how),
                 })
                 .unwrap_or_default();
+            if found.is_empty() && kind == Kind::Dart {
+                return false;
+            }
             if found.is_empty() {
                 self.message = format!("{}: {}", a.word, label.what);
             } else {
@@ -490,6 +545,40 @@ impl App {
             search::GoKey::No
         };
         a.go_keyed = go_key != search::GoKey::No;
+        if let search::GoKey::Of(written) = &go_key
+            && let Some(line) = search::go_local_type(&a.here, &a.text, self.line + 1, written)
+            && let Some(hit) = self.field_of(
+                kind,
+                &super::Typed {
+                    name: written.clone(),
+                    path: a.here.clone(),
+                    line,
+                },
+                &a.word,
+                false,
+            )
+        {
+            let found = vec![Candidate {
+                hit,
+                reason: Reason::Receiver(format!("{written}{{\u{2026}}}")),
+            }];
+            return self.show_found(a, found);
+        }
+        if let search::GoKey::Of(written) = &go_key
+            && let Some(line) = search::go_local_type(&a.here, &a.text, self.line + 1, written)
+            && let Some(over) = a.text.lines().nth(line - 1).and_then(|l| {
+                let rest = l.trim_start().strip_prefix("type")?.trim_start();
+                let rest = rest.strip_prefix(written.as_str())?.trim_start();
+                let over = rest.strip_prefix('=').unwrap_or(rest).trim();
+                (!over.is_empty() && over.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                    .then(|| over.to_owned())
+            })
+            && search::go_local_type(&a.here, &a.text, line, &over).is_none()
+            && let Ok(Some(found)) = self.literal_field(kind, &a.here, &over, &a.word)
+            && !found.is_empty()
+        {
+            return self.show_found(a, found);
+        }
         if kind == Kind::Go
             && (dotted || matches!(go_key, search::GoKey::Of(_) | search::GoKey::ElementOf(_)))
         {
@@ -543,6 +632,22 @@ impl App {
                 self.clojure_qualified(&a.text, &a.before, &a.word, a.tail.as_str())
         {
             return self.show_found(a, found);
+        }
+        if a.kind == Kind::Jvm
+            && a.word == "field"
+            && !a.dotted
+            && a.here.extension().is_some_and(|e| e == "kt" || e == "kts")
+            && let Some(line1) =
+                search::kotlin_backing_property(&a.text, self.line + 1, a.range.start)
+        {
+            let hit = self.line_hit(&a.here, line1);
+            return self.show_found(
+                a,
+                vec![Candidate {
+                    hit,
+                    reason: Reason::Receiver(String::from("field")),
+                }],
+            );
         }
         false
     }

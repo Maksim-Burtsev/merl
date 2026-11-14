@@ -4,11 +4,12 @@ use std::path::Path;
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
     cs_opener, cs_opener_in, cs_statement, cs_type_decl, dart_bindings, declares_type,
-    gdscript_bindings, go_declares_then_uses, haskell_bindings, indent, julia_bindings,
-    jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names, nix_bindings,
-    powershell_params, python_bindings_at, ruby_bindings, rust_bindings, shell_bindings,
-    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_declares_then_uses,
-    ts_destructured, ts_hoisted_function, ts_hoisted_vars, ts_params, type_list, uncommented,
+    gdscript_bindings, go_declares_then_uses, go_statement_value, haskell_bindings, indent,
+    julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names,
+    nix_bindings, powershell_params, python_bindings_at, ruby_bindings, rust_bindings,
+    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_arrow_binds, ts_arrow_element,
+    ts_callback_element, ts_declarators, ts_declares_then_uses, ts_destructured,
+    ts_hoisted_function, ts_hoisted_vars, ts_params, ts_tuple_destructured, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,11 @@ pub enum Value {
         field: String,
     },
     Member(Box<Self>, String),
+    Position {
+        of: Box<Self>,
+        at: usize,
+        count: usize,
+    },
     Struct(usize),
     Unknown,
 }
@@ -185,12 +191,30 @@ pub fn bindings_at(
         return Vec::new();
     };
     match kind {
-        Kind::Python | Kind::Starlark => python_bindings_at(&lines, at, name),
+        Kind::Python => {
+            match col.and_then(|c| super::py_lambda::python_lambda_value(text, lines[at], c, name))
+            {
+                Some(value) => vec![Binding { line1: line, value }],
+                None => python_bindings_at(&lines, at, name),
+            }
+        }
+        Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
+            if let Some(c) = col.filter(|&c| ts_arrow_binds(lines[at], name, c)) {
+                if let Some(value) = ts_arrow_element(text, lines[at], name, c) {
+                    return vec![Binding { line1: line, value }];
+                }
+                for b in out.iter_mut().filter(|b| b.line1 == line) {
+                    if matches!(b.value, Value::Element(_)) {
+                        b.value = Value::Unknown;
+                    }
+                }
+            }
             if out.iter().all(|b| b.line1 != line) && ts_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
+            ts_popped_then_written(&lines, at, name, &mut out);
             ts_hoisted_vars(&lines, at, name, &mut out);
             match ts_hoisted_function(text, &lines, at, name) {
                 Some((header, f)) if f > line && out.iter().all(|b| b.line1 <= header) => {
@@ -201,7 +225,11 @@ pub fn bindings_at(
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
-            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], col, name) {
+            let own = out.iter().any(|b| b.line1 == line);
+            if col.is_some() && own && go_declares_then_uses(lines[at], col, name) {
+                return out.into_iter().filter(|b| b.line1 == line).collect();
+            }
+            if !own && go_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
             out
@@ -228,6 +256,23 @@ pub fn bindings_at(
         Kind::Dart => dart_bindings(&lines, at, name),
         k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
+    }
+}
+fn ts_popped_then_written(lines: &[&str], at: usize, name: &str, out: &mut [Binding]) {
+    let n = regex::escape(name);
+    let write = Regex::new(&format!(
+        r"(?:^|[^\w$.]){n}\s*(?:[-+*/%&|^]|\?\?|\|\||&&)?=[^=>]|^[\s(;]*[\[{{](?:[^=]*[^\w$.=])?{n}(?:[^\w$][^=]*)?[\]}}]\s*=[^=>]"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    for b in out.iter_mut() {
+        let header = b.line1 - 1;
+        let popped = matches!(b.value, Value::Element(_))
+            && lines
+                .get(header)
+                .is_some_and(|l| l.trim_start().starts_with("while"));
+        if popped && lines[header + 1..=at].iter().any(|l| write.is_match(l)) {
+            b.value = Value::Unknown;
+        }
     }
 }
 fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
@@ -490,9 +535,83 @@ fn read_statement(
                     statement_bindings(kind, &d.as_own_statement, d.line0 + 1, name, out);
                 }
             }
-            None => statement_bindings(kind, t, i + 1, name, out),
+            None => match (kind == Kind::Go && ind > 0)
+                .then(|| go_local_type_line(lines, i, t, name))
+                .flatten()
+            {
+                Some(k) => out.push(Binding {
+                    line1: k + 1,
+                    value: Value::Unknown,
+                }),
+                None => statement_bindings(kind, t, i + 1, name, out),
+            },
         },
     }
+}
+pub fn go_names_a_type_here(lead: &str, tail: &str) -> bool {
+    let label = matches!(
+        lead.split_whitespace().last(),
+        Some("break" | "continue" | "goto")
+    );
+    let key = tail.starts_with(':') && !tail.starts_with(":=");
+    let key = key && !lead.trim_start().starts_with("case");
+    let lead = lead.trim_end();
+    let declared = (lead.is_empty() || lead.ends_with(['{', ';']))
+        && tail.starts_with([' ', '\t'])
+        && tail
+            .trim_start()
+            .starts_with(|c: char| c.is_alphanumeric() || "_*[".contains(c));
+    !label && !key && !declared
+}
+fn go_declares_type(t: &str, name: &str) -> bool {
+    t.strip_prefix("type")
+        .filter(|r| r.starts_with(char::is_whitespace))
+        .and_then(|r| r.trim_start().strip_prefix(name))
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+}
+fn go_local_type_line(lines: &[&str], i: usize, t: &str, name: &str) -> Option<usize> {
+    if go_declares_type(t, name) {
+        return Some(i);
+    }
+    if t.strip_prefix("type").map(str::trim) != Some("(") {
+        return None;
+    }
+    let ind = indent(lines[i]);
+    let child = lines.get(i + 1).map(|l| indent(l))?;
+    (i + 1..lines.len())
+        .take_while(|&j| lines[j].trim().is_empty() || indent(lines[j]) > ind)
+        .find(|&j| {
+            indent(lines[j]) == child
+                && go_declares_type(
+                    &format!("type {}", uncommented(Kind::Go, lines[j]).trim()),
+                    name,
+                )
+        })
+}
+pub fn go_local_type(path: &Path, text: &str, line1: usize, name: &str) -> Option<usize> {
+    let b = path_bindings(Kind::Go, path, text, line1, name)
+        .into_iter()
+        .next()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let line = lines.get(b.line1.checked_sub(1)?)?;
+    let declared =
+        go_declares_type(line.trim_start(), name) || go_type_group_member(&lines, b.line1 - 1);
+    (line.starts_with(char::is_whitespace) && declared).then_some(b.line1)
+}
+pub fn go_type_group_member<S: AsRef<str>>(lines: &[S], i: usize) -> bool {
+    let ind = indent(lines[i].as_ref());
+    lines[..i]
+        .iter()
+        .map(AsRef::as_ref)
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < ind)
+        .is_some_and(|l| {
+            uncommented(Kind::Go, l)
+                .trim()
+                .strip_prefix("type")
+                .map(str::trim)
+                == Some("(")
+        })
 }
 fn header_start(kind: Kind, lines: &[&str], mut i: usize, ind: usize) -> usize {
     while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
@@ -605,14 +724,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                     go_block_statement_at = Some(out.len() - 1);
                 }
                 if let Some(types) = arm.as_deref().filter(|_| type_switch.is_match(t)) {
-                    let value = match types {
-                        [one] => Value::Type(one.clone()),
-                        _ => Value::Unknown,
-                    };
-                    out.push(Binding {
-                        line1: i + 1,
-                        value,
-                    });
+                    out.push(type_switch_binding(types, i + 1));
+                    break;
                 }
                 if (t.starts_with("switch ") || t.starts_with("select "))
                     && go_switch_init(arm.take(), t, i + 1, name, &mut out)
@@ -625,6 +738,7 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
         let header;
         (i, header) = header_of(kind, lines, i, t);
+        let header = ts_call_opened_above(kind, lines, i, name, header);
         depth = ind.min(indent(lines[i]));
         go_block_statement_at = None;
         if !this {
@@ -649,6 +763,29 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn ts_call_opened_above(
+    kind: Kind,
+    lines: &[&str],
+    i: usize,
+    name: &str,
+    header: String,
+) -> String {
+    let arrow_first = header.starts_with('(') || header.starts_with(name);
+    match (kind == Kind::TsJs && i > 0 && arrow_first)
+        .then(|| uncommented(kind, lines[i - 1]).trim().to_owned())
+        .filter(|c| c.ends_with('('))
+    {
+        Some(call) => format!("{call}\n{header}"),
+        None => header,
+    }
+}
+fn type_switch_binding(types: &[String], line1: usize) -> Binding {
+    let value = match types {
+        [one] => Value::Type(one.clone()),
+        _ => Value::Unknown,
+    };
+    Binding { line1, value }
 }
 fn go_switch_init(
     arm: Option<Vec<String>>,
@@ -733,117 +870,6 @@ pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {
         });
     (object || names(header, "function")).then_some(Value::Unknown)
 }
-pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
-    ts_arrows(line, name)
-        .iter()
-        .any(|a| a.param_at < at && at > a.body_start && at < a.body_end)
-}
-pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
-    let (Some(before), Some(after)) = (line.get(..at), line.get(at + name.len()..)) else {
-        return false;
-    };
-    let (before, after) = (before.trim_end(), after.trim_start());
-    let returned = before
-        .strip_suffix(':')
-        .is_some_and(|b| b.trim_end().ends_with(')'));
-    let slot = (after.starts_with("=>") && !returned)
-        || before.ends_with(['(', ','])
-        || before.ends_with("...");
-    slot && ts_arrows(line, name).iter().any(|a| a.param_at == at)
-}
-struct TsArrow {
-    param_at: usize,
-    body_start: usize,
-    body_end: usize,
-}
-fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
-    let Ok(word) = Regex::new(&format!(r"(?:^|[^\w$.]){}\b", regex::escape(name))) else {
-        return Vec::new();
-    };
-    if code(Kind::TsJs, &format!("{line}\n)")).last() != Some((line.len() + 1, b')')) {
-        return Vec::new();
-    }
-    let b = line.as_bytes();
-    let bytes: Vec<(usize, u8)> = code(Kind::TsJs, line)
-        .take_while(|&(_, c)| c != 0)
-        .collect();
-    let last_open_bracket_before = |upto: usize| {
-        let mut stack = Vec::new();
-        for &(i, c) in bytes.iter().take_while(|&&(i, _)| i < upto) {
-            match c {
-                b'(' | b'[' | b'{' => stack.push(i),
-                b')' | b']' | b'}' => {
-                    stack.pop();
-                }
-                _ => {}
-            }
-        }
-        stack.last().copied()
-    };
-    let arrow_after_params = |params_end: usize, behind_return_type: bool| {
-        let t = line.get(params_end..)?.trim_start();
-        let t = match t.strip_prefix(':').filter(|_| behind_return_type) {
-            Some(ty) => ty
-                .find("=>")
-                .filter(|&e| {
-                    ty.get(..e)
-                        .is_some_and(|h| !h.contains([';', '{', '}', '(', ')']))
-                })
-                .and_then(|e| ty.get(e..))?,
-            None => t,
-        };
-        t.starts_with("=>").then(|| line.len() - t.len())
-    };
-    word.find_iter(line)
-        .map(|m| m.end() - name.len())
-        .filter_map(|decl| {
-            let start = arrow_after_params(decl + name.len(), false).or_else(|| {
-                let open = last_open_bracket_before(decl).filter(|&p| b[p] == b'(')?;
-                let before = line.get(..open)?.trim_end();
-                if return_type(before) || before.ends_with('<') {
-                    return None;
-                }
-                arrow_after_params(close_of(Kind::TsJs, line, open)?, true)
-            });
-            let start = start?;
-            let (mut depth, mut ternaries_awaiting_colon) = (0i32, 0i32);
-            let end = bytes
-                .iter()
-                .skip_while(|&&(i, _)| i < start + 2)
-                .find(|&&(i, c)| match c {
-                    b'(' | b'[' | b'{' => {
-                        depth += 1;
-                        false
-                    }
-                    b')' | b']' | b'}' => {
-                        depth -= 1;
-                        depth < 0
-                    }
-                    b',' | b';' => depth == 0,
-                    b'?' if depth == 0 => {
-                        let chain = b[i - 1] == b'?' || matches!(b.get(i + 1), Some(b'.' | b'?'));
-                        ternaries_awaiting_colon += i32::from(!chain);
-                        false
-                    }
-                    b':' if depth == 0 => {
-                        ternaries_awaiting_colon -= 1;
-                        ternaries_awaiting_colon < 0
-                    }
-                    b'=' if depth == 0 => {
-                        !b"=<>!".contains(&b[i - 1])
-                            && !b.get(i + 1).is_some_and(|c| b"=>{\"'".contains(c))
-                    }
-                    _ => false,
-                })
-                .map_or(line.len(), |&(i, _)| i);
-            Some(TsArrow {
-                param_at: decl,
-                body_start: start,
-                body_end: end,
-            })
-        })
-        .collect()
-}
 fn unknown(line: usize) -> Binding {
     Binding {
         line1: line,
@@ -910,6 +936,15 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         ),
     ) {
         out.push(b);
+    } else if let Some(b) = element(
+        header,
+        line,
+        &format!(
+            r"^while\s*\(\(\s*{n}\s*=\s*((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\.(?:pop|shift)\(\)\s*\)"
+        ),
+    ) {
+        out.push(b);
+        return true;
     } else if TS_LOOP
         .captures_iter(header)
         .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
@@ -937,6 +972,11 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
             let count = out.len();
             if let Some(params) = header.get(open + 1..close - 1) {
                 ts_params(params, line, name, out);
+                if let (Some(value), [.., Binding { value: last, .. }]) =
+                    (ts_callback_element(before, params, name), &mut out[count..])
+                {
+                    *last = value;
+                }
             }
             binds_for_body |= out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
         }
@@ -951,7 +991,12 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
             .get(..c.get(0).map_or(0, |m| m.start()))
             .is_some_and(|h| !return_type(h))
     }) {
-        out.push(unknown(line));
+        let value = c
+            .get(0)
+            .and_then(|m| header.get(..m.start() + m.as_str().find(name)?))
+            .and_then(|before| ts_callback_element(before, name, name))
+            .unwrap_or(Value::Unknown);
+        out.push(Binding { line1: line, value });
         binds_for_body |= c.get(1).is_some();
     }
     binds_for_body
@@ -1097,7 +1142,7 @@ pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
         .any(|i| i.trim().contains(char::is_whitespace));
     !named || !item.trim().is_empty()
 }
-fn return_type(before: &str) -> bool {
+pub(super) fn return_type(before: &str) -> bool {
     let b = before.as_bytes();
     let mut depth = 0i32;
     for i in (0..b.len()).rev() {
@@ -1119,7 +1164,7 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
-static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+pub(super) static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
         .expect("the regex is a literal")
 });
@@ -1142,7 +1187,7 @@ fn go_header_init(header: &str, name: &str) -> Option<Value> {
     };
     Some(value_of(Kind::Go, e))
 }
-fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
+pub(super) fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
     let parts = split_top(Kind::Go, values, b',');
     match parts.get(at) {
         Some(v) if parts.len() == names.split(',').count() => Some(v),
@@ -1271,6 +1316,8 @@ pub(super) fn statement_bindings(
                 declared_value(c)
             } else if let Some(field) = ts_destructured(t, name) {
                 field
+            } else if let Some(element) = ts_tuple_destructured(t, name) {
+                element
             } else if let Some(value) = listed() {
                 value
             } else if named.is_match(t)
@@ -1293,44 +1340,6 @@ pub(super) fn statement_bindings(
         _ => return,
     };
     out.push(Binding { line1: line, value });
-}
-fn go_statement_value(t: &str, line: usize, name: &str) -> Option<Value> {
-    static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
-        )
-        .expect("the regex is a literal")
-    });
-    let list = |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
-    let anonymous = |e: &str| {
-        e.trim_start()
-            .trim_start_matches('&')
-            .strip_prefix("struct")
-            .is_some_and(|r| r.trim_start().starts_with('{'))
-    };
-    let value = |e: &str| {
-        if anonymous(e) {
-            Value::Struct(line)
-        } else {
-            value_of(Kind::Go, e)
-        }
-    };
-    if let Some(c) = GO_SHORT.captures(t) {
-        let at = list(&c[1]).iter().position(|p| p == name)?;
-        Some(go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, value))
-    } else if let Some(c) = GO_VAR.captures(t) {
-        let at = list(&c[1]).iter().position(|p| p == name)?;
-        Some(match (c.get(2), c.get(3)) {
-            (Some(ty), _) if anonymous(ty.as_str()) => Value::Struct(line),
-            (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-            (None, Some(v)) => go_assigned(&c[1], v.as_str(), at).map_or(Value::Unknown, value),
-            (None, None) => Value::Unknown,
-        })
-    } else {
-        t.strip_prefix("const ")
-            .is_some_and(|rest| names(rest.split('=').next().unwrap_or(rest), name))
-            .then_some(Value::Unknown)
-    }
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct TsHeader {

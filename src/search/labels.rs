@@ -4,7 +4,7 @@ use regex::Regex;
 
 use super::{
     Group, Kind, body_of, code, group, hole_line, indent, literal_lines, path_literal_lines,
-    python_header, split_top, word_at,
+    python_header, split_top, uncommented, word_at,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,7 +55,13 @@ pub fn label_at(
     };
     let sep = match kind {
         Kind::Python | Kind::Jvm | Kind::Julia => b'=',
-        Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby | Kind::Rust | Kind::Elixir => b':',
+        Kind::Swift
+        | Kind::CSharp
+        | Kind::Php
+        | Kind::Ruby
+        | Kind::Rust
+        | Kind::Elixir
+        | Kind::Dart => b':',
         Kind::TsJs if after.starts_with('=') => b'=',
         Kind::TsJs => b':',
         _ => return None,
@@ -106,7 +112,7 @@ pub fn label_at(
     };
     if !opened.as_ref().is_some_and(after_the_bracket) {
         return (kind == Kind::Ruby)
-            .then(|| ruby_command_label(kind, l, line0, range.start))
+            .then(|| ruby_command_label(kind, &lines, &literal, line0, range.start))
             .flatten();
     }
     let OpenBracket {
@@ -125,22 +131,18 @@ pub fn label_at(
                     c.line0 == at
                         && (c.byte == b')' || c.byte.is_ascii_alphanumeric() || c.byte == b'_')
                 });
-            (!block).then_some(Label {
+            if block {
+                return ruby_block_label(kind, &lines, &literal, at, open, line0, range.start);
+            }
+            Some(Label {
                 what: "key",
                 owner: None,
                 nested: false,
             })
         }
-        (
-            Kind::Python
-            | Kind::Jvm
-            | Kind::Swift
-            | Kind::CSharp
-            | Kind::Php
-            | Kind::Ruby
-            | Kind::Julia,
-            b'(',
-        ) => call_label(kind, java, &lines, &literal, at, open),
+        (_, b'(') if !matches!(kind, Kind::TsJs | Kind::Rust) => {
+            call_label(kind, java, &lines, &literal, at, open)
+        }
         _ => None,
     }
 }
@@ -229,7 +231,35 @@ fn julia_named_tuple_key(kind: Kind, lines: &[&str], at: usize, open: usize) -> 
     })
 }
 
-fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Option<Label> {
+fn ruby_command_label(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    line0: usize,
+    start: usize,
+) -> Option<Label> {
+    static PIPES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\bdo|\{)\s*\|[^|]*$").expect("the regex is a literal")
+    });
+    if PIPES.is_match(lines[line0].get(..start)?) {
+        return None;
+    }
+    let continues = |i: usize| {
+        !literal.get(i).copied().unwrap_or(true)
+            && uncommented(kind, lines[i]).trim_end().ends_with(',')
+    };
+    let mut top = line0;
+    if lines[line0].get(..start)?.trim().is_empty() {
+        while top > 0 && continues(top - 1) {
+            top -= 1;
+        }
+    }
+    let head: Vec<String> = lines[top..line0]
+        .iter()
+        .map(|l| uncommented(kind, l) + " ")
+        .collect();
+    let line = head.concat() + lines[line0];
+    let start = start + line.len() - lines[line0].len();
     let lead = line.get(..start)?;
     let head = lead.trim_end();
     if head.trim_start().is_empty()
@@ -239,16 +269,89 @@ fn ruby_command_label(kind: Kind, line: &str, line0: usize, start: usize) -> Opt
     {
         return None;
     }
-    let owner = callee(kind, line, start).map(|byte_col| LabelOwner {
-        line0,
-        byte_col,
-        how: Owner::Args,
-    });
+    let args = if head.ends_with(',') {
+        ruby_command_args(kind, lead)
+    } else {
+        Some(start)
+    };
+    let owner = args
+        .and_then(|a| callee(kind, &line, a))
+        .filter(|&c| c < lines[top].len())
+        .map(|byte_col| LabelOwner {
+            line0: top,
+            byte_col,
+            how: Owner::Args,
+        });
     Some(Label {
         what: "argument label",
         owner,
         nested: false,
     })
+}
+
+fn ruby_block_label(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+    line0: usize,
+    start: usize,
+) -> Option<Label> {
+    let rest = lines[at].get(open + 1..)?.trim_start();
+    let body = match rest.strip_prefix('|') {
+        Some(params) => lines[at].len() - params.len() + params.find('|')? + 1,
+        None => lines[at].len() - rest.len(),
+    };
+    let blank = " ".repeat(body) + lines[at].get(body..)?;
+    let mut view = vec![""; at];
+    view.push(&blank);
+    view.extend_from_slice(lines.get(at + 1..)?);
+    ruby_command_label(kind, &view, literal, line0, start)
+}
+
+fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
+    let first = split_top(kind, lead, b',').into_iter().next()?;
+    let b = first.as_bytes();
+    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let named = |h: &[u8]| match h {
+        [.., p, b'!' | b'?'] | [.., p] => name(*p),
+        [] => false,
+    };
+    let unary = |i: usize| {
+        b.get(i + 1)
+            .is_some_and(|&n| !n.is_ascii_whitespace() && n != b'=')
+    };
+    let mut depth = 0i32;
+    let mut out = None;
+    let mut coded = vec![false; b.len()];
+    for (i, _) in code(kind, first) {
+        coded[i] = true;
+    }
+    for (i, &c) in b.iter().enumerate() {
+        let string = !coded[i] && matches!(c, b'"' | b'\'') && (i == 0 || coded[i - 1]);
+        if !coded[i] && !string {
+            continue;
+        }
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        let gap = i > 0 && b[i - 1].is_ascii_whitespace();
+        let starts_arg = name(c)
+            || string
+            || matches!(c, b'@' | b'$' | b'(' | b'[')
+            || (matches!(c, b':' | b'-' | b'*' | b'&' | b'!') && unary(i));
+        if depth == i32::from(matches!(c, b'(' | b'['))
+            && gap
+            && starts_arg
+            && named(first.get(..i)?.trim_end().as_bytes())
+        {
+            out = Some(i);
+        }
+    }
+    out
 }
 
 fn swift_implicit_init(
@@ -772,6 +875,12 @@ pub fn label_lines(
         return Vec::new();
     };
     let types_own_name = TYPE.captures(lines[k]).map(|c| c[1].to_owned());
+    if kind == Kind::Jvm
+        && *owner == Owner::Args
+        && let Some(elements) = java_annotation_elements(&lines, k, name, word)
+    {
+        return elements;
+    }
     match (owner, types_own_name.as_deref()) {
         (Owner::Args, Some(name)) => {
             let n = regex::escape(name);
@@ -821,6 +930,11 @@ pub fn label_lines(
             out
         }
         (Owner::Implicit(_), _) => Vec::new(),
+        (Owner::Args, None)
+            if kind == Kind::Dart && name.starts_with(|c: char| c.is_ascii_uppercase()) =>
+        {
+            Vec::new()
+        }
         (Owner::Args, None) => params(kind, &lines, k, name, |p| param_named(kind, p, word))
             .into_iter()
             .collect(),
@@ -906,6 +1020,30 @@ pub fn object_type(
     found
 }
 
+fn java_annotation_elements(
+    lines: &[&str],
+    decl_line0: usize,
+    name: &str,
+    word: &str,
+) -> Option<Vec<usize>> {
+    Regex::new(&format!(r"@interface\s+{}\b", regex::escape(name)))
+        .ok()?
+        .is_match(lines[decl_line0])
+        .then_some(())?;
+    let element = Regex::new(&format!(
+        r"^\s*(?:public\s+|abstract\s+)*[\w.<>\[\]?, ]*[\w>\]]\s+{}\s*\(\s*\)",
+        regex::escape(word)
+    ))
+    .ok()?;
+    Some(
+        members(lines, decl_line0)
+            .into_iter()
+            .filter(|&i| element.is_match(lines[i]))
+            .map(|i| i + 1)
+            .collect(),
+    )
+}
+
 fn members(lines: &[&str], decl_line0: usize) -> Vec<usize> {
     let member = |i: &usize| !matches!(lines[*i].trim(), "" | "{");
     let body = body_of(Kind::Swift, lines, decl_line0);
@@ -927,21 +1065,67 @@ fn params(
         "" => 0,
         _ => lines[decl_line0].find(name).map_or(0, |i| i + name.len()),
     };
-    let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
-        Some((_, open)) => open?,
-        None => code(kind, lines[decl_line0])
-            .find(|&(i, c)| i >= from && c == b'(')
-            .map(|(i, _)| i)?,
+    let inner = if let Some(inner) = ruby_bare_params(kind, lines, decl_line0, from) {
+        inner
+    } else {
+        let open = match python_header(lines[decl_line0]).filter(|_| kind == Kind::Python) {
+            Some((_, open)) => open?,
+            None => code(kind, lines[decl_line0])
+                .find(|&(i, c)| i >= from && c == b'(')
+                .map(|(i, _)| i)?,
+        };
+        group(kind, lines, decl_line0, open)?.inner_uncommented
     };
-    let Group {
-        inner_uncommented: inner,
-        ..
-    } = group(kind, lines, decl_line0, open)?;
     let base = inner.as_ptr() as usize;
-    split_top(kind, &inner, b',').into_iter().find_map(|p| {
-        let at = find(p)? + (p.as_ptr() as usize - base);
-        Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
-    })
+    split_top(kind, &inner, b',')
+        .into_iter()
+        .flat_map(|p| dart_optional(kind, p))
+        .find_map(|p| {
+            let at = find(p)? + (p.as_ptr() as usize - base);
+            Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
+        })
+}
+
+fn ruby_bare_params(kind: Kind, lines: &[&str], decl_line0: usize, from: usize) -> Option<String> {
+    let line = lines[decl_line0];
+    let rest = line.get(from..)?;
+    let def = line
+        .get(..from)?
+        .trim_start()
+        .strip_prefix("def ")
+        .map(str::trim_start);
+    if kind != Kind::Ruby
+        || !def.is_some_and(|d| !d.is_empty() && !d.contains([' ', '(']))
+        || !rest.starts_with([' ', '\t'])
+        || rest.trim_start().starts_with('(')
+    {
+        return None;
+    }
+    let mut out = String::new();
+    for l in std::iter::once(rest).chain(lines.iter().skip(decl_line0 + 1).copied()) {
+        let l = uncommented(kind, l);
+        let end = code(kind, &l)
+            .find(|&(_, c)| c == b';')
+            .map_or(l.len(), |(i, _)| i);
+        let piece = l.get(..end)?;
+        out.push_str(piece);
+        if end < l.len() || !piece.trim_end().ends_with(',') {
+            return Some(out);
+        }
+        out.push('\n');
+    }
+    Some(out)
+}
+
+fn dart_optional(kind: Kind, part: &str) -> Vec<&str> {
+    let t = part.trim();
+    match t
+        .strip_prefix(['{', '['])
+        .and_then(|t| t.strip_suffix(['}', ']']))
+    {
+        Some(inner) if kind == Kind::Dart => split_top(kind, inner, b','),
+        _ => vec![part],
+    }
 }
 
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
@@ -961,6 +1145,13 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     let token = match (kind, typed) {
         (Kind::Swift, _) => tokens.next()?,
         _ => tokens.next_back()?,
+    };
+    let token = match kind {
+        Kind::Dart => ["this.", "super."]
+            .iter()
+            .find_map(|p| token.strip_prefix(p))
+            .unwrap_or(token),
+        _ => token,
     };
     let bare = token
         .trim_start_matches(['$', '*', '&', '.'])
@@ -1175,6 +1366,14 @@ mod tests {
             ),
             vec![2]
         );
+        let rb = "class Satchel\n  def initialize(grams:, owner: nil)\n  end\nend\ndef pair cups, mugful: 0, # x\n         pot: nil; cups\nend\ndef bare a: f(mugful: 1)\nend\n";
+        let ruby = |decl, name, word| label_lines(Kind::Ruby, rb, decl, name, word, &Owner::Args);
+        assert_eq!(ruby(1, "Satchel", "owner"), vec![2]);
+        assert_eq!(ruby(2, "new", "owner"), vec![2]);
+        assert_eq!(ruby(5, "pair", "mugful"), vec![5]);
+        assert_eq!(ruby(5, "pair", "pot"), vec![6]);
+        assert_eq!(ruby(5, "pair", "cups"), vec![5]);
+        assert_eq!(ruby(8, "bare", "mugful"), Vec::<usize>::new());
         let php = "function discount(int $total): int\n{\n}\nclass Song {\n    public function __construct(private readonly int $ids) {}\n}\n";
         assert_eq!(
             label_lines(Kind::Php, php, 1, "discount", "total", &Owner::Args),

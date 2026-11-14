@@ -216,8 +216,11 @@ impl App {
                         )
                 });
                 if !declares
-                    && let Some(found) =
-                        self.php_outside_named(&full, short, &word, (member, imported), access)
+                    && let Some(found) = self
+                        .php_outside_named(&full, short, &word, (member, imported), access)
+                        .or_else(|| {
+                            self.php_not_installed(here, text, &full, &written, !member && imported)
+                        })
                 {
                     return Some(found);
                 }
@@ -283,6 +286,33 @@ impl App {
         )
     }
 
+    fn php_not_installed(
+        &mut self,
+        here: &Path,
+        text: &str,
+        full: &str,
+        written: &str,
+        named: bool,
+    ) -> Option<Vec<Candidate>> {
+        let (vendor, _) = full.split_once('\\')?;
+        let vendor = vendor.to_ascii_lowercase();
+        let installed = self.external_files(Kind::Php).iter().any(|f| {
+            f.components()
+                .any(|c| c.as_os_str().to_string_lossy().to_ascii_lowercase() == vendor)
+        });
+        let name = written.split('\\').next()?;
+        let line = search::import_line1(Kind::Php, text, name).filter(|_| named && !installed)?;
+        let hit = Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1: line,
+            byte_col: None,
+            text: text.lines().nth(line - 1)?.to_owned(),
+        };
+        let reason = Reason::Import(format!("{} (not installed)", full.replace('\\', "/")));
+        Some(vec![Candidate { hit, reason }])
+    }
+
     fn php_outside_named(
         &mut self,
         full: &str,
@@ -344,7 +374,8 @@ impl App {
             keyword,
             name,
             extends: parent,
-        } = search::php_class_header(lines[class])?;
+        } = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))?;
         if keyword == "trait" {
             return None;
         }
@@ -735,7 +766,8 @@ impl App {
     fn php_self(path: &Path, text: &str, line0: usize) -> Option<PhpClass> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, line0)?;
-        let header = search::php_class_header(lines[class])?;
+        let header = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))?;
         (header.keyword != "trait").then(|| PhpClass {
             path: path.to_path_buf(),
             text: text.to_owned(),
@@ -824,6 +856,7 @@ impl App {
                     let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
                     (class, Some(link))
                 }
+                search::PhpBinding::This => (Self::php_self(here, text, at)?, None),
                 search::PhpBinding::Type(t) | search::PhpBinding::New(t) => {
                     (self.php_type(here, text, at, &t)?, None)
                 }

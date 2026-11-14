@@ -2,7 +2,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust::{binds, rust_rebinds, top_split, top_stop, type_at, without_type};
+use super::rust::{
+    binds, rust_line_binds, rust_rebinds, top_split, top_stop, type_at, without_type,
+};
 use super::{Kind, code};
 
 pub fn rust_closure_holds<'a>(line: &'a str, name: &str, at: usize) -> Option<&'a str> {
@@ -147,5 +149,58 @@ pub fn rust_rebound_before(line: &str, name: &str, at: usize) -> bool {
                 ended && !header && binds(pat, name)
             }
         }
+    })
+}
+pub enum IfLetScope<'a> {
+    Then(&'a str),
+    Outside,
+    Hidden,
+}
+fn may_rebind(s: &str, name: &str) -> bool {
+    rust_line_binds(s, name) || rust_rebound_before(s, name, s.len())
+}
+pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<IfLetScope<'a>> {
+    let code: Vec<(usize, u8)> = code(Kind::Rust, line).collect();
+    let start = line
+        .get(..at)?
+        .rmatch_indices("if let ")
+        .map(|(i, _)| i)
+        .find(|i| code.iter().any(|&(j, _)| j == *i))?;
+    let (mut depth, mut open, mut blocks) = (0i32, 0, Vec::new());
+    for &(i, b) in code.iter().filter(|&&(i, _)| i >= start) {
+        match b {
+            b'{' if depth == 0 => (depth, open) = (1, i),
+            b'(' | b'[' | b'{' => depth += 1,
+            b'}' if depth == 1 => {
+                depth = 0;
+                blocks.push((open, i));
+            }
+            b')' | b']' | b'}' => depth -= 1,
+            b';' | b',' if depth == 0 => break,
+            _ => {}
+        }
+        if depth < 0 || blocks.len() == 2 {
+            break;
+        }
+    }
+    let &(then_open, then_close) = blocks.first()?;
+    let header = line.get(start..=then_open)?;
+    let pat = header.get(7..)?.split(" = ").next()?;
+    if !binds(pat, name) {
+        return None;
+    }
+    let from = if then_open < at && at < then_close {
+        then_open
+    } else if then_close < at {
+        then_close
+    } else {
+        return None;
+    };
+    Some(if may_rebind(line.get(from..at)?, name) {
+        IfLetScope::Hidden
+    } else if from == then_open {
+        IfLetScope::Then(header)
+    } else {
+        IfLetScope::Outside
     })
 }

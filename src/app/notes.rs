@@ -509,12 +509,16 @@ impl App {
         if let Some((first, at)) = on {
             self.anchor = (first != at).then_some((first, 0));
             self.set_at(at);
-            self.col = 1;
+            self.col = super::next_char(self.line_str(), 0);
         }
-        self.start_note();
+        self.start_note_on(on);
     }
 
     pub(super) fn start_note(&mut self) {
+        self.start_note_on(None);
+    }
+
+    fn start_note_on(&mut self, range: Option<(TextLine, TextLine)>) {
         if !self.notes.on {
             return;
         }
@@ -529,13 +533,14 @@ impl App {
         let focused = (self.notes.focus)
             .and_then(|idx| self.here_of(idx))
             .map(|h| (h.idx, h.first, h.at));
-        let (first, last, old) = match (focused, self.selection()) {
-            (Some((i, f, a)), _) => (f, a, Some(self.notes.list[i].clone())),
-            (None, Some(((a, _), (b, col)))) => {
+        let (first, last, old) = match (focused, range, self.selection()) {
+            (Some((i, f, a)), ..) => (f, a, Some(self.notes.list[i].clone())),
+            (None, Some((first, last)), _) => (first, last, None),
+            (None, None, Some(((a, _), (b, col)))) => {
                 let b = if col == 0 && b != a { prev(self, b) } else { b };
                 (a, b, None)
             }
-            (None, None) => (self.at(), self.at(), None),
+            (None, None, None) => (self.at(), self.at(), None),
         };
         let mut quote = Vec::new();
         let mut l = first;

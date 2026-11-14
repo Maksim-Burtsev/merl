@@ -1,4 +1,5 @@
 mod chain;
+mod items;
 mod returns;
 mod sysroot;
 mod used;
@@ -342,7 +343,41 @@ impl App {
                 rows.push((h, owner));
             }
         }
+        let own_impls = self.rust_blanket_impl(own_impls, receiver.as_deref(), &rows);
         rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
+    }
+
+    fn rust_blanket_impl(
+        &self,
+        own_impls: Vec<(Hit, String)>,
+        receiver: Option<&str>,
+        rows: &[(Hit, search::RustOwner)],
+    ) -> Vec<(Hit, String)> {
+        let Some(receiver) = receiver.filter(|_| own_impls.is_empty()) else {
+            return own_impls;
+        };
+        let blankets: Vec<(&Hit, &String, Vec<String>)> = (rows.iter())
+            .filter_map(|(h, o)| {
+                let search::RustOwner::ImplOf(t) = o else {
+                    return None;
+                };
+                let text = self.text_of(&h.path).filter(|_| !h.path.is_absolute())?;
+                let lines: Vec<&str> = text.lines().collect();
+                let m = search::rust_method_at(&lines, h.line1)?;
+                Some((h, t, search::rust_blanket_bounds(lines[m.owner_line1 - 1])?))
+            })
+            .collect();
+        let [(h, t, bounds)] = blankets.as_slice() else {
+            return own_impls;
+        };
+        let alone = rows.iter().all(|(row, o)| {
+            (row.path == h.path && row.line1 == h.line1)
+                || !matches!(o, search::RustOwner::ImplOf(x) if x == *t)
+        });
+        if alone && bounds.iter().all(|b| self.rust_implements(receiver, b)) {
+            return vec![((*h).clone(), (*t).clone())];
+        }
+        own_impls
     }
 
     fn rust_crate_of(&self, p: &Path) -> Option<PathBuf> {
@@ -820,6 +855,12 @@ impl App {
         } else {
             None
         };
+        if own_closure.is_none()
+            && let Some(ty) = self.rust_if_let_then(file, text, line0, name, col, &mut bindings)
+        {
+            let link = format!("{name}: {}", ty.name);
+            return Some((ty, link));
+        }
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
@@ -856,20 +897,7 @@ impl App {
                     function: f,
                 } => {
                     let ty = self.rust_resolve(file, &w, at)?;
-                    let returns = match <[Hit; 1]>::try_from(self.rust_members(&ty, &f)) {
-                        Ok([decl]) => {
-                            let t = self.text_of(&decl.path)?;
-                            let l: Vec<&str> = t.lines().collect();
-                            let n = search::rust_type_name(&search::rust_return_type(
-                                &l,
-                                decl.line1 - 1,
-                            )?)?
-                            .name;
-                            n == "Self" || n == ty.name
-                        }
-                        Err(none) => none.is_empty() && f == "default",
-                    };
-                    if !returns {
+                    if !self.rust_returns_own(&ty, &f)? {
                         return None;
                     }
                     let link = format!("{name}: {}", ty.name);
@@ -891,7 +919,7 @@ impl App {
         found
     }
 
-    fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
+    pub(super) fn rust_resolve(&self, file: &Path, written: &str, line0: usize) -> Option<Typed> {
         let text = self.text_of(file)?;
         let lines: Vec<&str> = text.lines().collect();
         let search::RustTypeName { path, mut name } = search::rust_type_name(written)?;
@@ -913,6 +941,15 @@ impl App {
             if used.is_some() {
                 return used;
             }
+        }
+        if let Some(first) = path.first()
+            && declares_mod(&text, first)
+            && search::rust_inline_mod(&lines, line0).is_none()
+        {
+            let (krate, module) = self.rust_own_crate(file, "self", &[])?;
+            let mut rest = path.clone();
+            rest.push(name);
+            return self.rust_type_in(&krate, &module, &rest);
         }
         let imports = search::imports(Kind::Rust, &text);
         let ours = |p: &[String]| {
@@ -976,6 +1013,16 @@ impl App {
             return self.rust_alias(&name);
         }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
+    }
+
+    fn rust_implements(&self, ty: &str, tr: &str) -> bool {
+        let pattern = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*?\b{}(?:<[^{{]*>)?\s+for\s+&?(?:\w+::)*{}\b",
+            regex::escape(tr),
+            regex::escape(ty)
+        );
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        (self.grep(&pattern, false, false, rs)).is_ok_and(|h| !h.is_empty())
     }
 
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
@@ -1122,7 +1169,14 @@ impl App {
             }]);
         }
         let ty = self.rust_resolve(here, &written, impl_line0)?;
-        let found = self.rust_members(&ty, word);
+        let found = self.rust_items(
+            &ty,
+            &format!(
+                r"{}|^\s+(?:pub(?:\([^)]*\))?\s+)?const\s+{}\s*:",
+                search::rust_method_pattern(word),
+                regex::escape(word)
+            ),
+        );
         (!found.is_empty()).then(|| {
             found
                 .into_iter()
@@ -1280,82 +1334,6 @@ impl App {
                 reason: reason.clone(),
             })
             .collect()
-    }
-
-    fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
-        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
-        let decl = search::rust_type_decl_pattern(&ty.name);
-        let files = self.rust_type_files(ty);
-        let method = |hits: Vec<Hit>, owner: &dyn Fn(&search::RustOwner, &str) -> bool| {
-            hits.into_iter()
-                .filter(|h| {
-                    self.text_of(&h.path).is_some_and(|t| {
-                        let lines: Vec<&str> = t.lines().collect();
-                        search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
-                            && search::rust_method_at(&lines, h.line1)
-                                .is_some_and(|m| owner(&m.owner, lines[m.owner_line1 - 1]))
-                    })
-                })
-                .collect::<Vec<Hit>>()
-        };
-        let pattern = search::rust_method_pattern(word);
-        let found = method(self.grep_in(&pattern, &files), &|o, line| {
-            matches!(
-                o,
-                search::RustOwner::Inherent | search::RustOwner::ImplOf(_)
-            ) && search::rust_impl_type(line).is_some_and(|t| t == ty.name)
-        });
-        let text_of_ty = self.text_of(&ty.path).unwrap_or_default();
-        let lines_of_ty: Vec<&str> = text_of_ty.lines().collect();
-        let home = search::rust_inline_mod(&lines_of_ty, ty.line - 1);
-        let declared_twice_here = self.grep_in(&decl, std::slice::from_ref(&ty.path)).len() > 1;
-        let found: Vec<Hit> = found
-            .into_iter()
-            .filter(|h| {
-                !declared_twice_here
-                    || h.path != ty.path
-                    || search::rust_inline_mod(&lines_of_ty, h.line1 - 1) == home
-            })
-            .collect();
-        let inherent: Vec<Hit> = found
-            .iter()
-            .filter(|h| {
-                self.text_of(&h.path).is_some_and(|t| {
-                    let lines: Vec<&str> = t.lines().collect();
-                    search::rust_method_at(&lines, h.line1)
-                        .is_some_and(|m| matches!(m.owner, search::RustOwner::Inherent))
-                })
-            })
-            .cloned()
-            .collect();
-        if !inherent.is_empty() {
-            return inherent;
-        }
-        if !found.is_empty() {
-            return found;
-        }
-        let impls = format!(
-            r"^\s*(?:(?:unsafe|const)\s+)*impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
-            regex::escape(&ty.name)
-        );
-        let traits: Vec<String> = self
-            .grep_in(&impls, &files)
-            .iter()
-            .filter_map(|h| search::rust_impl_trait(&h.text))
-            .collect();
-        if traits.is_empty() {
-            return Vec::new();
-        }
-        let hits = self
-            .grep(&pattern, false, false, |p| rs(p))
-            .unwrap_or_default();
-        method(
-            hits,
-            &|o, _| matches!(o, search::RustOwner::Trait(t) if traits.contains(t)),
-        )
-        .into_iter()
-        .filter(|h| !h.text.trim_end().ends_with(';'))
-        .collect()
     }
 }
 

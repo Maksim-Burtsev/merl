@@ -142,21 +142,50 @@ fn cs_element_lambda(method: &str) -> bool {
 pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<String> {
     let n = regex::escape(name.trim_start_matches('@'));
     let re = Regex::new(&format!(
-        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\)|\(\s*@?(\w+)\s*,\s*@?(\w+)\s*\))\s*=>"
     ))
     .ok()?;
     let line = lines.get(at)?.as_ref();
     let code = uncommented(Kind::CSharp, line);
-    let mut found = re.captures_iter(&code);
+    let mut found = re
+        .captures_iter(&code)
+        .filter(|c| match (c.get(2), c.get(3)) {
+            (Some(a), Some(b)) => {
+                &c[1] == "Sort"
+                    && a.as_str() != b.as_str()
+                    && [&a, &b]
+                        .iter()
+                        .any(|p| p.as_str() == name.trim_start_matches('@'))
+            }
+            _ => true,
+        });
     let c = found.next()?;
     let method = c.get(1)?;
-    if found.next().is_some() || !cs_element_lambda(method.as_str()) {
+    if found.next().is_some() || (!cs_element_lambda(method.as_str()) && c.get(2).is_none()) {
         return None;
     }
     let receiver = cs_receiver(lines, at, method.start())?;
     let steps = cs_steps(&receiver)?;
     let first = steps.parts.first().map(|(p, _)| p.as_str());
     (steps.new.is_none() && first != Some(name.trim_start_matches('@'))).then_some(receiver)
+}
+
+pub fn cs_callee_lambda(line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w.@])@?(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, line);
+    let mut found = re.captures_iter(&code);
+    let c = found.next()?;
+    let callee = c.get(1)?;
+    let fresh = code.get(..callee.start()).and_then(|b| {
+        b.trim_end()
+            .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
+            .next()
+    }) == Some("new");
+    (found.next().is_none() && !fresh).then(|| callee.as_str().to_owned())
 }
 
 pub fn cs_rule_lambda(line: &str, name: &str) -> bool {
@@ -214,4 +243,45 @@ pub(super) fn cs_switch_arm(before: &str) -> bool {
             && before.get(..o).is_some_and(|b| SWITCH.is_match(b))
             && before.get(arm + 1..).is_some_and(|a| BARE.is_match(a))
     })
+}
+
+pub fn cs_indexed(expr: &str) -> Option<&str> {
+    let t = expr.trim();
+    t.ends_with(']').then_some(())?;
+    let open = code(Kind::CSharp, t)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::CSharp, t, i) == Some(t.len()))?;
+    let head = t.get(..open)?.trim_end();
+    head.ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == ')')
+        .then_some(head)
+}
+
+pub fn cs_dictionary_value(outer: &str, written: &str) -> Option<String> {
+    matches!(
+        outer,
+        "Dictionary"
+            | "IDictionary"
+            | "IReadOnlyDictionary"
+            | "SortedDictionary"
+            | "ConcurrentDictionary"
+    )
+    .then_some(())?;
+    let t = written.trim().trim_end_matches('?').strip_suffix('>')?;
+    let [_, value] = <[&str; 2]>::try_from(cs_split(t.get(t.find('<')? + 1..)?)).ok()?;
+    cs_type_name(value)
+        .filter(|_| !value.contains(['<', '[', '(']))
+        .map(|_| value.trim().to_owned())
+}
+
+pub fn cs_cast(before: &str) -> Option<String> {
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.@])\(\s*(?:\(\s*([A-Z][\w.]*)\s*\)\s*(?:\(\s*[A-Z][\w.]*\s*\)\s*)*",
+            r"@?[a-z_][\w.]*|@?[a-z_][\w.]*\s+as\s+([A-Z][\w.]*))\s*\)\s*[?!]?\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let c = CAST.captures(before.trim_end())?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }

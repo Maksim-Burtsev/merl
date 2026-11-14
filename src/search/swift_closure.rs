@@ -22,7 +22,7 @@ pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
 pub fn swift_bare_closure(line: &str, name: &str) -> Option<(String, usize, usize)> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"(?:^|[^\w.)\]?!])(?:self\.)?([a-z_]\w*)\s*\{\s*(?:\[[^\]]*\]\s*)?([\w\s,`]+?)\s+in\b",
+            r"(?:^|[^\w.)\]?!])(?:self\.)?([a-z_]\w*)\s*\{\s*(?:\[[^\]]*\]\s*)?\(?([\w\s,`]+?)\)?\s+in\b",
         )
         .expect("the regex is a literal")
     });
@@ -215,6 +215,49 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>
                 case
             }
     })
+}
+
+pub fn swift_bound_on_line(lead: &str, name: &str) -> bool {
+    let open = open_braces(lead, lead.len());
+    let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
+    let ends = open.iter().copied().chain(std::iter::once(lead.len()));
+    starts.zip(ends).enumerate().any(|(i, (from, to))| {
+        let part = lead.get(from..to).unwrap_or_default();
+        let params = i > 0
+            && CLOSURE_HEAD
+                .captures(part)
+                .is_some_and(|c| swift_closure_params_bind(&c[2], name));
+        let statements = split_top(Kind::Swift, part, b';');
+        let (last, done) = statements.split_last().unwrap_or((&"", &[]));
+        let header = last
+            .get(after_closed_block(last)..)
+            .unwrap_or_default()
+            .trim();
+        params
+            || done.iter().any(|s| swift_declares(s, name, None))
+            || (i < open.len()
+                && !header.starts_with("guard ")
+                && super::swift_binds_on(&format!("{header} {{"), name))
+    })
+}
+
+fn after_closed_block(s: &str) -> usize {
+    let mut depth = 0i32;
+    let mut after = 0;
+    for (i, c) in code(Kind::Swift, s) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    after = i + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    after
 }
 
 pub struct SwiftPayload {
@@ -415,4 +458,55 @@ pub fn swift_switch_subject(line: &str) -> Option<String> {
     });
     let t = uncommented(Kind::Swift, line);
     Some(HEADER.captures(t.trim())?[1].to_owned())
+}
+
+pub fn swift_sequence_closure(head: &str, name: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:(map|compactMap|flatMap|filter|forEach|allSatisfy",
+            r"|contains|first|last|drop|prefix|firstIndex|lastIndex)(?:\(\s*(?:where|while):\s*)?",
+            r"|(sorted|min|max)(?:\(\s*by:\s*)?)\s*\{\s*(?:\[[^\]]*\]\s*)?",
+            r"(\(\s*[\w\s,`]*\)|[\w\s,`]+?)\s+in\b([^{}]*)$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::Swift, head);
+    let c = HEAD.captures(&code)?;
+    let receiver = c[1].to_owned();
+    let params: Vec<&str> = c[4]
+        .trim_start_matches('(')
+        .trim_end_matches(')')
+        .split(',')
+        .map(|p| p.trim().trim_matches('`'))
+        .collect();
+    let arity = if c.get(3).is_some() { 2 } else { 1 };
+    let used = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
+    let body = Regex::new(&format!(r"\b{}\.[\w.]*$", regex::escape(name)))
+        .ok()?
+        .replace(&c[5], "");
+    (params.len() == arity
+        && params.contains(&name)
+        && !used.is_match(&body)
+        && receiver.split('.').next() != Some(name))
+    .then_some(receiver)
+}
+
+pub fn swift_typed_closure_param(head: &str, name: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\{\s*(?:\[[^\]]*\]\s*)?(\([^()]*\))\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\b([^{}"]*)$"#)
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::Swift, head);
+    let c = HEAD.captures(&code)?;
+    let n = regex::escape(name);
+    let body = Regex::new(&format!(r"\b{n}\.[\w.]*$"))
+        .ok()?
+        .replace(&c[2], "");
+    if Regex::new(&format!(r"\b{n}\b")).ok()?.is_match(&body) {
+        return None;
+    }
+    match super::swift_given(&c[1], name)? {
+        super::SwiftGiven::Type(t) => Some(t),
+        _ => None,
+    }
 }

@@ -107,3 +107,22 @@ export const satchel: Satchel = { grams: 3 };
 export const loose = { grams: 3 };
 //                     ^ d: none
 //                     status: grams: key
+satchel.grams;
+//      ^ d: shop/basket.ts:102
+loose.grams;
+//    ^ d: shop/basket.ts:107
+
+type Pouch = { depth: number };
+const pouch: Pouch = { depth: 2 };
+pouch.depth;
+//    ^ d: shop/basket.ts:115
+
+interface Hamper {
+  width: number;
+}
+interface Hamper {
+  depth: number;
+}
+const hamper: Hamper = { width: 1, depth: 2 };
+hamper.depth;
+//     ^ d: shop/basket.ts:124

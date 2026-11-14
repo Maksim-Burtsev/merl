@@ -1,6 +1,7 @@
 *
 /
 :
+Arrows
 Esc
 Picker: Enter
 Picker: Esc

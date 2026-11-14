@@ -300,7 +300,7 @@ fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
             continue;
         }
         depth = indent(lines[i]);
-        if DEF.is_match(t) {
+        if DEF.is_match(t) || python_def_paren(lines, i).is_some() {
             scopes_innermost_first.push(Scope::Def(i));
         }
     }
@@ -308,14 +308,29 @@ fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
     scopes_innermost_first
 }
 
+fn python_def_paren(lines: &[&str], d: usize) -> Option<(usize, usize)> {
+    let (class, open) = python_header(lines[d])?;
+    if class {
+        return None;
+    }
+    if let Some(open) = open {
+        return Some((d, open));
+    }
+    let bracket = lines[d].find('[')?;
+    let after = group(Kind::Python, lines, d, bracket)?;
+    let rest = after.after_close.trim_start();
+    rest.starts_with('(')
+        .then(|| (after.close_line, lines[after.close_line].len() - rest.len()))
+}
+
 fn python_def_body(lines: &[&str], d: usize, name: &str, out: &mut Vec<Binding>) -> Option<usize> {
-    let open = python_def_open(lines[d])?;
+    let (at, open) = python_def_paren(lines, d)?;
     let Group {
         inner_uncommented: params,
         close_line: end,
         ..
-    } = group(Kind::Python, lines, d, open)?;
-    python_params(lines, d, &params, name, out);
+    } = group(Kind::Python, lines, at, open)?;
+    python_params(lines, at, &params, name, out);
     Some(end + 1)
 }
 
@@ -375,7 +390,13 @@ fn looped(c: &regex::Captures) -> String {
 pub(super) fn python_bindings_at(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let in_class = python_class_body_above(lines, at, name);
     if in_class.is_empty() {
-        python_bindings(lines, at, name)
+        let mut out = python_bindings(lines, at, name);
+        if let Some((case, end)) = python_case_around(lines, at, name)
+            && out.iter().any(|b| (case + 1..=end).contains(&b.line1))
+        {
+            out.retain(|b| (case + 1..=end).contains(&b.line1));
+        }
+        out
     } else {
         in_class
     }
@@ -508,12 +529,45 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else if let Some(c) = r.assigned.captures(s) {
         Some(value_of(Kind::Python, &c[1]))
     } else {
-        TUPLE_TARGET
+        let c = TUPLE_TARGET
             .captures(s)
-            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())
-            .map(|c| top_level_targets(&c[1]))
-            .filter(|t| t.contains(',') && names(t, name))
-            .map(|_| Value::Unknown)
+            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())?;
+        let t = top_level_targets(&c[1]);
+        let target = c.get(1)?;
+        let value = s
+            .get(target.end()..)
+            .and_then(|r| r.trim_start().strip_prefix('='))
+            .and_then(|value| python_position(target.as_str(), value, name));
+        (t.contains(',') && names(&t, name)).then(|| value.unwrap_or(Value::Unknown))
+    }
+}
+fn python_position(target: &str, value: &str, name: &str) -> Option<Value> {
+    let target = target.trim();
+    let target = match target.strip_prefix(['(', '[']) {
+        Some(inner) if close_of(Kind::Python, target, 0) == Some(target.len()) => {
+            inner.get(..inner.len() - 1)?
+        }
+        Some(_) => return None,
+        None => target,
+    };
+    let items: Vec<&str> = target.split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && i.chars().all(|c| c.is_alphanumeric() || c == '_')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    let values = split_top(Kind::Python, value, b',');
+    match values.len() {
+        1 => Some(Value::Position {
+            of: Box::new(value_of(Kind::Python, value)),
+            at,
+            count: items.len(),
+        }),
+        n if n == items.len() => Some(value_of(Kind::Python, values[at])),
+        _ => None,
     }
 }
 fn top_level_targets(target: &str) -> String {
@@ -646,6 +700,32 @@ pub fn python_binds_only_inline(line: &str, name: &str) -> bool {
             }
         }
 }
+fn python_case_around(lines: &[&str], at: usize, name: &str) -> Option<(usize, usize)> {
+    if name == "_" {
+        return None;
+    }
+    let literal = literal_lines(Kind::Python, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Python, lines[i]).trim().to_owned();
+    let mut depth = indent(lines[at]);
+    let case = (0..at).rev().find_map(|i| {
+        let t = code(i);
+        if t.is_empty() || literal[i] || indent(lines[i]) >= depth {
+            return None;
+        }
+        depth = indent(lines[i]);
+        if DEF.is_match(&t) || t.starts_with("class ") {
+            return Some(None);
+        }
+        let header = t.ends_with(':')
+            && t.strip_prefix("case")
+                .is_some_and(|p| !p.trim_start().starts_with('='));
+        (header && python_case_binds(&t, name)).then_some(Some(i))
+    })??;
+    let end = (case + 1..lines.len())
+        .find(|&i| !code(i).is_empty() && !literal[i] && indent(lines[i]) <= indent(lines[case]))
+        .unwrap_or(lines.len());
+    Some((case, end))
+}
 fn python_case_binds(t: &str, name: &str) -> bool {
     let Some(pattern) = t.strip_prefix("case ") else {
         return false;
@@ -775,21 +855,26 @@ pub(super) fn names_a_type_param(lines: &[&str], def_line0: usize, annotation: &
         .split(|c: char| !(c.is_alphanumeric() || c == '_'))
         .any(|w| !w.is_empty() && headers.iter().any(|h| super::python_declares(h, w)))
 }
-pub fn python_locals_outside(text: &str, header_line1: usize, locals: &[usize]) -> bool {
+pub fn python_locals_outside(text: &str, param_line1: usize, locals: &[usize]) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = header_line1
-        .checked_sub(1)
-        .filter(|&k| lines.get(k).is_some_and(|l| python_header(l).is_some()))
+    let Some(p) = param_line1.checked_sub(1).filter(|&p| p < lines.len()) else {
+        return false;
+    };
+    let header = |l: &str| python_header(l).is_some() || l.trim_start().starts_with("type ");
+    let Some(k) = Some(p)
+        .filter(|&p| header(lines[p]))
+        .or_else(|| (0..p).rev().find(|&k| indent(lines[k]) < indent(lines[p])))
+        .filter(|&k| header(lines[k]))
     else {
         return false;
     };
     let depth = indent(lines[k]);
     locals.iter().all(|&l| {
-        l < header_line1
-            || (l > header_line1
-                && lines
-                    .get(l.saturating_sub(1))
-                    .is_some_and(|t| indent(t) <= depth))
+        l <= k
+            || (l > param_line1
+                && lines.get(l.saturating_sub(1)).is_some_and(|t| {
+                    indent(t) <= depth && !closes_a_wrapped_header(t.trim_start())
+                }))
     })
 }
 pub fn python_in_default(text: &str, line1: usize, col: usize) -> bool {

@@ -6,7 +6,7 @@ class Saved(val title: String)
 
 class Row(onPick: (item: Draft) -> Unit, item: Saved) {
     val t = item.title
-//               ^ d: picker src/main/kotlin/flavors/Gauge.kt:3, src/main/kotlin/flavors/Gauge.kt:5, src/main/kotlin/resources/Labels.kt:20
+//               ^ d: picker src/main/kotlin/flavors/Gauge.kt:3, src/main/kotlin/flavors/Gauge.kt:5
 }
 
 class Picker(

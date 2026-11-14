@@ -250,6 +250,11 @@ impl Theme {
             .map_or(style, |fg| style.fg(fg))
             .bg(self.selection)
     }
+
+    pub fn visual(&self, style: Style) -> Style {
+        self.selected(style)
+            .add_modifier(self.modifiers(&["Visual"]))
+    }
 }
 
 type Source = (Vec<u8>, String, HashMap<String, Style>);

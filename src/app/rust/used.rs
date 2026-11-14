@@ -271,7 +271,12 @@ impl App {
         })
     }
 
-    fn rust_type_in(&self, krate: &CrateSrc, module: &[String], rest: &[String]) -> Option<Typed> {
+    pub(super) fn rust_type_in(
+        &self,
+        krate: &CrateSrc,
+        module: &[String],
+        rest: &[String],
+    ) -> Option<Typed> {
         static DECL: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
                 .expect("the regex is a literal")

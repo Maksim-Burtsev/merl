@@ -117,24 +117,23 @@ impl App {
         false
     }
 
-    pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
-        let kind = a.kind;
-        let chain = a.chain.as_slice();
-        let explicit = match (kind, chain) {
-            (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
-            _ => None,
-        };
-        let reaches = match kind {
-            Kind::Go => !chain.is_empty(),
-            Kind::Swift | Kind::Rust => chain.len() == 1 || explicit.is_some(),
-            _ => false,
-        };
-        if !a.dotted || !reaches {
-            return false;
-        }
+    fn type_param_bindings(
+        &self,
+        a: &Asked,
+        explicit: Option<&String>,
+    ) -> Option<(
+        std::path::PathBuf,
+        String,
+        Vec<search::Binding>,
+        Vec<String>,
+    )> {
+        let (kind, chain) = (a.kind, a.chain.as_slice());
         let own = |f: &str| {
             let field = if kind == Kind::Rust {
-                let t = search::rust_impl_field(&a.text, self.line + 1, f)?;
+                let t = search::rust_impl_field(&a.text, self.line + 1, f, |written, line0| {
+                    let ty = self.rust_resolve(&a.here, written, line0)?;
+                    Some((self.text_of(&ty.path)?, ty.line.checked_sub(1)?))
+                })?;
                 search::Binding {
                     line1: self.line + 1,
                     value: search::Value::Type(t),
@@ -144,23 +143,49 @@ impl App {
             };
             Some((a.here.clone(), a.text.clone(), vec![field], Vec::new()))
         };
-        let found = match explicit {
+        match explicit {
             Some(f) => own(f),
             None => match self.last_bindings(kind, &a.here, chain) {
                 Some((_, _, b, _)) if b.is_empty() && kind != Kind::Rust && kind != Kind::Go => {
                     own(chain.last().map_or("", String::as_str))
                 }
+                None if kind == Kind::CSharp => own(chain.last().map_or("", String::as_str)),
                 found => found,
             },
+        }
+    }
+
+    pub(super) fn answered_through_type_param(&mut self, a: &Asked) -> bool {
+        let kind = a.kind;
+        let chain = a.chain.as_slice();
+        let explicit = match (kind, chain) {
+            (Kind::Swift | Kind::Rust, [s, f]) if s == "self" => Some(f),
+            (Kind::CSharp, [s, f]) if s == "this" => Some(f),
+            _ => None,
         };
-        let Some((file, text, bindings, _)) = found else {
+        let reaches = match kind {
+            Kind::Go => !chain.is_empty(),
+            Kind::Swift | Kind::Rust | Kind::CSharp => chain.len() == 1 || explicit.is_some(),
+            _ => false,
+        };
+        if !a.dotted || !reaches {
+            return false;
+        }
+        let Some((file, text, bindings, _)) = self.type_param_bindings(a, explicit) else {
             return false;
         };
         let last = chain.last().map_or("", String::as_str);
-        let unbound = |b: &search::Binding| {
-            let written = match &b.value {
-                search::Value::Type(t) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
-                search::Value::Unknown if kind != Kind::Go => {
+        let mapped = match chain {
+            [var, field] if kind == Kind::Go => {
+                self.go_field_argument(&a.here, &a.text, self.line + 1, (var, field))
+            }
+            _ => None,
+        };
+        let param = |b: &search::Binding| {
+            let written = match (&mapped, &b.value) {
+                (Some(arg), _) => arg.clone(),
+                (None, search::Value::Type(t)) => t.trim_end_matches(['*', '&', ' ']).to_owned(),
+                (None, search::Value::Unknown) if kind != Kind::Go => {
                     search::declared_type_on(kind, text.lines().nth(b.line1 - 1)?, last)?
                 }
                 _ => return None,
@@ -169,7 +194,7 @@ impl App {
                 return None;
             };
             if chain.len() > 1
-                && (file != a.here
+                && ((file != a.here && mapped.is_none())
                     || search::type_param_line(kind, &a.text, self.line + 1, one).is_none())
             {
                 return None;
@@ -179,14 +204,28 @@ impl App {
             } else {
                 (&text, b.line1)
             };
-            let resolves = search::type_param_bound(kind, scope, line1, one)?
-                .bound
-                .is_some_and(|w| {
-                    kind != Kind::Go
-                        || w.starts_with("interface")
-                        || self.type_decl(kind, &file, &w).is_some()
-                });
-            (!resolves).then(|| one.clone())
+            let bound = search::type_param_bound(kind, scope, line1, one)?.bound;
+            Some((one.clone(), bound, scope, line1))
+        };
+        if kind == Kind::Go
+            && file == a.here
+            && let [b] = bindings.as_slice()
+            && let Some((one, Some(bound), scope, line1)) = param(b)
+            && search::go_interface_declares(&bound, &a.word)
+            && let Some(at) = search::type_param_line(kind, scope, line1, &one)
+        {
+            let via = format!("{}: type parameter {one}", chain.join("."));
+            let found = self.lines_here(a, [at], &super::Reason::Receiver(via));
+            return self.show_found(a, found);
+        }
+        let unbound = |b: &search::Binding| {
+            let (one, bound, ..) = param(b)?;
+            let resolves = bound.is_some_and(|w| {
+                kind != Kind::Go
+                    || w.starts_with("interface")
+                    || self.type_decl(kind, &file, &w).is_some()
+            });
+            (!resolves).then_some(one)
         };
         let Some(Some(param)) = bindings
             .iter()
@@ -197,6 +236,9 @@ impl App {
             return false;
         };
         if kind == Kind::Rust && self.rust_blanket_method(&a.word) {
+            return false;
+        }
+        if kind == Kind::CSharp && self.cs_generic_extension(&a.here, &a.word) {
             return false;
         }
         self.none_found(format!(
@@ -240,7 +282,7 @@ impl App {
             && let [binding] = locals.as_slice()
             && let Some(line) = search::ts_literal_key(&self.buf.lines, *binding, name, word)
         {
-            let found = self.lines_here(a, [line], &super::Reason::Local);
+            let found = self.ts_literal_or_type(a, *binding, name, line);
             return self.show_found(a, found);
         }
         if kind == Kind::Swift
@@ -307,7 +349,7 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = self.swift_unshadowed_links(&a.text, a.written.get(..a.start))
+            && let Some(links) = self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,
@@ -379,13 +421,26 @@ impl App {
         if kind != Kind::CSharp {
             return false;
         }
+        if dotted
+            && let [var] = chain.as_slice()
+            && let [b] = &search::path_bindings(kind, &a.here, &a.text, self.line + 1, var)[..]
+            && let Some(at) = search::cs_anonymous_member(&a.text, b.line1, var, word)
+        {
+            let reason = super::Reason::Receiver(format!("{var}: anonymous type"));
+            let found = self.lines_here(a, [at], &reason);
+            return self.show_found(a, found);
+        }
         let answer = match dotted {
-            false => self.cs_initializer(&a.here, word, &a.range).map(Ok),
+            false => self
+                .cs_attribute_argument(&a.here, word, &a.range)
+                .or_else(|| self.cs_initializer(&a.here, word, &a.range))
+                .map(Ok),
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain, &a.before))
             }
             true if chain.is_empty() => self
                 .cs_constructed(&a.here, word, &a.before)
+                .or_else(|| self.cs_cast(&a.here, word, &a.before))
                 .or_else(|| self.cs_call_result(&a.here, word, a.range.start))
                 .map(Ok),
             true => None,
@@ -421,6 +476,20 @@ impl App {
         false
     }
 
+    pub(super) fn answered_by_literal_this(&mut self, a: &Asked) -> bool {
+        if a.kind == Kind::TsJs
+            && a.dotted
+            && matches!(a.chain.as_slice(), [t] if t == "this")
+            && let Some(key) =
+                search::ts_literal_this_key(&a.text, self.line + 1, a.range.start, &a.word)
+        {
+            let reason = super::Reason::Receiver("this: object literal".to_owned());
+            let found = self.lines_here(a, [key], &reason);
+            return self.show_found(a, found);
+        }
+        false
+    }
+
     pub(super) fn answered_by_typed(
         &mut self,
         a: &Asked,
@@ -438,7 +507,7 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
-        if matches!(kind, Kind::Go | Kind::Python)
+        if matches!(kind, Kind::Go | Kind::Python | Kind::TsJs)
             && head.is_none()
             && dotted
             && chain.is_empty()
@@ -609,6 +678,24 @@ impl App {
         PREDECLARED.split(' ').any(|p| p == base) || self.go_outside(file, text, base)
     }
 
+    fn ts_literal_or_type(
+        &mut self,
+        a: &Asked,
+        binding: usize,
+        name: &str,
+        key: usize,
+    ) -> Vec<super::Candidate> {
+        let annotated = Regex::new(&format!(r"\bconst\s+{}\s*:", regex::escape(name)))
+            .is_ok_and(|re| re.is_match(&self.buf.lines[binding - 1]));
+        if annotated
+            && let Ok(found) = self.typed_definitions(a.kind, &a.here, &a.word, &a.chain, None)
+            && !found.is_empty()
+        {
+            return found;
+        }
+        self.lines_here(a, [key], &super::Reason::Local)
+    }
+
     fn rust_blanket_method(&self, word: &str) -> bool {
         let rs: Vec<_> = (self.files.iter())
             .filter(|f| f.extension().is_some_and(|e| e == "rs"))
@@ -624,6 +711,26 @@ impl App {
                 (self.text_of(&h.path))
                     .is_none_or(|t| search::rust_trait_declares(&t, h.line1, word))
             })
+    }
+
+    fn cs_generic_extension(&self, here: &Path, word: &str) -> bool {
+        let Ok(re) = Regex::new(&format!(
+            r"\b{}\s*<([^>]*)>\s*\(\s*this\s+(\w+)\s",
+            regex::escape(word)
+        )) else {
+            return false;
+        };
+        self.cs_extensions(here, word).iter().any(|(_, sig)| {
+            re.captures(sig).is_some_and(|c| {
+                let (Some(params), Some(this)) = (c.get(1), c.get(2)) else {
+                    return false;
+                };
+                params
+                    .as_str()
+                    .split(',')
+                    .any(|p| p.trim() == this.as_str())
+            })
+        })
     }
 
     fn none_found(&mut self, message: String) -> bool {

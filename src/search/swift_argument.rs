@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods};
+use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods, uncommented};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftCall {
@@ -60,17 +60,9 @@ pub struct SwiftArgument {
     pub on_value: bool,
 }
 
-pub fn swift_argument(lead: &str) -> Option<SwiftArgument> {
+fn swift_open_argument(lead: &str) -> Option<(usize, String)> {
     static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^`?(\w+)`?\s*:$").expect("the regex is a literal")
-    });
-    static CALLEE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.?!`])([A-Z]\w*(?:\.[A-Z]\w*)*)(?:\.([a-z_]\w*))?\s*$")
-            .expect("the regex is a literal")
-    });
-    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.?!`])([a-z_]\w*(?:\.[a-z_]\w*)*)\.([a-z_]\w*)\s*$")
-            .expect("the regex is a literal")
     });
     let bytes: Vec<(usize, u8)> = code(Kind::Swift, lead).collect();
     let mut depth = 0usize;
@@ -95,6 +87,33 @@ pub fn swift_argument(lead: &str) -> Option<SwiftArgument> {
         None if last.is_empty() && args.len() <= 1 => "_".to_owned(),
         None => return None,
     };
+    Some((open, label))
+}
+
+pub fn swift_free_argument(lead: &str) -> Option<(String, usize, String)> {
+    static FREE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!`#@])([a-z_]\w*)\s*$").expect("the regex is a literal")
+    });
+    let (open, label) = swift_open_argument(lead)?;
+    let callee = FREE.captures(lead.get(..open)?)?[1].to_owned();
+    let keyword = [
+        "if", "guard", "while", "switch", "return", "case", "in", "try", "await", "throw", "for",
+        "repeat", "where", "is", "as", "let", "var", "func", "init", "self", "super", "some",
+        "any", "else",
+    ];
+    (!keyword.contains(&callee.as_str())).then_some((callee, open, label))
+}
+
+pub fn swift_argument(lead: &str) -> Option<SwiftArgument> {
+    static CALLEE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!`])([A-Z]\w*(?:\.[A-Z]\w*)*)(?:\.([a-z_]\w*))?\s*$")
+            .expect("the regex is a literal")
+    });
+    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!`])([a-z_]\w*(?:\.[a-z_]\w*)*)\.([a-z_]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let (open, label) = swift_open_argument(lead)?;
     let before = lead.get(..open)?;
     if let Some(c) = CALLEE.captures(before) {
         return Some(SwiftArgument {
@@ -150,4 +169,33 @@ pub fn swift_call_fields(e: &str) -> Option<(String, Vec<String>)> {
     };
     (fields.iter().all(ident) && matches!(swift_expr(call)?, SwiftExpr::Call(_)))
         .then(|| (call.to_owned(), fields))
+}
+
+pub fn swift_compared(
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    lead: &str,
+) -> Option<String> {
+    static EQUALS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!)\]`])`?([a-z_]\w*)`?\s*(?:==|!=)\s*$")
+            .expect("the regex is a literal")
+    });
+    static ARM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*case\s+(?:\.\w+\s*,\s*)*$").expect("the regex is a literal")
+    });
+    static SUBJECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:return\s+)?switch\s+`?([a-z_]\w*)`?\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let lead = uncommented(Kind::Swift, lead);
+    if let Some(c) = EQUALS.captures(&lead) {
+        return Some(c[1].to_owned());
+    }
+    if !ARM.is_match(&lead) {
+        return None;
+    }
+    let switch = super::swift_switch_of_arm(lines, literal, line1)?;
+    let header = uncommented(Kind::Swift, lines.get(switch - 1)?);
+    Some(SUBJECT.captures(&header)?[1].to_owned())
 }

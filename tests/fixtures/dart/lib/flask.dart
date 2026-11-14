@@ -17,6 +17,7 @@ class Pod<T> {
   Future<Bloom> get bloom => throw 0;
   FutureOr<Thorn> get either => throw 0;
   dynamic get anything => null;
+  Future<T> pick() async => throw 0;
 }
 
 class Grower {
@@ -57,4 +58,33 @@ class Garden {
     return total + guess.petal();
     //                   ^ d: !jump
   }
+}
+
+class Shed {
+  final grower = Grower();
+
+  Future<int> water() async {
+    var total = (await grower.grow(1)).petal();
+    //                                 ^ d: lib/flask.dart:8
+    final thorn = await grower.grow(2);
+    total += thorn.petal();
+    //             ^ d: lib/flask.dart:8
+    total += (await grower.raise(Bloom())).petal();
+    //                                     ^ d: !jump
+    final raised = await grower.raise(Bloom());
+    total += raised.petal();
+    //              ^ d: !jump
+    total += grower.grow(3).petal();
+    //                      ^ d: !jump
+    final pod = Pod.of(grower.grow(4));
+    total += (await pod.pick()).petal();
+    //                          ^ d: !jump
+    final picked = await pod.pick();
+    total += bloomed(await grower.grow(5)).petal();
+    //                                     ^ d: !jump
+    return total + picked.petal();
+    //                    ^ d: !jump
+  }
+
+  Bloom bloomed(Thorn t) => Bloom();
 }

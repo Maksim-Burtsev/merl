@@ -62,7 +62,56 @@ impl App {
             let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
+        if a.kind == Kind::Python
+            && let Some(top) = import.and_then(<[String]>::first)
+            && !top.starts_with('.')
+            && search::python_bound_once(&a.text, a.first())
+            && !self.files.iter().any(|f| {
+                f.extension()
+                    .is_some_and(|e| ["py", "pyi", "pyx", "so", "pyd"].iter().any(|x| e == *x))
+                    && search::in_module(f, std::slice::from_ref(top))
+            })
+            && !self.python_remapped(top)
+            && self
+                .python_roots()
+                .is_some_and(|roots| !roots.iter().any(|r| search::python_installed(r, top)))
+            && let Some(line) = search::import_line1(a.kind, &a.text, a.first())
+        {
+            let hit = self.line_hit(&a.here, line);
+            let reason = Reason::Import(format!("{top} (not installed)"));
+            return self.show_found(a, vec![Candidate { hit, reason }]);
+        }
         false
+    }
+
+    fn python_remapped(&self, top: &str) -> bool {
+        let Ok(word) = Regex::new(&format!(r"\b{}\b", regex::escape(top))) else {
+            return true;
+        };
+        self.files
+            .iter()
+            .filter(|f| {
+                f.file_name()
+                    .is_some_and(|n| n == "setup.py" || n == "setup.cfg" || n == "pyproject.toml")
+            })
+            .filter_map(|f| self.text_of(f))
+            .any(|t| {
+                ["package_dir", "package-dir", ".sources]"]
+                    .iter()
+                    .any(|m| t.contains(m))
+                    && word.is_match(&t)
+            })
+    }
+
+    fn python_roots(&mut self) -> Option<Vec<PathBuf>> {
+        self.external_files(Kind::Python);
+        let (roots, _) = self.external.get(&Kind::Python)?;
+        Some(
+            (roots.iter().cloned())
+                .chain(search::python_local_envs(&self.root))
+                .chain(crate::typeshed::stdlib().map(Path::to_path_buf))
+                .collect(),
+        )
     }
 
     fn ambient_declared(
@@ -278,12 +327,35 @@ impl App {
 
     fn jvm_this(&self, a: &Asked, pattern: &str) -> Vec<Candidate> {
         let kind = a.kind;
-        if kind == Kind::Jvm
-            && a.own()
+        let line1 = self.line + 1;
+        let alias = match a.chain.as_slice() {
+            [s] if s != "this" && search::scala(&a.here) => {
+                let bound: Vec<usize> = search::path_bindings(kind, &a.here, &a.text, line1, s)
+                    .iter()
+                    .map(|b| b.line1)
+                    .collect();
+                search::scala_alias_owner(&a.text, line1, s, &bound)
+            }
+            [t, s] if s == "this" && !search::kotlin(&a.here) => {
+                search::jvm_named_this_owner(&a.text, line1, t)
+            }
+            _ => None,
+        };
+        let applies = kind == Kind::Jvm
+            && (a.own() || alias.is_some())
             && (a.dotted || a.before.ends_with("::"))
-            && !search::jvm_anonymous_open(&a.before)
-            && let Some(owner) = search::jvm_this_owner(&a.text, self.line + 1)
+            && !search::jvm_anonymous_open(&a.before);
+        let kotlin = search::kotlin(&a.here).then_some(a.before.as_str());
+        if applies
+            && alias.is_none()
+            && matches!(a.chain.as_slice(), [s] if s == "this")
+            && let Some(anon) = search::jvm_anonymous_scope(&a.text, line1, kotlin)
         {
+            let reason = Reason::Path("this".to_owned());
+            let lines = search::jvm_members_of(&a.here, &a.text, anon, &a.word);
+            return self.lines_here(a, lines, &reason);
+        }
+        if applies && let Some(owner) = alias.or_else(|| search::jvm_this_owner(&a.text, line1)) {
             let full = format!("{owner}.{}", a.word);
             let re = Regex::new(pattern).expect("an escaped name keeps the pattern valid");
             return a

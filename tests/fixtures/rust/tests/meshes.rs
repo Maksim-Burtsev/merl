@@ -59,7 +59,7 @@ pub fn sift() {
     let peek = |caps: &Grain| caps.get(0);
     //                             ^ d: tests/meshes.rs:11
     matcher.each(b"z", &mut caps, |grain| caps.get(4).is_some());
-    //                                         ^ d: !jump
+    //                                         ^ d: tests/meshes.rs:5
     matcher.each(b"w", &mut caps, |caps| caps.get(0).is_none() || caps.get(5).is_some());
     //                                                                 ^ d: tests/meshes.rs:5
     matcher.each(b"r", &mut caps, |caps| { let caps: Grain = Grain; caps.get(6).is_some() });

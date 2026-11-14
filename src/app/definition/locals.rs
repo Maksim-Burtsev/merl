@@ -18,9 +18,11 @@ impl App {
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.python_locals(a, self.locals_of(a, declared), declared);
+        let go_local_type = a.lead.trim() == "type" && a.lead.starts_with(char::is_whitespace);
         let go_own = kind == Kind::Go
-            && locals.contains(&(self.line + 1))
-            && search::go_binds_here(self.line_str(), word, range.start);
+            && (go_local_type
+                || locals.contains(&(self.line + 1))
+                    && search::go_binds_here(self.line_str(), word, range.start));
         if go_own {
             locals = vec![self.line + 1];
         }
@@ -246,6 +248,11 @@ impl App {
                 && search::python_in_function_body(&a.text, own))
     }
 
+    fn declares_itself(&self, kind: Kind, n: usize, name: &str) -> bool {
+        names_itself(kind, &self.buf.lines[n - 1], name)
+            || kind == Kind::Go && search::go_type_group_member(&self.buf.lines, n - 1)
+    }
+
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
         let (kind, word, range, chain) = (a.kind, &a.word, &a.range, &a.chain);
         let (before, dotted, first) = (a.before.as_str(), a.dotted, a.first());
@@ -275,10 +282,7 @@ impl App {
                     .is_some());
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
-        let rust_path = kind == Kind::Rust
-            && (before.ends_with("::")
-                || after.starts_with("::")
-                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_path = rust_not_local(a);
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
@@ -287,7 +291,10 @@ impl App {
             _ => Vec::new(),
         };
         let closure = |n: usize| {
-            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&a.text, n))
+            (kind == Kind::Swift
+                || kind == Kind::Go && search::go_names_a_type_here(&a.lead, &a.tail)
+                || kind == Kind::Python && search::python_in_function(&a.text, n)
+                || kind == Kind::Jvm && search::scala(&a.here))
                 && !dotted
                 && chain.is_empty()
                 && n != self.line + 1
@@ -303,7 +310,7 @@ impl App {
                 .filter(|&n| {
                     let l = &self.buf.lines[n - 1];
                     !key && !super_keyword
-                        && (closure(n) || !names_itself(kind, l, first) || bare)
+                        && (closure(n) || !self.declares_itself(kind, n, first) || bare)
                         && !import_line(kind, l)
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
@@ -395,6 +402,17 @@ impl App {
             _ => None,
         }
     }
+}
+
+fn rust_not_local(a: &Asked) -> bool {
+    let after = a.tail.trim_start();
+    a.kind == Kind::Rust
+        && (a.before.ends_with("::")
+            || after.starts_with("::")
+            || (after.starts_with('!') && !after.starts_with("!="))
+            || (a.chain.is_empty()
+                && a.first().starts_with(|c: char| c.is_ascii_uppercase())
+                && !after.starts_with('.')))
 }
 
 fn rust_type_position(a: &Asked) -> bool {

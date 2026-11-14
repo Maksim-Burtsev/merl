@@ -1,0 +1,66 @@
+def quay = 'eu'
+String zone = 'a'
+
+echo makeTag(zone)
+//           ^ d: ci/Jenkinsfile:2
+println format(
+    quay
+//  ^ d: ci/Jenkinsfile:1
+)
+assert check(zone)
+//           ^ d: ci/Jenkinsfile:2
+println new Date(), zone
+//                  ^ d: ci/Jenkinsfile:2
+
+node('linux') {
+    echo quay
+    //   ^ d: ci/Jenkinsfile:1
+    echo env.quay
+    //       ^ d: none
+    timeout(time: 5) {
+        sh "deploy ${zone}"
+        //           ^ d: ci/Jenkinsfile:2
+    }
+}
+
+def helper() {
+    echo quay
+    //   ^ d: none
+    [1].each { echo quay }
+    //              ^ d: none
+}
+
+@NonCPS
+String other(
+    String a
+) {
+    echo zone
+    //   ^ d: none
+}
+
+if (true) {
+    echo zone
+    //   ^ d: ci/Jenkinsfile:2
+} else {
+    echo quay
+    //   ^ d: ci/Jenkinsfile:1
+}
+
+class Holder {
+    def m() { quay }
+    //        ^ d: none
+}
+
+stage('x') {
+    echo tardy
+    //   ^ d: none
+}
+def tardy = 1
+
+@groovy.transform.Field
+def bauble = 'c'
+
+def reach() {
+    echo bauble
+    //   ^ d: ci/Jenkinsfile:61
+}

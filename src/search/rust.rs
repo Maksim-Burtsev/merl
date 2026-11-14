@@ -6,7 +6,7 @@ use regex::Regex;
 use super::rust_rebound::{macro_binds, rust_rebound_before};
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
-    uncommented,
+    one_line_body, uncommented,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -395,7 +395,7 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
 }
 pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;")
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)(?:\*|\{\s*(?:self\s*,\s*\*|\*\s*,\s*self)\s*,?\s*\})\s*;")
             .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
@@ -667,6 +667,9 @@ pub(super) fn rust_rebinds(code_part: &str, name: &str) -> bool {
         LazyLock::new(|| Regex::new(r"\blet\b").expect("the regex is a literal"));
     LET.is_match(code_part) || line_binds(code_part, name, CodeShape::Line)
 }
+pub(super) fn rust_line_binds(code_part: &str, name: &str) -> bool {
+    line_binds(code_part, name, CodeShape::Line)
+}
 pub(super) fn without_type(param: &str) -> &str {
     top_stop(param, b":")
         .and_then(|i| param.get(..i))
@@ -797,10 +800,47 @@ fn local_name(name: &str) -> bool {
         && name != "_"
         && !KEYWORDS.contains(&name)
 }
+fn plain_variable(line: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    let Ok(re) = Regex::new(&format!(
+        r"^\s*let\s+(?:mut\s+)?{n}\s*(?::[^=]*)?=\s*(\w*)|[(,]\s*(?:mut\s+)?{n}\s*:\s*&?\s*(?:mut\s+)?(\w+)"
+    )) else {
+        return false;
+    };
+    re.captures(&uncommented(Kind::Rust, line))
+        .and_then(|c| c.get(1).or_else(|| c.get(2)))
+        .is_some_and(|m| m.as_str() != name)
+}
+fn named_fields_struct(lines: &[&str], name: &str) -> bool {
+    let Ok(re) = Regex::new(&format!(
+        r"^\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+{}\b[^;(]*$",
+        regex::escape(name)
+    )) else {
+        return false;
+    };
+    lines
+        .iter()
+        .any(|l| re.is_match(&uncommented(Kind::Rust, l)))
+}
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    if name.starts_with(|c: char| c.is_ascii_uppercase()) && name != "Self" {
+        let found = scoped_bindings(lines, at, name);
+        return if named_fields_struct(lines, name)
+            && found
+                .iter()
+                .all(|b| plain_variable(lines[b.line1 - 1], name))
+        {
+            found
+        } else {
+            Vec::new()
+        };
+    }
     if !local_name(name) {
         return Vec::new();
     }
+    scoped_bindings(lines, at, name)
+}
+fn scoped_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let literal = literal_lines(Kind::Rust, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Rust, lines[i]).trim().to_owned();
     let found = |i: usize| Binding {
@@ -902,10 +942,12 @@ fn open_head(lines: &[&str], head: usize, brace: usize) -> bool {
         && (head + 1..brace).all(|k| code(k).is_empty() || indent(lines[k]) > indent(lines[brace]))
 }
 pub fn rust_method_pattern(word: &str) -> String {
-    format!(
+    let method = format!(
         r#"^\s+(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+{}\b"#,
         regex::escape(word)
-    )
+    );
+    let one_line = one_line_body(Kind::Rust, std::slice::from_ref(&method));
+    [method, one_line.join("|")].join("|")
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RustOwner {
@@ -943,7 +985,10 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
             .expect("the regex is a literal")
     });
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
-    let at = rust_parent(lines, k)?;
+    let one_line = (IMPL.is_match(lines[k]) || TRAIT.is_match(lines[k]))
+        && lines[k].contains('{')
+        && lines[k].trim_end().ends_with('}');
+    let at = if one_line { k } else { rust_parent(lines, k)? };
     let parent = lines[at];
     let owner = if let Some(c) = TRAIT.captures(parent) {
         RustOwner::Trait(c[1].to_owned())
@@ -956,7 +1001,8 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     } else if let Some(c) = IMPL_FOR.captures(parent) {
         RustOwner::ImplOf(c[1].to_owned())
     } else {
-        let no_for_further_down = parent.trim_end().ends_with('{')
+        let no_for_further_down = one_line
+            || parent.trim_end().ends_with('{')
             || lines
                 .get(at + 1)
                 .is_some_and(|l| l.trim_start().starts_with("where"));
@@ -968,6 +1014,7 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     };
     let line_whose_pub_reaches = match owner {
         RustOwner::Trait(_) => parent,
+        _ if one_line => lines[k].split_once('{').map_or(lines[k], |(_, body)| body),
         _ => lines[k],
     };
     let vis = match VIS.captures(line_whose_pub_reaches) {
@@ -985,86 +1032,6 @@ pub struct RustMethod {
     pub owner: RustOwner,
     pub vis: RustVis,
     pub owner_line1: usize,
-}
-pub struct LockPackage {
-    pub registry_dir: String,
-    pub name: String,
-}
-pub struct CargoReach {
-    pub reached: Vec<String>,
-    pub every_locked: Vec<LockPackage>,
-}
-pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
-    let mut packages: Vec<(String, String, Vec<String>)> = Vec::new();
-    let mut in_deps = false;
-    for l in lock.lines() {
-        let t = l.trim();
-        if t == "[[package]]" {
-            packages.push(Default::default());
-            in_deps = false;
-            continue;
-        }
-        let Some(p) = packages.last_mut() else {
-            continue;
-        };
-        if let Some(v) = t.strip_prefix("name = ") {
-            v.trim_matches('"').clone_into(&mut p.0);
-        } else if let Some(v) = t.strip_prefix("version = ") {
-            v.trim_matches('"').clone_into(&mut p.1);
-        } else if let Some(v) = t.strip_prefix("dependencies = [") {
-            in_deps = !v.contains(']');
-            p.2.extend(quoted_names(v));
-        } else if in_deps {
-            in_deps = !t.starts_with(']');
-            p.2.extend(quoted_names(t));
-        } else if t.starts_with('[') {
-            in_deps = false;
-        }
-    }
-    packages.iter().find(|p| p.0 == from)?;
-    let mut reached = vec![from.to_owned()];
-    let mut i = 0;
-    while i < reached.len() {
-        let name = reached[i].clone();
-        for p in packages.iter().filter(|p| p.0 == name) {
-            for d in &p.2 {
-                if !reached.contains(d) {
-                    reached.push(d.clone());
-                }
-            }
-        }
-        i += 1;
-    }
-    let every_locked = packages
-        .into_iter()
-        .map(|(n, v, _)| LockPackage {
-            registry_dir: format!("{n}-{v}"),
-            name: n,
-        })
-        .collect();
-    Some(CargoReach {
-        reached,
-        every_locked,
-    })
-}
-fn quoted_names(s: &str) -> impl Iterator<Item = String> + '_ {
-    s.split('"')
-        .skip(1)
-        .step_by(2)
-        .filter_map(|q| q.split_whitespace().next().map(str::to_owned))
-}
-pub fn cargo_package_name(toml: &str) -> Option<String> {
-    let mut in_package = false;
-    for l in toml.lines() {
-        let t = l.trim();
-        if t.starts_with('[') {
-            in_package = t == "[package]";
-        } else if in_package && let Some(v) = t.strip_prefix("name") {
-            let v = v.trim_start().strip_prefix('=')?;
-            return Some(v.trim().trim_matches('"').to_owned());
-        }
-    }
-    None
 }
 pub fn rust_stability(lines: &[&str], line1: usize) -> bool {
     lines[..line1.saturating_sub(1).min(lines.len())]
@@ -1197,16 +1164,31 @@ fn self_owner(lines: &[&str], line0: usize) -> Option<usize> {
             continue;
         }
         depth = indent(lines[i]);
-        if TRAIT_LINE.is_match(lines[i]) || rust_impl_type(lines[i]).is_some() {
+        if TRAIT_LINE.is_match(lines[i]) || rust_impl_type(&rust_impl_header(lines, i)).is_some() {
             return Some(i);
         }
     }
     None
 }
+pub fn rust_impl_header(lines: &[&str], i: usize) -> String {
+    let mut header = String::new();
+    for l in lines.iter().skip(i).take(8) {
+        let t = l.trim();
+        if !header.is_empty() && (t.is_empty() || t.starts_with("where")) {
+            break;
+        }
+        header.push_str(t);
+        header.push(' ');
+        if t.contains(['{', ';']) {
+            break;
+        }
+    }
+    header
+}
 pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     let i = self_owner(lines, line0)?;
     Some(RustSelfType {
-        written: rust_impl_type(lines[i])?,
+        written: rust_impl_type(&rust_impl_header(lines, i))?,
         impl_line0: i,
     })
 }

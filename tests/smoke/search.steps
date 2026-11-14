@@ -38,3 +38,11 @@ type *
 wait 2/5
 key n
 wait 3/5
+# * reads and matches the whole name with the file type's word characters (#1321): in CSS, * on
+# btn steps past .btn-primary to .btn:hover, 2/2.
+run printf '.btn {\n  padding: 4px;\n}\n\n.btn-primary {\n  color: navy;\n}\n\n.btn:hover {\n  opacity: 0.8;\n}\n' > buttons.css
+merl buttons.css
+wait A buttons.css
+key Right
+type *
+wait 2/

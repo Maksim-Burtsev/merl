@@ -112,6 +112,26 @@ fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
         text.into()
     }
 }
+pub fn import_line1(kind: Kind, text: &str, name: &str) -> Option<usize> {
+    text.lines()
+        .position(|l| imports_as_written(kind, l).iter().any(|i| i.name == name))
+        .map(|i| i + 1)
+        .or_else(|| (kind == Kind::Python).then(|| python_wrapped_import_line1(text, name))?)
+}
+pub fn python_bound_once(text: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    let Ok(other) = Regex::new(&format!(
+        r"^\s*(?:(?:async\s+)?(?:def|class)\s+{w}\b|{w}\s*(?::[^=]*)?=(?:[^=]|$))"
+    )) else {
+        return false;
+    };
+    imports(Kind::Python, text)
+        .iter()
+        .filter(|i| i.name == name)
+        .count()
+        == 1
+        && !text.lines().any(|l| other.is_match(l))
+}
 pub fn ts_import_line1(text: &str, name: &str) -> Option<usize> {
     ts_import_lines1(text, name).first().copied()
 }
@@ -216,14 +236,30 @@ fn alias_and_name(item: &str) -> Option<(String, String)> {
     };
     (!name.is_empty()).then_some((alias, name))
 }
+static PY_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(
+        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|(?:\\\n|[^\n#])+(?:#[^\n]*)?)|import\s+((?:\\\n|[^\n#])+(?:#[^\n]*)?))",
+    )
+    .expect("the regex is a literal")
+});
+fn python_wrapped_import_line1(text: &str, name: &str) -> Option<usize> {
+    let code = code_of(Kind::Python, text);
+    PY_IMPORT.captures_iter(&code).find_map(|c| {
+        let names = c
+            .get(2)
+            .or_else(|| c.get(3))
+            .filter(|n| n.as_str().contains('\n'))?;
+        let at = names.as_str().lines().position(|l| {
+            (l.split('#').next().unwrap_or_default())
+                .trim_matches(|c: char| c == '(' || c == ')' || c == '\\' || c.is_whitespace())
+                .split(',')
+                .any(|item| alias_and_name(item.trim()).is_some_and(|(alias, _)| alias == name))
+        })?;
+        Some(code.get(..names.start())?.matches('\n').count() + at + 1)
+    })
+}
 fn python_imports(text: &str, out: &mut Vec<Import>) {
-    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
-        )
-        .expect("the regex is a literal")
-    });
-    for c in IMPORT.captures_iter(text) {
+    for c in PY_IMPORT.captures_iter(text) {
         if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
             let module = module.as_str();
             let relative = module.trim_start_matches('.');
@@ -234,7 +270,13 @@ fn python_imports(text: &str, out: &mut Vec<Import>) {
             let names: Vec<&str> = names
                 .as_str()
                 .lines()
-                .map(|l| l.split('#').next().unwrap_or_default())
+                .map(|l| {
+                    l.split('#')
+                        .next()
+                        .unwrap_or_default()
+                        .trim_end()
+                        .trim_end_matches('\\')
+                })
                 .collect();
             for item in names
                 .join("\n")
@@ -249,7 +291,8 @@ fn python_imports(text: &str, out: &mut Vec<Import>) {
                 }
             }
         } else if let Some(list) = c.get(3) {
-            let list = list.as_str().split('#').next().unwrap_or_default();
+            let list = list.as_str().replace("\\\n", "\n");
+            let list = list.split('#').next().unwrap_or_default();
             for item in list.split(',') {
                 if let Some((alias, name)) = alias_and_name(item.trim()) {
                     if alias == name {
@@ -410,16 +453,33 @@ fn php_imports(text: &str, out: &mut Vec<Import>) {
     }
 }
 pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?function\b")
+            .expect("the regex is a literal")
+    });
+    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?#?[\w$]+\s*<[^()]*>\s*\(")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return false;
     };
+    if FUNCTION.is_match(lines[k]) {
+        return true;
+    }
     let ind = indent(lines[k]);
     let closer = (k + 1..lines.len().min(k + 40))
         .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) <= ind);
-    let Some(i) = closer.filter(|&i| lines[i].trim_start().starts_with(">(")) else {
+    let Some(i) = closer else {
         return false;
     };
+    if let Some(rest) = lines[i].trim_start().strip_prefix(">)") {
+        return METHOD.is_match(lines[k]) && rest.trim_start().starts_with([':', '{']);
+    }
+    if !lines[i].trim_start().starts_with(">(") {
+        return false;
+    }
     let open = lines[i].find('(').unwrap_or(0);
     group(Kind::TsJs, &lines, i, open).is_some_and(
         |Group {
@@ -618,6 +678,24 @@ pub fn exported_as(text: &str, name: &str) -> Option<String> {
                 (exported.trim() == name).then(|| local.trim().to_owned())
             })
         })
+}
+pub fn listed_import(text: &str, name: &str) -> Option<Vec<String>> {
+    static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*export\s*\{([^}]*)\}\s*(from\b)?").expect("the regex is a literal")
+    });
+    let local = EXPORT
+        .captures_iter(text)
+        .filter(|c| c.get(2).is_none())
+        .find_map(|c| {
+            c[1].split(',').find_map(|item| {
+                let (local, exported) = item.split_once(" as ").unwrap_or((item, item));
+                (exported.trim() == name).then(|| local.trim().to_owned())
+            })
+        })?;
+    imports(Kind::TsJs, text)
+        .into_iter()
+        .find(|i| i.name == local)
+        .map(|i| i.path)
 }
 pub fn reexports(text: &str, name: &str) -> Vec<Vec<String>> {
     reexported(text, name)

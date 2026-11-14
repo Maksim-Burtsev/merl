@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::cs_deconstruct::{cs_deconstructed, cs_deconstructed_from};
 use super::cs_linq::cs_switch_arm;
 
 use super::{
@@ -11,6 +12,7 @@ use super::{
 pub struct CsTypeDecl {
     pub keyword: String,
     pub name: String,
+    pub generic: bool,
 }
 
 pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
@@ -19,7 +21,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
             r"^\u{feff}?\s*(?:\[[^\]]*\]\s*)*",
             r"(?:(?:public|private|protected|internal|file|static|sealed|abstract|partial|readonly",
             r"|ref|unsafe|new)\s+)*",
-            r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)"
+            r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)(\s*<)?"
         ))
         .expect("the regex is a literal")
     });
@@ -27,6 +29,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
     Some(CsTypeDecl {
         keyword: c[1].to_owned(),
         name: c[2].to_owned(),
+        generic: c.get(3).is_some(),
     })
 }
 
@@ -52,6 +55,7 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     if let Some(CsTypeDecl {
         keyword,
         name: owner,
+        ..
     }) = cs_type_decl(lines[first])
     {
         return CsPlace::Member {
@@ -100,7 +104,8 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
         let t = lines[i].trim();
         !(t.is_empty()
             || comment(Kind::CSharp, t)
-            || t.starts_with(['#', '{', ')', ':', '['])
+            || t.starts_with(['#', '{', ')', ':'])
+            || (t.starts_with('[') && cs_type_decl(t).is_none())
             || t.starts_with("where ")
             || indent(lines[i]) >= depth
             || literal
@@ -109,6 +114,18 @@ pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
                 .copied()
                 .unwrap_or(false))
     })
+}
+
+pub(super) fn cs_after_attributes(l: &str) -> &str {
+    let mut l = l.trim_start();
+    while let Some(end) = l
+        .starts_with('[')
+        .then(|| close_of(Kind::CSharp, l, 0))
+        .flatten()
+    {
+        l = l.get(end..).unwrap_or_default().trim_start();
+    }
+    l
 }
 
 fn cs_block_end(lines: &[&str], k: usize) -> usize {
@@ -280,7 +297,7 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
             r"^(?:(?:await\s+)?using\s+|const\s+|ref\s+(?:readonly\s+)?|scoped\s+|static\s+|async\s+|unsafe\s+)*{ty}\s+{n}\s*(?:=[^=>]|=$|;|,|$|(?:<[^()]*>)?\s*\()"
         ),
         format!(r"\bout\s+{ty_short}\s+{n}\b"),
-        format!(r"\bis\s+{ty_short}\s+{n}\b"),
+        format!(r"\bis\s+(?:not\s+)?{ty_short}\s+{n}\b"),
     ]
     .iter()
     .any(|p| Regex::new(p).is_ok_and(|re| re.is_match(t)))
@@ -413,9 +430,17 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CsValue {
     Type(String),
-    Call { callee: String, awaited: bool },
+    Call {
+        callee: String,
+        awaited: bool,
+    },
     Element(String),
     Indexed(String),
+    Position {
+        of: Box<Self>,
+        at: usize,
+        count: usize,
+    },
     Unknown,
 }
 
@@ -467,8 +492,12 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     if let Some(value) = cs_deconstructed(&code, name) {
         return cs_expr(value);
     }
+    if let Some((value, at, count)) = cs_deconstructed_from(&code, name) {
+        let of = Box::new(cs_expr(value));
+        return CsValue::Position { of, at, count };
+    }
     [
-        format!(r"\b(?:is|case)\s+({CS_TYPE})\s+@?{n}\b"),
+        format!(r"\b(?:is(?:\s+not)?|case)\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bout\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bforeach\s*\(\s*({CS_TYPE})\s+@?{n}\s+in\b"),
         format!(r"\bcatch\s*\(\s*({CS_TYPE})\s+@?{n}\b"),
@@ -499,25 +528,6 @@ pub fn cs_var_chain<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option
     }
     let expr = expr.trim_end_matches(';').trim_end();
     expr.ends_with(')').then(|| (expr.to_owned(), continued))
-}
-
-fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
-    static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")
-    });
-    let c = VAR.captures(code)?;
-    let at = (c[1].split(','))
-        .position(|n| n.trim().trim_start_matches('@') == name.trim_start_matches('@'))?;
-    let open = c.get_match().end() - 1;
-    let close = close_of(Kind::CSharp, code, open)?;
-    let values = split_top(Kind::CSharp, code.get(open + 1..close - 1)?, b',');
-    let ends = code
-        .get(close..)?
-        .trim()
-        .trim_end_matches(';')
-        .trim()
-        .is_empty();
-    (ends && values.len() == c[1].split(',').count()).then_some(values.get(at)?.trim())
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {
@@ -672,7 +682,7 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
 pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
     let n = regex::escape(name.trim_start_matches('@'));
     let re = Regex::new(&format!(
-        r"^\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
+        r"(?:^|[{{;])\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
     ))
     .ok()?;
     let code = uncommented(Kind::CSharp, line);
@@ -680,8 +690,23 @@ pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
     if c[3].contains("=>") {
         return None;
     }
-    let args = cs_split(&c[2]);
-    let wanted = if &c[1] == "Func" { 2 } else { 1 };
+    cs_delegate_input(&c[1], &c[2])
+}
+
+pub fn cs_callee_delegate(decl: &str, callee: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w.@])@?{}\s*\(\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*\)",
+        regex::escape(callee)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, decl);
+    let c = re.captures(&code)?;
+    cs_delegate_input(&c[1], &c[2])
+}
+
+fn cs_delegate_input(delegate: &str, args: &str) -> Option<String> {
+    let args = cs_split(args);
+    let wanted = if delegate == "Func" { 2 } else { 1 };
     let first = args.first()?.trim();
     (args.len() == wanted && cs_type_name(first).is_some()).then(|| first.to_owned())
 }
@@ -830,14 +855,7 @@ fn cs_generic_params(text: &str, line: usize, name: &str, strict: bool) -> Optio
     let lines: Vec<&str> = text.lines().collect();
     let mut k = line.checked_sub(1).filter(|&k| k < lines.len())?;
     let declares = |l: &str| {
-        let mut l = l.trim_start();
-        while let Some(end) = l
-            .starts_with('[')
-            .then(|| close_of(Kind::CSharp, l, 0))
-            .flatten()
-        {
-            l = l.get(end..).unwrap_or_default().trim_start();
-        }
+        let l = cs_after_attributes(l);
         let b = l.as_bytes();
         let assigned = code(Kind::CSharp, l).find(|&(i, c)| {
             c == b'=' && b.get(i + 1) != Some(&b'=') && !(i > 0 && b"=!<>".contains(&b[i - 1]))

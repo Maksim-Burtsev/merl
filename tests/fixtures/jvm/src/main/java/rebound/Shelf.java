@@ -34,9 +34,9 @@ public class Shelf {
     void arrows(Object o) {
         switch (o) {
             case Ewer x -> x.decant();
-            //               ^ d: picker src/main/java/rebound/Ewer.java:4, …
+            //               ^ d: src/main/java/rebound/Ewer.java:4
             case Spill x -> x.decant();
-            //                ^ d: picker src/main/java/rebound/Spill.java:4, …
+            //                ^ d: src/main/java/rebound/Spill.java:4
             default -> { }
         }
     }

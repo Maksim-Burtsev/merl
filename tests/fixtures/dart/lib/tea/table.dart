@@ -80,14 +80,14 @@ void spook() => print([Banshee.boo, Wraith, Specter]);
 //                                  ^ d: none
 //                                          ^ d: none
 
-// A named argument's label is no local of the call's own function.
+// A named argument's label is the callee's parameter, no local of the call's own function.
 int steepFor({int minutes = 1}) => minutes;
 int timed(int minutes) => steepFor(minutes: minutes);
-//                                 ^ d: none
+//                                 ^ d: lib/tea/table.dart:84
 //                                          ^ d: lib/tea/table.dart:85
 int timedOver(int minutes) => steepFor(
   minutes: minutes,
-//^ d: none
+//^ d: lib/tea/table.dart:84
 //         ^ d: lib/tea/table.dart:88
 );
 

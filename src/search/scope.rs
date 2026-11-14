@@ -119,6 +119,59 @@ fn python_roots(root: &Path) -> Vec<PathBuf> {
         .collect(),
     }
 }
+pub fn python_local_envs(root: &Path) -> Vec<PathBuf> {
+    let dirs = |d: &Path| {
+        std::fs::read_dir(d)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .collect::<Vec<_>>()
+    };
+    dirs(root)
+        .into_iter()
+        .filter(|d| d.join("pyvenv.cfg").is_file() || d.join("conda-meta").is_dir())
+        .flat_map(|env| {
+            let lib = dirs(&env.join("lib"));
+            lib.into_iter()
+                .chain([env.join("Lib")])
+                .map(|l| l.join("site-packages"))
+                .collect::<Vec<_>>()
+        })
+        .filter(|s| s.is_dir())
+        .collect()
+}
+pub fn python_installed(root: &Path, top: &str) -> bool {
+    python_module_in(root, top)
+        || std::fs::read_dir(root)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|e| {
+                let path = e.path();
+                path.extension().is_some_and(|x| x == "pth")
+                    && (e.file_name().to_string_lossy().starts_with("__editable__")
+                        || std::fs::read_to_string(&path)
+                            .unwrap_or_default()
+                            .lines()
+                            .map(str::trim)
+                            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                            .filter(|l| !l.starts_with("import ") && !l.starts_with("import\t"))
+                            .any(|l| python_module_in(&root.join(l), top)))
+            })
+}
+pub fn python_module_in(root: &Path, top: &str) -> bool {
+    std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| {
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            name.strip_prefix(top)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('.') || rest == "-stubs")
+        })
+}
 fn rust_roots(root: &Path, home: &Path) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = toolchain_output("rustc", &["--print", "sysroot"])
         .map(|s| PathBuf::from(s.trim()).join("lib/rustlib/src/rust/library"))

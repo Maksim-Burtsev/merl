@@ -18,3 +18,14 @@ class Teapot:
       def z(): Unit = this.boil()
       //                   ^ d: picker src/main/scala/rebound/Percolator.scala:4, …
     }
+  def bare(): Unit = new Percolator { def z(): Unit = boil() }
+  //                                                  ^ d: src/main/scala/rebound/Percolator.scala:4
+  def bareOutside(): Unit =
+    new Runnable {
+      def run(): Unit = boil()
+      //                ^ d: src/main/scala/rebound/Teapot.scala:4
+    }
+  def bareMixin(): Unit = new Percolator with Runnable { def run(): Unit = boil() }
+  //                                                                       ^ d: src/main/scala/rebound/Percolator.scala:4
+  def bareOutsideLine(): Unit = new Runnable { def run(): Unit = boil() }
+  //                                                             ^ d: src/main/scala/rebound/Teapot.scala:4

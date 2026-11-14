@@ -36,6 +36,22 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     }
 }
 
+pub(super) fn ts_callback_element(before: &str, params: &str, name: &str) -> Option<Value> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])((?:this\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\.\s*(map|forEach|filter|find|findLast|findIndex|findLastIndex|some|every|flatMap|sort|toSorted)\s*\(\s*(?:async\s+)?(?:function\s*)?$")
+            .expect("the regex is a literal")
+    });
+    let c = CALL.captures(before.trim_end())?;
+    let params: Vec<&str> = split_top(Kind::TsJs, params, b',')
+        .into_iter()
+        .map(str::trim)
+        .collect();
+    let at = params.iter().position(|p| *p == name)?;
+    let sort = matches!(&c[2], "sort" | "toSorted");
+    let element = if sort { params.len() == 2 } else { at == 0 };
+    element.then(|| Value::Element(c[1].to_owned()))
+}
+
 fn typed_pattern(p: &str, name: &str) -> Option<Value> {
     let close = close_of(Kind::TsJs, p, 0).filter(|_| p.starts_with('{'))?;
     let written = p.get(close..)?.trim_start().strip_prefix(':')?;
@@ -74,6 +90,38 @@ pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     match value_of(Kind::TsJs, &c[2]) {
         call @ Value::Call(_) => Some(Value::Member(Box::new(call), field)),
         _ => None,
+    }
+}
+
+pub(super) fn ts_tuple_destructured(t: &str, name: &str) -> Option<Value> {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:export\s+)?(?:const|let|var)\s*\[([^\[\]{}=.]*)\]\s*(?::\s*(.+?))?\s*=\s*(.+?)\s*;?$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = SHAPE.captures(t)?;
+    let items: Vec<&str> = c[1].split(',').map(str::trim).collect();
+    let plain = |i: &&str| {
+        i.chars()
+            .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '$')
+    };
+    if !items.iter().all(plain) || items.iter().filter(|&&i| i == name).count() != 1 {
+        return None;
+    }
+    let at = items.iter().position(|&i| i == name)?;
+    match c.get(2) {
+        Some(written) => {
+            super::written_element(Kind::TsJs, written.as_str(), at, items.len()).map(Value::Type)
+        }
+        None => match value_of(Kind::TsJs, &c[3]) {
+            call @ Value::Call(_) => Some(Value::Position {
+                of: Box::new(call),
+                at,
+                count: items.len(),
+            }),
+            _ => None,
+        },
     }
 }
 
@@ -415,6 +463,28 @@ pub fn ts_union_names(union: &str) -> Option<Vec<String>> {
     .then_some(arms)
 }
 
+pub fn ts_intersection_names(written: &str) -> Option<Vec<String>> {
+    let arms: Vec<String> = written
+        .split('&')
+        .map(|a| {
+            let a = a.trim();
+            ["Required<", "Partial<", "Readonly<"]
+                .iter()
+                .find_map(|w| a.strip_prefix(w)?.strip_suffix('>'))
+                .unwrap_or(a)
+                .trim()
+                .to_owned()
+        })
+        .collect();
+    (arms.len() > 1
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
+    .then_some(arms)
+}
+
 pub fn ts_type_tag(decl: &str) -> Option<String> {
     static TAG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\s*(?:readonly\s+)?type\s*:\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*[;,]?\s*$"#)
@@ -504,14 +574,7 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
         depth = ind + usize::from(t.starts_with([')', '>']));
         let last = t
             .ends_with('<')
-            .then(|| {
-                (i + 1..lines.len().min(i + 16)).find(|&j| {
-                    literal.get(j) != Some(&true)
-                        && uncommented(Kind::TsJs, lines[j])
-                            .trim_start()
-                            .starts_with('>')
-                })
-            })
+            .then(|| super::generics::wrapped_list(Kind::TsJs, &lines, &literal, i))
             .flatten()
             .unwrap_or(i);
         let joined = (i..=last)
@@ -876,4 +939,145 @@ fn code_only(line: &str) -> String {
         b[i] = c;
     }
     String::from_utf8_lossy(&b).into_owned()
+}
+
+pub fn ts_awaited(
+    kind: Kind,
+    text: &str,
+    line1: usize,
+    callee: &str,
+    written: &str,
+) -> Option<String> {
+    let inner = written
+        .trim()
+        .strip_prefix("Promise<")?
+        .strip_suffix('>')?
+        .trim();
+    let nests = inner.chars().try_fold(0usize, |depth, c| match c {
+        '<' => Some(depth + 1),
+        '>' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    if kind != Kind::TsJs || nests != Some(0) {
+        return None;
+    }
+    let line = code_only(text.lines().nth(line1.checked_sub(1)?)?);
+    let closes_above = line.bytes().try_fold(0usize, |depth, c| match c {
+        b'(' | b'[' | b'{' => Some(depth + 1),
+        b')' | b']' | b'}' => depth.checked_sub(1),
+        _ => Some(depth),
+    });
+    let method = callee.rsplit('.').next()?;
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut uses = line.match_indices(method).map(|(i, _)| i).filter(|&i| {
+        !line.get(..i).is_some_and(|b| b.ends_with(name))
+            && !line
+                .get(i + method.len()..)
+                .is_some_and(|a| a.starts_with(name))
+    });
+    let (Some(end), None) = (uses.next(), uses.next()) else {
+        return None;
+    };
+    let at = (end + method.len()).checked_sub(callee.len())?;
+    let awaited = line.get(..at).is_some_and(|before| {
+        before.ends_with(char::is_whitespace)
+            && before
+                .trim_end()
+                .strip_suffix("await")
+                .is_some_and(|head| !head.ends_with(|c: char| name(c) || c == '.'))
+    });
+    let ended = line
+        .get(at..)
+        .is_some_and(|l| l.starts_with(&format!("{callee}(")))
+        && close_of(kind, &line, at + callee.len())
+            .and_then(|end| line.get(end..))
+            .is_some_and(|rest| {
+                let rest = rest.trim_start();
+                rest.is_empty() || rest.starts_with([';', ')', ','])
+            });
+    let continued = line.trim_start().starts_with('.') || closes_above.is_none();
+    (awaited && ended && !continued).then(|| inner.to_owned())
+}
+
+pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
+    let rule = Regex::new(&format!(
+        r"^(?:(?:const|let|var)\s+)?{}\s*=\s*(\[.*\])\s*;?$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let kind = Kind::TsJs;
+    let code = uncommented(kind, line);
+    let c = rule.captures(code.trim())?;
+    let literal = c.get(1)?.as_str();
+    let inner = literal
+        .get(1..literal.len() - 1)
+        .filter(|_| close_of(kind, literal, 0) == Some(literal.len()))?;
+    let [one] = <[&str; 1]>::try_from(split_top(kind, inner, b',')).ok()?;
+    let one = one.trim();
+    (!one.is_empty() && !one.starts_with("..."))
+        .then(|| value_of(kind, one))
+        .filter(|v| !matches!(v, Value::Unknown))
+}
+
+pub fn ts_array_pushes(text: &str, decl: usize, name: &str) -> Option<Vec<(usize, Value)>> {
+    static WRITE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[-+*/%&|^]|\*\*|<<|>>>?|\?\?|\|\||&&)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    static CHAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
+    });
+    let kind = Kind::TsJs;
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let literal = literal_lines(kind, text);
+    let mut pushed = Vec::new();
+    for (at, line) in text.lines().enumerate() {
+        if at + 1 == decl || literal.get(at).copied().unwrap_or(true) || !line.contains(name) {
+            continue;
+        }
+        let mut bytes = vec![b' '; line.len()];
+        for (i, c) in code(kind, line).filter(|&(_, c)| c != 0) {
+            bytes[i] = c;
+        }
+        let code = String::from_utf8_lossy(&bytes);
+        for (i, _) in code.match_indices(name) {
+            let (Some(before), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
+                continue;
+            };
+            if before.ends_with(|c: char| ident(c) || c == '.') || rest.starts_with(ident) {
+                continue;
+            }
+            if before.trim_end().ends_with(" of") && rest.trim_start().starts_with(')') {
+                continue;
+            }
+            if rest.starts_with('[') {
+                if WRITE.is_match(rest.get(close_of(kind, rest, 0)?..)?) {
+                    return None;
+                }
+                continue;
+            }
+            let method = rest.strip_prefix('.')?;
+            let method = method.split(|c: char| !ident(c)).next().unwrap_or_default();
+            match method {
+                "push" | "unshift" => {
+                    let open = i + name.len() + 1 + method.len();
+                    let end = close_of(kind, &code, open)
+                        .filter(|_| code.get(open..).is_some_and(|r| r.starts_with('(')))?;
+                    for arg in split_top(kind, code.get(open + 1..end - 1)?, b',') {
+                        let arg = arg.trim();
+                        let value = match arg.strip_prefix("...").map(str::trim) {
+                            Some(list) if CHAIN.is_match(list) => Value::Element(list.to_owned()),
+                            Some(_) => Value::Unknown,
+                            None => value_of(kind, arg),
+                        };
+                        pushed.push((at + 1, value));
+                    }
+                }
+                "" | "splice" | "fill" | "copyWithin" => return None,
+                _ => {}
+            }
+        }
+    }
+    Some(pushed)
 }

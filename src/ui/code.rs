@@ -180,9 +180,7 @@ impl<'a> Painter<'a> {
                 .fg(theme.cursor_gutter_fg)
                 .bg(theme.cursor_gutter_bg())
                 .add_modifier(theme.modifiers(&["CursorLineNr"])),
-            sel: theme
-                .selected(base)
-                .add_modifier(theme.modifiers(&["Visual"])),
+            sel: theme.visual(base),
             sel_lines: app.selection().map(|(start, end)| (start.0, end.0)),
             text_hl,
             nowrap: app.nowrap(),
@@ -337,7 +335,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
-            .map_or_else(Vec::new, |re| matches(re, text));
+            .map_or_else(Vec::new, |re| matches(app, re, text));
         let spans = paint_finds(
             &with_find(syntax, &words, self.word(self.theme.del_word_bg)),
             &finds,
@@ -448,7 +446,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
-            .map_or_else(Vec::new, |re| matches(re, clipped));
+            .map_or_else(Vec::new, |re| matches(app, re, clipped));
         let word_bg = if lit {
             theme.add_word_bg_hl
         } else {
@@ -997,9 +995,8 @@ fn row_spans<'a>(
     out
 }
 
-fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
-    re.find_iter(text)
-        .map(|m| m.range())
+fn matches(app: &App, re: &Regex, text: &str) -> Vec<Range<usize>> {
+    app.find_hits(re, text, 0)
         .filter(|r| !r.is_empty())
         .collect()
 }

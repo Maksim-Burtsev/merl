@@ -2,6 +2,7 @@ use regex::Regex;
 
 use super::jvm::{opens_type, scope_of};
 use super::jvm_rebound::blanked;
+use super::scala_mods;
 use super::{Kind, indent, path_literal_lines};
 use std::path::Path;
 
@@ -108,7 +109,9 @@ fn binders(code: &str, name: &str) -> Vec<(usize, Scope)> {
     let arm = rule(format!(
         r"(?:^|[^\w.])(?:{n}\s*(?::[^=;(){{}},]*)?|\([^()]*[(,\s]{n}\b[^()]*\)|\({n}\b[^()]*\))\s*=>"
     ));
-    let generator = rule(format!(r"(?:^|[^\w.]){n}\s*(?::[^<;,()]*)?<-"));
+    let generator = rule(format!(
+        r"(?:(?:^|[^\w.]){n}\s*(?::[^<;,()]*)?|\((?:[^()<;=]*[,\s])?{n}\b[^()<;=]*\))\s*<-"
+    ));
     let block = rule(format!(
         r"\b(?:val|var|given)\s+(?:[^=;]*?[^\w.])?{n}\b[^=;]*=|\bdef\s+{n}\b[^;(]*="
     ));
@@ -180,6 +183,14 @@ fn continues(line: &str) -> bool {
     })
 }
 
+fn body_after_close(line: &str) -> bool {
+    let code = blanked(line);
+    code.trim_start()
+        .strip_prefix(['}', ')'])
+        .map(str::trim)
+        .is_some_and(|r| !r.is_empty() && !r.starts_with([';', ',', '.', ')', '}']))
+}
+
 fn covers(
     lines: &[&str],
     literal: &[bool],
@@ -192,7 +203,48 @@ fn covers(
         .all(|k| inside(lines[k]))
 }
 
-fn unread_above(path: &Path, lines: &[&str], at: usize, name: &str) -> Option<usize> {
+pub(super) fn scala_generator_line1(
+    path: &Path,
+    lines: &[&str],
+    at: usize,
+    col: usize,
+    name: &str,
+) -> Option<usize> {
+    let code = blanked(lines.get(at)?);
+    let before = code.get(..col)?;
+    let on_line = binders(before, name)
+        .into_iter()
+        .chain(value_enumerators(before, name))
+        .any(|(end, scope)| {
+            scope == Scope::Generator
+                && open_after(before.get(end..).unwrap_or_default(), Scope::Generator)
+        });
+    if on_line {
+        return Some(at + 1);
+    }
+    unread_above(path, lines, at, name, true)
+}
+
+fn value_enumerators(code: &str, name: &str) -> Vec<(usize, Scope)> {
+    Regex::new(&format!(
+        r"\bfor\b[^;]*<-[^;]*(?:;[^;]*)*;\s*{}\s*=(?:[^=>]|$)",
+        regex::escape(name)
+    ))
+    .map(|re| {
+        re.find_iter(code)
+            .map(|m| (m.end().saturating_sub(1), Scope::Generator))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+fn unread_above(
+    path: &Path,
+    lines: &[&str],
+    at: usize,
+    name: &str,
+    generators: bool,
+) -> Option<usize> {
     let literal = path_literal_lines(Kind::Jvm, path, &lines.join("\n"));
     let n = regex::escape(name);
     let enumerator = Regex::new(&format!(r"^\s*{n}\s*=(?:[^=>]|$)")).ok()?;
@@ -219,11 +271,13 @@ fn unread_above(path: &Path, lines: &[&str], at: usize, name: &str) -> Option<us
             && let Some(head) = head
         {
             let s = indent(lines[head]);
-            if covers(lines, &literal, k, at, |l| indent(l) > s || continues(l)) {
+            if covers(lines, &literal, k, at, |l| {
+                indent(l) > s || continues(l) || (indent(l) == s && body_after_close(l))
+            }) {
                 return Some(k + 1);
             }
         }
-        for (end, scope) in binders(&code, name) {
+        for (end, scope) in binders(&code, name).into_iter().filter(|_| !generators) {
             let local = scope_of(lines, k).is_some_and(|s| !opens_type(lines[s]));
             let found = match scope {
                 Scope::Block => {
@@ -275,5 +329,69 @@ pub fn scala_rebound(
     if open.contains(&true) {
         return true;
     }
-    unread_above(path, &lines, at, name).is_some_and(|l| bound.iter().all(|&b| b < l))
+    unread_above(path, &lines, at, name, false).is_some_and(|l| bound.iter().all(|&b| b < l))
+}
+
+pub fn scala_alias_owner(text: &str, line1: usize, alias: &str, bound: &[usize]) -> Option<String> {
+    let declares = Regex::new(&format!(
+        r"^\s*{}\s*(?::[^=]*)?=>\s*(?://.*)?$",
+        regex::escape(alias)
+    ))
+    .ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    loop {
+        at = scope_of(&lines, at)?;
+        let opened = lines[at].rsplit_once('{').map(|(_, r)| r);
+        let declared1 = if opened.is_some_and(|r| declares.is_match(r)) {
+            Some(at + 1)
+        } else {
+            lines
+                .get(at + 1)
+                .is_some_and(|l| declares.is_match(l))
+                .then_some(at + 2)
+        };
+        if let Some(declared1) = declared1 {
+            bound.iter().all(|&b| b <= declared1).then_some(())?;
+            let name = super::jvm_type_name(lines[at])?;
+            return Some(super::qualified(Kind::Jvm, text, at + 1, &name).unwrap_or(name));
+        }
+    }
+}
+
+pub fn scala_implicit_receiver(text: &str, line: usize, name: &str) -> Option<String> {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:private|protected)(?:\[\w+\])?\s+|final\s+)*implicit\s+(?:final\s+)?class\s+\w+\s*(?:\[([\w\s,+-]*)\]\s*)?\(\s*(?:val\s+)?\w+\s*:\s*([\w.]+)\s*(?:\[([\w\s,]*)\]\s*)?\)(?:\s+extends\s+AnyVal)?\s*\{\s*(?://.*)?$")
+            .expect("the regex is a literal")
+    });
+    let names = |list: Option<regex::Match>| -> Vec<String> {
+        list.map_or_else(Vec::new, |m| {
+            m.as_str()
+                .split(',')
+                .map(|p| p.trim().trim_start_matches(['+', '-']).to_owned())
+                .collect()
+        })
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let def = Regex::new(&format!(
+        r"{}def\s+`?{}`?(?:[^\w`]|$)",
+        scala_mods!(),
+        regex::escape(name)
+    ))
+    .ok()?;
+    def.is_match(lines[at]).then_some(())?;
+    let c = CLASS.captures(lines[scope_of(&lines, at)?])?;
+    (names(c.get(1)) == names(c.get(3))).then(|| c[2].to_owned())
+}
+
+pub fn scala_generic_declared_type(line: &str, name: &str) -> Option<String> {
+    let code = super::syntax::uncommented(Kind::Jvm, line);
+    Regex::new(&format!(
+        r"(?:^|[^\w.]){}\s*:\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\]\s*(?:[,)]|=(?:[^>]|$)|$|\{{)",
+        regex::escape(name)
+    ))
+    .ok()?
+    .captures(&code)
+    .map(|c| c[1].to_owned())
 }

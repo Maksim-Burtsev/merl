@@ -37,7 +37,7 @@ class Bin extends Shelf
             public function peek(): void
             {
                 $this->lift();
-                //     ^ d: picker src/Storage/Shelf.php:9, src/Storage/Rack.php:14
+                //     ^ d: src/Storage/Shelf.php:9
             }
         };
     }

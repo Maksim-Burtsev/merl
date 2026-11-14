@@ -255,7 +255,7 @@ impl App {
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
-        let hits = self
+        let mut hits: Vec<Hit> = self
             .grep_in(&patterns.join("|"), &files)
             .into_iter()
             .filter(|h| match self.text_of(&h.path) {
@@ -265,6 +265,15 @@ impl App {
                 text => text.and_then(|text| search::qualified(kind, &text, h.line1, word)) == want,
             })
             .collect();
+        if kind == Kind::Go && search::go_one_line_method(decl, word) {
+            hits.push(Hit {
+                deleted: None,
+                text: decl.to_owned(),
+                path: ty.path.clone(),
+                line1: ty.line,
+                byte_col: None,
+            });
+        }
         self.host_built(kind, hits)
     }
 
@@ -689,7 +698,43 @@ impl App {
         (!methods.is_empty()).then(|| methods.into_iter().map(hit).collect())
     }
 
+    pub(super) fn ts_static_callee(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        receiver: &[String],
+        method: &str,
+    ) -> Option<Hit> {
+        let kind = Kind::TsJs;
+        let [class] = receiver else {
+            return None;
+        };
+        if !class.starts_with(char::is_uppercase)
+            || !search::path_bindings(kind, file, text, line1, class).is_empty()
+        {
+            return None;
+        }
+        let ty = self.type_decl(kind, file, class)?;
+        let statics: Vec<Hit> = self
+            .members_of(kind, &ty, method)
+            .into_iter()
+            .filter(|h| ts_modifiers(&h.text).contains(&"static"))
+            .collect();
+        <[Hit; 1]>::try_from(statics).ok().map(|[hit]| hit)
+    }
+
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        self.member_through(kind, t, word, true)
+    }
+
+    pub(super) fn member_through(
+        &self,
+        kind: Kind,
+        t: &Typed,
+        word: &str,
+        instance: bool,
+    ) -> Option<Vec<Hit>> {
         if kind != Kind::TsJs {
             let own = self.own_member(kind, t, word);
             return match kind {
@@ -701,6 +746,13 @@ impl App {
             return self.constructed_member(t, &name, word);
         }
         let mut members = self.members_of(kind, t, word);
+        if instance
+            && members
+                .iter()
+                .any(|m| !ts_modifiers(&m.text).contains(&"static"))
+        {
+            members.retain(|m| !ts_modifiers(&m.text).contains(&"static"));
+        }
         let field = self.field_of(kind, t, word, false);
         if members.is_empty() {
             return field
@@ -925,7 +977,7 @@ impl App {
     }
 }
 
-fn ts_modifiers(line: &str) -> Vec<&str> {
+pub(super) fn ts_modifiers(line: &str) -> Vec<&str> {
     let words: Vec<&str> = line.split_whitespace().collect();
     words
         .windows(2)

@@ -4,7 +4,7 @@ class Board {
     int advance(Chessman piece) {
         switch (piece) {
             case ROOK:
-              // ^ d: none; want src/main/java/aviary/Chessman.java:4 (#1448)
+              // ^ d: src/main/java/aviary/Chessman.java:4
                 return 1;
             default:
                 return 0;

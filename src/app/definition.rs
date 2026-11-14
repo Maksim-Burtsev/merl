@@ -1,5 +1,6 @@
 mod by_name;
 mod early;
+mod extensions;
 mod imports;
 mod js_std;
 mod locals;
@@ -87,6 +88,7 @@ impl App {
         };
         if self.answered_by_go_ts_swift(&a, &near, &p, walk.declares_here)
             || self.answered_by_cs(&a, &near, &p, &mut walk)
+            || self.answered_by_literal_this(&a)
             || self.answered_by_typed(&a, &near, &p, &mut walk)
             || self.answered_by_rust_crate(&a, &near)
         {
@@ -410,6 +412,8 @@ impl App {
     ) {
         let anonymous = self.anonymous_named.take();
         self.keep_shown(kind, word, &mut found);
+        self.imported_extensions(kind, word, here, &mut found);
+        self.statics_through_type(kind, word, here, &mut found);
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {

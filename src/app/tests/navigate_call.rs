@@ -180,16 +180,13 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
-            "A call of a call, and a receiver typed `any`",
+            "A call of a call is followed through each declared return type (#1469)",
             "typescript",
             "calls.ts",
             "openDepot().peopleRepo().deleteUser",
-            picker(
-                "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+            jump(
+                "deleteUser \u{2192} UserRepository.deleteUser (via openDepot(): Depot \u{2192} peopleRepo(): UserRepository)",
+                "repos.ts:10",
             ),
         ),
         (
@@ -649,5 +646,30 @@ fn a_php_member_no_project_parent_declares_reads_each_class_of_the_chain_once() 
     assert!(
         walks <= 16,
         "a chain of 8 project classes is walked once, not again at every level: {walks} walks"
+    );
+}
+
+#[test]
+fn a_kotlin_top_level_pair_of_a_project_pair_class_is_not_kotlin_s_pair() {
+    let (dir, mut a) = project_app(
+        "kt-own-pair",
+        &[
+            (
+                "a/Model.kt",
+                "package a\n\nclass Ampoule {\n    val stopcock: Int = 1\n}\n\nclass Burette {\n    val stopcock: Int = 2\n}\n",
+            ),
+            (
+                "a/own/Own.kt",
+                "package a.own\n\nimport a.Ampoule\nimport a.Burette\n\ndata class Pair<A, B>(val left: Ampoule, val right: Ampoule)\n\nfun ownPair(): Pair<Burette, Burette> = Pair(Ampoule(), Ampoule())\n\nfun unpack() {\n    val (l, r) = ownPair()\n    r.stopcock\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "a/own/Own.kt", "r.stopcock");
+    let landed = at(&a);
+    drop(std::fs::remove_dir_all(&dir));
+    assert!(
+        a.picker.is_some() && landed.0 == dir.join("a/own/Own.kt"),
+        "`ownPair()` returns the project's own `Pair`, not Kotlin's, so its `Burette` arguments are not its components: {}",
+        a.message
     );
 }

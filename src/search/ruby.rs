@@ -128,6 +128,31 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
         .join("::")
 }
 
+pub fn ruby_member_class(text: &str, line1: usize, word: &str) -> String {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*class\s+((?:::)?[A-Z][\w:]*)(?:\s*<\s*[\w:]+)?\s*;")
+            .expect("the regex is a literal")
+    });
+    static OPENER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:class|module)\b").expect("the regex is a literal"));
+    let outer = ruby_class_path(text, line1);
+    let line = text
+        .lines()
+        .nth(line1.saturating_sub(1))
+        .unwrap_or_default();
+    let own = Regex::new(&format!(r";\s*def\s+{}(?:[\s;(]|$)", regex::escape(word)));
+    let name = HEAD
+        .captures(line)
+        .filter(|_| OPENER.find_iter(line).count() == 1)
+        .filter(|_| own.is_ok_and(|re| re.is_match(line)))
+        .and_then(|c| c.get(1));
+    match name.map(|m| m.as_str()) {
+        Some(n) if n.starts_with("::") || outer.is_empty() => n.trim_start_matches(':').to_owned(),
+        Some(n) => format!("{outer}::{n}"),
+        None => outer,
+    }
+}
+
 pub fn ruby_opens_inline(before_cursor: &str) -> bool {
     static WORD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(class|module|def|do|begin|case|if|unless|while|until|end)\b")
@@ -236,8 +261,9 @@ fn block_binds(line: &str, name: &str) -> bool {
 }
 
 pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
-    static PARAMS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*\|([^|]*)\|").expect("the regex is a literal"));
+    static PARAMS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\|([^|]*)\||\(([^)]*)\))").expect("the regex is a literal")
+    });
     let b = line.as_bytes();
     let word = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
     let keyword = |i: usize, w: &str| {
@@ -246,20 +272,27 @@ pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
             && b.get(i + w.len()).is_none_or(|c| !word(c))
     };
     let mut open = Vec::new();
+    let mut lambda = None;
     for (i, c) in code(Kind::Ruby, line).take_while(|&(i, _)| i < at) {
         match c {
-            b'{' => open.push(i + 1),
-            b'd' if keyword(i, "do") => open.push(i + 2),
+            b'-' if b.get(i + 1) == Some(&b'>') => lambda = Some(i + 2),
+            b'{' => open.push(lambda.take().map_or((i + 1, false), |o| (o, true))),
+            b'd' if keyword(i, "do") => {
+                open.push(lambda.take().map_or((i + 2, false), |o| (o, true)));
+            }
             b'}' => drop(open.pop()),
             b'e' if keyword(i, "end") => drop(open.pop()),
             _ => {}
         }
     }
-    open.iter().any(|&o| {
-        line.get(o..at)
-            .and_then(|s| PARAMS.captures(s))
-            .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
-    })
+    open.into_iter()
+        .chain(lambda.map(|o| (o, true)))
+        .any(|(o, arrow)| {
+            line.get(o..)
+                .and_then(|s| PARAMS.captures(s))
+                .and_then(|c| c.get(1).or_else(|| c.get(2).filter(|_| arrow)))
+                .is_some_and(|list| param_names(list.as_str()).iter().any(|p| p == name))
+        })
 }
 
 pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
@@ -503,7 +536,7 @@ pub fn ruby_on_class(text: &str, line1: usize) -> bool {
 
 pub fn ruby_self_rebound(text: &str, line1: usize, before: &str) -> bool {
     static OPENS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\b(?:instance|class|module)_(?:eval|exec)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
+        Regex::new(r"(?:\b(?:instance|class|module)_(?:eval|exec)|\b(?:Class|Module|Struct)\.new)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
             .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();

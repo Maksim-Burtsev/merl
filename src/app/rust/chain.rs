@@ -19,6 +19,51 @@ struct Walked {
     rest: usize,
 }
 
+const SAME_ITEM: [&str; 11] = [
+    "by_ref",
+    "filter",
+    "fuse",
+    "inspect",
+    "peekable",
+    "rev",
+    "skip",
+    "skip_while",
+    "step_by",
+    "take",
+    "take_while",
+];
+
+const ITEM_CLOSURES: [&str; 14] = [
+    "all",
+    "any",
+    "filter",
+    "filter_map",
+    "find",
+    "find_map",
+    "flat_map",
+    "for_each",
+    "inspect",
+    "map",
+    "position",
+    "skip_while",
+    "take_while",
+    "try_for_each",
+];
+
+fn std_iterated<'a>(w: &'a Walked, before: &str) -> Option<(&'a str, &'a str)> {
+    let before = before.trim_end();
+    let led = before.is_empty() || before.ends_with(['=', '>', '(', ',', '{', '&', '!', '|', ';']);
+    let kept = w
+        .links
+        .iter()
+        .rposition(|l| !(l.call && SAME_ITEM.contains(&l.name.as_str())))?;
+    let ([head], [iter]) = (&w.head[..], &w.links[..=kept]) else {
+        return None;
+    };
+    let named = ["iter", "iter_mut", "into_iter"].contains(&iter.name.as_str());
+    (named && led && iter.call && !w.head_call).then_some((head.as_str(), &iter.name))
+}
+
 pub(super) fn trailing_name(s: &str) -> &str {
     let start = s
         .char_indices()
@@ -159,6 +204,52 @@ fn tuple_initializer(
     Some((path, init))
 }
 
+fn struct_pattern<'a>(line: &'a str, name: &str) -> Option<(&'a str, String)> {
+    static PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^let\s+((?:\w+::)*[A-Z]\w*)\s*(?:\{([^{}()\[\]&|]*)\}|\(([^{}()\[\]&|]*)\))\s*=[^=]",
+        )
+        .expect("the regex is a literal")
+    });
+    let t = line.trim();
+    let c = PATTERN.captures(t)?;
+    let owner = c.get(1)?.as_str();
+    let enum_variant = owner
+        .rsplit("::")
+        .nth(1)
+        .is_some_and(|s| s.starts_with(|c: char| c.is_ascii_uppercase()));
+    if owner == "Self" || enum_variant || t.contains(" else ") || t.ends_with(" else") {
+        return None;
+    }
+    let bare = |s: &str| {
+        let s = s.trim();
+        let s = s.strip_prefix("ref ").unwrap_or(s).trim_start();
+        plain_name(s).map(str::to_owned)
+    };
+    if let Some(fields) = c.get(2) {
+        let mut found = None;
+        for part in fields.as_str().split(',').map(str::trim) {
+            if part.is_empty() || part == ".." {
+                continue;
+            }
+            let (field, bound) = part.split_once(':').unwrap_or((part, part));
+            let (field, bound) = (bare(field)?, bare(bound)?);
+            if bound == name {
+                found.get_or_insert(field);
+            }
+        }
+        return found.map(|f| (owner, f));
+    }
+    let parts: Vec<&str> = c.get(3)?.as_str().split(',').map(str::trim).collect();
+    if parts.contains(&"..") {
+        return None;
+    }
+    let at = parts
+        .iter()
+        .position(|p| bare(p).as_deref() == Some(name))?;
+    Some((owner, at.to_string()))
+}
+
 fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
     let mut lines = text.lines().skip(at);
     let line = lines.next()?.trim();
@@ -246,6 +337,26 @@ pub(super) fn arm_hides(line: &str, name: &str, col: usize) -> bool {
     wrapped_pattern(t, name)
         .and_then(|(_, rest)| rest.strip_prefix("=>"))
         .is_some_and(|body| col >= line.len() - body.len())
+}
+
+fn let_else_scrutinee(lines: &[&str], at: usize, rest: &str) -> Option<(String, String)> {
+    if let Some((expr, after)) = rest.split_once(" else ") {
+        return Some((expr.to_owned(), after.to_owned()));
+    }
+    if rest.contains([';', '{', '}']) {
+        return None;
+    }
+    let mut expr = rest.trim().to_owned();
+    for next in lines.iter().skip(at + 1).take(5).map(|l| l.trim()) {
+        if let Some(after) = next.strip_prefix("else ") {
+            return Some((expr, after.to_owned()));
+        }
+        if next.contains([';', '{', '}']) || next.starts_with("//") {
+            return None;
+        }
+        expr = format!("{expr} {next}");
+    }
+    None
 }
 
 fn if_let_scrutinee(lines: &[&str], at: usize, rest: &str) -> Option<String> {
@@ -368,14 +479,43 @@ impl App {
         Some(self.rust_got(&decl.path, returns, decl.line1 - 1))
     }
 
-    fn rust_step(&self, got: Got, link: &Link) -> Option<Got> {
+    fn rust_awaited_returns(&self, decl: &Hit, awaited: bool) -> Option<Got> {
+        if awaited && !decl.text.contains("async fn ") {
+            return None;
+        }
+        self.rust_fn_returns(decl)
+    }
+
+    fn rust_links(&self, mut got: Got, links: &[Link]) -> Option<Got> {
+        let awaits = |i: usize| links.get(i).is_some_and(|l| l.name == "await" && !l.call);
+        for (i, link) in links.iter().enumerate() {
+            if awaits(i) {
+                if !i
+                    .checked_sub(1)
+                    .and_then(|p| links.get(p))
+                    .is_some_and(|l| l.call)
+                {
+                    return None;
+                }
+                continue;
+            }
+            got = self.rust_step(got, link, awaits(i + 1))?;
+        }
+        Some(got)
+    }
+
+    fn rust_step(&self, got: Got, link: &Link, awaited: bool) -> Option<Got> {
         let unwraps =
             link.name == "?" || (link.call && matches!(link.name.as_str(), "unwrap" | "expect"));
         match got {
             Got::Ty(ty) if link.call => {
                 let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &link.name)).ok()?;
-                self.rust_fn_returns(&decl)
+                self.rust_awaited_returns(&decl, awaited)
             }
+            Got::Bound(b) if link.call => {
+                self.rust_awaited_returns(&self.rust_bound_method(&b, &link.name)?.0, awaited)
+            }
+            _ if awaited => None,
             Got::Ty(ty) if link.name != "?" => {
                 let (hit, written) = self.rust_field(&ty, &link.name)?;
                 Some(self.rust_got(&ty.path, written, hit.line1 - 1))
@@ -390,9 +530,6 @@ impl App {
                 written,
                 line0,
             } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
-            Got::Bound(b) if link.call => {
-                self.rust_fn_returns(&self.rust_bound_method(&b, &link.name)?.0)
-            }
             _ => None,
         }
     }
@@ -464,9 +601,19 @@ impl App {
             Regex::new(r"[(,]\s*(?:move\s+)?\|([\w\s,]*)\|").expect("the regex is a literal")
         });
         let lines: Vec<&str> = text.lines().collect();
-        let line = lines.get(at)?;
+        let mut i = at;
+        let mut line = (*lines.get(at)?).to_owned();
+        let opened = at.checked_sub(1).map(|p| lines[p].trim_end());
+        if let Some(opened) = opened.filter(|o| o.ends_with('('))
+            && CLOSURE
+                .find(&format!("({}", line.trim_start()))
+                .is_some_and(|m| m.start() == 0)
+        {
+            line = format!("{opened}{}", line.trim_start());
+            i -= 1;
+        }
         let found: Vec<(usize, usize)> = CLOSURE
-            .captures_iter(line)
+            .captures_iter(&line)
             .filter_map(|c| {
                 let params: Vec<&str> = c[1].split(',').map(str::trim).collect();
                 let input = params
@@ -479,7 +626,6 @@ impl App {
             return None;
         };
         let mut expr = line.get(..start)?.trim().to_owned();
-        let mut i = at;
         while expr.starts_with('.') && i > 0 {
             i -= 1;
             expr.insert_str(0, lines[i].trim());
@@ -488,14 +634,19 @@ impl App {
         let arg = search::top_split(expr.get(open + 1..)?).len() - 1;
         let mut w = walk_back(expr.get(..open)?)?;
         let method = w.links.pop().filter(|l| !l.call)?.name;
+        if (arg, input) == (0, 0)
+            && ITEM_CLOSURES.contains(&method.as_str())
+            && let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?)
+        {
+            return self.rust_place_element(file, text, at, head, Some(iter));
+        }
         if w.rest != 0 {
             return None;
         }
-        let mut got = self.rust_head(file, text, at, &w, None)?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        let Got::Ty(ty) = got else { return None };
+        let got = self.rust_head(file, text, at, &w, None)?;
+        let Got::Ty(ty) = self.rust_links(got, &w.links)? else {
+            return None;
+        };
         let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &method)).ok()?;
         let t = self.text_of(&decl.path)?;
         let l: Vec<&str> = t.lines().collect();
@@ -557,16 +708,14 @@ impl App {
         self.rust_walked_got(file, text, at, name, false, &w)
     }
 
-    fn rust_let_got(
-        &self,
-        file: &Path,
-        text: &str,
-        at: usize,
-        name: &str,
-        shadowing: bool,
-    ) -> Option<Got> {
+    fn rust_let_got(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
         let Some(init) = let_initializer(&lines, at, name) else {
+            if let Some((owner, field)) = struct_pattern(lines.get(at)?, name) {
+                let ty = self.rust_resolve(file, owner, at)?;
+                let (hit, written) = self.rust_field(&ty, &field)?;
+                return Some(self.rust_got(&ty.path, written, hit.line1 - 1));
+            }
             let (path, init) = tuple_initializer(&lines, at, name)?;
             return self.rust_tuple_got(file, text, at, name, &path, &init);
         };
@@ -583,7 +732,7 @@ impl App {
         if w.links.is_empty() && !assoc {
             return None;
         }
-        self.rust_walked_got(file, text, at, name, shadowing, &w)
+        self.rust_walked_got(file, text, at, name, true, &w)
     }
 
     fn rust_tuple_got(
@@ -644,11 +793,8 @@ impl App {
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, at, w, Some(name))?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        Some(got)
+        let got = self.rust_head(file, text, at, w, Some(name))?;
+        self.rust_links(got, &w.links)
     }
 
     fn rust_match_got(&self, file: &Path, text: &str, arms: &[Arm], name: &str) -> Option<Got> {
@@ -683,9 +829,7 @@ impl App {
             let Some(mut got) = got else {
                 continue;
             };
-            for link in &w.links {
-                got = self.rust_step(got, link)?;
-            }
+            got = self.rust_links(got, &w.links)?;
             match (&agreed, &got) {
                 (None, _) => agreed = Some(got),
                 (Some(Got::Ty(a)), Got::Ty(b)) if (&a.path, a.line) == (&b.path, b.line) => {}
@@ -730,9 +874,7 @@ impl App {
             None if w.head_call => self.rust_std_fn_returns(text, at, &w.head)?,
             None => return None,
         };
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
+        got = self.rust_links(got, &w.links)?;
         self.rust_std_item(got)
     }
 
@@ -743,14 +885,69 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
+        self.rust_if_let_header_typed(file, text, at, name, text.lines().nth(at)?.trim())
+    }
+
+    pub(super) fn rust_returns_own(&self, ty: &Typed, f: &str) -> Option<bool> {
+        Some(match <[Hit; 1]>::try_from(self.rust_members(ty, f)) {
+            Ok([decl]) => {
+                let t = self.text_of(&decl.path)?;
+                let l: Vec<&str> = t.lines().collect();
+                let n =
+                    search::rust_type_name(&search::rust_return_type(&l, decl.line1 - 1)?)?.name;
+                n == "Self" || n == ty.name
+            }
+            Err(none) => none.is_empty() && f == "default",
+        })
+    }
+
+    pub(super) fn rust_if_let_then(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        name: &str,
+        col: Option<usize>,
+        bindings: &mut Vec<search::Binding>,
+    ) -> Option<Typed> {
+        if bindings.first().is_none_or(|b| b.line1 != line0 + 1) {
+            return None;
+        }
+        match search::rust_if_let_branch(text.lines().nth(line0)?, name, col?)? {
+            search::IfLetScope::Then(header) => {
+                bindings.clear();
+                self.rust_if_let_header_typed(file, text, line0, name, header)
+            }
+            search::IfLetScope::Outside => {
+                bindings.retain(|b| b.line1 != line0 + 1);
+                None
+            }
+            search::IfLetScope::Hidden => {
+                bindings.clear();
+                None
+            }
+        }
+    }
+
+    fn rust_if_let_header_typed(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        line: &str,
+    ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
-        let line = lines.get(at)?.trim();
-        let header = ["} else if let ", "if let ", "while let "]
+        let header = ["} else if let ", "if let ", "while let ", "let "]
             .iter()
             .find_map(|p| line.strip_prefix(p));
         let (wrapper, rest) = wrapped_pattern(header.unwrap_or(line), name)?;
         let expr = match (header, rest.strip_prefix("=>")) {
             (None, Some(_)) => match_scrutinee(&lines, at)?,
+            (Some(_), None) if line.starts_with("let ") => {
+                let (expr, after) = let_else_scrutinee(&lines, at, rest.strip_prefix('=')?)?;
+                (after.trim() == "{" || after.trim_end().ends_with(['}', ';'])).then_some(expr)?
+            }
             (Some(_), None) => if_let_scrutinee(&lines, at, rest.strip_prefix('=')?)?,
             _ => return None,
         };
@@ -779,16 +976,34 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
+        let (expr, place) = for_iterated(text, at, name)?;
+        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            if expr != place {
+                return None;
+            }
+            let w = walk_back(expr)?;
+            if let Some((head, iter)) = std_iterated(&w, expr.get(..w.rest)?)
+                && let Some(t) = self.rust_place_element(file, text, at, head, Some(iter))
+            {
+                return Some(t);
+            }
+            return self.rust_for_project_item(file, text, at, expr);
+        }
+        self.rust_place_element(file, text, at, place, None)
+    }
+
+    fn rust_place_element(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        place: &str,
+        iter: Option<&str>,
+    ) -> Option<Typed> {
         static MAP_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
                 .expect("the regex is a literal")
         });
-        let (expr, place) = for_iterated(text, at, name)?;
-        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return (expr == place)
-                .then(|| self.rust_for_project_item(file, text, at, expr))
-                .flatten();
-        }
         let bindings = search::bindings(Kind::Rust, text, at + 1, place);
         let [b] = bindings.as_slice() else {
             return None;
@@ -799,8 +1014,18 @@ impl App {
             return None;
         };
         let (container, element) = rust_element(&w)?;
-        if container.is_some_and(|c| !self.rust_std_named(text, &c)) {
+        if container
+            .as_deref()
+            .is_some_and(|c| !self.rust_std_named(text, c))
+        {
             return None;
+        }
+        if let Some(iter) = iter {
+            let slice = if w.contains(';') { "[T; N]" } else { "[T]" };
+            let std = container.as_deref().unwrap_or(slice);
+            if !self.rust_std_method_kept(iter, std) {
+                return None;
+            }
         }
         if element != "_" {
             return self.rust_resolve(file, &element, let_at);
@@ -824,6 +1049,22 @@ impl App {
         self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
     }
 
+    fn rust_std_method_kept(&self, method: &str, std: &str) -> bool {
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let pattern = format!(r"\bfn\s+{}\b", regex::escape(method));
+        let Ok(hits) = self.grep(&pattern, false, false, rs) else {
+            return false;
+        };
+        let mut seen = std::collections::HashMap::new();
+        hits.iter().all(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                let lines: Vec<&str> = t.lines().collect();
+                search::rust_method_at(&lines, h.line1)
+                    .is_some_and(|m| self.rust_std_hides(&m.owner, std, &mut seen))
+            })
+        })
+    }
+
     fn rust_for_project_item(
         &self,
         file: &Path,
@@ -831,19 +1072,6 @@ impl App {
         at: usize,
         expr: &str,
     ) -> Option<Typed> {
-        const SAME_ITEM: [&str; 11] = [
-            "by_ref",
-            "filter",
-            "fuse",
-            "inspect",
-            "peekable",
-            "rev",
-            "skip",
-            "skip_while",
-            "step_by",
-            "take",
-            "take_while",
-        ];
         let mut w = walk_back(expr)?;
         if w.rest != 0 {
             return None;
@@ -858,11 +1086,8 @@ impl App {
         if !w.head_call && w.links.is_empty() && adapters.is_empty() {
             return None;
         }
-        let mut got = self.rust_head(file, text, at, &w, None)?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        let Got::Ty(ty) = got else {
+        let got = self.rust_head(file, text, at, &w, None)?;
+        let Got::Ty(ty) = self.rust_links(got, &w.links)? else {
             return None;
         };
         if adapters
@@ -893,10 +1118,80 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
-        match self.rust_let_got(file, text, at, name, false)? {
+        let lines: Vec<&str> = text.lines().collect();
+        let unit = |s: &str| {
+            s.starts_with(|c: char| c.is_ascii_uppercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        };
+        let module = |s: &str| {
+            s.starts_with(|c: char| c.is_ascii_lowercase())
+                && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        };
+        if let Some(init) = let_initializer(&lines, at, name) {
+            if unit(&init) {
+                return self.rust_unit_struct(file, at, &init);
+            }
+            if let Some((head, last)) = init.rsplit_once("::")
+                && unit(last)
+                && head.split("::").all(module)
+                && let Some(ty) = self.rust_unit_struct(file, at, last)
+                && self.rust_unit_path(file, text, at, head, &ty)
+            {
+                return Some(ty);
+            }
+        }
+        match self.rust_let_got(file, text, at, name)? {
             Got::Ty(ty) => Some(ty),
             Got::Written { .. } | Got::Bound(_) => None,
         }
+    }
+
+    fn rust_unit_struct(&self, file: &Path, at: usize, init: &str) -> Option<Typed> {
+        let ty = self.rust_resolve(file, init, at)?;
+        let decl = self.text_of(&ty.path)?;
+        let decl = decl.lines().nth(ty.line - 1)?.trim();
+        let decl = decl.strip_prefix("pub").map_or(decl, |d| {
+            d.trim_start()
+                .strip_prefix('(')
+                .and_then(|d| d.split_once(')'))
+                .map_or(d, |(_, d)| d)
+        });
+        (decl.trim_start() == format!("struct {init};")).then_some(ty)
+    }
+
+    fn rust_unit_path(&self, file: &Path, text: &str, at: usize, head: &str, ty: &Typed) -> bool {
+        let module_of = |p: &Path| search::rust_module_of(&self.files, p, |f| self.text_of(f));
+        let (Some(here), Some(there), Some(decl)) =
+            (module_of(file), module_of(&ty.path), self.text_of(&ty.path))
+        else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let decl: Vec<&str> = decl.lines().collect();
+        if here.crate_src != there.crate_src
+            || search::rust_inline_mod(&lines, at).is_some()
+            || search::rust_inline_mod(&decl, ty.line - 1).is_some()
+        {
+            return false;
+        }
+        let mut parts = head.split("::");
+        let mut want = match parts.next() {
+            Some("crate") => Vec::new(),
+            Some("self") => here.path,
+            Some("super") if !here.path.is_empty() => {
+                let mut up = here.path;
+                up.pop();
+                up
+            }
+            Some(m) if super::declares_mod(text, m) => {
+                let mut down = here.path;
+                down.push(m.to_owned());
+                down
+            }
+            _ => return false,
+        };
+        want.extend(parts.map(str::to_owned));
+        want == there.path
     }
 
     pub(super) fn rust_let_written(
@@ -906,7 +1201,7 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<String> {
-        match self.rust_let_got(file, text, at, name, true)? {
+        match self.rust_let_got(file, text, at, name)? {
             Got::Written { written, .. } => rust_bare_type(&written),
             Got::Ty(_) | Got::Bound(_) => None,
         }
@@ -926,11 +1221,8 @@ impl App {
         }
         let line = self.line;
         let walked = |a: &Self| {
-            let mut got = a.rust_head(here, text, line, &w, None)?;
-            for link in &w.links {
-                got = a.rust_step(got, link)?;
-            }
-            Some(got)
+            let got = a.rust_head(here, text, line, &w, None)?;
+            a.rust_links(got, &w.links)
         };
         let mut got = walked(self);
         if got.is_none() {
@@ -942,7 +1234,7 @@ impl App {
             .links
             .iter()
             .rev()
-            .find(|l| l.name != "?")
+            .find(|l| l.name != "?" && (l.call || l.name != "await"))
             .map_or(&w.head[w.head.len() - 1], |l| &l.name);
         let ty = match got {
             Got::Ty(ty) => ty,

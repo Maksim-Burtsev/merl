@@ -1,5 +1,5 @@
-use super::Up;
-use crate::app::{App, Hit, Kind, Typed, search};
+use super::{CsType, Proven, Up, owner_of};
+use crate::app::{App, Hit, Kind, Path, Typed, search};
 
 impl App {
     pub(super) fn cs_up_call(&self, ty: &Typed, word: &str) -> Up {
@@ -74,5 +74,110 @@ impl App {
         search::literal_overloads(hits, &args, |h| {
             search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)
         })
+    }
+
+    pub(super) fn cs_static_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        called: bool,
+    ) -> Option<Proven> {
+        if !called
+            || !name.starts_with(|c: char| c.is_ascii_uppercase())
+            || !search::bindings(Kind::CSharp, text, line1, name).is_empty()
+            || owner_of(file, text, line1)
+                .is_some_and(|o| !matches!(self.cs_up(&o, name, 0), Up::Missing { .. }))
+        {
+            return None;
+        }
+        let ty @ CsType::Project(_) = self.cs_resolve(file, text, line1, name)? else {
+            return None;
+        };
+        Some(Proven {
+            ty,
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (file.to_path_buf(), line1),
+        })
+    }
+
+    pub(super) fn cs_nested_type(&self, ty: &Typed, name: &str) -> Option<Proven> {
+        let Up::Found(hits) = self.cs_up(ty, name, 0) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        search::cs_type_decl(&hit.text).filter(|d| d.name == name)?;
+        Some(Proven {
+            ty: CsType::Project(Typed {
+                name: name.to_owned(),
+                path: hit.path.clone(),
+                line: hit.line1,
+            }),
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (hit.path.clone(), hit.line1),
+        })
+    }
+
+    pub(super) fn cs_outside_alias(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        ty: &CsType,
+    ) -> bool {
+        matches!(ty, CsType::Outside(_))
+            && self
+                .cs_alias_target(here, text, self.line + 1, name)
+                .is_some()
+    }
+
+    pub(super) fn cs_alias_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<Proven> {
+        let (_, target) = self.cs_alias_target(file, text, line1, name)?;
+        if !search::bindings(Kind::CSharp, text, line1, name).is_empty()
+            || owner_of(file, text, line1)
+                .is_some_and(|o| !matches!(self.cs_up(&o, name, 0), Up::Missing { .. }))
+        {
+            return None;
+        }
+        let ty = self.cs_new_type(file, text, line1, &target)?;
+        Some(Proven {
+            ty,
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (file.to_path_buf(), line1),
+        })
+    }
+
+    pub(super) fn cs_static_field_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        fields: &[String],
+    ) -> Option<Proven> {
+        let field = fields.first()?;
+        let p = self.cs_static_head(file, text, line1, name, true)?;
+        let CsType::Project(t) = &p.ty else {
+            return None;
+        };
+        let Up::Found(hits) = self.cs_up(t, field, 0) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        search::cs_static_member(&hit.text, field).then_some(p)
     }
 }

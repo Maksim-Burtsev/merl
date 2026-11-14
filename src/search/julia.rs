@@ -194,7 +194,7 @@ fn defines(from_paren: &str) -> bool {
     })
 }
 
-fn closing(s: &str) -> Option<usize> {
+pub(super) fn closing(s: &str) -> Option<usize> {
     let mut depth = 0usize;
     for (i, c) in s.char_indices() {
         match c {

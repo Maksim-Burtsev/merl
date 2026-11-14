@@ -1415,6 +1415,16 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     assert_eq!(swift_closure_sequence("    a.b().map { $0."), None);
     assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $0."), None);
     assert_eq!(
+        swift_closure_sequence("    leaves.sorted { $0.a < $1."),
+        Some("leaves".into())
+    );
+    assert_eq!(
+        swift_closure_sequence("    leaves.max(by: { $1."),
+        Some("leaves".into())
+    );
+    assert_eq!(swift_closure_sequence("    leaves.map { $1."), None);
+    assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $1."), None);
+    assert_eq!(
         swift_call_links("Whisk().sift(1).finish()."),
         Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
     );
@@ -1427,7 +1437,10 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     assert_eq!(swift_call_links("    .sift(1).finish()."), None);
     assert_eq!(swift_call_links("a[0].sift(1).finish()."), None);
     assert_eq!(swift_call_links("w?.sift(1).finish()."), None);
-    assert_eq!(swift_call_links("Shop.sift(1).finish()."), None);
+    assert_eq!(
+        swift_call_links("Shop.sift(1).finish()."),
+        Some(vec!["Shop.sift".into(), "finish".into()])
+    );
     let lines = [
         "#if os(macOS)",
         "typealias K = A",
@@ -2079,6 +2092,12 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
         ("Func<A, B, int> f = cup => cup.Pour();", None),
         ("Func<Pot, int> f = cup => cup.All(cup => cup.Ok);", None),
         ("Func<Pot, int> f = x => cup.Pour();", None),
+        (
+            "void J() { Action<Pot> f = cup => cup.Pour(); }",
+            Some("Pot"),
+        ),
+        ("Run(); Action<Pot> f = cup => cup.Pour();", Some("Pot")),
+        ("Run(Action<Pot> f = cup => cup.Pour());", None),
     ] {
         assert_eq!(cs_lambda_delegate(line, "cup").as_deref(), want, "{line}");
     }
