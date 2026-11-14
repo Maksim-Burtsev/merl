@@ -11,13 +11,27 @@ impl App {
         hops: usize,
     ) -> Option<TypeVia> {
         let value = search::ts_array_literal_element(text.lines().nth(line1 - 1)?, n)?;
-        self.binding_type(
+        let one = self.binding_type(
             kind,
             file,
             text,
             &search::Binding { line1, value },
             hops - 1,
-        )
+        )?;
+        let at = (file.to_path_buf(), line1);
+        if self.reading.borrow().contains(&at) {
+            return Some(one);
+        }
+        let outer = self.reading.replace(vec![at]);
+        let kept = search::ts_array_pushes(text, line1, n).is_some_and(|pushed| {
+            pushed.into_iter().all(|(line1, value)| {
+                let b = search::Binding { line1, value };
+                self.binding_type(kind, file, text, &b, hops - 1)
+                    .is_some_and(|t| (&t.ty.path, t.ty.line) == (&one.ty.path, one.ty.line))
+            })
+        });
+        self.reading.replace(outer);
+        kept.then_some(one)
     }
 
     pub(in crate::app) fn named_element(

@@ -133,18 +133,43 @@ pub fn groovy_script_local(path: &Path, text: &str, line1: usize) -> bool {
         ))
         .expect("the regex is a literal")
     });
-    let line = text.lines().nth(line1.wrapping_sub(1)).unwrap_or_default();
+    static FIELD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^@(?:groovy\.transform\.)?Field\s*$").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let line = lines
+        .get(line1.wrapping_sub(1))
+        .copied()
+        .unwrap_or_default();
+    let field = lines[..line1.saturating_sub(1).min(lines.len())]
+        .iter()
+        .rev()
+        .map(|l| uncommented(Kind::Jvm, l))
+        .take_while(|l| l.starts_with('@'))
+        .any(|l| FIELD.is_match(l.trim_end()));
     groovy(path)
         && path.extension().is_none_or(|e| e != "gradle")
+        && !field
         && LOCAL.is_match(&uncommented(Kind::Jvm, line))
         && jvm_enclosing_types(text, line1).is_empty()
 }
 
 pub fn groovy_script_sees(path: &Path, text: &str, decl_line1: usize, at_line1: usize) -> bool {
     static METHOD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:[\w$<>\[\],.?]+\s+)+[A-Za-z_$][\w$]*\s*\(")
-            .expect("the regex is a literal")
+        Regex::new(concat!(
+            r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:public|protected|private|static|final",
+            r"|abstract|synchronized|def|void|int|long|short|byte|char|boolean|float|double",
+            r"|(?:[a-z_]\w*\.)*[A-Z][\w$]*(?:<[^()]*>)?(?:\[\])*)\s+)+",
+            r"[A-Za-z_$][\w$]*\s*\(([^{]*)"
+        ))
+        .expect("the regex is a literal")
     });
+    let header = |code: &str| {
+        METHOD.captures(code).is_some_and(|c| {
+            let rest = c.get(1).map_or("", |m| m.as_str());
+            code.contains('{') || rest.matches('(').count() >= rest.matches(')').count()
+        })
+    };
     let lines: Vec<&str> = text.lines().collect();
     let literal = super::path_literal_lines(Kind::Jvm, path, text);
     let opener = (0..at_line1.min(lines.len())).rev().find(|&j| {
@@ -156,7 +181,7 @@ pub fn groovy_script_sees(path: &Path, text: &str, decl_line1: usize, at_line1: 
     });
     opener.is_some_and(|j| {
         decl_line1 <= j
-            && !METHOD.is_match(&uncommented(Kind::Jvm, lines[j]))
+            && !header(&uncommented(Kind::Jvm, lines[j]))
             && jvm_enclosing_types(text, at_line1).is_empty()
     })
 }

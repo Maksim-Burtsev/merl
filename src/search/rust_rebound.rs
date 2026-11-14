@@ -2,7 +2,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust::{binds, rust_rebinds, top_split, top_stop, type_at, without_type};
+use super::rust::{
+    binds, rust_line_binds, rust_rebinds, top_split, top_stop, type_at, without_type,
+};
 use super::{Kind, code};
 
 pub fn rust_closure_holds<'a>(line: &'a str, name: &str, at: usize) -> Option<&'a str> {
@@ -155,13 +157,7 @@ pub enum IfLetScope<'a> {
     Hidden,
 }
 fn may_rebind(s: &str, name: &str) -> bool {
-    let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
-    s.match_indices(name).any(|(i, _)| {
-        let after = s.get(i + name.len()..).unwrap_or_default();
-        !word(s.get(..i).and_then(|b| b.chars().next_back()))
-            && !word(after.chars().next())
-            && !after.trim_start().starts_with('.')
-    })
+    rust_line_binds(s, name) || rust_rebound_before(s, name, s.len())
 }
 pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<IfLetScope<'a>> {
     let code: Vec<(usize, u8)> = code(Kind::Rust, line).collect();

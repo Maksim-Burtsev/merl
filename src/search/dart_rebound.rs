@@ -175,7 +175,7 @@ pub fn dart_promoted(
     line1: usize,
     col: usize,
     name: &str,
-) -> Option<Result<DartType, ()>> {
+) -> Option<(Result<DartType, ()>, usize, usize)> {
     static CONTROL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$])(?:if|while)\s*$").expect("the regex is a literal")
     });
@@ -187,7 +187,8 @@ pub fn dart_promoted(
     let own = String::from_utf8_lossy(&b).into_owned();
     let here = own.get(..col.min(own.len())).unwrap_or_default();
     let binder = dart_binder_at(lines[at], col, name);
-    let same_line = is.find_iter(here).find_map(|m| {
+    let checks: Vec<_> = is.find_iter(here).collect();
+    let same_line = checks.into_iter().rev().find_map(|m| {
         let mut depth = 0i32;
         let start = m.start() + m.as_str().find(name).unwrap_or(0);
         let open = (0..start).rev().find(|&k| {
@@ -207,7 +208,8 @@ pub fn dart_promoted(
             }
             None => (start, Err(())),
         };
-        (binder.is_none_or(|s| s < from) && dart_reaches(&b, from, col, false)).then_some(ty)
+        (binder.is_none_or(|s| s < from) && dart_reaches(&b, from, col, false))
+            .then_some((ty, line1, from))
     });
     if same_line.is_some() || binder.is_some() {
         return same_line;
@@ -250,7 +252,8 @@ pub fn dart_promoted(
                 && let Some(ty) = dart_narrows(c, &w, true)
                 && exits(rest)
             {
-                return Some(ty.ok().filter(|_| t.starts_with("if")).ok_or(()));
+                let ty = ty.ok().filter(|_| t.starts_with("if")).ok_or(());
+                return Some((ty, i + 1, ind));
             }
             continue;
         }
@@ -260,7 +263,8 @@ pub fn dart_promoted(
         if let Some((c, rest)) = dart_condition(t)
             && let Some(ty) = dart_narrows(c, &w, false)
         {
-            return Some(ty.ok().filter(|_| rest.is_empty() || rest == "{").ok_or(()));
+            let ty = ty.ok().filter(|_| rest.is_empty() || rest == "{").ok_or(());
+            return Some((ty, i + 1, ind));
         }
         depth = ind;
         if depth == 0 || TYPE_BODY.is_match(lines[i]) {

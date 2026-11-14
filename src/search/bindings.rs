@@ -259,9 +259,9 @@ pub fn bindings_at(
     }
 }
 fn ts_popped_then_written(lines: &[&str], at: usize, name: &str, out: &mut [Binding]) {
+    let n = regex::escape(name);
     let write = Regex::new(&format!(
-        r"(?:^|[^\w$.]){}\s*(?:[-+*/%&|^]|\?\?|\|\||&&)?=[^=>]",
-        regex::escape(name)
+        r"(?:^|[^\w$.]){n}\s*(?:[-+*/%&|^]|\?\?|\|\||&&)?=[^=>]|^[\s(;]*[\[{{](?:[^=]*[^\w$.=])?{n}(?:[^\w$][^=]*)?[\]}}]\s*=[^=>]"
     ))
     .expect("an escaped name keeps the pattern valid");
     for b in out.iter_mut() {

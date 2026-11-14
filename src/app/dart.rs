@@ -601,7 +601,7 @@ impl App {
                 scope = s;
                 ty
             }
-            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?.ok()?, &mut scope)?,
+            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?, &mut scope)?,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -649,7 +649,11 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
-    fn dart_checked(&self, text: &str, chain: &[String]) -> Option<Result<search::DartType, ()>> {
+    fn dart_checked(
+        &self,
+        text: &str,
+        chain: &[String],
+    ) -> Option<(Result<search::DartType, ()>, usize, usize)> {
         let [r] = chain else {
             return None;
         };
@@ -661,9 +665,11 @@ impl App {
         here: &Path,
         text: &str,
         name: &str,
-        checked: search::DartType,
+        promoted: (Result<search::DartType, ()>, usize, usize),
         scope: &mut PathBuf,
     ) -> Option<search::DartType> {
+        let (checked, line1, col) = promoted;
+        let (checked, mut at) = (checked.ok()?, (line1, col));
         let (declared, s) = self.dart_bound(here, text, name, 0)?;
         let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
         if bindings
@@ -672,11 +678,17 @@ impl App {
         {
             return None;
         }
-        if declared.class != "Object" && declared.class != checked.class {
+        let mut outer = vec![declared.class];
+        while let Some((ty, line1, col)) = search::dart_promoted(text, at.0, at.1, name) {
+            outer.push(ty.ok()?.class);
+            at = (line1, col);
+        }
+        outer.retain(|c| c != "Object" && *c != checked.class);
+        if !outer.is_empty() {
             let file = self.dart_class_file(&s, &checked)?;
             let mut names = Vec::new();
             self.dart_ancestors(&file, &checked.class, 0, &mut names);
-            if !names.contains(&declared.class) {
+            if outer.iter().any(|c| !names.contains(c)) {
                 return None;
             }
         }
