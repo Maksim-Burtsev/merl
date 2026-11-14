@@ -125,12 +125,32 @@ impl App {
         Some(self.jvm_fit_candidates(&here, word, range, chain, found))
     }
 
+    pub(super) fn jvm_binds(&self, import: &search::JvmImport, name: &str) -> bool {
+        import.bound_name == name
+            && (!import.selected
+                || self.jvm_packages().is_some_and(|packages| {
+                    (1..import.path.len())
+                        .any(|n| packages.contains_key(&import.path[..n].join(".")))
+                }))
+    }
+
     pub(super) fn jvm_value_named(&self, here: &Path, text: &str, name: &str) -> bool {
         let line1 = self.line + 1;
+        let value = |l: usize| {
+            search::scala(here)
+                || text
+                    .lines()
+                    .nth(l - 1)
+                    .is_some_and(|l| !search::java_declares_method(l, name))
+        };
         !search::path_bindings(Kind::Jvm, here, text, line1, name).is_empty()
             || search::jvm_enclosing_types(text, line1)
                 .into_iter()
-                .any(|d| !search::jvm_members_of(here, text, d, name).is_empty())
+                .any(|d| {
+                    search::jvm_members_of(here, text, d, name)
+                        .into_iter()
+                        .any(value)
+                })
     }
 
     pub(super) fn jvm_package_sees(
@@ -272,7 +292,7 @@ impl App {
         let first = chain.first().map_or(word, String::as_str);
         let bound = imports
             .iter()
-            .find(|i| i.bound_name == first)
+            .find(|i| self.jvm_binds(i, first))
             .map(|i| &i.path);
         let capital = word.starts_with(|c: char| c.is_ascii_uppercase());
         let wildcards: Vec<&Vec<String>> = imports

@@ -318,11 +318,13 @@ impl App {
             .flatten();
         if name == "0" || name == "1" {
             let lead = lead?;
-            let Some(each) = search::swift_closure_sequence(lead) else {
-                let call = search::swift_trailing_closure(lead, "0").filter(|_| name == "0")?;
-                return self.swift_closure_value(here, file, text, line1, call, hops);
-            };
-            return self.swift_sequence_value(here, file, text, line1, each, hops);
+            if let Some(each) = search::swift_closure_sequence(lead)
+                && let Some(found) = self.swift_sequence_value(here, file, text, line1, each, hops)
+            {
+                return Some(found);
+            }
+            let call = search::swift_trailing_closure(lead, "0").filter(|_| name == "0")?;
+            return self.swift_closure_value(here, file, text, line1, call, hops);
         }
         if lead.is_some_and(|l| search::swift_projected(l, name)) {
             return None;

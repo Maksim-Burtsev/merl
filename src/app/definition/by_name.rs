@@ -679,6 +679,7 @@ impl App {
         if a.kind == Kind::Jvm {
             self.kotlin_unseen_dropped(a, found);
             if a.dotted
+                && (search::kotlin(&a.here) || search::scala(&a.here))
                 && a.chain
                     .first()
                     .is_some_and(|head| self.jvm_value_named(&a.here, &a.text, head))
