@@ -135,6 +135,11 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   comment under a generic method, `a < LOW || a > HIGH`, a `when` branch `a < size ->`, an
   anonymous `given Ordering[Krater] with`, a Rust `fn` nested in a generic `fn`, and Go's
   `type Buf [N + 1]byte` in `go/cart/bufs.go`.
+- standard values beside a namesake (#1536): `basket/` holds one small project per language
+  (Swift, TypeScript, Kotlin, C#, PHP, Dart; C++ is #1559), each a `Basket` with one method named like a
+  standard one and a `totals` file calling that method on a local bound to a literal (`"a,b"`,
+  `[]`, `<int>[]`, `[Int]()`) or to a standard constructor (`ArrayList<Int>()`,
+  `mutableListOf<Int>()`, `new \ArrayObject()`), which is no jump to the `Basket`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

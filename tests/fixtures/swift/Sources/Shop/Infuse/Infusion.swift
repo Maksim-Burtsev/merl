@@ -5,11 +5,11 @@ func stdValues(_ sencha: Sencha) -> String {
     //              ^ d: none
     var cup = [Int]()
     cup.append(1)
-    //  ^ d: Sources/Shop/Infuse/Sencha.swift:11; want none (#1068)
+    //  ^ d: none
     sencha.append("a")
     //     ^ d: Sources/Shop/Infuse/Sencha.swift:11
     return name.uppercased() + sencha.uppercased()
-    //          ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    //          ^ d: none
     //                                ^ d: Sources/Shop/Infuse/Sencha.swift:10
 }
 
