@@ -102,4 +102,13 @@ class Sawhorse {
               //^ d: src/main/groovy/rebound/Sawhorse.groovy:5
             })
     }
+
+    def typedInClosure() {
+        Auger c = new Auger()
+        [1].each { c.bore() }
+        //           ^ d: src/main/groovy/rebound/Auger.groovy:4
+    }
+
+    def fieldTyped() { c.bore() }
+    //                   ^ d: src/main/groovy/rebound/Gimlet.groovy:4
 }

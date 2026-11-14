@@ -123,3 +123,40 @@ pub(super) fn script_binding(
         .any(|k| declared.is_match(&script(k)));
     (!declared_too && jvm_enclosing_types(text, at + 1).is_empty()).then_some(first)
 }
+
+pub fn groovy_script_local(path: &Path, text: &str, line1: usize) -> bool {
+    static LOCAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(concat!(
+            r"^(?:final\s+)?(?:def|var|",
+            super::jvm_return_type!(),
+            r")\s+[A-Za-z_$][\w$]*\s*(?:[=;]|$)"
+        ))
+        .expect("the regex is a literal")
+    });
+    let line = text.lines().nth(line1.wrapping_sub(1)).unwrap_or_default();
+    groovy(path)
+        && path.extension().is_none_or(|e| e != "gradle")
+        && LOCAL.is_match(&uncommented(Kind::Jvm, line))
+        && jvm_enclosing_types(text, line1).is_empty()
+}
+
+pub fn groovy_script_sees(path: &Path, text: &str, decl_line1: usize, at_line1: usize) -> bool {
+    static METHOD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[\w$<>\[\],.?]+\s+)+[A-Za-z_$][\w$]*\s*\(")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = super::path_literal_lines(Kind::Jvm, path, text);
+    let opener = (0..at_line1.min(lines.len())).rev().find(|&j| {
+        let code = uncommented(Kind::Jvm, lines[j]);
+        !literal.get(j).copied().unwrap_or(true)
+            && indent(lines[j]) == 0
+            && !code.trim().is_empty()
+            && !code.starts_with(['}', ')', ']'])
+    });
+    opener.is_some_and(|j| {
+        decl_line1 <= j
+            && !METHOD.is_match(&uncommented(Kind::Jvm, lines[j]))
+            && jvm_enclosing_types(text, at_line1).is_empty()
+    })
+}
