@@ -238,6 +238,12 @@ fn ruby_command_label(
     line0: usize,
     start: usize,
 ) -> Option<Label> {
+    static PIPES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\bdo|\{)\s*\|[^|]*$").expect("the regex is a literal")
+    });
+    if PIPES.is_match(lines[line0].get(..start)?) {
+        return None;
+    }
     let continues = |i: usize| {
         !literal.get(i).copied().unwrap_or(true)
             && uncommented(kind, lines[i]).trim_end().ends_with(',')

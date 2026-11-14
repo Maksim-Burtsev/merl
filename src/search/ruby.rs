@@ -261,8 +261,9 @@ fn block_binds(line: &str, name: &str) -> bool {
 }
 
 pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
-    static PARAMS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*\|([^|]*)\|").expect("the regex is a literal"));
+    static PARAMS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\|([^|]*)\||\(([^)]*)\))").expect("the regex is a literal")
+    });
     let b = line.as_bytes();
     let word = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
     let keyword = |i: usize, w: &str| {
@@ -271,19 +272,22 @@ pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
             && b.get(i + w.len()).is_none_or(|c| !word(c))
     };
     let mut open = Vec::new();
+    let mut lambda = None;
     for (i, c) in code(Kind::Ruby, line).take_while(|&(i, _)| i < at) {
         match c {
-            b'{' => open.push(i + 1),
-            b'd' if keyword(i, "do") => open.push(i + 2),
+            b'-' if b.get(i + 1) == Some(&b'>') => lambda = Some(i + 2),
+            b'{' => open.push(lambda.take().unwrap_or(i + 1)),
+            b'd' if keyword(i, "do") => open.push(lambda.take().unwrap_or(i + 2)),
             b'}' => drop(open.pop()),
             b'e' if keyword(i, "end") => drop(open.pop()),
             _ => {}
         }
     }
-    open.iter().any(|&o| {
-        line.get(o..at)
+    open.iter().chain(&lambda).any(|&o| {
+        line.get(o..)
             .and_then(|s| PARAMS.captures(s))
-            .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
+            .and_then(|c| c.get(1).or_else(|| c.get(2)))
+            .is_some_and(|list| param_names(list.as_str()).iter().any(|p| p == name))
     })
 }
 
