@@ -53,5 +53,5 @@ wait Tutor 26/
 │                            │49
 │                            │50     def render(self, note: Note) -> str: ...
 └ 6 files · +138 −23 ────────┘51
-models.py  1:1  [code]  hunk 0/5  file 4/6  ✓ Next change                                                                                                                          14:32
+models.py  1:1  [code]  hunk 0/5  viewed 0/6  ✓ Next change                                                                                                                        14:32
 cursor (x,y,shown) 33,0,0

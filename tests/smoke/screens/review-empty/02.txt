@@ -1,4 +1,4 @@
-wait hunk 1/1  file 1/4
+wait app/service.py  37:1  [code]  hunk 1/1
 ┌typed ← origin/main─────────┐10
 │  ▾ app                     │11 class OrderService:
 │    M service.py       +2 −0│12     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
@@ -53,5 +53,5 @@ wait hunk 1/1  file 1/4
 │                            │
 │                            │
 └ 4 files · +4 −0 ───────────┘
-app/service.py  37:1  [code]  hunk 1/1  file 1/4                                                                                                                                   14:32
+app/service.py  37:1  [code]  hunk 1/1  viewed 0/4                                                                                                                                 14:32
 cursor (x,y,shown) 33,27,0

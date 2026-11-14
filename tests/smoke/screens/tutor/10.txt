@@ -53,5 +53,5 @@ wait Tutor 25/
 │                            │49     elif args.command == "remove":
 │                            │50         if not store.remove(int(args.words[0])):
 └ 6 files · +138 −23 ────────┘51             print("no such note", file=sys.stderr)
-cli.py  1:1  [code]  hunk 1/6  file 3/6  ✓ Close it  ✓ Keep or put back  ✓ Fold a function                                                                                         14:32
+cli.py  1:1  [code]  hunk 1/6  viewed 0/6  ✓ Close it  ✓ Keep or put back  ✓ Fold a function                                                                                       14:32
 cursor (x,y,shown) 33,1,0
