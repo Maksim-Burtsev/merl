@@ -15,4 +15,5 @@ public class Brew
 public static class BrewExtensions
 {
     public static void Stir(this System.Text.StringBuilder b) { }
+    public static void Brine(this System.Text.Encoding e) { }
 }
