@@ -119,8 +119,31 @@ func Wrapped() int {
 		Draft int
 	//^ d: none
 		Flue  Flue
-	//^ d: rival/damper.go:9; want none (#1470)
+	//^ d: none
 	//      ^ d: rival/damper.go:9
+		Soot, Damper Flue
+	//      ^ d: none
+	//            ^ d: rival/damper.go:9
+		Flue
+	//^ d: rival/damper.go:9
+		Grate struct {
+			Flue Flue
+		//^ d: rival/damper.go:9; want none (#1470)
+		//     ^ d: rival/damper.go:9
+		}
 	}{}
 	return len(rows)
+}
+
+type Stack struct {
+	Flue Flue
+	//^ d: rival/damper.go:139
+	//   ^ d: rival/damper.go:9
+}
+
+func Typed() func() struct {
+	Flue Flue
+	//^ d: none
+} {
+	return nil
 }
