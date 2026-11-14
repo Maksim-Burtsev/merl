@@ -38,13 +38,24 @@ pub fn jvm_rebound_before(before: &str, name: &str) -> bool {
 fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
-            r"^\s*(?:(?:final|@[\w.]+)\s+)*(def|",
+            r"^\s*(?:(?:final|@[\w.]+)\s+)*(def|val|var|",
             super::jvm_return_type!(),
             r")\s+[A-Za-z_]\w*\s*(?:=[^=]|,)"
         ))
         .expect("the regex is a literal")
     });
     let head = HEAD.captures(code)?;
+    let mut bare = head.get(0)?.as_str().ends_with(',');
+    let base = head[1].split(['<', '[']).next().unwrap_or_default();
+    if bare
+        && base.contains(|c: char| c.is_ascii_uppercase())
+        && base
+            .rsplit('.')
+            .next()
+            .is_some_and(|t| t.starts_with(|c: char| c.is_ascii_lowercase()))
+    {
+        return None;
+    }
     let mut depth = 0i32;
     for (i, b) in code.bytes().enumerate().skip(head.get(0)?.end() - 1) {
         match b {
@@ -60,6 +71,10 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
                         .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
                         .trim_start();
                     if init.starts_with('=') && !init.starts_with("==") {
+                        bare = false;
+                        continue;
+                    }
+                    if bare && init.starts_with(',') {
                         continue;
                     }
                     return None;
@@ -68,7 +83,8 @@ fn later_declarator(code: &str, name: &str) -> Option<(String, usize)> {
                 let initialized = tail.starts_with('=') && !tail.starts_with("==");
                 if !after.starts_with(|c: char| c.is_alphanumeric() || c == '_')
                     && (initialized
-                        || &head[1] != "def" && (tail.is_empty() || tail.starts_with([',', ';'])))
+                        || (bare || !matches!(&head[1], "def" | "val" | "var"))
+                            && (tail.is_empty() || tail.starts_with([',', ';'])))
                 {
                     return Some((head[1].to_owned(), at));
                 }
@@ -88,7 +104,7 @@ pub(super) fn later_declarator_type(line: &str, name: &str) -> Option<String> {
         .chain(line.match_indices([';', '{', '}']).map(|(i, _)| i + 1))
         .chain(FOR.find_iter(&line).map(|m| m.end()))
         .find_map(|s| later_declarator(line.get(s..)?, name).map(|(t, _)| t))
-        .filter(|t| t != "def")
+        .filter(|t| !matches!(t.as_str(), "def" | "val" | "var"))
 }
 
 pub(super) fn for_init_declarators(line: &str, name: &str) -> Vec<(usize, usize)> {
