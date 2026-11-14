@@ -148,33 +148,34 @@ The ts, js, vue, svelte and astro rows with #1337 (`node.parent` in an ESLint vi
 The go row with #1470 (a `type` declared inside a function or block is local: go0323 `Milestone` in gitea's `v229.go` now jumps to the local type): `d0d59173e`, 2026-11-10, release build, `vm.loadavg` { 6.64 6.77 7.35 } before the run.
 The ts, js, vue, svelte and astro rows with #1337 (a JSDoc `@returns` of an intersection, `Required<A> & B`: a member lands on the one arm that declares it, js0160): over `9abaf737c`, 2026-11-11, release build, `vm.loadavg` { 6.15 7.16 7.53 } before the run, { 6.15 7.16 7.53 } after.
 The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an array a namespaced type declares, `scope.variables.forEach(variable => …)`, also when the arrow spans lines or starts the line after the call's `(`: js0028 and js0166 now direct hits): over `a048d3311`, 2026-11-13, release build, `vm.loadavg` { 7.26 9.56 9.16 } before the run, { 6.92 9.45 9.12 } after (the times read high under that load).
+The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and dart rows with #1536 (a method on a local bound to a literal or a standard constructor is no by-name jump; groovy0014 and seven pickers on rows not scored say no definition): over `8dceef6c2`, 2026-11-15, release build, `vm.loadavg` { 2.38 3.08 3.57 } before the run. The swift and csharp times rose on the base build too: with the gate switched off they read 50.5 and 44.0 ms p50 against 49.7 and 43.2 with it.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 76.2 | 176.6 |
-| js (eslint, uptime-kuma) | 217 | 208 (96%) | 7 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 57.0 | 324.4 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 61.0 | 140.9 |
+| js (eslint, uptime-kuma) | 217 | 208 (96%) | 7 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 52.6 | 267.9 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 24.2 | 59.2 |
-| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
-| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
-| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
+| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 50.1 | 124.3 |
+| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 94.5 | 208.9 |
+| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 35.5 | 95.9 |
+| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 43.5 | 77.0 |
 | ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.4 | 408.7 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
-| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
-| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
+| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 3 | 106.3 | 243.7 |
+| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 79.8 | 176.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 63.3 | 291.0 |
-| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 45.5 | 230.0 |
-| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 56.0 | 158.5 |
+| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 63.4 | 291.2 |
+| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 45.0 | 217.5 |
+| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 53.7 | 148.1 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
 | elisp (magit) | 39 | 29 (74%) | 4 (10%) | 0 (0%) | 6 (15%) | 41 | 0 | 4.0 | 5.0 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
@@ -182,5 +183,5 @@ The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an 
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 57.0 | 148.2 |
+| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 79.3 | 170.2 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
