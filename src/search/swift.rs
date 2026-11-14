@@ -775,6 +775,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
                 || local.is_some()
                 || r.as_ref().is_none_or(|b| !b.is_empty())
                 || !SWIFT_TYPE.is_match(&head)
+                || !swift_inherited(&text).is_empty()
             {
                 return r;
             }

@@ -31,4 +31,10 @@ public class Strainer {
     }
 
     private int g(String a, int b) { return b; }
+
+    public int annotated() {
+        @Deprecated int mesh = 2; int k = mesh;
+        //                                ^ d: src/main/java/tea/Strainer.java:36
+        return k;
+    }
 }

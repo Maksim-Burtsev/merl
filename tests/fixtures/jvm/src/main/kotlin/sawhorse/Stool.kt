@@ -52,6 +52,17 @@ class Bucksaw : Sawhorse<Peg>(Peg()) {
     }
 }
 
+class Crosscut : Sawhorse<Peg>(Peg()) {
+    companion object {
+        fun hoist(): Twig = Twig()
+    }
+
+    fun inside() {
+        hoist().whittle()
+//              ^ d: src/main/kotlin/sawhorse/Peg.kt:4
+    }
+}
+
 class Easel : Stool() {
     fun sawSand() {
         hoist().whittle()

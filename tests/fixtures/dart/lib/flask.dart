@@ -80,7 +80,11 @@ class Shed {
     total += (await pod.pick()).petal();
     //                          ^ d: !jump
     final picked = await pod.pick();
+    total += bloomed(await grower.grow(5)).petal();
+    //                                     ^ d: !jump
     return total + picked.petal();
     //                    ^ d: !jump
   }
+
+  Bloom bloomed(Thorn t) => Bloom();
 }

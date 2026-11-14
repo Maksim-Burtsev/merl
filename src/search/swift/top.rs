@@ -100,7 +100,9 @@ pub fn swift_extended_elsewhere(text: &str, line1: usize, name: &str) -> Option<
         let mut body = (at..lines.len())
             .filter(|&j| swift_code(&lines, &literal, j))
             .take_while(|&j| indent(lines[j]) > indent(lines[at - 1]));
-        if body.any(|j| super::swift_local_decl(lines[j], name)) {
+        if body.any(|j| super::swift_local_decl(lines[j], name))
+            || !super::swift_inherited(&swift_text(&lines, at - 1)).is_empty()
+        {
             return None;
         }
         at = Some(super::swift_scope(&lines, &literal, at).header_line1)
