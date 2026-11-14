@@ -88,6 +88,16 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Python
+            && p.members.is_some()
+            && let [lone] = found.as_slice()
+            && self.builtin_namesake(&a.here, &lone.hit, &a.word)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{}: builtin, no source", a.word);
+            return;
+        }
         if kind == Kind::Julia {
             self.julia_found(a, p, &mut found);
         }
