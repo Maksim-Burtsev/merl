@@ -87,9 +87,8 @@ carries three labels:
 A large piece of work is an `epic`: a parent issue whose sub-issues are the work. The next issue
 to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`, bugs
 found on real projects and the 17 languages of 1.0 (named in the milestone's description)
-before the rest. An
-issue you file gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and
-its epic as the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
+before the rest. An issue you file gets its three labels, the milestone if 1.0 needs it (never a
+`to-think` one), and its epic as the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 
 An issue's body opens with `Visible:`: `no`, or what the user will see change. Visible also
 means a key that starts working in a new language, a new detail in a list row, and a changed
