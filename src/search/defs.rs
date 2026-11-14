@@ -223,7 +223,7 @@ fn go_patterns(word: &str) -> Vec<String> {
 
 fn rust_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
-    let vis = r#"^\s*(?:/\*(?:[^*/]|\*+[^*/]|/+[^*/])*\*+/\s*)*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
+    let vis = r#"^\s*(?:/\*(?:[^*/]|\*+[^*/]|/+[^*/])*\*+/\s*)*(?:(?:pub(?:\([^)]*\))?|async|unsafe|auto|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
     vec![
         format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
         format!(r"^\s*macro_rules!\s+{w}\b"),

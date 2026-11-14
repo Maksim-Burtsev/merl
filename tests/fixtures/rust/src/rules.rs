@@ -69,3 +69,10 @@ pub fn polished(l: &Lamp) -> u32 {
     l.polish()
     //^ d: src/rules.rs:63
 }
+
+pub unsafe auto trait Brim {}
+
+pub fn brimmed<T: Brim>(t: T) -> T {
+    //            ^ d: src/rules.rs:73
+    t
+}
