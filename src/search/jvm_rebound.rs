@@ -202,7 +202,74 @@ pub(super) fn called(line: &str, col: usize, name: &str) -> bool {
         .is_some_and(|r| r.trim_start().starts_with('('))
 }
 
-pub(super) fn jvm_declared_before(lead: &str, name: &str, call: bool, local_line: bool) -> bool {
+pub(super) fn call_arity(line: &str, col: usize, name: &str) -> Option<usize> {
+    let code = blanked(line);
+    let after = code.get(col + name.len()..)?;
+    let open = col + name.len() + after.len() - after.trim_start().len() + 1;
+    code.get(..open)?.ends_with('(').then_some(())?;
+    let close = open + group_close(code.get(open..)?)?;
+    let args: Vec<&str> = split_top(Kind::Jvm, line.get(open..close)?, b',')
+        .into_iter()
+        .filter(|a| !a.trim().is_empty())
+        .collect();
+    (!code.get(close + 1..)?.trim_start().starts_with('{')
+        && !args.iter().any(|a| a.trim_start().starts_with('*')))
+    .then_some(args.len())
+}
+
+pub(super) fn takes(header: &str, name: &str, args: Option<usize>) -> bool {
+    static GENERIC: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"<[^<>]*>").expect("the regex is a literal"));
+    let Some(args) = args else {
+        return true;
+    };
+    let mut code = blanked(header).replace("->", "  ");
+    while GENERIC.is_match(&code) {
+        code = GENERIC.replace_all(&code, "").into_owned();
+    }
+    let Some(list) = Regex::new(&format!(
+        r"\b{}\s*(?:\[[^\]]*\])?\s*\(",
+        regex::escape(name)
+    ))
+    .ok()
+    .and_then(|re| re.find(&code).map(|m| m.end()))
+    .and_then(|end| code.get(end..)) else {
+        return true;
+    };
+    let Some(inner) = group_close(list).and_then(|c| list.get(..c)) else {
+        return true;
+    };
+    let params: Vec<&str> = split_top(Kind::Jvm, inner, b',')
+        .into_iter()
+        .filter(|p| !p.trim().is_empty())
+        .collect();
+    let spread = |p: &&str| p.contains("vararg") || p.trim_end().ends_with('*');
+    let required = params
+        .iter()
+        .filter(|p| !p.contains('=') && !spread(p))
+        .count();
+    args >= required && (args <= params.len() || params.iter().any(spread))
+}
+
+fn group_close(s: &str) -> Option<usize> {
+    let mut depth = 0i32;
+    s.bytes().position(|b| {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        depth < 0
+    })
+}
+
+pub(super) fn jvm_declared_before(
+    lead: &str,
+    name: &str,
+    call: bool,
+    args: Option<usize>,
+    local_line: bool,
+) -> bool {
     let n = regex::escape(name);
     let def = if call { "(?:def|fun)" } else { "def" };
     let ret = super::jvm_return_type!();
@@ -222,6 +289,7 @@ pub(super) fn jvm_declared_before(lead: &str, name: &str, call: bool, local_line
             let m = c.get(0)?;
             let recursive = call
                 && c.name("fun").is_some()
+                && takes(m.as_str(), name, args)
                 && lead
                     .get(..=m.start())
                     .is_some_and(|before| in_local_body(before, local_line));
@@ -257,6 +325,7 @@ fn in_local_body(before: &str, local_line: bool) -> bool {
     }
     open.last().map_or(local_line, |&i| {
         !super::jvm::opens_type(before.get(..i).unwrap_or(before))
+            && !anonymous(before.get(..=i).unwrap_or(before))
     })
 }
 
@@ -644,11 +713,12 @@ pub fn jvm_bindings_at(
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    let local_line =
-        super::jvm::scope_of(&lines, at).is_some_and(|s| !super::jvm::opens_type(lines[s]));
+    let local_line = super::jvm::scope_of(&lines, at)
+        .is_some_and(|s| !super::jvm::opens_type(lines[s]) && !anonymous(lines[s]));
+    let args = call_arity(lines[at], col, name);
     if !matches!(name, "this" | "super" | "it")
         && blanked(lines[at]).get(..col).is_some_and(|lead| {
-            jvm_declared_before(lead, name, called(lines[at], col, name), local_line)
+            jvm_declared_before(lead, name, called(lines[at], col, name), args, local_line)
         })
     {
         return vec![Binding {

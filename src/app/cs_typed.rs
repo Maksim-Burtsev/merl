@@ -62,6 +62,9 @@ impl App {
             .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
             .ok_or_else(|| first.clone())?;
         if !fields.is_empty() && self.cs_outside_alias(here, &text, first, &ty) {
+            if !self.cs_extensions(here, word).is_empty() {
+                return Err(first.clone());
+            }
             return Ok(CsAnswer::Outside { links: link });
         }
         let mut links = vec![link];
