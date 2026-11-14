@@ -18,3 +18,17 @@ key Enter f
 wait 2 lines ⋯ )
 key q
 wait merl exited: 0
+# A def whose parameters wrap: f on the def line and f in its body fold the whole def (#1359).
+run printf 'def shop_library(\n        name,\n        srcs = []):\n    native.filegroup(name = name, srcs = srcs)\n    print(name)\n' > bzl/lib.bzl
+merl bzl/lib.bzl
+wait A lib.bzl
+key f
+wait 4 lines ⋯
+key f
+wait print(name)
+key :
+type 5
+key Enter f
+wait 4 lines ⋯
+key q
+wait merl exited: 0

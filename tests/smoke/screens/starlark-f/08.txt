@@ -1,0 +1,57 @@
+wait A lib.bzl
+┌orders──────────────────────┐1 def shop_library(
+│▸ .github                   │2         name,
+│▸ .venv                     │3         srcs = []):
+│▸ app                       │4     native.filegroup(name = name, srcs = srcs)
+│▾ bzl                       │5     print(name)
+│  A defs.bzl                │
+│  A lib.bzl                 │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+bzl/lib.bzl  1:1  [code]                                                                                                                                                           14:32
+cursor (x,y,shown) 32,0,0
