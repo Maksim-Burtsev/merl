@@ -53,5 +53,5 @@ wait line 5, changed
 │                            │46▎        with self.uow:
 │                            │47▎            self.uow.orders.save(order)
 └────────────────────────────┘48▎        return amount
-app/service.py  1:1  [code]  hunk 1/4  file 3/8                                                                                                                                    14:32
+app/service.py  1:1  [code]  hunk 1/4  viewed 2/7                                                                                                                                  14:32
 cursor (x,y,shown) 32,0,0
