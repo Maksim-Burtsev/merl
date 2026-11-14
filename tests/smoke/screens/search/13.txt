@@ -1,0 +1,57 @@
+wait 2/
+┌orders──────────────────────┐ 1 .btn {
+│▸ .github                   │ 2   padding: 4px;
+│▸ .venv                     │ 3 }
+│▸ app                       │ 4
+│▸ data                      │ 5 .btn-primary {
+│▸ deploy                    │ 6   color: navy;
+│▸ docs                      │ 7 }
+│▸ scripts                   │ 8
+│▸ tests                     │ 9 .btn:hover {
+│▸ web                       │10   opacity: 0.8;
+│▸ worker                    │11 }
+│  .env                      │
+│  .gitignore                │
+│A buttons.css               │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+buttons.css  9:2  [code]  2/2                                                                                                                                                      14:32
+cursor (x,y,shown) 34,8,0

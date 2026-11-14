@@ -337,7 +337,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
-            .map_or_else(Vec::new, |re| matches(re, text));
+            .map_or_else(Vec::new, |re| matches(app, re, text));
         let spans = paint_finds(
             &with_find(syntax, &words, self.word(self.theme.del_word_bg)),
             &finds,
@@ -448,7 +448,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
-            .map_or_else(Vec::new, |re| matches(re, clipped));
+            .map_or_else(Vec::new, |re| matches(app, re, clipped));
         let word_bg = if lit {
             theme.add_word_bg_hl
         } else {
@@ -997,9 +997,8 @@ fn row_spans<'a>(
     out
 }
 
-fn matches(re: &Regex, text: &str) -> Vec<Range<usize>> {
-    re.find_iter(text)
-        .map(|m| m.range())
+fn matches(app: &App, re: &Regex, text: &str) -> Vec<Range<usize>> {
+    app.find_hits(re, text, 0)
         .filter(|r| !r.is_empty())
         .collect()
 }
