@@ -128,7 +128,7 @@ func Wrapped() int {
 	//^ d: rival/damper.go:9
 		Grate struct {
 			Flue Flue
-		//^ d: rival/damper.go:9; want none (#1470)
+		//^ d: none
 		//     ^ d: rival/damper.go:9
 		}
 	}{}
@@ -146,4 +146,37 @@ func Typed() func() struct {
 	//^ d: none
 } {
 	return nil
+}
+
+type Hearth struct {
+	Grate struct {
+		Flue Flue
+	//^ d: none
+	//     ^ d: rival/damper.go:9
+	}
+}
+
+type (
+	Kiln struct {
+		Flue Flue
+	//^ d: rival/damper.go:9; want rival/damper.go:161 (#1470)
+	//     ^ d: rival/damper.go:9
+	}
+)
+
+func Deeper() int {
+	rows := []struct {
+		Grate struct {
+			Ash struct {
+				Flue Flue
+			//^ d: none
+			//     ^ d: rival/damper.go:9
+			}
+		}
+		Vent, Ash struct {
+			Flue Flue
+		//^ d: none
+		}
+	}{}
+	return len(rows)
 }

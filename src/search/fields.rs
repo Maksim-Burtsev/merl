@@ -356,15 +356,29 @@ pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
         .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 pub fn go_anonymous_field_name(lines: &[String], line: usize, lead: &str, tail: &str) -> bool {
-    let depth = indent(lead);
-    let opener = (lines.get(..line).unwrap_or_default().iter().rev())
-        .map(String::as_str)
-        .find(|l| {
-            let t = l.trim();
-            !t.is_empty() && !t.starts_with("//") && indent(l) < depth
-        });
+    static STRUCT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bstruct\s*\{\s*$").expect("the regex is a literal")
+    });
+    let opener = go_opener(lines, line, indent(lead)).map(|(at, o)| {
+        let nested = STRUCT.is_match(o)
+            && go_opener(lines, at, indent(o)).is_some_and(|(_, g)| STRUCT.is_match(g));
+        if nested { "struct {" } else { o }
+    });
     go_one_line_field_name(lead, tail)
         || opener.is_some_and(|o| go_one_line_field_name(&format!("{o}{lead}"), tail))
+}
+fn go_opener(lines: &[String], line: usize, depth: usize) -> Option<(usize, &str)> {
+    (lines
+        .get(..line)
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .rev())
+    .map(|(at, l)| (at, l.as_str()))
+    .find(|(_, l)| {
+        let t = l.trim();
+        !t.is_empty() && !t.starts_with("//") && indent(l) < depth
+    })
 }
 fn go_one_line_field_name(lead: &str, tail: &str) -> bool {
     static OPEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
