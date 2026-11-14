@@ -131,7 +131,10 @@ pub fn label_at(
                     c.line0 == at
                         && (c.byte == b')' || c.byte.is_ascii_alphanumeric() || c.byte == b'_')
                 });
-            (!block).then_some(Label {
+            if block {
+                return ruby_block_label(kind, &lines, &literal, at, open, line0, range.start);
+            }
+            Some(Label {
                 what: "key",
                 owner: None,
                 nested: false,
@@ -278,6 +281,27 @@ fn ruby_command_label(
         owner,
         nested: false,
     })
+}
+
+fn ruby_block_label(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+    line0: usize,
+    start: usize,
+) -> Option<Label> {
+    let rest = lines[at].get(open + 1..)?.trim_start();
+    let body = match rest.strip_prefix('|') {
+        Some(params) => lines[at].len() - params.len() + params.find('|')? + 1,
+        None => lines[at].len() - rest.len(),
+    };
+    let blank = " ".repeat(body) + lines[at].get(body..)?;
+    let mut view = vec![""; at];
+    view.push(&blank);
+    view.extend_from_slice(lines.get(at + 1..)?);
+    ruby_command_label(kind, &view, literal, line0, start)
 }
 
 fn ruby_command_args(kind: Kind, lead: &str) -> Option<usize> {
