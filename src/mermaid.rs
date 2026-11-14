@@ -377,7 +377,7 @@ fn cell() -> Option<(u32, u32)> {
 
 #[cfg(not(target_family = "wasm"))]
 fn cell() -> Option<(u32, u32)> {
-    let ws = ratatui::crossterm::terminal::window_size().ok()?;
+    let ws = crossterm::terminal::window_size().ok()?;
     if ws.width == 0 || ws.height == 0 || ws.columns == 0 || ws.rows == 0 {
         return None;
     }
