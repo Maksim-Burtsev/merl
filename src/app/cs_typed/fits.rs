@@ -103,6 +103,26 @@ impl App {
         })
     }
 
+    pub(super) fn cs_nested_type(&self, ty: &Typed, name: &str) -> Option<Proven> {
+        let Up::Found(hits) = self.cs_up(ty, name, 0) else {
+            return None;
+        };
+        let [hit] = hits.as_slice() else {
+            return None;
+        };
+        search::cs_type_decl(&hit.text).filter(|d| d.name == name)?;
+        Some(Proven {
+            ty: CsType::Project(Typed {
+                name: name.to_owned(),
+                path: hit.path.clone(),
+                line: hit.line1,
+            }),
+            link: name.to_owned(),
+            written: name.to_owned(),
+            from: (hit.path.clone(), hit.line1),
+        })
+    }
+
     pub(super) fn cs_alias_head(
         &self,
         file: &Path,

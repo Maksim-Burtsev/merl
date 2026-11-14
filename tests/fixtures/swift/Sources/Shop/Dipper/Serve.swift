@@ -25,3 +25,13 @@ func shadowed(_ scoops: [Scoop]) {
     scoops.forEach { Dipper in _ = Dipper.size(2).build().dip() }
     //                                                    ^ d: !jump
 }
+func ladle(_ l: Ladle) async throws -> Int {
+    let d = await l.find()
+    _ = d.dip()
+    //    ^ d: picker Sources/Shop/Dipper/Dipper.swift:2, …; want Sources/Shop/Dipper/Dipper.swift:2 (#1469)
+    _ = try await l.fetch().size(2).build().dip()
+    //                      ^ d: picker Sources/Shop/Dipper/Dipper.swift:6, Sources/Shop/Dipper/Dipper.swift:16, Sources/Shop/Dipper/Dipper.swift:34; want Sources/Shop/Dipper/Dipper.swift:16 (#1469)
+    //                                      ^ d: picker Sources/Shop/Dipper/Dipper.swift:2, …; want Sources/Shop/Dipper/Dipper.swift:2 (#1469)
+    return await l.find().dip()
+    //                    ^ d: picker Sources/Shop/Dipper/Dipper.swift:2, …; want Sources/Shop/Dipper/Dipper.swift:2 (#1469)
+}

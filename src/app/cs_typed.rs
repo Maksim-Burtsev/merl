@@ -74,8 +74,9 @@ impl App {
             let CsType::Project(t) = &ty else {
                 return Err(field.clone());
             };
-            let Proven { ty: next, link, .. } =
-                self.cs_field_type(t, field).ok_or_else(|| field.clone())?;
+            let Proven { ty: next, link, .. } = (self.cs_field_type(t, field))
+                .or_else(|| self.cs_nested_type(t, field))
+                .ok_or_else(|| field.clone())?;
             links.push(link);
             ty = next;
         }
@@ -802,6 +803,11 @@ impl App {
         let name = search::cs_type_name(written)?;
         if search::cs_generic_param(text, line1, &name) {
             return None;
+        }
+        if written == name
+            && let Some(own) = owner_of(file, text, line1).filter(|o| o.name == name)
+        {
+            return Some(CsType::Project(own));
         }
         let cut = self.truncated.get();
         if written == name

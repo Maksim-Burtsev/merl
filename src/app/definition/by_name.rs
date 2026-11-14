@@ -678,6 +678,13 @@ impl App {
     fn top_level_only(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
         if a.kind == Kind::Jvm {
             self.kotlin_unseen_dropped(a, found);
+            if a.dotted
+                && a.chain
+                    .first()
+                    .is_some_and(|head| self.jvm_value_named(&a.here, &a.text, head))
+            {
+                found.retain(|c| !plain_top_level(&c.hit.text, &a.word));
+            }
         }
         if !self.called_from_top_level_def(a, near) {
             return;

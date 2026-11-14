@@ -10,12 +10,12 @@ class Wok {
   }
 }
 
-case class Kit(crock: Crock, wok: Wok)
+case class Hamper(crock: Crock, wok: Wok)
 
 object Servings {
   def servePair(): (Crock, Wok) = (new Crock, new Wok)
 
-  def serveKit(): Kit = Kit(new Crock, new Wok)
+  def serveKit(): Hamper = Hamper(new Crock, new Wok)
 
   def unpack(): Unit = {
     val (c, w) = servePair()
@@ -23,9 +23,18 @@ object Servings {
 //    ^ d: src/main/scala/servings/Servings.scala:9
     c.stew()
 //    ^ d: src/main/scala/servings/Servings.scala:4
-    val Kit(kc, kw) = serveKit()
+    val Hamper(kc, kw) = serveKit()
     kw.stew()
-//     ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:9 (#1484)
+//     ^ d: src/main/scala/servings/Servings.scala:9
+    kc.stew()
+//     ^ d: src/main/scala/servings/Servings.scala:4
+    serveKit() match {
+      case Hamper(g, h) =>
+        h.stew()
+//        ^ d: src/main/scala/servings/Servings.scala:9
+        g.stew()
+//        ^ d: src/main/scala/servings/Servings.scala:4
+    }
     val (_, sw) = servePair()
     sw.stew()
 //     ^ d: src/main/scala/servings/Servings.scala:9
@@ -78,5 +87,32 @@ object Servings {
     val (c, w) = servePair()
     w.stew()
 //    ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:4 (#1484)
+  }
+}
+
+case class Shelf[T](held: T, wok: Wok)
+
+case class Tote(crock: Crock = new Crock, wok: Wok)
+
+case class Bag(crock: Crock, woks: Wok*)
+
+object Unpacked {
+  def kitted(kw: Crock, shelf: Shelf[Wok], tote: Tote, bag: Bag): Unit = {
+    val Hamper(_, kw) = Hamper(new Crock, new Wok)
+    kw.stew()
+//     ^ d: src/main/scala/servings/Servings.scala:9
+    val Shelf(sh, sw) = shelf
+    sh.stew()
+//     ^ d: !jump
+    val Tote(tc, tw) = tote
+    tc.stew()
+//     ^ d: !jump
+    tw.stew()
+//     ^ d: src/main/scala/servings/Servings.scala:9
+    val Bag(bc, bw) = bag
+    bw.stew()
+//     ^ d: !jump
+    bc.stew()
+//     ^ d: src/main/scala/servings/Servings.scala:4
   }
 }

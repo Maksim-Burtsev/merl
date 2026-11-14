@@ -1090,6 +1090,12 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
             .position(|p| p.trim().trim_matches('`') == name)?;
         return Some(SwiftGiven::Item(c[2].to_owned(), at));
     }
+    let arm = rule(format!(
+        r"^case\s+(?:let|var)\s+`?{n}`?\s+as\s+([A-Z][\w.]*\??)\s*(?:where\s.*)?:$"
+    ));
+    if let Some(c) = arm.captures(t) {
+        return Some(SwiftGiven::Type(c[1].to_owned()));
+    }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at.captures_iter(t).find(|c| {
         t.get(c.get_match().end()..)
@@ -1177,10 +1183,12 @@ pub fn swift_opens_more(line: &str) -> bool {
 }
 pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|((?:sorted|sort|min|max)(?:\(\s*by:)?))\s*\{[^{}]*\$([01])\.[\w.]*$")
             .expect("the regex is a literal")
     });
-    Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+    let code = uncommented(Kind::Swift, lead);
+    let c = EACH.captures(&code)?;
+    (&c[3] == "0" || c.get(2).is_some()).then(|| c[1].to_owned())
 }
 pub fn swift_trailing_closure(line: &str, name: &str) -> Option<(String, String)> {
     let call = r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.([A-Za-z_]\w*)\s*\{";

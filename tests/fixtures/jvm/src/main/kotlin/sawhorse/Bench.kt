@@ -7,6 +7,19 @@ fun bench() {
     val e = Easel()
     e.hoist().whittle()
 //            ^ d: src/main/kotlin/sawhorse/Peg.kt:4
+    Bucksaw().hoist().whittle()
+//                    ^ d: src/main/kotlin/sawhorse/Peg.kt:4
+    Bucksaw().hoist()
+//            ^ d: src/main/kotlin/sawhorse/Sawhorse.kt:4
+    val b = Bucksaw()
+    b.hoist().whittle()
+//            ^ d: src/main/kotlin/sawhorse/Peg.kt:4
+    Bucksaw.hoist().whittle()
+//                  ^ d: src/main/kotlin/sawhorse/Twig.kt:4
+    Bucksaw.hoist()
+//          ^ d: src/main/kotlin/sawhorse/Stool.kt:46
+    Bucksaw.Companion.hoist().whittle()
+//                            ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4
     s.grip(Peg()).whittle()
 //                ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4
 }

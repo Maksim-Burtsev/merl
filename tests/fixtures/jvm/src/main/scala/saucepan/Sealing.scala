@@ -1,8 +1,8 @@
 package saucepan
 
-class Ladle[A]
+class Ladle[A] { def stir(): Unit = () }
 
-class Tongs
+class Tongs { def stir(): Unit = () }
 
 object Sealing {
   implicit class LadleSeal[A](l: Ladle[A]) {
@@ -16,5 +16,17 @@ object Sealing {
   }
   implicit class TongsRinse(t: Tongs) {
     def swab(): Unit = ()
+  }
+  implicit class LadleRub(l: Ladle[Int]) {
+    def rub(): Unit = ()
+  }
+  implicit class TongsRub(t: Tongs) {
+    def rub(): Unit = ()
+  }
+  implicit class LadleWipe[A <: Tongs](l: Ladle[A]) {
+    def wipe(): Unit = ()
+  }
+  implicit class TongsWipe(t: Tongs) {
+    def wipe(): Unit = ()
   }
 }

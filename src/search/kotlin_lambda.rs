@@ -19,8 +19,15 @@ pub fn kotlin_lambda_collection(
         ))
         .expect("the regex is a literal")
     });
-    let source = |head: &str| Some(CALL.captures(head)?[1].replace(char::is_whitespace, ""));
-    source(&kotlin_binding_lambda(path, text, line1, before, name)?.1)
+    static COMPARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:sortWith|sortedWith|maxWith|minWith|maxWithOrNull|minWithOrNull)\s*\{$",
+        )
+        .expect("the regex is a literal")
+    });
+    let (_, head, paired) = kotlin_binding_lambda(path, text, line1, before, name)?;
+    let call = if paired { &COMPARE } else { &CALL };
+    Some(call.captures(&head)?[1].replace(char::is_whitespace, ""))
 }
 
 fn kotlin_binding_lambda(
@@ -29,18 +36,19 @@ fn kotlin_binding_lambda(
     line1: usize,
     before: &str,
     name: &str,
-) -> Option<(usize, String)> {
+) -> Option<(usize, String, bool)> {
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     if let Some((head, bound)) = kotlin_lambda_head(text, line1, before)
-        && bound == name
+        && bound.split(',').any(|b| b == name)
     {
         let code = uncommented(Kind::Jvm, before).replace("?.", ".");
         if code.contains('{')
             && let Some(body) = code.get(head.len()..)
         {
             let body = body.replacen("->", ";", 1);
-            return (!jvm_rebound_before(&body, name)).then_some((at, head));
+            let paired = bound.contains(',');
+            return (!jvm_rebound_before(&body, name)).then_some((at, head, paired));
         }
     }
     let nearest: Vec<usize> = jvm_bindings(path, &lines, at, name, None)
@@ -61,7 +69,7 @@ fn kotlin_binding_lambda(
             && let Some((head, bound)) = kotlin_lambda_head(text, s + 1, &code)
             && bound == name
         {
-            return (name == "it" || nearest == [s + 1]).then_some((s, head));
+            return (name == "it" || nearest == [s + 1]).then_some((s, head, false));
         }
         if fun {
             return None;
@@ -81,8 +89,8 @@ pub fn kotlin_lambda_callee(
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.@])([a-z]\w*)\s*\{$").expect("the regex is a literal")
     });
-    let (mut at, head) = kotlin_binding_lambda(path, text, line1, before, name)?;
-    (head.matches('{').count() == head.matches('}').count() + 1).then_some(())?;
+    let (mut at, head, paired) = kotlin_binding_lambda(path, text, line1, before, name)?;
+    (!paired && head.matches('{').count() == head.matches('}').count() + 1).then_some(())?;
     fun_header(&head)
         .is_none_or(|(fun, _)| !fun.contains('.'))
         .then_some(())?;
@@ -188,7 +196,8 @@ pub fn kotlin_scope_returned(before: &str) -> Option<String> {
 
 fn kotlin_lambda_head(text: &str, line1: usize, before: &str) -> Option<(String, String)> {
     static PARAMETER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*([A-Za-z_]\w*)\s*->").expect("the regex is a literal")
+        Regex::new(r"^\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)?)\s*->")
+            .expect("the regex is a literal")
     });
     let innermost = |code: &str| {
         let mut open = Vec::new();
@@ -223,7 +232,7 @@ fn kotlin_lambda_head(text: &str, line1: usize, before: &str) -> Option<(String,
     let brace = innermost(&code)?;
     let inside = code.get(brace + 1..)?;
     let bound = match PARAMETER.captures(inside) {
-        Some(c) => c[1].to_owned(),
+        Some(c) => c[1].replace(char::is_whitespace, ""),
         None if inside.contains("->") => return None,
         None => "it".to_owned(),
     };

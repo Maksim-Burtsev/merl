@@ -355,7 +355,18 @@ pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line, "struct")
         .is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
-pub fn go_anonymous_field_name(lead: &str, tail: &str) -> bool {
+pub fn go_anonymous_field_name(lines: &[String], line: usize, lead: &str, tail: &str) -> bool {
+    let depth = indent(lead);
+    let opener = (lines.get(..line).unwrap_or_default().iter().rev())
+        .map(String::as_str)
+        .find(|l| {
+            let t = l.trim();
+            !t.is_empty() && !t.starts_with("//") && indent(l) < depth
+        });
+    go_one_line_field_name(lead, tail)
+        || opener.is_some_and(|o| go_one_line_field_name(&format!("{o}{lead}"), tail))
+}
+fn go_one_line_field_name(lead: &str, tail: &str) -> bool {
     static OPEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(.*?)\bstruct\s*\{(?:\s*\w+(?:\s*,\s*\w+)*\s+[^;{}]+;)*\s*(?:\w+\s*,\s*)*$")
             .expect("the regex is a literal")

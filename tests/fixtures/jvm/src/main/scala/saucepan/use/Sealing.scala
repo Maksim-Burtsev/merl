@@ -5,7 +5,7 @@ import saucepan.Sealing.*
 
 def claspAll(ladle: Ladle[Int], tongs: Tongs): Unit =
   ladle.clasp()
-  //    ^ d: picker src/main/scala/saucepan/Sealing.scala:9, src/main/scala/saucepan/Sealing.scala:12; want src/main/scala/saucepan/Sealing.scala:9 (#1499)
+  //    ^ d: src/main/scala/saucepan/Sealing.scala:9
   tongs.clasp()
   //    ^ d: src/main/scala/saucepan/Sealing.scala:12
   ladle.swab()
@@ -16,4 +16,14 @@ def claspAll(ladle: Ladle[Int], tongs: Tongs): Unit =
 def claspMade(): Unit =
   val ladle = new Ladle[Int]()
   ladle.clasp()
-  //    ^ d: picker src/main/scala/saucepan/Sealing.scala:9, src/main/scala/saucepan/Sealing.scala:12; want src/main/scala/saucepan/Sealing.scala:9 (#1499)
+  //    ^ d: src/main/scala/saucepan/Sealing.scala:9
+
+def otherShapes(ladle: Ladle[Int], tongs: Tongs): Unit =
+  ladle.stir()
+  //    ^ d: src/main/scala/saucepan/Sealing.scala:3
+  ladle.rub()
+  //    ^ d: !jump
+  ladle.wipe()
+  //    ^ d: !jump
+  tongs.rub()
+  //    ^ d: src/main/scala/saucepan/Sealing.scala:24
