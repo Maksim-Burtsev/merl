@@ -122,27 +122,45 @@ current even while merl is open.
 
 ```
 # merl notes · feat/paging ← main · 3f2a9c1
-# The user's review notes, for you. Delete this file when you have dealt with them.
+# The user's review notes, for you. Answer under a note with `agent:`, or delete its block when it is done.
 
 app/paging.py:9-10
 >     total = len(items) // limit
 >     return [page(items, i * limit, limit) for i in range(total)]
 [1, 2, 3] by 2 loses the last page; keep the old range step
+agent: kept a count, as `pages`: the caller logs it; the last page is back
+user: then log the length instead and drop it
 
 app/paging.py:9
 -     return [page(items, i, limit) for i in range(0, len(items), limit)]
 why drop the range step? it was right
 ```
 
-A note is a block: `path:LINE` or `path:FIRST-LAST`, the noted lines as they read when the note
-was written (`>` a line of the file, `-` a line the branch deleted, which stood right above the
-line named), then the note, one or more lines, with one space before its first line when that
-line starts with `>` or `-`; a blank line ends the block. Find the place by the quoted lines: line
+A block is a thread on the code it quotes: `path:LINE` or `path:FIRST-LAST`, the noted lines as
+they read (`>` a line of the file, `-` a line the branch deleted, which stood right above the
+line named), then its messages, oldest first. The first message is the user's note. Each later
+one starts with `agent:` (yours) or `user:` (the user's answer); its next lines go on until the
+next `agent:` or `user:`, or the blank line that ends the block. A message line that starts with
+`>`, `-`, `agent:` or `user:` gets one space before it. Find the place by the quoted lines: line
 numbers move.
-Each note is an instruction from the user about that place.
 
-- On the user's own branch, or one you wrote: fix every note, answer in the chat note by note
-  (done, or why not), then delete the file.
+On the user's own branch, or one you wrote, take every thread whose last message is the user's:
+
+- Done as asked: fix it and delete the block. Write nothing.
+- Done another way, not done, or a question back: do what you agree with, then answer with one
+  `agent:` message under the last one, short. The user reads it on their next review, beside
+  the code.
+- When you changed or moved the code a thread is about, rewrite its place and quoted lines to
+  that code as it reads now, so the thread stands on it, wherever it went. When that code is
+  gone, leave them: merl shows the thread above its file, or above the review when the file is
+  gone.
+
+A thread whose last message is yours got no answer: the user had nothing to add, so delete the
+block. Never change the user's messages. You may open a thread of your own on a line (a
+question, a proposal): a block whose first message starts with `agent:`. When you delete the
+last block, delete the file. In the chat, one line: how many notes you fixed and how many you
+answered in the file.
+
 - On someone else's branch (a colleague's MR): change nothing, push nothing; ask the user what
   to do with the notes.
 - Never post the notes to GitHub or GitLab, never commit or copy them into the repository.

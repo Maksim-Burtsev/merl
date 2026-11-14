@@ -1,0 +1,57 @@
+wait then a ticket for it, linked here
+┌agent/refund ← origin/main──┐  ✎ app/refund_rules.py, file deleted
+│  ▾ app                     │    WINDOW_DAYS = 30
+│✎   A refunds.py      +18 −0│    drop this file, the window is in Settings
+│✓   M repos.py        +0 −28│  ↳ agent  deleted it; refunds.py reads settings.refund_window_days
+│✎   M service.py      +13 −1│ 1▎from datetime import datetime, timedelta, timezone
+│  ▾ deploy                  │ 2▎from decimal import Decimal
+│    ▾ helm                  │ 3▎
+│      ▾ orders              │ 4▎from app.models import Order, OrderStatus
+│        M values.yaml  +1 −0│ 5▎
+│  ▾ docs                    │ 6▎
+│    M architecture.png   bin│ 7▎class RefundNotAllowed(Exception):
+│  ▾ scripts                 │ 8▎    pass
+│    D refund_by_hand.… +0 −9│ 9▎
+│  ▾ tests                   │10▎
+│    A test_refunds.py +23 −0│11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+│  ▾ worker                  │12▎    """What to give back: the whole total inside the window, nothing after it."""
+│    M main.go          +4 −1│13▎    now = now or datetime.now(timezone.utc)
+│                            │14▎    if order.status is not OrderStatus.PAID:
+│                            │15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
+│                            │16▎    if now - order.created_at > timedelta(days=window_days):
+│                            │17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
+│                            │18▎    return order.total
+│                            │  ✎ why the whole total?
+│                            │  ↳ agent  a partial refund needs the provider API; the whole order until then
+│                            │  ↳ you    then a ticket for it, linked here
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/refunds.py  18:1  [code]  hunk 1/1  file 1/8                                                                                                                                   14:32
+cursor (x,y,shown) 32,22,0

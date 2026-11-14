@@ -39,3 +39,34 @@ key a
 sleep 0.3
 check ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q '\[edit\]'
 wait app/models.py  1:1  [code]
+# Threads with the agent (#1307). Round 1 walks on from repos.py, which ticks it beside refunds.py. Round 2:
+# the agent answered two notes in the notes file, left one whose line it changed and one on a file
+# it deleted, and opened a thread of its own. The review opens on refunds.py, unticked by the
+# answer there, under the thread on the deleted file; c stops at the answer, Enter answers it once
+# and Enter again edits that answer. c skips repos.py, ticked and untouched, for service.py, where
+# the thread whose line changed waits above the file and the agent's own thread on its line
+merl --review=agent/refund
+wait hunk 1/1  file 2/8
+key c
+wait file 3/8
+run printf '# merl notes\n\napp/refund_rules.py:3\n> WINDOW_DAYS = 30\ndrop this file, the window is in Settings\nagent: deleted it; refunds.py reads settings.refund_window_days\n\napp/refunds.py:18\n>     return order.total\nwhy the whole total?\nagent: a partial refund needs the provider API; the whole order until then\n\napp/service.py:5\n> from app.refunds import refund_amount_v1\nname it refund_amount\nagent: renamed, and nothing else imported it\n\napp/service.py:44\n>         order.status = OrderStatus.REFUNDED\nagent: set it once the provider confirms, not before?\n' > "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+merl --review=agent/refund
+wait app/refund_rules.py, file deleted
+key c
+wait app/refunds.py  1:1
+key c
+wait app/refunds.py  18:1
+key Enter
+type then a ticket for it
+key Escape
+wait you    then a ticket for it
+check grep -A1 '^agent: a partial refund' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'user: then a ticket for it'
+key Enter End
+type , linked here
+key Escape
+wait then a ticket for it, linked here
+check grep -c '^user:' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 1
+key c
+wait line 5, changed
+key c c c c
+wait agent  set it once the provider confirms

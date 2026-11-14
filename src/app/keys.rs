@@ -157,7 +157,7 @@ impl App {
         let keeps_focus = matches!(
             key.code,
             KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Enter
-        ) || !ctrl && matches!(key.code, KeyCode::Char('a' | 'v'))
+        ) || !ctrl && matches!(key.code, KeyCode::Char('a' | 'v' | 'c' | 'C'))
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u' | 'z' | 'y'));
         if !keeps_focus || shift {
             self.notes.focus = None;
