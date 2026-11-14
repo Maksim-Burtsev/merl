@@ -105,25 +105,25 @@ module.exports = {
       next.childScopes;
       //   ^ d: linter/types/index.d.ts:47
     }
-    const listed = [scope];
+    const listed = [sourceCode.getScope(context)];
     listed.push(new Decoy());
     for (const one of listed) {
       one.childScopes;
       //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
     }
-    const piled = [scope];
+    const piled = [sourceCode.getScope(context)];
     while ((next = piled.pop())) {
       piled.push(new Decoy());
       next.childScopes;
       //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
     }
-    let swapped = [scope];
+    let swapped = [sourceCode.getScope(context)];
     swapped = [new Decoy()];
     for (const one of swapped) {
       one.childScopes;
       //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
     }
-    const slots = [scope];
+    const slots = [sourceCode.getScope(context)];
     slots[0] = new Decoy();
     slots[0].childScopes;
     //       ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
@@ -133,7 +133,7 @@ module.exports = {
       //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
     }
     if (scope) {
-      var mixed = [scope];
+      var mixed = [sourceCode.getScope(context)];
     } else {
       var mixed = [new Decoy()];
     }
