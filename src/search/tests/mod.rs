@@ -34,6 +34,7 @@ mod nix;
 mod other_languages;
 mod perl;
 mod powershell;
+mod quoted;
 mod r;
 mod rust;
 mod scope;
