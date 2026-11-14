@@ -364,6 +364,49 @@ impl App {
         Some(hit)
     }
 
+    pub(super) fn in_python_stdlib(&self, path: &Path) -> bool {
+        let rel = self.rel_to_its_root(Kind::Python, path);
+        path.is_absolute()
+            && !rel.is_absolute()
+            && path
+                .ancestors()
+                .nth(rel.components().count())
+                .is_some_and(|root| {
+                    root.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("python"))
+                        && root.join("os.py").is_file()
+                })
+    }
+
+    pub(super) fn answered_as_builtin(
+        &mut self,
+        here: &Path,
+        word: &str,
+        found: &[Candidate],
+    ) -> bool {
+        let [Candidate { hit, .. }] = found else {
+            return false;
+        };
+        let namesake = self.in_python_stdlib(&hit.path)
+            && builtin_type_method(word)
+            && std::fs::read_to_string(&hit.path)
+                .ok()
+                .and_then(|text| {
+                    let class = search::owner_decl(Kind::Python, &text, hit.line1)?;
+                    search::type_name(Kind::Python, text.lines().nth(class - 1)?)
+                })
+                .is_some_and(|class| {
+                    let named = format!(r"\b{}\b", regex::escape(&class));
+                    self.project_grep(Kind::Python, here, &named).is_empty()
+                });
+        if namesake {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source");
+        }
+        namesake
+    }
+
     pub(super) fn stub_returns_self(&self, ty: &Typed, field: &str) -> bool {
         let rel = self
             .rel_to_its_root(Kind::Python, &ty.path)
@@ -371,16 +414,7 @@ impl App {
         let Some(dir) = crate::typeshed::stdlib() else {
             return false;
         };
-        let stdlib = ty
-            .path
-            .ancestors()
-            .nth(rel.components().count())
-            .is_some_and(|root| {
-                root.file_name()
-                    .is_some_and(|n| n.to_string_lossy().starts_with("python"))
-                    && root.join("os.py").is_file()
-            });
-        if !ty.path.is_absolute() || rel.is_absolute() || !stdlib {
+        if !self.in_python_stdlib(&ty.path) {
             return false;
         }
         let Some((stub, text)) = [rel.with_extension("pyi"), rel.join("__init__.pyi")]
@@ -712,6 +746,20 @@ impl App {
         };
         self.type_decl(kind, &at, class)
     }
+}
+
+fn builtin_type_method(word: &str) -> bool {
+    let Some(text) = crate::typeshed::stdlib()
+        .and_then(|dir| std::fs::read_to_string(dir.join("builtins.pyi")).ok())
+    else {
+        return false;
+    };
+    text.lines().any(|l| {
+        l.starts_with(' ')
+            && (l.trim_start().strip_prefix("def "))
+                .and_then(|d| d.strip_prefix(word))
+                .is_some_and(|rest| rest.starts_with(['(', '[']))
+    })
 }
 
 pub(super) fn imports_typing_self(text: &str) -> bool {
