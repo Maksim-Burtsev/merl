@@ -12,7 +12,7 @@ class TubUse {
     func d() { _ = tubs.filter { x in x.dunk() } }
     //                                  ^ d: Sources/Shop/Tubs/Tub.swift:2
     func e() { _ = tubs.map { (x: Tub) in x.dunk() } }
-    //                                      ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                      ^ d: Sources/Shop/Tubs/Tub.swift:2
     func f() { _ = tubs.sorted { $0.slop() < $1.slop() } }
     //                              ^ d: Sources/Shop/Tubs/Tub.swift:3
     //                                          ^ d: Sources/Shop/Tubs/Tub.swift:3
