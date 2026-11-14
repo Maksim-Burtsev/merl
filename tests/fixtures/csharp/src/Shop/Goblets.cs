@@ -241,4 +241,50 @@ namespace Shop.Goblets
             //^ d: src/Shop/Goblets.cs:5
         }
     }
+
+    public class GobletShelf
+    {
+        private readonly IReadOnlyList<Goblet>
+        //                             ^ d: src/Shop/Goblets.cs:3
+            _cups = new List<Goblet>();
+
+        public IEnumerable<Goblet>
+        //                 ^ d: src/Shop/Goblets.cs:3
+            All() => _cups;
+
+        public event Action<Goblet>
+        //                  ^ d: src/Shop/Goblets.cs:3
+            Poured;
+
+        public IEnumerable<Goblet> Pick(IEnumerable<object> xs)
+        {
+            return from x in xs
+                   where Validate<Goblet>(x)
+                   //             ^ d: src/Shop/Goblets.cs:3
+                   orderby Rank<Goblet>(x)
+                   //           ^ d: src/Shop/Goblets.cs:3
+                   select Cast<Goblet>(x);
+                   //          ^ d: src/Shop/Goblets.cs:3
+        }
+
+        public bool Is(object m)
+        {
+            switch (m)
+            {
+                case GobletShelf g when Check<Goblet>(g):
+                //                            ^ d: src/Shop/Goblets.cs:3
+                    return true;
+            }
+            do Check<Goblet>(null); while (false);
+            //       ^ d: src/Shop/Goblets.cs:3
+            if (m != null && Count() > Rank<Goblet>(m))
+            //                              ^ d: src/Shop/Goblets.cs:3
+                return m is GobletShelf ? Check<Goblet>(m) : false;
+                //                              ^ d: src/Shop/Goblets.cs:3
+            return false;
+        }
+
+        public static explicit operator Box<Goblet>(GobletShelf s) => null;
+        //                                  ^ d: src/Shop/Goblets.cs:3
+    }
 }
