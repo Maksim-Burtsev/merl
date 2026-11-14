@@ -923,6 +923,57 @@ fn a_dart_import_that_does_not_resolve_keeps_every_package() {
 }
 
 #[test]
+fn a_dart_project_namesake_the_file_does_not_import_is_no_jump() {
+    let cache = external_root(
+        "outside-dart-namesake",
+        &[
+            ("test/lib/test.dart", "export 'src/core.dart';\n"),
+            (
+                "test/lib/src/core.dart",
+                "void test(Object name, Function body) {}\n",
+            ),
+        ],
+    );
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{{\"name\": \"test\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}]}}\n",
+        cache.join("test").display()
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-namesake-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            ("tool/grind.dart", "Future<void> test() async {}\n"),
+            (
+                "test/a_test.dart",
+                "import 'package:test/test.dart';\n\nvoid main() {\n  test('x', () {});\n}\n",
+            ),
+            (
+                "test/b_test.dart",
+                "import '../tool/grind.dart';\n\nvoid main() {\n  test();\n}\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Dart, &[cache.join("test/lib")]);
+    d_on(&mut a, "test/a_test.dart", "|test('x'");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "test: by name, 1 match",
+            &at(&cache, "test/lib/src/core.dart", 1)
+        )
+    );
+    d_on(&mut a, "test/b_test.dart", "|test();");
+    assert_eq!(
+        shown(&mut a),
+        jump("test: by name, 1 match", "tool/grind.dart:1")
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_dart_awaited_getter_of_a_package_class_reads_the_future_its_factory_wraps() {
     let cache = external_root(
         "outside-dart-awaited",

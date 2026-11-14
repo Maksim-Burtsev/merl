@@ -220,6 +220,10 @@ impl App {
             found.clear();
             return;
         }
+        if missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
+            found.clear();
+            return;
+        }
         if found.iter().all(unseen)
             && !missing.is_empty()
             && let Some(names) = missing
