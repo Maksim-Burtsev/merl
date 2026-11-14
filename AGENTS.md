@@ -132,7 +132,9 @@ with its issue closed, or waits under `needs-owner` (see `docs/agents/merging.md
    runs share a scratchpad and overwrite each other's `before.gif`. Running merl yourself (tmux
    probes, screencasts), give the merl process a `HOME` in that folder and a stand-in `pbcopy`
    first on `PATH`: merl counts key presses into the user's statistics and copies through the
-   system clipboard (#1506).
+   system clipboard (#1506). Keep its toolchains real (`CARGO_HOME`, `RUSTUP_HOME`, `GOPATH`):
+   without them rustup downloads a toolchain into that `HOME`, and `d` loses the sysroot and the
+   crate registry the user's merl reads.
 5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
    by step (`tools/ci-local clippy tests` runs only those), and the Deny workflow's `cargo deny`
    (`deny`), stopping non-zero at the first that fails. A change a user can see adds its

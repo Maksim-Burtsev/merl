@@ -30,7 +30,9 @@ points your task to.
 - Running merl (tmux probes, screencasts) sets `HOME` to a folder in your scratch and puts a
   stand-in `pbcopy` (`#!/bin/sh` and `cat >/dev/null`) first on `PATH`, for the merl process
   only: merl counts key presses into the user's statistics and copies through the system
-  clipboard (#1506). Cargo and git keep the real `HOME`.
+  clipboard (#1506). Cargo and git keep the real `HOME`, and so do merl's toolchains:
+  `CARGO_HOME`, `RUSTUP_HOME` and `GOPATH` point at the real ones, or `d` answers from another
+  sysroot and no crate registry.
 - Visible also means a key that starts working in a new language, a new detail in a list row,
   and a changed answer by default (a jump where merl said "no definition", or the reverse).
   Such a change needs the owner's pick like any other visible one: do not build it in an
