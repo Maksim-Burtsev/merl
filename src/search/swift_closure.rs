@@ -490,3 +490,23 @@ pub fn swift_sequence_closure(head: &str, name: &str) -> Option<String> {
         && receiver.split('.').next() != Some(name))
     .then_some(receiver)
 }
+
+pub fn swift_typed_closure_param(head: &str, name: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\{\s*(?:\[[^\]]*\]\s*)?(\([^()]*\))\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\b([^{}"]*)$"#)
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::Swift, head);
+    let c = HEAD.captures(&code)?;
+    let n = regex::escape(name);
+    let body = Regex::new(&format!(r"\b{n}\.[\w.]*$"))
+        .ok()?
+        .replace(&c[2], "");
+    if Regex::new(&format!(r"\b{n}\b")).ok()?.is_match(&body) {
+        return None;
+    }
+    match super::swift_given(&c[1], name)? {
+        super::SwiftGiven::Type(t) => Some(t),
+        _ => None,
+    }
+}

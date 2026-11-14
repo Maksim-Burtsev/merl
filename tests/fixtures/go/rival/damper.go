@@ -128,7 +128,7 @@ func Wrapped() int {
 	//^ d: rival/damper.go:9
 		Grate struct {
 			Flue Flue
-		//^ d: rival/damper.go:9; want none (#1470)
+		//^ d: none
 		//     ^ d: rival/damper.go:9
 		}
 	}{}
@@ -137,7 +137,7 @@ func Wrapped() int {
 
 type Stack struct {
 	Flue Flue
-	//^ d: rival/damper.go:139
+	//^ d: picker rival/damper.go:178
 	//   ^ d: rival/damper.go:9
 }
 
@@ -164,3 +164,60 @@ func Typed() func() struct {
 } {
 	return nil
 }
+
+type Hearth struct {
+	Grate struct {
+		Flue Flue
+	//^ d: none
+	//     ^ d: rival/damper.go:9
+	}
+}
+
+type (
+	Kiln struct {
+		Flue Flue
+	//^ d: picker rival/damper.go:139
+	//     ^ d: rival/damper.go:9
+	}
+)
+
+func Deeper() int {
+	rows := []struct {
+		Grate struct {
+			Ash struct {
+				Flue Flue
+			//^ d: none
+			//     ^ d: rival/damper.go:9
+			}
+		}
+		Vent, Ash struct {
+			Flue Flue
+		//^ d: none
+		}
+	}{}
+	return len(rows)
+}
+
+type (
+	Ember   = int
+	Chimney interface {
+		Draw() Ember
+	//^ d: none
+	//      ^ d: rival/damper.go:202
+	}
+	Bellows struct {
+		Damper
+	//^ d: rival/damper.go:3
+		Vent, Puff Ember
+	//^ d: rival/damper.go:211
+	//      ^ d: rival/damper.go:211
+	//            ^ d: rival/damper.go:202
+	}
+	Stove struct{ Flue Flue }
+	//            ^ d: none; want picker rival/damper.go:139, rival/damper.go:178 (#1470)
+)
+
+func Stoke(b Bellows) int { return b.Vent + b.Puff + b.Draft }
+//                                   ^ d: rival/damper.go:211
+//                                            ^ d: rival/damper.go:211
+//                                                     ^ d: rival/damper.go:4

@@ -188,3 +188,7 @@ class Rebound(val x: Cup):
       println(x)
       //      ^ d: src/main/scala/rebound/Rebound.scala:3
     }
+  def valPair(): Unit = { val a, x = Mug(); x.sip() }
+  //                                          ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4; want src/main/scala/rebound/Mug.scala:4 (#1398)
+  def valPairRead(): Unit = { val a, x = Mug(); println(x) }
+  //                                                    ^ d: src/main/scala/rebound/Rebound.scala:193

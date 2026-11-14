@@ -212,6 +212,14 @@ impl App {
             return;
         }
         let unseen = |c: &Candidate| !c.hit.path.is_absolute() && !files.contains(&c.hit.path);
+        if !found.is_empty()
+            && found.iter().all(unseen)
+            && (DART_CORE_NAMES.split_whitespace().any(|n| n == word)
+                || self.dart_sdk_class_file(here, word).is_some())
+        {
+            found.clear();
+            return;
+        }
         if found.iter().all(unseen)
             && !missing.is_empty()
             && let Some(names) = missing
@@ -554,6 +562,7 @@ impl App {
             .is_empty()
             .then(|| search::dart_cast(before))
             .flatten();
+        let p = self.dart_checked(text, chain);
         let ty = match chain {
             [] if cast.is_some() => cast?,
             [] if compared.is_some() => {
@@ -592,7 +601,7 @@ impl App {
                 scope = s;
                 ty
             }
-            [r] if search::dart_promoted(text, self.line + 1, self.dart_col(), r) => return None,
+            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?, &mut scope)?,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -638,6 +647,53 @@ impl App {
         }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_checked(
+        &self,
+        text: &str,
+        chain: &[String],
+    ) -> Option<(Result<search::DartType, ()>, usize, usize)> {
+        let [r] = chain else {
+            return None;
+        };
+        search::dart_promoted(text, self.line + 1, self.dart_col(), r)
+    }
+
+    fn dart_narrowed(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        promoted: (Result<search::DartType, ()>, usize, usize),
+        scope: &mut PathBuf,
+    ) -> Option<search::DartType> {
+        let (checked, line1, col) = promoted;
+        let (checked, mut at) = (checked.ok()?, (line1, col));
+        let (declared, s) = self.dart_bound(here, text, name, 0)?;
+        let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
+        if bindings
+            .iter()
+            .any(|b| search::dart_assigned(text, b.line1, name))
+        {
+            return None;
+        }
+        let mut outer = vec![declared.class];
+        while let Some((ty, line1, col)) = search::dart_promoted(text, at.0, at.1, name) {
+            outer.push(ty.ok()?.class);
+            at = (line1, col);
+        }
+        outer.retain(|c| c != "Object" && *c != checked.class);
+        if !outer.is_empty() {
+            let file = self.dart_class_file(&s, &checked)?;
+            let mut names = Vec::new();
+            self.dart_ancestors(&file, &checked.class, 0, &mut names);
+            if outer.iter().any(|c| !names.contains(c)) {
+                return None;
+            }
+        }
+        *scope = s;
+        Some(checked)
     }
 
     fn dart_extended(
@@ -1395,6 +1451,16 @@ impl App {
             .find_map(|d| self.dart_sdk_exported(&files[0], &d.uri, class, sdk, depth + 1))
     }
 }
+
+const DART_CORE_NAMES: &str = "ArgumentError AssertionError BidirectionalIterator BigInt bool \
+    Comparable Comparator ConcurrentModificationError DateTime Deprecated deprecated double \
+    Duration Enum EnumByName EnumName Error Exception Expando Finalizer FormatException Function \
+    Future identical identityHashCode IndexError int IntegerDivisionByZeroException Invocation \
+    Iterable Iterator List Map MapEntry Match Never NoSuchMethodError Null num Object \
+    OutOfMemoryError override Pattern pragma print RangeError Record RegExp RegExpMatch \
+    RuneIterator Runes Set Sink StackOverflowError StackTrace StateError Stopwatch Stream String \
+    StringBuffer StringSink Symbol Type TypeError UnimplementedError UnsupportedError Uri UriData \
+    WeakReference";
 
 fn dart_names(d: &search::DartDirective, name: &str) -> bool {
     d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == name)) && !d.hide.iter().any(|n| n == name)

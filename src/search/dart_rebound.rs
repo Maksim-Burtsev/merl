@@ -109,7 +109,7 @@ pub fn dart_binders(line: &str, name: &str) -> usize {
     n
 }
 
-fn dart_narrows(cond: &str, w: &str, not: bool) -> bool {
+fn dart_narrows(cond: &str, w: &str, not: bool) -> Option<Result<DartType, ()>> {
     let (and, or) = if not { ("||", "&&") } else { ("&&", "||") };
     let b = cond.as_bytes();
     let mut depth = 0i32;
@@ -119,7 +119,7 @@ fn dart_narrows(cond: &str, w: &str, not: bool) -> bool {
         match b[k] {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
-            _ if depth == 0 && b[k..].starts_with(or.as_bytes()) => return false,
+            _ if depth == 0 && b[k..].starts_with(or.as_bytes()) => return None,
             _ if depth == 0 && b[k..].starts_with(and.as_bytes()) => {
                 parts.push(cond.get(from..k).unwrap_or_default());
                 from = k + 2;
@@ -128,12 +128,26 @@ fn dart_narrows(cond: &str, w: &str, not: bool) -> bool {
         }
     }
     parts.push(cond.get(from..).unwrap_or_default());
-    let is = Regex::new(&format!(
-        r"^{w}\s+is{}",
-        if not { "!" } else { r"\s+[\w$]" }
+    let is = if not { "!" } else { r"\s+[\w$]" };
+    let is = Regex::new(&format!(r"^{w}\s+is{is}")).expect("an escaped name");
+    let checked = Regex::new(&format!(
+        r"^{w}\s+is{}\s*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\??$",
+        if not { "!" } else { r"\s" }
     ))
     .expect("an escaped name");
-    parts.iter().any(|p| is.is_match(p.trim()))
+    let mut narrowing = parts.iter().map(|p| p.trim()).filter(|p| is.is_match(p));
+    let first = narrowing.next()?;
+    let c = checked
+        .captures(first)
+        .filter(|_| narrowing.next().is_none());
+    Some(
+        c.map(|c| DartType {
+            prefix: c.get(1).map(|m| m.as_str().to_owned()),
+            class: c[2].to_owned(),
+            constructor: None,
+        })
+        .ok_or(()),
+    )
 }
 
 fn dart_condition(t: &str) -> Option<(&str, &str)> {
@@ -156,21 +170,25 @@ fn dart_exits(body: &str) -> bool {
         .is_some_and(|s| EXIT.is_match(s.trim_start_matches('{').trim()))
 }
 
-pub fn dart_promoted(text: &str, line1: usize, col: usize, name: &str) -> bool {
+pub fn dart_promoted(
+    text: &str,
+    line1: usize,
+    col: usize,
+    name: &str,
+) -> Option<(Result<DartType, ()>, usize, usize)> {
     static CONTROL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$])(?:if|while)\s*$").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let w = regex::escape(name);
     let is = Regex::new(&format!(r"(?:^|[^\w$.]){w}\s+is\s+[\w$]")).expect("an escaped name");
     let b = dart_masked(lines[at]);
     let own = String::from_utf8_lossy(&b).into_owned();
     let here = own.get(..col.min(own.len())).unwrap_or_default();
     let binder = dart_binder_at(lines[at], col, name);
-    if is.find_iter(here).any(|m| {
+    let checks: Vec<_> = is.find_iter(here).collect();
+    let same_line = checks.into_iter().rev().find_map(|m| {
         let mut depth = 0i32;
         let start = m.start() + m.as_str().find(name).unwrap_or(0);
         let open = (0..start).rev().find(|&k| {
@@ -183,22 +201,18 @@ pub fn dart_promoted(text: &str, line1: usize, col: usize, name: &str) -> bool {
         });
         let control =
             open.filter(|&o| b[o] == b'(' && CONTROL.is_match(own.get(..o).unwrap_or_default()));
-        let from = match control {
+        let (from, ty) = match control {
             Some(o) => {
                 let cond = close_of(Kind::Dart, &own, o).and_then(|c| own.get(o + 1..c - 1));
-                if !cond.is_some_and(|c| dart_narrows(c, &w, false)) {
-                    return false;
-                }
-                o
+                (o, dart_narrows(cond?, &w, false)?)
             }
-            None => start,
+            None => (start, Err(())),
         };
-        binder.is_none_or(|s| s < from) && dart_reaches(&b, from, col, false)
-    }) {
-        return true;
-    }
-    if binder.is_some() {
-        return false;
+        (binder.is_none_or(|s| s < from) && dart_reaches(&b, from, col, false))
+            .then_some((ty, line1, from))
+    });
+    if same_line.is_some() || binder.is_some() {
+        return same_line;
     }
     let literal = literal_lines(Kind::Dart, text);
     let mut depth = indent(lines[at]);
@@ -212,35 +226,52 @@ pub fn dart_promoted(text: &str, line1: usize, col: usize, name: &str) -> bool {
         }
         if ind == depth {
             if dart_local(t, name) {
-                return false;
+                return None;
             }
             let exits = |rest: &str| {
                 if rest != "{" {
                     return dart_exits(rest);
                 }
-                let last = (i + 1..at)
+                let body: Vec<usize> = (i + 1..at)
                     .take_while(|&k| lines[k].trim().is_empty() || indent(lines[k]) > depth)
                     .filter(|&k| !lines[k].trim().is_empty())
-                    .last();
-                last.is_some_and(|k| dart_exits(lines[k]))
+                    .collect();
+                let Some(&first) = body.first() else {
+                    return false;
+                };
+                let last = body
+                    .iter()
+                    .rposition(|&k| indent(lines[k]) == indent(lines[first]));
+                let tail: Vec<&str> = body[last.unwrap_or(0)..]
+                    .iter()
+                    .map(|&k| lines[k].trim())
+                    .collect();
+                dart_exits(&tail.join(" "))
             };
-            if dart_condition(t).is_some_and(|(c, rest)| dart_narrows(c, &w, true) && exits(rest)) {
-                return true;
+            if let Some((c, rest)) = dart_condition(t)
+                && let Some(ty) = dart_narrows(c, &w, true)
+                && exits(rest)
+            {
+                let ty = ty.ok().filter(|_| t.starts_with("if")).ok_or(());
+                return Some((ty, i + 1, ind));
             }
             continue;
         }
         if dart_binder_at(lines[i], lines[i].len(), name).is_some() {
-            return false;
+            return None;
         }
-        if dart_condition(t).is_some_and(|(c, _)| dart_narrows(c, &w, false)) {
-            return true;
+        if let Some((c, rest)) = dart_condition(t)
+            && let Some(ty) = dart_narrows(c, &w, false)
+        {
+            let ty = ty.ok().filter(|_| rest.is_empty() || rest == "{").ok_or(());
+            return Some((ty, i + 1, ind));
         }
         depth = ind;
         if depth == 0 || TYPE_BODY.is_match(lines[i]) {
-            return false;
+            return None;
         }
     }
-    false
+    None
 }
 
 pub fn dart_cast(before: &str) -> Option<DartType> {
@@ -256,4 +287,31 @@ pub fn dart_cast(before: &str) -> Option<DartType> {
         class: c[2].to_owned(),
         constructor: None,
     })
+}
+
+pub fn dart_assigned(text: &str, bound1: usize, name: &str) -> bool {
+    let w = regex::escape(name);
+    let assigned = Regex::new(&format!(
+        r"(?:^|[^\w$.?>\s])\s*{w}\s*(?:[-+*/%&|^~]|~/|<<|>>>?|\?\?)?=(?:[^=>]|$)|(?:\+\+|--)\s*{w}\b|\b{w}\s*(?:\+\+|--)"
+    ))
+    .expect("an escaped name");
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Dart, text);
+    let start = bound1.saturating_sub(1);
+    let mut depth = lines.get(start).map_or(0, |l| indent(l));
+    for (k, line) in lines.iter().enumerate().skip(start) {
+        let t = line.trim();
+        if k > start && !literal[k] && !t.is_empty() {
+            let ind = indent(line);
+            if ind < depth && t.starts_with(')') {
+                depth = ind;
+            } else if ind < depth || (ind == depth && t.starts_with('}')) {
+                return false;
+            }
+        }
+        if assigned.is_match(&String::from_utf8_lossy(&dart_masked(line))) {
+            return true;
+        }
+    }
+    false
 }

@@ -2,7 +2,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust::{binds, rust_rebinds, top_split, top_stop, type_at, without_type};
+use super::rust::{
+    binds, rust_line_binds, rust_rebinds, top_split, top_stop, type_at, without_type,
+};
 use super::{Kind, code};
 
 pub fn rust_closure_holds<'a>(line: &'a str, name: &str, at: usize) -> Option<&'a str> {
@@ -149,7 +151,15 @@ pub fn rust_rebound_before(line: &str, name: &str, at: usize) -> bool {
         }
     })
 }
-pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<(&'a str, bool)> {
+pub enum IfLetScope<'a> {
+    Then(&'a str),
+    Outside,
+    Hidden,
+}
+fn may_rebind(s: &str, name: &str) -> bool {
+    rust_line_binds(s, name) || rust_rebound_before(s, name, s.len())
+}
+pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<IfLetScope<'a>> {
     let code: Vec<(usize, u8)> = code(Kind::Rust, line).collect();
     let start = line
         .get(..at)?
@@ -179,10 +189,18 @@ pub fn rust_if_let_branch<'a>(line: &'a str, name: &str, at: usize) -> Option<(&
     if !binds(pat, name) {
         return None;
     }
-    if then_open < at && at < then_close {
-        return Some((header, true));
-    }
-    let &(else_open, else_close) = blocks.get(1)?;
-    (line.get(then_close + 1..else_open)?.trim() == "else" && else_open < at && at < else_close)
-        .then_some((header, false))
+    let from = if then_open < at && at < then_close {
+        then_open
+    } else if then_close < at {
+        then_close
+    } else {
+        return None;
+    };
+    Some(if may_rebind(line.get(from..at)?, name) {
+        IfLetScope::Hidden
+    } else if from == then_open {
+        IfLetScope::Then(header)
+    } else {
+        IfLetScope::Outside
+    })
 }

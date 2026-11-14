@@ -998,3 +998,86 @@ pub fn ts_awaited(
     let continued = line.trim_start().starts_with('.') || closes_above.is_none();
     (awaited && ended && !continued).then(|| inner.to_owned())
 }
+
+pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
+    let rule = Regex::new(&format!(
+        r"^(?:(?:const|let|var)\s+)?{}\s*=\s*(\[.*\])\s*;?$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let kind = Kind::TsJs;
+    let code = uncommented(kind, line);
+    let c = rule.captures(code.trim())?;
+    let literal = c.get(1)?.as_str();
+    let inner = literal
+        .get(1..literal.len() - 1)
+        .filter(|_| close_of(kind, literal, 0) == Some(literal.len()))?;
+    let [one] = <[&str; 1]>::try_from(split_top(kind, inner, b',')).ok()?;
+    let one = one.trim();
+    (!one.is_empty() && !one.starts_with("..."))
+        .then(|| value_of(kind, one))
+        .filter(|v| !matches!(v, Value::Unknown))
+}
+
+pub fn ts_array_pushes(text: &str, decl: usize, name: &str) -> Option<Vec<(usize, Value)>> {
+    static WRITE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[-+*/%&|^]|\*\*|<<|>>>?|\?\?|\|\||&&)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    static CHAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
+    });
+    let kind = Kind::TsJs;
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let literal = literal_lines(kind, text);
+    let mut pushed = Vec::new();
+    for (at, line) in text.lines().enumerate() {
+        if at + 1 == decl || literal.get(at).copied().unwrap_or(true) || !line.contains(name) {
+            continue;
+        }
+        let mut bytes = vec![b' '; line.len()];
+        for (i, c) in code(kind, line).filter(|&(_, c)| c != 0) {
+            bytes[i] = c;
+        }
+        let code = String::from_utf8_lossy(&bytes);
+        for (i, _) in code.match_indices(name) {
+            let (Some(before), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
+                continue;
+            };
+            if before.ends_with(|c: char| ident(c) || c == '.') || rest.starts_with(ident) {
+                continue;
+            }
+            if before.trim_end().ends_with(" of") && rest.trim_start().starts_with(')') {
+                continue;
+            }
+            if rest.starts_with('[') {
+                if WRITE.is_match(rest.get(close_of(kind, rest, 0)?..)?) {
+                    return None;
+                }
+                continue;
+            }
+            let method = rest.strip_prefix('.')?;
+            let method = method.split(|c: char| !ident(c)).next().unwrap_or_default();
+            match method {
+                "push" | "unshift" => {
+                    let open = i + name.len() + 1 + method.len();
+                    let end = close_of(kind, &code, open)
+                        .filter(|_| code.get(open..).is_some_and(|r| r.starts_with('(')))?;
+                    for arg in split_top(kind, code.get(open + 1..end - 1)?, b',') {
+                        let arg = arg.trim();
+                        let value = match arg.strip_prefix("...").map(str::trim) {
+                            Some(list) if CHAIN.is_match(list) => Value::Element(list.to_owned()),
+                            Some(_) => Value::Unknown,
+                            None => value_of(kind, arg),
+                        };
+                        pushed.push((at + 1, value));
+                    }
+                }
+                "" | "splice" | "fill" | "copyWithin" => return None,
+                _ => {}
+            }
+        }
+    }
+    Some(pushed)
+}

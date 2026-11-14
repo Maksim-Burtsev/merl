@@ -214,6 +214,7 @@ pub fn bindings_at(
             if out.iter().all(|b| b.line1 != line) && ts_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
+            ts_popped_then_written(&lines, at, name, &mut out);
             ts_hoisted_vars(&lines, at, name, &mut out);
             match ts_hoisted_function(text, &lines, at, name) {
                 Some((header, f)) if f > line && out.iter().all(|b| b.line1 <= header) => {
@@ -255,6 +256,23 @@ pub fn bindings_at(
         Kind::Dart => dart_bindings(&lines, at, name),
         k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
+    }
+}
+fn ts_popped_then_written(lines: &[&str], at: usize, name: &str, out: &mut [Binding]) {
+    let n = regex::escape(name);
+    let write = Regex::new(&format!(
+        r"(?:^|[^\w$.]){n}\s*(?:[-+*/%&|^]|\?\?|\|\||&&)?=[^=>]|^[\s(;]*[\[{{](?:[^=]*[^\w$.=])?{n}(?:[^\w$][^=]*)?[\]}}]\s*=[^=>]"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    for b in out.iter_mut() {
+        let header = b.line1 - 1;
+        let popped = matches!(b.value, Value::Element(_))
+            && lines
+                .get(header)
+                .is_some_and(|l| l.trim_start().starts_with("while"));
+        if popped && lines[header + 1..=at].iter().any(|l| write.is_match(l)) {
+            b.value = Value::Unknown;
+        }
     }
 }
 fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
@@ -918,6 +936,15 @@ fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         ),
     ) {
         out.push(b);
+    } else if let Some(b) = element(
+        header,
+        line,
+        &format!(
+            r"^while\s*\(\(\s*{n}\s*=\s*((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\.(?:pop|shift)\(\)\s*\)"
+        ),
+    ) {
+        out.push(b);
+        return true;
     } else if TS_LOOP
         .captures_iter(header)
         .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))

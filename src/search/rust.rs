@@ -667,6 +667,9 @@ pub(super) fn rust_rebinds(code_part: &str, name: &str) -> bool {
         LazyLock::new(|| Regex::new(r"\blet\b").expect("the regex is a literal"));
     LET.is_match(code_part) || line_binds(code_part, name, CodeShape::Line)
 }
+pub(super) fn rust_line_binds(code_part: &str, name: &str) -> bool {
+    line_binds(code_part, name, CodeShape::Line)
+}
 pub(super) fn without_type(param: &str) -> &str {
     top_stop(param, b":")
         .and_then(|i| param.get(..i))
