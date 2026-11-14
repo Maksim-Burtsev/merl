@@ -24,3 +24,9 @@ node {
         //         ^ d: vars/notifyTeam.groovy:1
     }
 }
+
+node {
+    def kit = load 'vars/pickling.groovy'
+    kit.souse(1)
+    //  ^ d: vars/pickling.groovy:1
+}

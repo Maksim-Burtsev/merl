@@ -528,7 +528,7 @@ pub fn ruby_on_class(text: &str, line1: usize) -> bool {
 
 pub fn ruby_self_rebound(text: &str, line1: usize, before: &str) -> bool {
     static OPENS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\b(?:instance|class|module)_(?:eval|exec)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
+        Regex::new(r"(?:\b(?:instance|class|module)_(?:eval|exec)|\b(?:Class|Module|Struct)\.new)\b[^{}]*(?:\{|\bdo\b)[^{}]*$")
             .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();

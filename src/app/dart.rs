@@ -213,19 +213,24 @@ impl App {
         }
         let unseen = |c: &Candidate| !c.hit.path.is_absolute() && !files.contains(&c.hit.path);
         if found.iter().all(unseen)
-            && let [d] = &missing[..]
-            && let Some(name) = self.dart_package_missing(&d.uri)
+            && !missing.is_empty()
+            && let Some(names) = missing
+                .iter()
+                .map(|d| self.dart_package_missing(&d.uri))
+                .collect::<Option<Vec<_>>>()
         {
-            let hit = Hit {
-                deleted: None,
-                path: here.to_path_buf(),
-                line1: d.line1,
-                byte_col: None,
-                text: self.buf.lines[d.line1 - 1].clone(),
-            };
-            let reason = Reason::Import(format!("{name} (not installed)"));
+            let imports = missing.iter().zip(names).map(|(d, name)| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: d.line1,
+                    byte_col: None,
+                    text: self.buf.lines[d.line1 - 1].clone(),
+                },
+                reason: Reason::Import(format!("{name} (not installed)")),
+            });
             *found = if found.iter().any(top) {
-                vec![Candidate { hit, reason }]
+                imports.collect()
             } else {
                 Vec::new()
             };
