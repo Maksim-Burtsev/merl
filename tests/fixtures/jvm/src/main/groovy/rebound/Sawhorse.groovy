@@ -111,4 +111,16 @@ class Sawhorse {
 
     def fieldTyped() { c.bore() }
     //                   ^ d: src/main/groovy/rebound/Gimlet.groovy:4
+
+    def bareDefs() { def a, x; x }
+    //                         ^ d: src/main/groovy/rebound/Sawhorse.groovy:115
+
+    def threeBareDefs() { def a, b, x; x }
+    //                                 ^ d: src/main/groovy/rebound/Sawhorse.groovy:118
+
+    def parenlessCall() { assertEquals c, x; x }
+    //                                       ^ d: src/main/groovy/rebound/Sawhorse.groovy:5
+
+    def parenlessDotted() { System.out.println c, x; x }
+    //                                               ^ d: src/main/groovy/rebound/Sawhorse.groovy:5
 }

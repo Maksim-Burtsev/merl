@@ -240,4 +240,10 @@ public class Rack {
 
     void use(String s) {
     }
+
+    void bareDeclarators() { int a, x; x = 1; use("" + x); }
+    //                                                 ^ d: src/main/java/rebound/Rack.java:244
+
+    void threeBareDeclarators() { int a, b, x; x = 1; use("" + x); }
+    //                                                         ^ d: src/main/java/rebound/Rack.java:247
 }
