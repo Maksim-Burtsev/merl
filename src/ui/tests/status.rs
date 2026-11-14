@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::style::Modifier;
 
 use crate::app::App;
 use crate::buffer::Buffer;
@@ -212,6 +214,46 @@ fn the_clock_goes_before_the_path_is_shortened() {
     assert!(
         clocked(STDLIB, "", 80).starts_with('\u{2026}'),
         "a path too long anyway is shortened as before"
+    );
+}
+
+#[test]
+fn the_find_prompt_draws_the_recalled_search_selected_as_a_reversed_band() {
+    let mut app = App::new(
+        PathBuf::from("/work/app"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/work/app/a.py"), b"now\nnow\n"),
+        None,
+    );
+    for code in [
+        KeyCode::Char('/'),
+        KeyCode::Char('n'),
+        KeyCode::Char('o'),
+        KeyCode::Char('w'),
+        KeyCode::Enter,
+        KeyCode::Char('/'),
+    ] {
+        app.key(KeyEvent::new(code, KeyModifiers::NONE));
+    }
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+    let buf = terminal.backend().buffer();
+    let band: Vec<_> = (1..4)
+        .map(|x| {
+            let c = &buf[(x, 3)];
+            (c.symbol(), c.bg, c.modifier.contains(Modifier::REVERSED))
+        })
+        .collect();
+    assert_eq!(
+        band,
+        [
+            ("n", theme.status_bg, true),
+            ("o", theme.status_bg, true),
+            ("w", theme.status_bg, true)
+        ]
     );
 }
 

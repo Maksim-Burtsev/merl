@@ -148,6 +148,68 @@ fn picker_overlay_renders_border_prompt_and_items() {
     assert_eq!(text, SNAPSHOT);
 }
 
+fn picker_query_b_and_c_as_shown(theme: &str) -> [(Color, Color, bool); 2] {
+    let files = ["src/app.rs"].map(PathBuf::from).to_vec();
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        files,
+        Buffer::empty(),
+        None,
+    );
+    app.open_files_picker();
+    for c in "abc".chars() {
+        app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    for _ in 0..2 {
+        app.key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
+    }
+    let theme = crate::theme::load(theme).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+
+    let buf = terminal.backend().buffer();
+    let (x, y) = cell_at(&terminal, "> abc");
+    [x + 3, x + 4].map(|x| {
+        let c = &buf[(x, y)];
+        let (fg, bg) = if c.modifier.contains(Modifier::REVERSED) {
+            (c.bg, c.fg)
+        } else {
+            (c.fg, c.bg)
+        };
+        (fg, bg, c.modifier.contains(Modifier::BOLD))
+    })
+}
+
+#[test]
+fn a_selection_in_a_picker_query_is_drawn_like_one_in_the_code_and_the_cursor_shows_on_it() {
+    let rgb = |hex: u32| Color::from_u32(hex);
+    assert_eq!(
+        picker_query_b_and_c_as_shown("github-light"),
+        [
+            (rgb(0xff_ff_ff), rgb(0x1f_23_28), false),
+            (rgb(0x1f_23_28), rgb(0xda_e9_f9), false)
+        ],
+        "the cursor on b, then the selected c in Visual's background"
+    );
+    assert_eq!(
+        picker_query_b_and_c_as_shown("catppuccin-mocha"),
+        [
+            (rgb(0x1e_1e_2e), rgb(0xf5_e0_dc), true),
+            (rgb(0xcd_d6_f4), rgb(0x45_47_5a), true)
+        ],
+        "Visual's bold"
+    );
+    assert_eq!(
+        picker_query_b_and_c_as_shown("srcery"),
+        [
+            (rgb(0x12_11_10), rgb(0xfb_b8_29), false),
+            (rgb(0x31_2f_2c), rgb(0xfc_e8_c3), false)
+        ],
+        "the theme's selection foreground"
+    );
+}
+
 #[test]
 fn search_title_hides_the_count_until_the_grep_answers() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor/notes");

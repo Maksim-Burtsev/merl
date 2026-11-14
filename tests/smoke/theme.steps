@@ -55,3 +55,9 @@ merl --theme github-light app/models.py
 wait A refund.patch
 key T
 wait github-light
+# A selection in a picker's query is drawn like one in the code, in the theme's selection colour,
+# so the cursor on its first cell shows, as in LazyVim (#1312).
+key Escape o
+type models
+key S-Left S-Left S-Left
+wait > models
