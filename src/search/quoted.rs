@@ -117,6 +117,9 @@ fn in_code(lang: Lang, b: &[u8], i: usize) -> (usize, Change) {
         let nests = matches!(lang, Lang::Kotlin | Lang::Scala | Lang::Dart);
         return (block_comment(rest, nests), Change::Keep);
     }
+    if let Some(n) = (lang == Lang::Ts).then(|| regex_literal(b, i)).flatten() {
+        return (n, Change::Keep);
+    }
     match rest[0] {
         b'{' => return (1, Change::Push(Frame::Code)),
         b'}' => return (1, Change::Pop),
@@ -227,4 +230,25 @@ fn block_comment(b: &[u8], nests: bool) -> usize {
 
 fn ident(c: u8) -> bool {
     c.is_ascii_alphanumeric() || c == b'_'
+}
+
+fn regex_literal(b: &[u8], i: usize) -> Option<usize> {
+    let before = b[..i].iter().rev().find(|c| !c.is_ascii_whitespace());
+    if b[i] != b'/' || before.is_some_and(|c| !b"(,=:[!&|?{};+-*%<>~^".contains(c)) {
+        return None;
+    }
+    let mut class = false;
+    let mut j = i + 1;
+    while let Some(&c) = b.get(j) {
+        match c {
+            b'\n' => return None,
+            b'\\' => j += 1,
+            b'[' => class = true,
+            b']' => class = false,
+            b'/' if !class => return Some(j + 1 - i),
+            _ => {}
+        }
+        j += 1;
+    }
+    None
 }

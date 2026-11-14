@@ -15,10 +15,10 @@ fn a_word_in_a_string_s_text_is_quoted_and_one_in_its_hole_is_code() {
         texts(Kind::Python, "a.py", py),
         [true, false, true, true, false, false, false]
     );
-    let ts = "`^a ${`^b ${^c}`}` + '^d' + ^e // '^f";
+    let ts = "`^a ${`^b ${^c}`}` + '^d' + ^e + s.split(/[/`]/) + ^g / 2 + '^h' // '^f";
     assert_eq!(
         texts(Kind::TsJs, "a.ts", ts),
-        [true, true, false, true, false, false]
+        [true, true, false, true, false, false, true, false]
     );
     let cs = r#"$@"^a {^b} ""^c""" + @"\" + ^d + """^e""" + '"' + ^f"#;
     assert_eq!(
