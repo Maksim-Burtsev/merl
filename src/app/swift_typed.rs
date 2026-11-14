@@ -338,6 +338,10 @@ impl App {
                 .and_then(|each| self.swift_sequence_value(here, file, text, at, each, hops))
         };
         match search::swift_bindings_or_top(text, &lines, top, line1, name).as_slice() {
+            _ if let Some(t) = lead.and_then(|l| search::swift_typed_closure_param(l, name)) => {
+                let given = self.swift_nested_given(here, text, line1, search::SwiftGiven::Type(t));
+                self.swift_given_type(here, file, text, line1, given, hops)
+            }
             _ if let Some(found) = lead.and_then(|l| each(l, line1)) => Some(found),
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
