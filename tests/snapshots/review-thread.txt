@@ -24,7 +24,7 @@ merl snapshot: review-thread
 │                            │10     """Reads and writes the notes of a single
 │                            │       JSON file."""
 └ 3 files · +5 −8 · 4 notes ─┘11
-store.py  1:1  [code]  hunk 0/2  file 2/3
+store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 80x24 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
@@ -146,7 +146,7 @@ p fg #f6f8fa bg #5094e4
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
 └ 3 files · +5 −8 · 4 notes ─┘19             return []
-store.py  1:1  [code]  hunk 0/2  file 2/3
+store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 120x33 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -338,7 +338,7 @@ A fg #f6f8fa bg #5094e4
 │                            │39▎    def count(self) -> int:
 │                            │40▎        return len(self.notes)
 └ 3 files · +5 −8 · 4 notes ─┘41▎
-store.py  1:1  [code]  hunk 0/2  file 2/3
+store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 185x55 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
