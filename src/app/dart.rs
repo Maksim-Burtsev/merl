@@ -562,6 +562,7 @@ impl App {
             .is_empty()
             .then(|| search::dart_cast(before))
             .flatten();
+        let p = self.dart_checked(text, chain);
         let ty = match chain {
             [] if cast.is_some() => cast?,
             [] if compared.is_some() => {
@@ -600,7 +601,7 @@ impl App {
                 scope = s;
                 ty
             }
-            [r] if search::dart_promoted(text, self.line + 1, self.dart_col(), r) => return None,
+            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?.ok()?, &mut scope)?,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -646,6 +647,41 @@ impl App {
         }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_checked(&self, text: &str, chain: &[String]) -> Option<Result<search::DartType, ()>> {
+        let [r] = chain else {
+            return None;
+        };
+        search::dart_promoted(text, self.line + 1, self.dart_col(), r)
+    }
+
+    fn dart_narrowed(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        checked: search::DartType,
+        scope: &mut PathBuf,
+    ) -> Option<search::DartType> {
+        let (declared, s) = self.dart_bound(here, text, name, 0)?;
+        let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
+        if bindings
+            .iter()
+            .any(|b| search::dart_assigned(text, b.line1, name))
+        {
+            return None;
+        }
+        if declared.class != "Object" && declared.class != checked.class {
+            let file = self.dart_class_file(&s, &checked)?;
+            let mut names = Vec::new();
+            self.dart_ancestors(&file, &checked.class, 0, &mut names);
+            if !names.contains(&declared.class) {
+                return None;
+            }
+        }
+        *scope = s;
+        Some(checked)
     }
 
     fn dart_extended(
