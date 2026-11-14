@@ -46,48 +46,32 @@ pub fn pid() -> u32 {
 
 #[cfg(not(target_family = "wasm"))]
 pub fn write_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let Ok(target) = path.canonicalize() else {
-        return std::fs::write(path, bytes);
-    };
-    let old = (std::fs::OpenOptions::new().write(true).open(&target))?.metadata()?;
-    let name = target.file_name().unwrap_or_default().to_string_lossy();
-    let tmp = target.with_file_name(format!(".{name}.merl-{}", pid()));
-    let file = match std::fs::File::create(&tmp) {
-        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
-            return std::fs::write(&target, bytes);
-        }
-        made => made?,
-    };
-    let replaced = replace(file, &old, &tmp, &target, bytes);
-    if !matches!(replaced, Ok(true)) {
-        drop(std::fs::remove_file(&tmp));
-    }
-    if replaced? {
-        Ok(())
-    } else {
-        std::fs::write(&target, bytes)
-    }
+    write_after_probe(path, bytes, io::Write::write_all)
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn replace(
-    mut file: std::fs::File,
-    old: &std::fs::Metadata,
-    tmp: &Path,
-    target: &Path,
+pub fn write_after_probe(
+    path: &Path,
     bytes: &[u8],
-) -> io::Result<bool> {
-    use std::io::Write;
-    use std::os::unix::fs::MetadataExt;
-    let new = file.metadata()?;
-    if old.nlink() > 1 || (old.uid(), old.gid()) != (new.uid(), new.gid()) {
-        return Ok(false);
+    write: impl FnOnce(&mut std::fs::File, &[u8]) -> io::Result<()>,
+) -> io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    if let Ok(target) = path.canonicalize() {
+        let name = target.file_name().unwrap_or_default().to_string_lossy();
+        let tmp = target.with_file_name(format!(".{name}.merl-{}", pid()));
+        let made = (std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600))
+        .open(&tmp);
+        if let Ok(mut file) = made {
+            let probed = write(&mut file, bytes).and_then(|()| file.sync_all());
+            drop(file);
+            drop(std::fs::remove_file(&tmp));
+            probed?;
+        }
     }
-    file.set_permissions(old.permissions())?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    std::fs::rename(tmp, target)?;
-    Ok(true)
+    std::fs::write(path, bytes)
 }
 
 #[cfg(target_family = "wasm")]
