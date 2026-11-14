@@ -152,6 +152,22 @@ void checked(Vase x, Object o, Flagon f, bool ok) {
     x.slosh();
     //^ d: !jump
   }
+  if (o is Ewer) {
+    if (o is Flagon) {
+      o.slosh();
+      //^ d: !jump
+    }
+  }
+  if (o is Ewer) if (o is Flagon) o.slosh();
+  //                                ^ d: !jump
+  if (o is Vase) if (o is Ewer) o.slosh();
+  //                              ^ d: lib/rebound.dart:7
+  if (o is Vase) {
+    if (o is Ewer) {
+      o.slosh();
+      //^ d: lib/rebound.dart:7
+    }
+  }
 }
 
 void exited(Vase x, Vase y, Vase z, bool ok) {
