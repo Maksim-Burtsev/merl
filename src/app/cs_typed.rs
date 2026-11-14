@@ -58,12 +58,7 @@ impl App {
             .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
             .ok_or_else(|| first.clone())?;
-        let outside = matches!(ty, CsType::Outside(_)) && !fields.is_empty();
-        if outside
-            && self
-                .cs_alias_target(here, &text, self.line + 1, first)
-                .is_some()
-        {
+        if !fields.is_empty() && self.cs_outside_alias(here, &text, first, &ty) {
             return Ok(CsAnswer::Outside { links: link });
         }
         let mut links = vec![link];
