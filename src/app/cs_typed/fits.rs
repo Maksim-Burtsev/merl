@@ -117,9 +117,7 @@ impl App {
         {
             return None;
         }
-        let ty @ CsType::Project(_) = self.cs_new_type(file, text, line1, &target)? else {
-            return None;
-        };
+        let ty = self.cs_new_type(file, text, line1, &target)?;
         Some(Proven {
             ty,
             link: name.to_owned(),
