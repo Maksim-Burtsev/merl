@@ -337,6 +337,39 @@ fn a_dart_receiver_of_an_sdk_type_answers_from_the_sdk() {
 }
 
 #[test]
+fn a_dart_sdk_class_outside_the_core_list_is_never_a_missing_import_s() {
+    let sdk = external_root(
+        "outside-dart-sdk-core",
+        &[(
+            "lib/core/core.dart",
+            "library dart.core;\n\nclass Kettle {}\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-sdk-core-project",
+        &[
+            (
+                "lib/main.dart",
+                "import 'package:steep_annotation/steep_annotation.dart';\n\nclass Brew {\n  final Kettle? kettle = null;\n}\n",
+            ),
+            ("lib/rigs/kettle.dart", "class Kettle {}\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "final |Kettle");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Kettle: by name, 1 match",
+            &at(&sdk, "lib/core/core.dart", 3)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_dart_sdk_class_another_library_exports_types_a_chain_however_it_is_reached() {
     let sdk = external_root(
         "outside-dart-export",

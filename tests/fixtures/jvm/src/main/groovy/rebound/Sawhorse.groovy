@@ -123,4 +123,7 @@ class Sawhorse {
 
     def parenlessDotted() { System.out.println c, x; x }
     //                                               ^ d: src/main/groovy/rebound/Sawhorse.groovy:5
+
+    def outsideTyped() { Thread t = make(); t.bore() }
+    //                                        ^ d: picker src/main/groovy/rebound/Auger.groovy:4, src/main/groovy/rebound/Gimlet.groovy:4
 }

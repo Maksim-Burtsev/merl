@@ -1,6 +1,17 @@
 def quay = 'eu'
 String zone = 'a'
 
+echo makeTag(zone)
+//           ^ d: ci/Jenkinsfile:2
+println format(
+    quay
+//  ^ d: ci/Jenkinsfile:1
+)
+assert check(zone)
+//           ^ d: ci/Jenkinsfile:2
+println new Date(), zone
+//                  ^ d: ci/Jenkinsfile:2
+
 node('linux') {
     echo quay
     //   ^ d: ci/Jenkinsfile:1
@@ -45,3 +56,11 @@ stage('x') {
     //   ^ d: none
 }
 def tardy = 1
+
+@groovy.transform.Field
+def bauble = 'c'
+
+def reach() {
+    echo bauble
+    //   ^ d: ci/Jenkinsfile:61
+}

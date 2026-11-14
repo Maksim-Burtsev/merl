@@ -601,7 +601,10 @@ impl App {
                 scope = s;
                 ty
             }
-            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?.ok()?, &mut scope)?,
+            [r] if p.is_some() => {
+                let (ty, line1, col) = p?;
+                self.dart_narrowed(here, text, r, ty.ok()?, (line1, col), &mut scope)?
+            }
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -649,7 +652,11 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
-    fn dart_checked(&self, text: &str, chain: &[String]) -> Option<Result<search::DartType, ()>> {
+    fn dart_checked(
+        &self,
+        text: &str,
+        chain: &[String],
+    ) -> Option<(Result<search::DartType, ()>, usize, usize)> {
         let [r] = chain else {
             return None;
         };
@@ -662,6 +669,7 @@ impl App {
         text: &str,
         name: &str,
         checked: search::DartType,
+        mut at: (usize, usize),
         scope: &mut PathBuf,
     ) -> Option<search::DartType> {
         let (declared, s) = self.dart_bound(here, text, name, 0)?;
@@ -672,11 +680,17 @@ impl App {
         {
             return None;
         }
-        if declared.class != "Object" && declared.class != checked.class {
+        let mut outer = vec![declared.class.clone()];
+        while let Some((ty, line1, col)) = search::dart_promoted(text, at.0, at.1, name) {
+            outer.push(ty.ok()?.class);
+            at = (line1, col);
+        }
+        outer.retain(|c| c != "Object" && *c != checked.class);
+        if !outer.is_empty() {
             let file = self.dart_class_file(&s, &checked)?;
             let mut names = Vec::new();
             self.dart_ancestors(&file, &checked.class, 0, &mut names);
-            if !names.contains(&declared.class) {
+            if outer.iter().any(|c| !names.contains(c)) {
                 return None;
             }
         }

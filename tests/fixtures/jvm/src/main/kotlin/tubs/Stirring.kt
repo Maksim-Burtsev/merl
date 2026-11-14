@@ -53,6 +53,9 @@ class Plain(ladle: java.io.File) {
         ladle.stir()
         //    ^ d: src/main/kotlin/ladle/Stir.kt:3
     }
+
+    fun once() = ladle.stir()
+    //                 ^ d: src/main/kotlin/ladle/Stir.kt:3
 }
 
 data class Kept(val paddle: java.io.File) {
