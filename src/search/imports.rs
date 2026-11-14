@@ -238,14 +238,17 @@ fn alias_and_name(item: &str) -> Option<(String, String)> {
 }
 static PY_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(
-        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|(?:\\\n|[^\n])+)|import\s+((?:\\\n|[^\n])+))",
+        r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|(?:\\\n|[^\n#])+(?:#[^\n]*)?)|import\s+((?:\\\n|[^\n#])+(?:#[^\n]*)?))",
     )
     .expect("the regex is a literal")
 });
 fn python_wrapped_import_line1(text: &str, name: &str) -> Option<usize> {
     let code = code_of(Kind::Python, text);
     PY_IMPORT.captures_iter(&code).find_map(|c| {
-        let names = c.get(2).filter(|n| n.as_str().contains('\n'))?;
+        let names = c
+            .get(2)
+            .or(c.get(3))
+            .filter(|n| n.as_str().contains('\n'))?;
         let at = names.as_str().lines().position(|l| {
             (l.split('#').next().unwrap_or_default())
                 .trim_matches(|c: char| c == '(' || c == ')' || c == '\\' || c.is_whitespace())
