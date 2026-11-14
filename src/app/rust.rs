@@ -6,6 +6,7 @@ mod used;
 
 use used::{registry_src, rust_below};
 
+use std::collections::HashSet;
 use std::sync::LazyLock;
 
 use super::{
@@ -1046,10 +1047,19 @@ impl App {
     }
 
     fn rust_crate_rs(&self, p: &Path) -> Vec<PathBuf> {
-        let own = self.rust_crate_of(p);
+        let crates: HashSet<&Path> = (self.files.iter())
+            .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
+            .filter_map(|f| f.parent())
+            .collect();
+        let crate_of = |f: &Path| {
+            (f.ancestors().skip(1))
+                .find(|d| crates.contains(d))
+                .map(Path::to_path_buf)
+        };
+        let own = crate_of(p);
         self.files
             .iter()
-            .filter(|f| f.extension().is_some_and(|e| e == "rs") && self.rust_crate_of(f) == own)
+            .filter(|f| f.extension().is_some_and(|e| e == "rs") && crate_of(f) == own)
             .cloned()
             .collect()
     }
