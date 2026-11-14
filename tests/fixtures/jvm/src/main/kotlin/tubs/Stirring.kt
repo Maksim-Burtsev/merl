@@ -28,3 +28,46 @@ class Stirs {
         //     ^ d: src/main/kotlin/mortar/Grind.kt:3
     }
 }
+
+class Ladled(val paddle: java.io.File) {
+    fun go() {
+        paddle.stir()
+        //     ^ d: !jump
+    }
+}
+
+class Wrapped(
+    private val paddle: java.io.File,
+) {
+    fun go() {
+        paddle.stir()
+        //     ^ d: !jump
+    }
+}
+
+class Plain(ladle: java.io.File) {
+    val stirred = ladle.stir()
+    //                  ^ d: !jump
+
+    fun go() {
+        ladle.stir()
+        //    ^ d: src/main/kotlin/ladle/Stir.kt:3
+    }
+}
+
+data class Kept(val paddle: java.io.File) {
+    fun go() = paddle.stir()
+    //                ^ d: !jump
+}
+
+class Pot(ladle: java.io.File) {
+    init {
+        ladle.stir()
+        //    ^ d: !jump
+    }
+
+    inner class Lid {
+        val stirred = ladle.stir()
+        //                  ^ d: src/main/kotlin/ladle/Stir.kt:3
+    }
+}
