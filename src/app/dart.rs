@@ -221,7 +221,7 @@ impl App {
             return;
         }
         if missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
-            found.clear();
+            *found = self.dart_from_imports(here, word);
             return;
         }
         if found.iter().all(unseen)
@@ -261,6 +261,27 @@ impl App {
         {
             found.retain(top);
         }
+    }
+
+    fn dart_from_imports(&self, here: &Path, word: &str) -> Vec<Candidate> {
+        let inherits = self
+            .text_of(here)
+            .is_none_or(|t| !matches!(search::dart_body_at(&t, self.line), Some((_, false))));
+        let sdk = self.dart_sdk();
+        let Some((library, directives)) = self
+            .dart_library(here.to_path_buf(), sdk.as_deref(), false)
+            .filter(|_| !inherits)
+        else {
+            return Vec::new();
+        };
+        let mut seen = std::collections::HashSet::new();
+        directives
+            .into_iter()
+            .filter(|d| d.keyword == "import" && d.prefix.is_none() && dart_names(d, word))
+            .filter_map(|d| search::dart_uri_file(&self.root, &library[0], &d.uri, sdk.as_deref()))
+            .flat_map(|file| self.dart_exported(here, file, word, &Reason::ByName, 0))
+            .filter(|c| seen.insert((c.hit.path.clone(), c.hit.line1)))
+            .collect()
     }
 
     fn dart_package_missing(&mut self, uri: &str) -> Option<String> {

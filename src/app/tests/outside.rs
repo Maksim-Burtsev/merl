@@ -927,16 +927,33 @@ fn a_dart_project_namesake_the_file_does_not_import_is_no_jump() {
     let cache = external_root(
         "outside-dart-namesake",
         &[
-            ("test/lib/test.dart", "export 'src/core.dart';\n"),
+            (
+                "test/lib/test.dart",
+                "export 'src/core.dart';\nexport 'src/expect.dart' show expect;\n",
+            ),
             (
                 "test/lib/src/core.dart",
                 "void test(Object name, Function body) {}\n",
             ),
+            (
+                "test/lib/src/expect.dart",
+                "void expect(Object a, Object b) {}\n",
+            ),
+            (
+                "noise/lib/noise.dart",
+                "class Box {\n  void expect(Object a, Object b) {}\n}\n",
+            ),
         ],
     );
+    let packages = ["test", "noise"].map(|p| {
+        format!(
+            "{{\"name\": \"{p}\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}",
+            cache.join(p).display()
+        )
+    });
     let config = format!(
-        "{{\"configVersion\": 2, \"packages\": [{{\"name\": \"test\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}]}}\n",
-        cache.join("test").display()
+        "{{\"configVersion\": 2, \"packages\": [{}]}}\n",
+        packages.join(", ")
     );
     let (dir, mut a) = project_app(
         "outside-dart-namesake-project",
@@ -946,7 +963,7 @@ fn a_dart_project_namesake_the_file_does_not_import_is_no_jump() {
             ("tool/grind.dart", "Future<void> test() async {}\n"),
             (
                 "test/a_test.dart",
-                "import 'package:test/test.dart';\n\nvoid main() {\n  test('x', () {});\n}\n",
+                "import 'package:test/test.dart';\n\nvoid main() {\n  test('x', () {});\n  expect(1, 1);\n}\n",
             ),
             (
                 "test/b_test.dart",
@@ -954,13 +971,22 @@ fn a_dart_project_namesake_the_file_does_not_import_is_no_jump() {
             ),
         ],
     );
-    use_roots(&mut a, Kind::Dart, &[cache.join("test/lib")]);
+    let roots = ["test", "noise"].map(|p| cache.join(p).join("lib"));
+    use_roots(&mut a, Kind::Dart, &roots);
     d_on(&mut a, "test/a_test.dart", "|test('x'");
     assert_eq!(
         shown(&mut a),
         jump(
             "test: by name, 1 match",
             &at(&cache, "test/lib/src/core.dart", 1)
+        )
+    );
+    d_on(&mut a, "test/a_test.dart", "|expect(1");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "expect: by name, 1 match",
+            &at(&cache, "test/lib/src/expect.dart", 1)
         )
     );
     d_on(&mut a, "test/b_test.dart", "|test();");
