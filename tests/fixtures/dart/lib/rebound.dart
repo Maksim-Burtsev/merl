@@ -56,7 +56,7 @@ void patterns(Flagon x, Object o) {
 void promoted(Vase x) {
   if (x is Ewer) {
     x.slosh();
-    //^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+    //^ d: lib/rebound.dart:7
   }
   x.slosh();
   //^ d: lib/rebound.dart:2
@@ -66,7 +66,7 @@ void promoted(Vase x) {
   //                  ^ d: lib/rebound.dart:2
   if (x is! Ewer) return;
   x.slosh();
-  //^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  //^ d: lib/rebound.dart:7
 }
 
 void typedAt(Vase x, Object o, List<Flagon> fs) {
@@ -125,3 +125,66 @@ class Ledge {
 }
 
 void group(String s, void Function() f) {}
+
+Vase top = Ewer();
+
+// A checked local or parameter is of the checked type where Dart promotes it (#1494).
+void checked(Vase x, Object o, Flagon f, bool ok) {
+  if (o is Ewer) {
+    o.slosh();
+    //^ d: lib/rebound.dart:7
+  }
+  if (o is Flagon) o.slosh();
+  //                 ^ d: lib/rebound.dart:11
+  if (ok && x is Ewer) {
+    x.slosh();
+    //^ d: lib/rebound.dart:7
+  }
+  if (f is Ewer) {
+    f.slosh();
+    //^ d: !jump
+  }
+  if (top is Ewer) {
+    top.slosh();
+    //  ^ d: !jump
+  }
+  if (x is Ewer) ok = false; else {
+    x.slosh();
+    //^ d: !jump
+  }
+}
+
+void exited(Vase x, Vase y, Vase z, bool ok) {
+  if (ok) {
+    print('a');
+  } else if (x is! Ewer) {
+    return;
+  }
+  x.slosh();
+  //^ d: !jump
+  if (y is! Ewer) {
+    if (ok)
+      return;
+  }
+  y.slosh();
+  //^ d: lib/rebound.dart:2
+  if (z is! Ewer) {
+    throw ArgumentError(
+        'not an ewer');
+  }
+  z.slosh();
+  //^ d: lib/rebound.dart:7
+}
+
+void reassigned(Vase x, Vase y) {
+  if (x is Ewer) {
+    x = Vase();
+    x.slosh();
+    //^ d: !jump
+  }
+  while (y is! Ewer) {
+    break;
+  }
+  y.slosh();
+  //^ d: !jump
+}
