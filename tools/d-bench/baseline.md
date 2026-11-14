@@ -148,12 +148,13 @@ The ts, js, vue, svelte and astro rows with #1337 (`node.parent` in an ESLint vi
 The go row with #1470 (a `type` declared inside a function or block is local: go0323 `Milestone` in gitea's `v229.go` now jumps to the local type): `d0d59173e`, 2026-11-10, release build, `vm.loadavg` { 6.64 6.77 7.35 } before the run.
 The ts, js, vue, svelte and astro rows with #1337 (a JSDoc `@returns` of an intersection, `Required<A> & B`: a member lands on the one arm that declares it, js0160): over `9abaf737c`, 2026-11-11, release build, `vm.loadavg` { 6.15 7.16 7.53 } before the run, { 6.15 7.16 7.53 } after.
 The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an array a namespaced type declares, `scope.variables.forEach(variable => …)`, also when the arrow spans lines or starts the line after the call's `(`: js0028 and js0166 now direct hits): over `a048d3311`, 2026-11-13, release build, `vm.loadavg` { 7.26 9.56 9.16 } before the run, { 6.92 9.45 9.12 } after (the times read high under that load).
+The ts, js, vue, svelte and astro rows with #1337 (a name a `while ((x = queue.pop()))` takes from a local array written with one element, `const queue = [sourceCode.getScope(node)]`: js0124 now a direct hit): over `b7079d466`, 2026-11-14, release build, `vm.loadavg` { 8.20 9.09 9.18 } after the run (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 76.2 | 176.6 |
-| js (eslint, uptime-kuma) | 217 | 208 (96%) | 7 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 57.0 | 324.4 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 74.6 | 169.5 |
+| js (eslint, uptime-kuma) | 217 | 209 (96%) | 6 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 66.2 | 333.4 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
@@ -172,9 +173,9 @@ The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an 
 | julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 63.3 | 291.0 |
-| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 45.5 | 230.0 |
-| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 56.0 | 158.5 |
+| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 68.7 | 297.3 |
+| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 47.5 | 233.3 |
+| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 56.5 | 156.3 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
 | elisp (magit) | 39 | 29 (74%) | 4 (10%) | 0 (0%) | 6 (15%) | 41 | 0 | 4.0 | 5.0 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |

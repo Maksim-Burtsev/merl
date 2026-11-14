@@ -8,6 +8,7 @@ mod augmented;
 mod calls;
 mod checked;
 mod declared;
+mod elements;
 mod eslint;
 mod generic_base;
 mod go_argument;
@@ -851,23 +852,17 @@ impl App {
         let mut found: Option<TypeVia> = None;
         for c in bindings {
             let local = kind == Kind::TsJs && !n.contains('.') && !got && !values;
-            if let Some(value) = (local && c.value == search::Value::Unknown)
-                .then(|| text.lines().nth(c.line1 - 1))
+            if let Some(this) = (local && c.value == search::Value::Unknown)
+                .then(|| self.literal_element(kind, file, text, c.line1, n, hops))
                 .flatten()
-                .and_then(|l| search::ts_array_literal_element(l, n))
             {
-                let at = search::Binding {
-                    line1: c.line1,
-                    value,
-                };
-                let this = self.binding_type(kind, file, text, &at, hops - 1)?;
-                match &found {
-                    Some(one) if (&one.ty.path, one.ty.line) != (&this.ty.path, this.ty.line) => {
-                        return None;
-                    }
-                    Some(_) => {}
-                    None => found = Some(this),
+                if found
+                    .as_ref()
+                    .is_some_and(|one| (&one.ty.path, one.ty.line) != (&this.ty.path, this.ty.line))
+                {
+                    return None;
                 }
+                found.get_or_insert(this);
                 continue;
             }
             let (written, at, link) = match &c.value {
@@ -925,25 +920,6 @@ impl App {
             }
         }
         found
-    }
-
-    pub(super) fn named_element(
-        &self,
-        kind: Kind,
-        at: &Path,
-        written: &str,
-    ) -> Option<(String, PathBuf)> {
-        let list = self
-            .type_decl(kind, at, written)
-            .filter(|_| kind == Kind::Go)?;
-        let text = self.text_of(&list.path)?;
-        let decl = text
-            .lines()
-            .nth(list.line - 1)?
-            .trim()
-            .strip_prefix("type ")?;
-        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
-        Some((search::element_type(kind, holds)?, list.path))
     }
 
     pub(super) fn callee_decl(
