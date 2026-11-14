@@ -90,3 +90,52 @@ class KwContinued < KwNeighbours
     x
   end
 end
+
+class KwBlocks < KwNeighbours
+  def blocks(items)
+    mugful = 3
+    items.each { |i| kwpair 1,
+      mugful: 2 }
+    # ^ d: app/kwcafe/uses.rb:24
+    items.each { |i| kwpair i, mugful: 2 }
+    #                          ^ d: app/kwcafe/uses.rb:24
+    items.each do |i|
+      kwpair i,
+        mugful: 2
+      # ^ d: app/kwcafe/uses.rb:24
+    end
+    items.map { |i| kwpair i,
+                      mugful: mugful }
+    #                 ^ d: app/kwcafe/uses.rb:24
+    #                         ^ d: app/kwcafe/uses.rb:96
+    items.each { |i| kwpair(i,
+      mugful: 2) }
+    # ^ d: app/kwcafe/uses.rb:24
+    items.each { |i| puts i,
+      mugful: 2 }
+    # ^ d: none
+    { mugful: 2,
+      pot: mugful }
+    #      ^ d: app/kwcafe/uses.rb:96
+    mugful
+  end
+end
+
+class KwBlockNeighbours < KwNeighbours
+  def neighbours(items)
+    mugful = 3
+    3.times { kwpair 1, mugful: 2 }
+    #                   ^ d: app/kwcafe/uses.rb:24
+    items.each { |i| kwshort mugful: i }
+    #                        ^ d: app/kwcafe/uses.rb:19
+    items.map { |i| { mugful: i, pot: 2 } }
+    #                 ^ d: none
+    #                            ^ d: none
+    items.each { |i, mugful: 1| kwpair i, mugful: mugful }
+    #                ^ d: app/kwcafe/uses.rb:126; want app/kwcafe/uses.rb:134 (#1446)
+    #                                     ^ d: app/kwcafe/uses.rb:24
+    items.each { |i| kwpair i, mugful }
+    #                          ^ d: app/kwcafe/uses.rb:126
+    mugful
+  end
+end

@@ -107,7 +107,7 @@ public class Workshop
     }
 }
 
-// A type the project declares only as an alias is no type the rules read: the name decides.
+// A type the project declares only as an alias of an outside type has none of its members.
 public class Jelly
 {
     public int Wobble() => 0;
@@ -118,7 +118,7 @@ public class Hopper
     Grams load;
 
     int Peek() => load.Wobble();
-    //                 ^ d: src/Shop/Rules/Rules.cs:113
+    //                 ^ d: none
 }
 
 // An extension method the project declares for another type may still be it: the name decides.

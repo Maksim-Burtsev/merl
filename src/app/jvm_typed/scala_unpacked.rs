@@ -15,7 +15,7 @@ impl App {
             || search::path_bindings(Kind::Jvm, file, text, line1, &call.method).is_empty())
         .then_some(())?;
         let decl = self.jvm_call_owner(file, text, line1, call.receiver.as_deref(), true)?;
-        let found = self.jvm_hierarchy_member(&decl, &call.method, 0, &mut Vec::new());
+        let found = self.jvm_hierarchy_member(&decl, &call.method, 0, &mut Vec::new(), false);
         let [m] = java_shaped(found, |h| h, &call.method, true)
             .try_into()
             .ok()?;

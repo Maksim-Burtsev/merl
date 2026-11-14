@@ -92,3 +92,50 @@ class Bolter(val sley: String) {
     //                                                       ^ d: src/main/kotlin/flax/Retter.kt:81
     //                                                              ^ d: src/main/kotlin/flax/Retter.kt:91
 }
+
+class Clamp {
+    fun scutch(k: Int): Int = 8
+
+    fun one(n: Int): Int { fun scutch(k: Int): Int = if (k == 0) 1 else scutch(k - 1); return scutch(n) }
+    //                                                                   ^ d: src/main/kotlin/flax/Retter.kt:99
+    //                                                                                         ^ d: src/main/kotlin/flax/Retter.kt:99
+
+    fun tail(n: Int): Int {
+        tailrec fun scutch(k: Int): Int = if (k == 0) 1 else scutch(k - 1)
+        //                                                   ^ d: src/main/kotlin/flax/Retter.kt:104
+        return scutch(n)
+//             ^ d: src/main/kotlin/flax/Retter.kt:104
+    }
+}
+
+class Hackle {
+    fun scutch(k: Int, j: Int): Int = 8
+    fun scutch(k: Int): Int = 9
+
+    fun one(n: Int): Int { fun scutch(k: Int): Int = scutch(k, 0); return scutch(n) }
+    //                                               ^ d: src/main/kotlin/flax/Retter.kt:112
+
+    fun lead(n: Int) {
+        fun scutch(k: String) = scutch(n, 2)
+        //                      ^ d: src/main/kotlin/flax/Retter.kt:112
+        fun natter(msg: String) = natter("T", msg)
+        //                        ^ d: src/main/kotlin/flax/Retter.kt:140
+    }
+
+    fun two(n: Int): Int {
+        tailrec fun scutch(k: Int): Int {
+            return if (k == 0) scutch(0, 1) else scutch(k - 1)
+            //                 ^ d: src/main/kotlin/flax/Retter.kt:112
+            //                                   ^ d: src/main/kotlin/flax/Retter.kt:126
+        }
+        return scutch(n)
+    }
+
+    fun make(): Any = object : Any() {
+        fun ripple(a: Int, b: Int) = a + b
+        fun ripple(a: Int) = ripple(a, 0)
+        //                   ^ d: src/main/kotlin/flax/Retter.kt:135
+    }
+
+    fun natter(tag: String, msg: String) {}
+}

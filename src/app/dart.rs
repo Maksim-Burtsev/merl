@@ -213,19 +213,24 @@ impl App {
         }
         let unseen = |c: &Candidate| !c.hit.path.is_absolute() && !files.contains(&c.hit.path);
         if found.iter().all(unseen)
-            && let [d] = &missing[..]
-            && let Some(name) = self.dart_package_missing(&d.uri)
+            && !missing.is_empty()
+            && let Some(names) = missing
+                .iter()
+                .map(|d| self.dart_package_missing(&d.uri))
+                .collect::<Option<Vec<_>>>()
         {
-            let hit = Hit {
-                deleted: None,
-                path: here.to_path_buf(),
-                line1: d.line1,
-                byte_col: None,
-                text: self.buf.lines[d.line1 - 1].clone(),
-            };
-            let reason = Reason::Import(format!("{name} (not installed)"));
+            let imports = missing.iter().zip(names).map(|(d, name)| Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: d.line1,
+                    byte_col: None,
+                    text: self.buf.lines[d.line1 - 1].clone(),
+                },
+                reason: Reason::Import(format!("{name} (not installed)")),
+            });
             *found = if found.iter().any(top) {
-                vec![Candidate { hit, reason }]
+                imports.collect()
             } else {
                 Vec::new()
             };
@@ -829,8 +834,8 @@ impl App {
                 .then_some((ty, c.hit.path));
         }
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
-        if let Some((receiver, getter)) = search::dart_awaited(value) {
-            return self.dart_awaited(here, text, receiver, getter, depth + 1);
+        if search::dart_await_operand(value).is_some() {
+            return self.dart_await_value(here, text, value, depth + 1);
         }
         if let Some(links) = search::dart_read_links(value).filter(|l| l[0] != name) {
             return self.dart_links_type(here, text, &links, false, true, depth + 1);
@@ -840,6 +845,36 @@ impl App {
         let lead = value.get(..start)?.trim();
         (links[0] != name && matches!(lead, "" | "new" | "const"))
             .then(|| self.dart_chain_type(here, text, &value, depth + 1))?
+    }
+
+    fn dart_await_value(
+        &self,
+        here: &Path,
+        text: &str,
+        value: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        if let Some((receiver, getter)) = search::dart_awaited(value) {
+            return self.dart_awaited(here, text, receiver, getter, depth);
+        }
+        let expr = search::dart_await_operand(value)?;
+        let (links, head_called, 0) = search::dart_call_links(&format!("{expr}."))? else {
+            return None;
+        };
+        let (last, receivers) = links.split_last()?;
+        if receivers.is_empty() {
+            return None;
+        }
+        let (ty, scope) = self.dart_links_type(here, text, receivers, head_called, false, depth)?;
+        let file = self.dart_class_file(&scope, &ty)?;
+        let [row] = self
+            .dart_member_of(&file, &ty.class, last)
+            .try_into()
+            .ok()?;
+        let awaited = search::dart_future_of(&row.hit.text, last, expr.ends_with(')'))?;
+        let params = search::dart_type_params(&self.text_of(&file)?, &ty.class)?;
+        (awaited.prefix.is_some() || !params.contains(&awaited.class))
+            .then_some((awaited, row.hit.path))
     }
 
     fn dart_awaited(
@@ -933,6 +968,9 @@ impl App {
         before: &str,
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
+        if let Some(value) = search::dart_paren_awaited(before) {
+            return self.dart_await_value(here, text, value, depth + 1);
+        }
         let (links, called, _) = search::dart_call_links(before)?;
         self.dart_links_type(here, text, &links, called, false, depth)
     }

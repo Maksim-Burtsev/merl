@@ -61,6 +61,12 @@ impl App {
             .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
             .ok_or_else(|| first.clone())?;
+        if !fields.is_empty() && self.cs_outside_alias(here, &text, first, &ty) {
+            if !self.cs_extensions(here, word).is_empty() {
+                return Err(first.clone());
+            }
+            return Ok(CsAnswer::Outside { links: link });
+        }
         let mut links = vec![link];
         for (i, field) in fields.iter().enumerate() {
             if i == 5 {
@@ -810,10 +816,10 @@ impl App {
         let cut = self.truncated.get();
         if written == name
             && let Some((_, target)) = self.cs_alias_target(file, text, line1, &name)
-            && let Some(ty @ CsType::Project(_)) = self.cs_new_type(file, text, line1, &target)
         {
+            let ty = self.cs_new_type(file, text, line1, &target);
             self.truncated.set(cut);
-            return Some(ty);
+            return ty;
         }
         let pattern = search::def_patterns(Kind::CSharp, &name)[..4].join("|");
         let mut hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);

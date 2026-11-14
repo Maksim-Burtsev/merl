@@ -19,6 +19,23 @@ impl App {
         })
     }
 
+    pub(super) fn kotlin_member_returned(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        ahead: &str,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let innermost = *search::jvm_enclosing_types(text, line1).first()?;
+        search::jvm_type_name(text.lines().nth(innermost.checked_sub(1)?)?)?;
+        (file.extension().is_some_and(|e| e == "kt")
+            && search::kotlin_member_body(text, line1, ahead, innermost)
+            && search::path_bindings(Kind::Jvm, file, text, line1, name).is_empty())
+        .then_some(())?;
+        self.jvm_returned(file, text, line1, None, name, true)
+    }
+
     pub(super) fn kotlin_top_level_component(
         &self,
         file: &Path,

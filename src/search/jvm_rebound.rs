@@ -177,15 +177,22 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
     let ret = super::jvm_return_type!();
     let typ = r"(?:int|long|short|byte|char|boolean|float|double|(?:\w+\.)*[A-Z]\w*)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*";
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:val|var)\s+[A-Z]\w*\s*\([^()]*\b{n}\b[^()]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
+        r"^(?:(?:final|lateinit|const|tailrec)\s+|@[\w.]+\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:val|var)\s+[A-Z]\w*\s*\([^()]*\b{n}\b[^()]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
     ))
     .is_ok_and(|re| re.is_match(t))
         || later_declarator(&blanked(t), name).is_some()
 }
 
 pub(super) fn local_def_header(lines: &[&str], i: usize, name: &str, keyword: &str) -> bool {
+    static MODIFIERS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:tailrec\s+|@[\w.]+\s+)*").expect("the regex is a literal")
+    });
     let header = uncommented(Kind::Jvm, lines[i]);
-    header.trim_start().starts_with(keyword)
+    let bare = MODIFIERS
+        .find(&header)
+        .and_then(|m| header.get(m.end()..))
+        .unwrap_or_default();
+    bare.starts_with(keyword)
         && declares_local(header.trim(), name)
         && super::jvm::scope_of(lines, i).is_some_and(|s| !super::jvm::opens_type(lines[s]))
 }
@@ -195,23 +202,101 @@ pub(super) fn called(line: &str, col: usize, name: &str) -> bool {
         .is_some_and(|r| r.trim_start().starts_with('('))
 }
 
-pub(super) fn jvm_declared_before(lead: &str, name: &str, call: bool) -> bool {
+pub(super) fn call_arity(line: &str, col: usize, name: &str) -> Option<usize> {
+    let code = blanked(line);
+    let after = code.get(col + name.len()..)?;
+    let open = col + name.len() + after.len() - after.trim_start().len() + 1;
+    code.get(..open)?.ends_with('(').then_some(())?;
+    let close = open + group_close(code.get(open..)?)?;
+    let args: Vec<&str> = split_top(Kind::Jvm, line.get(open..close)?, b',')
+        .into_iter()
+        .filter(|a| !a.trim().is_empty())
+        .collect();
+    (!code.get(close + 1..)?.trim_start().starts_with('{')
+        && !args.iter().any(|a| a.trim_start().starts_with('*')))
+    .then_some(args.len())
+}
+
+pub(super) fn takes(header: &str, name: &str, args: Option<usize>) -> bool {
+    static GENERIC: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"<[^<>]*>").expect("the regex is a literal"));
+    let Some(args) = args else {
+        return true;
+    };
+    let mut code = blanked(header).replace("->", "  ");
+    while GENERIC.is_match(&code) {
+        code = GENERIC.replace_all(&code, "").into_owned();
+    }
+    let Some(list) = Regex::new(&format!(
+        r"\b{}\s*(?:\[[^\]]*\])?\s*\(",
+        regex::escape(name)
+    ))
+    .ok()
+    .and_then(|re| re.find(&code).map(|m| m.end()))
+    .and_then(|end| code.get(end..)) else {
+        return true;
+    };
+    let Some(inner) = group_close(list).and_then(|c| list.get(..c)) else {
+        return true;
+    };
+    let params: Vec<&str> = split_top(Kind::Jvm, inner, b',')
+        .into_iter()
+        .filter(|p| !p.trim().is_empty())
+        .collect();
+    let spread = |p: &&str| p.contains("vararg") || p.trim_end().ends_with('*');
+    let required = params
+        .iter()
+        .filter(|p| !p.contains('=') && !spread(p))
+        .count();
+    args >= required && (args <= params.len() || params.iter().any(spread))
+}
+
+fn group_close(s: &str) -> Option<usize> {
+    let mut depth = 0i32;
+    s.bytes().position(|b| {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        depth < 0
+    })
+}
+
+pub(super) fn jvm_declared_before(
+    lead: &str,
+    name: &str,
+    call: bool,
+    args: Option<usize>,
+    local_line: bool,
+) -> bool {
     let n = regex::escape(name);
     let def = if call { "(?:def|fun)" } else { "def" };
     let ret = super::jvm_return_type!();
     let Ok(declared) = Regex::new(&format!(
-        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:final\s+)?(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|{def}\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=]|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
+        r"(?:^|[;{{]|\b(?:case\b[^;{{}}:]*|default)\s*:)\s*(?:(?:final|tailrec)\s+|@[\w.]+\s+)*(?:(?:val|var|def|{ret})\s+{n}\s*(?:=[^=]|[;:,])|(?P<fun>{def}\s+{n}\s*(?:\[[^\]]*\])?(?:\([^()]*\))+\s*(?::[^=;{{}}()]*)?=[^=])|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=[^=])"
     )) else {
         return false;
     };
     let later = std::iter::once(0)
         .chain(lead.match_indices([';', '{']).map(|(i, _)| i + 1))
-        .filter_map(|s| later_declarator(lead.get(s..)?, name).map(|(_, at)| s + at + name.len()));
+        .filter_map(|s| {
+            later_declarator(lead.get(s..)?, name).map(|(_, at)| (s + at + name.len(), false))
+        });
     declared
-        .find_iter(lead)
-        .map(|m| m.end())
+        .captures_iter(lead)
+        .filter_map(|c| {
+            let m = c.get(0)?;
+            let recursive = call
+                && c.name("fun").is_some()
+                && takes(m.as_str(), name, args)
+                && lead
+                    .get(..=m.start())
+                    .is_some_and(|before| in_local_body(before, local_line));
+            Some((m.end(), recursive))
+        })
         .chain(later)
-        .any(|end| {
+        .any(|(end, recursive)| {
             let (mut depth, mut ended) = (0i32, false);
             lead.get(end..).is_some_and(|rest| {
                 rest.bytes().all(|b| {
@@ -223,8 +308,25 @@ pub(super) fn jvm_declared_before(lead: &str, name: &str, call: bool) -> bool {
                     }
                     depth >= 0
                 })
-            }) && ended
+            }) && (ended || recursive)
         })
+}
+
+fn in_local_body(before: &str, local_line: bool) -> bool {
+    let mut open = Vec::new();
+    for (i, b) in before.bytes().enumerate() {
+        match b {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.last().map_or(local_line, |&i| {
+        !super::jvm::opens_type(before.get(..i).unwrap_or(before))
+            && !anonymous(before.get(..=i).unwrap_or(before))
+    })
 }
 
 pub(super) fn negated_pattern_exits(lines: &[&str], at: usize, name: &str) -> bool {
@@ -611,10 +713,13 @@ pub fn jvm_bindings_at(
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
+    let local_line = super::jvm::scope_of(&lines, at)
+        .is_some_and(|s| !super::jvm::opens_type(lines[s]) && !anonymous(lines[s]));
+    let args = call_arity(lines[at], col, name);
     if !matches!(name, "this" | "super" | "it")
-        && blanked(lines[at])
-            .get(..col)
-            .is_some_and(|lead| jvm_declared_before(lead, name, called(lines[at], col, name)))
+        && blanked(lines[at]).get(..col).is_some_and(|lead| {
+            jvm_declared_before(lead, name, called(lines[at], col, name), args, local_line)
+        })
     {
         return vec![Binding {
             line1,
