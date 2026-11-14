@@ -378,8 +378,16 @@ impl App {
                 })
     }
 
-    pub(super) fn builtin_namesake(&self, here: &Path, hit: &Hit, word: &str) -> bool {
-        self.in_python_stdlib(&hit.path)
+    pub(super) fn answered_as_builtin(
+        &mut self,
+        here: &Path,
+        word: &str,
+        found: &[Candidate],
+    ) -> bool {
+        let [Candidate { hit, .. }] = found else {
+            return false;
+        };
+        let namesake = self.in_python_stdlib(&hit.path)
             && builtin_type_method(word)
             && std::fs::read_to_string(&hit.path)
                 .ok()
@@ -390,7 +398,13 @@ impl App {
                 .is_some_and(|class| {
                     let named = format!(r"\b{}\b", regex::escape(&class));
                     self.project_grep(Kind::Python, here, &named).is_empty()
-                })
+                });
+        if namesake {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source");
+        }
+        namesake
     }
 
     pub(super) fn stub_returns_self(&self, ty: &Typed, field: &str) -> bool {
