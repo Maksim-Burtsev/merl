@@ -1,11 +1,18 @@
 /
+Arrows
 C
 Ctrl+C
+Ctrl+End
+Ctrl+Home
+Ctrl+Shift+End
 Enter
 Esc
+Home
 PgDn
 Picker: Enter
 Picker: Esc
+Shift+Down
+Shift+End
 Tab
 Tree: Enter
 Tree: Up

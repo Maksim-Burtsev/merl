@@ -2047,8 +2047,8 @@ fn deleted_lines_are_lines_of_the_text() {
     press(&mut a, KeyCode::Char('c'), KeyModifiers::CONTROL);
     assert_eq!(
         (a.clipboard.take().as_deref(), a.message.as_str()),
-        (Some("b\nB"), "copied 2 lines"),
-        "a selection from the deleted line into the added one copies both"
+        (Some("B"), "copied"),
+        "a selection from the deleted line into the added one copies the branch's text alone"
     );
 
     let file = a.buf.lines.clone();
