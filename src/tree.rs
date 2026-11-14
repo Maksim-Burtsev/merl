@@ -44,7 +44,7 @@ pub fn build(root: &Path, shallow: bool) -> (Tree, Vec<PathBuf>) {
 pub fn build_ordered(root: &Path, shallow: bool, order: &Order) -> (Tree, Vec<PathBuf>) {
     let walked: Vec<(PathBuf, bool)> = WalkBuilder::new(root)
         .hidden(false)
-        .require_git(false)
+        .require_git(root.ancestors().any(|d| d.join(".git").exists()))
         .max_depth(shallow.then_some(1))
         .filter_entry(|e| !is_store(e.file_name()) && !(e.path_is_symlink() && e.path().is_dir()))
         .build()
@@ -689,6 +689,42 @@ mod tests {
         );
         assert_eq!(t.dirs().len(), 2, "node_modules and node_modules/pkg");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_gitignore_above_the_repository_is_read_only_outside_one() {
+        let home = project(
+            "above",
+            &[
+                ".gitignore",
+                "proj/main.py",
+                "proj/src/a.py",
+                "proj/README.md",
+            ],
+        );
+        std::fs::write(home.join(".gitignore"), "src/\n*.md\n").unwrap();
+        let proj = home.join("proj");
+        assert_eq!(
+            build(&proj, false).1,
+            [PathBuf::from("main.py")],
+            "a folder outside git keeps the rules of the folders above it"
+        );
+        std::fs::create_dir(proj.join(".git")).unwrap();
+        assert_eq!(
+            build(&proj, false).1,
+            [
+                PathBuf::from("src/a.py"),
+                "main.py".into(),
+                "README.md".into()
+            ],
+            "git reads no .gitignore above the repository"
+        );
+        assert_eq!(
+            build(&proj.join("src"), false).1,
+            [PathBuf::from("a.py")],
+            "nor when merl opens a folder inside it"
+        );
+        std::fs::remove_dir_all(&home).unwrap();
     }
 
     #[test]
