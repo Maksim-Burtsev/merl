@@ -51,7 +51,53 @@ module.exports = {
     let next;
     while ((next = queue.pop())) {
       next.childScopes;
-      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47; want linter/types/index.d.ts:47 (#1337)
+      //   ^ d: linter/types/index.d.ts:47
+    }
+    while ((next = queue.shift()) !== undefined) {
+      next.childScopes;
+      //   ^ d: linter/types/index.d.ts:47
+    }
+    const roots = [sourceCode.getScope(context)];
+    for (const root of roots) {
+      root.variables;
+      //   ^ d: linter/types/index.d.ts:48
+    }
+    const decoy = new Decoy();
+    const held = [decoy];
+    held.forEach(one => one.childScopes);
+    //                      ^ d: linter/rules/scoped.js:6
+    let found;
+    while ((found = held.pop())) {
+      if (found) {
+        found = scope;
+      }
+      found.childScopes;
+      //    ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const pair = [scope, new Decoy()];
+    while ((next = pair.pop())) {
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const spread = [...scope.childScopes];
+    while ((next = spread.pop())) {
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const decoys = [new Decoy()];
+    while ((next = queue.pop())) {
+      next = decoys.pop();
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const stack = new Decoy();
+    while ((next = stack.pop())) {
+      next.childScopes;
+      //   ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    while ((next = decoys.pop())) {
+      next.childScopes;
+      //   ^ d: linter/rules/scoped.js:6
     }
     return new Decoy();
   },

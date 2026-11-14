@@ -998,3 +998,23 @@ pub fn ts_awaited(
     let continued = line.trim_start().starts_with('.') || closes_above.is_none();
     (awaited && ended && !continued).then(|| inner.to_owned())
 }
+
+pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
+    let rule = Regex::new(&format!(
+        r"^(?:(?:const|let|var)\s+)?{}\s*=\s*(\[.*\])\s*;?$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let kind = Kind::TsJs;
+    let code = uncommented(kind, line);
+    let c = rule.captures(code.trim())?;
+    let literal = c.get(1)?.as_str();
+    let inner = literal
+        .get(1..literal.len() - 1)
+        .filter(|_| close_of(kind, literal, 0) == Some(literal.len()))?;
+    let [one] = <[&str; 1]>::try_from(split_top(kind, inner, b',')).ok()?;
+    let one = one.trim();
+    (!one.is_empty() && !one.starts_with("..."))
+        .then(|| value_of(kind, one))
+        .filter(|v| !matches!(v, Value::Unknown))
+}
