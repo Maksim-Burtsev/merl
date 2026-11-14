@@ -176,7 +176,7 @@ type Hearth struct {
 type (
 	Kiln struct {
 		Flue Flue
-	//^ d: rival/damper.go:9; want rival/damper.go:161 (#1470)
+	//^ d: rival/damper.go:9; want rival/damper.go:178 (#1470)
 	//     ^ d: rival/damper.go:9
 	}
 )
