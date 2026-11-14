@@ -649,3 +649,44 @@ fn a_bare_csharp_name_is_looked_for_eight_types_up() {
     assert_eq!(at(7), jump("Root \u{2192} C7.Root (via Top)", "Shop.cs:3"));
     assert!(matches!(at(8), Shown::Picker(..)));
 }
+
+#[test]
+fn d_on_a_method_in_a_rust_workspace_of_thousands_of_files_answers_at_once() {
+    let (dir, mut a) = project_app(
+        "rust-workspace-wide",
+        &[
+            ("Cargo.toml", "[workspace]\nmembers = [\"crates/*\"]\n"),
+            ("crates/c0/Cargo.toml", "[package]\nname = \"c0\"\n"),
+            (
+                "crates/c0/src/world.rs",
+                "pub struct Entities;\n\nimpl Entities {\n    pub fn check_change_ticks(&self, check: u32) {}\n}\n\npub struct World {\n    entities: Entities,\n}\n\nimpl World {\n    pub fn tick(&self, check: u32) {\n        self.entities.check_change_ticks(check);\n    }\n}\n",
+            ),
+        ],
+    );
+    a.no_external();
+    for c in 1..200 {
+        let krate = PathBuf::from(format!("crates/c{c}"));
+        a.files.push(krate.join("Cargo.toml"));
+        a.files
+            .extend((0..50).map(|m| krate.join(format!("src/sub/m{m}.rs"))));
+    }
+    let t = Instant::now();
+    d_on(
+        &mut a,
+        "crates/c0/src/world.rs",
+        "entities.check_change_ticks",
+    );
+    let took = t.elapsed();
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "check_change_ticks \u{2192} Entities::check_change_ticks (via self.entities: Entities)",
+            "crates/c0/src/world.rs:4"
+        )
+    );
+    assert!(
+        took.as_millis() < 1_000,
+        "d took {took:?} over 10,000 files"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
