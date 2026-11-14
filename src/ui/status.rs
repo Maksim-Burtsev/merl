@@ -19,13 +19,13 @@ pub(super) fn draw_prompt(
     frame: &mut Frame,
     prefix: &str,
     edit: &LineEdit,
-    style: Style,
+    (style, selected): (Style, Style),
     area: Rect,
 ) -> Position {
     let sel = edit.selection().unwrap_or(0..0);
     let line = Line::from(vec![
         Span::raw(format!("{prefix}{}", &edit[..sel.start])),
-        Span::styled(&edit[sel.clone()], style.add_modifier(Modifier::REVERSED)),
+        Span::styled(&edit[sel.clone()], selected),
         Span::raw(&edit[sel.end..]),
     ]);
     let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
@@ -146,7 +146,8 @@ fn draw_clock(frame: &mut Frame, time: &str, w: usize, style: Style, area: Rect)
 }
 
 fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) -> Position {
-    let cursor = draw_prompt(frame, prefix, &app.prompt, style, area);
+    let selected = style.add_modifier(Modifier::REVERSED);
+    let cursor = draw_prompt(frame, prefix, &app.prompt, (style, selected), area);
     let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
     let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
     if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
