@@ -247,7 +247,7 @@ fn python_wrapped_import_line1(text: &str, name: &str) -> Option<usize> {
     PY_IMPORT.captures_iter(&code).find_map(|c| {
         let names = c
             .get(2)
-            .or(c.get(3))
+            .or_else(|| c.get(3))
             .filter(|n| n.as_str().contains('\n'))?;
         let at = names.as_str().lines().position(|l| {
             (l.split('#').next().unwrap_or_default())
