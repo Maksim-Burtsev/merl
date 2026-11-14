@@ -12,6 +12,7 @@ use super::{
 pub struct CsTypeDecl {
     pub keyword: String,
     pub name: String,
+    pub generic: bool,
 }
 
 pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
@@ -20,7 +21,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
             r"^\u{feff}?\s*(?:\[[^\]]*\]\s*)*",
             r"(?:(?:public|private|protected|internal|file|static|sealed|abstract|partial|readonly",
             r"|ref|unsafe|new)\s+)*",
-            r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)"
+            r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)(\s*<)?"
         ))
         .expect("the regex is a literal")
     });
@@ -28,6 +29,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
     Some(CsTypeDecl {
         keyword: c[1].to_owned(),
         name: c[2].to_owned(),
+        generic: c.get(3).is_some(),
     })
 }
 
@@ -53,6 +55,7 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     if let Some(CsTypeDecl {
         keyword,
         name: owner,
+        ..
     }) = cs_type_decl(lines[first])
     {
         return CsPlace::Member {

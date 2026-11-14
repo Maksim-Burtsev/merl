@@ -123,6 +123,19 @@ impl App {
         })
     }
 
+    pub(super) fn cs_outside_alias(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        ty: &CsType,
+    ) -> bool {
+        matches!(ty, CsType::Outside(_))
+            && self
+                .cs_alias_target(here, text, self.line + 1, name)
+                .is_some()
+    }
+
     pub(super) fn cs_alias_head(
         &self,
         file: &Path,
@@ -137,9 +150,7 @@ impl App {
         {
             return None;
         }
-        let ty @ CsType::Project(_) = self.cs_new_type(file, text, line1, &target)? else {
-            return None;
-        };
+        let ty = self.cs_new_type(file, text, line1, &target)?;
         Some(Proven {
             ty,
             link: name.to_owned(),
