@@ -26,4 +26,9 @@ public class Quoted
         s.Blot() "
     //    ^ d: none
     """;
+    public string E(Stylus s) => "a".Replace(@"""", "'") + s.Blot();
+    //                                                       ^ d: src/Shop/Quoted.cs:5
+    public string F(Stylus s) => $$"""{s.Blot()} {{s.Blot()}}""";
+    //                                   ^ d: none
+    //                                                ^ d: src/Shop/Quoted.cs:5
 }

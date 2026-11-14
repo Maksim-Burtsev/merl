@@ -1,4 +1,4 @@
-class Stylus {
+export class Stylus {
   blot(): string {
     return "stylus";
   }
@@ -45,4 +45,9 @@ export function e(s: Stylus): string {
 export function f(s: Stylus): string {
   return `${{ k: "}" }.k}` + s.blot();
   //                           ^ d: shop/quoted.ts:2
+}
+
+export function g(s: Stylus, x: string): string {
+  return /'/.test(x) ? s.blot() : "";
+  //                     ^ d: shop/quoted.ts:2
 }
