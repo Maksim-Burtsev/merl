@@ -1018,3 +1018,64 @@ pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
         .then(|| value_of(kind, one))
         .filter(|v| !matches!(v, Value::Unknown))
 }
+
+pub fn ts_array_pushes(text: &str, decl: usize, name: &str) -> Option<Vec<(usize, Value)>> {
+    static WRITE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[-+*/%&|^]|\*\*|<<|>>>?|\?\?|\|\||&&)?=[^=]")
+            .expect("the regex is a literal")
+    });
+    static CHAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
+    });
+    let kind = Kind::TsJs;
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let literal = literal_lines(kind, text);
+    let mut pushed = Vec::new();
+    for (at, line) in text.lines().enumerate() {
+        if at + 1 == decl || literal.get(at).copied().unwrap_or(true) || !line.contains(name) {
+            continue;
+        }
+        let mut bytes = vec![b' '; line.len()];
+        for (i, c) in code(kind, line).filter(|&(_, c)| c != 0) {
+            bytes[i] = c;
+        }
+        let code = String::from_utf8_lossy(&bytes);
+        for (i, _) in code.match_indices(name) {
+            let (before, rest) = (&code[..i], &code[i + name.len()..]);
+            if before.ends_with(|c: char| ident(c) || c == '.') || rest.starts_with(ident) {
+                continue;
+            }
+            if before.trim_end().ends_with(" of") && rest.trim_start().starts_with(')') {
+                continue;
+            }
+            if rest.starts_with('[') {
+                if WRITE.is_match(rest.get(close_of(kind, rest, 0)?..)?) {
+                    return None;
+                }
+                continue;
+            }
+            let method = rest.strip_prefix('.')?;
+            let method = &method[..method.find(|c: char| !ident(c)).unwrap_or(method.len())];
+            match method {
+                "push" | "unshift" => {
+                    let open = i + name.len() + 1 + method.len();
+                    let end =
+                        close_of(kind, &code, open).filter(|_| code[open..].starts_with('('))?;
+                    for arg in split_top(kind, &code[open + 1..end - 1], b',') {
+                        let arg = arg.trim();
+                        let value = match arg.strip_prefix("...").map(str::trim) {
+                            Some(list) if CHAIN.is_match(list) => Value::Element(list.to_owned()),
+                            Some(_) => Value::Unknown,
+                            None => value_of(kind, arg),
+                        };
+                        pushed.push((at + 1, value));
+                    }
+                }
+                "" | "splice" | "fill" | "copyWithin" => return None,
+                _ => {}
+            }
+        }
+    }
+    Some(pushed)
+}

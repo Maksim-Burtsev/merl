@@ -276,19 +276,23 @@ pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
     for (i, c) in code(Kind::Ruby, line).take_while(|&(i, _)| i < at) {
         match c {
             b'-' if b.get(i + 1) == Some(&b'>') => lambda = Some(i + 2),
-            b'{' => open.push(lambda.take().unwrap_or(i + 1)),
-            b'd' if keyword(i, "do") => open.push(lambda.take().unwrap_or(i + 2)),
+            b'{' => open.push(lambda.take().map_or((i + 1, false), |o| (o, true))),
+            b'd' if keyword(i, "do") => {
+                open.push(lambda.take().map_or((i + 2, false), |o| (o, true)))
+            }
             b'}' => drop(open.pop()),
             b'e' if keyword(i, "end") => drop(open.pop()),
             _ => {}
         }
     }
-    open.iter().chain(&lambda).any(|&o| {
-        line.get(o..)
-            .and_then(|s| PARAMS.captures(s))
-            .and_then(|c| c.get(1).or_else(|| c.get(2)))
-            .is_some_and(|list| param_names(list.as_str()).iter().any(|p| p == name))
-    })
+    open.into_iter()
+        .chain(lambda.map(|o| (o, true)))
+        .any(|(o, arrow)| {
+            line.get(o..)
+                .and_then(|s| PARAMS.captures(s))
+                .and_then(|c| c.get(1).or_else(|| c.get(2).filter(|_| arrow)))
+                .is_some_and(|list| param_names(list.as_str()).iter().any(|p| p == name))
+        })
 }
 
 pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {

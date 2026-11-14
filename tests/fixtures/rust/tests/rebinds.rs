@@ -222,6 +222,21 @@ pub fn if_let_else_if_let(held: Caps) {
     //                                                                                    ^ d: tests/rebinds.rs:14
 }
 
+pub fn if_let_then_used(held: Caps) {
+    if let Some(held) = grain() { drop(&held); held.get(); }
+    //                                              ^ d: tests/rebinds.rs:14
+}
+
+pub fn if_let_then_named(held: Caps) {
+    if let Some(held) = grain() { println!("held"); held.get(); }
+    //                                                   ^ d: tests/rebinds.rs:14
+}
+
+pub fn if_let_else_used(held: Caps) {
+    if let Some(held) = grain() { drop(&held); } else { drop(&held); held.get(); }
+    //                                                                    ^ d: tests/rebinds.rs:5
+}
+
 pub struct Sack {
     grains: Vec<Grain>,
 }
