@@ -177,6 +177,16 @@ impl App {
             self.message = resolution(&word, None, &[], None, false);
             return None;
         }
+        let script_at = (text.split('\n').take(self.line))
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + range.start;
+        let quoted = search::in_string_text(kind, &here, &text, script_at);
+        let (chain, dotted) = if quoted {
+            (Vec::new(), false)
+        } else {
+            (chain, dotted)
+        };
         Some(Asked {
             kind,
             here,
