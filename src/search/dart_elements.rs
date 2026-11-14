@@ -137,3 +137,22 @@ pub fn dart_callback_param(text: &str, callee: &str) -> Option<DartType> {
         constructor: None,
     })
 }
+
+pub fn dart_await_operand(value: &str) -> Option<&str> {
+    let rest = value.strip_prefix("await")?;
+    rest.starts_with(char::is_whitespace).then(|| rest.trim())
+}
+
+pub fn dart_paren_awaited(before: &str) -> Option<&str> {
+    let rest = before.strip_suffix('.')?;
+    let open = super::code(super::Kind::Dart, rest)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| super::close_of(super::Kind::Dart, rest, i) == Some(rest.len()))?;
+    let head = rest.get(..open)?.trim_end();
+    if head.ends_with(|c: char| c.is_alphanumeric() || "_$>)]?!.".contains(c)) {
+        return None;
+    }
+    let inner = rest.get(open + 1..rest.len() - 1)?.trim();
+    dart_await_operand(inner).map(|_| inner)
+}

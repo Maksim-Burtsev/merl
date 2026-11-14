@@ -43,3 +43,13 @@ protocol Pouring {
 struct Vault<Dipper: Pouring> {
     let racks: Int
 }
+
+class Ladle {
+    func find() async -> Dipper {
+        return Dipper()
+    }
+
+    func fetch() async throws -> DipperBuilder {
+        return DipperBuilder()
+    }
+}
