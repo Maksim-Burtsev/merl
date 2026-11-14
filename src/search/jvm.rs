@@ -334,6 +334,11 @@ pub(super) fn jvm_bindings(
         let keyword = if scala { "def " } else { "fun " };
         if (scala || (call && super::kotlin(path)))
             && super::jvm_rebound::local_def_header(lines, i, name, keyword)
+            && super::jvm_rebound::takes(
+                lines[i],
+                name,
+                col.and_then(|c| super::jvm_rebound::call_arity(lines[at], c, name)),
+            )
         {
             out.push(binding(i + 1));
         }

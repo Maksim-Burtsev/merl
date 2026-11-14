@@ -13,3 +13,23 @@ def brew():
     return steeper(leaf)
 #          ^ d: tea/continued.py:3
 #                  ^ d: tea/continued.py:1
+
+
+# A comment that ends in a backslash continues nothing: the import under it stands alone.
+import os  # cache dir is C:\
+from steepkit import pourer
+
+
+def pour():
+    return pourer(os)
+#          ^ d: tea/continued.py:20
+
+
+import steepcan, \
+    steepjar
+
+
+def jar():
+    return steepjar.lid(steepcan)
+#          ^ d: tea/continued.py:29
+#                       ^ d: tea/continued.py:28

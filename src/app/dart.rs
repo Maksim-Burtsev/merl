@@ -212,6 +212,14 @@ impl App {
             return;
         }
         let unseen = |c: &Candidate| !c.hit.path.is_absolute() && !files.contains(&c.hit.path);
+        if !found.is_empty()
+            && found.iter().all(unseen)
+            && (DART_CORE_NAMES.split_whitespace().any(|n| n == word)
+                || self.dart_sdk_class_file(here, word).is_some())
+        {
+            found.clear();
+            return;
+        }
         if found.iter().all(unseen)
             && !missing.is_empty()
             && let Some(names) = missing
@@ -1395,6 +1403,16 @@ impl App {
             .find_map(|d| self.dart_sdk_exported(&files[0], &d.uri, class, sdk, depth + 1))
     }
 }
+
+const DART_CORE_NAMES: &str = "ArgumentError AssertionError BidirectionalIterator BigInt bool \
+    Comparable Comparator ConcurrentModificationError DateTime Deprecated deprecated double \
+    Duration Enum EnumByName EnumName Error Exception Expando Finalizer FormatException Function \
+    Future identical identityHashCode IndexError int IntegerDivisionByZeroException Invocation \
+    Iterable Iterator List Map MapEntry Match Never NoSuchMethodError Null num Object \
+    OutOfMemoryError override Pattern pragma print RangeError Record RegExp RegExpMatch \
+    RuneIterator Runes Set Sink StackOverflowError StackTrace StateError Stopwatch Stream String \
+    StringBuffer StringSink Symbol Type TypeError UnimplementedError UnsupportedError Uri UriData \
+    WeakReference";
 
 fn dart_names(d: &search::DartDirective, name: &str) -> bool {
     d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == name)) && !d.hide.iter().any(|n| n == name)

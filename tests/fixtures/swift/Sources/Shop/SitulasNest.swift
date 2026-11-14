@@ -67,3 +67,21 @@ extension SitulaBrim {
         }
     }
 }
+
+class DredgeBase {
+    typealias Dredge = Int
+}
+
+struct DredgeBox<Dredge> {
+    class Walker: DredgeBase {
+        var at: Dredge = 0
+        //      ^ d: Sources/Shop/SitulasNest.swift:72
+    }
+}
+
+extension DredgeBox {
+    class Strider: DredgeBase {
+        var at: Dredge = 0
+        //      ^ d: Sources/Shop/SitulasNest.swift:72
+    }
+}
