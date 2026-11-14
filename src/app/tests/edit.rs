@@ -1147,3 +1147,46 @@ fn ctrl_a_selects_the_whole_file_to_copy_or_replace_it() {
     assert_eq!(a.selection(), None, "the tree ignores it, as it does `v`");
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn a_save_replaces_the_file_whole_through_its_symlink_and_keeps_its_mode() {
+    use std::os::unix::fs::PermissionsExt;
+    let (path, mut a) = temp_file("save-whole", "one\n");
+    let dir = path.parent().unwrap().to_path_buf();
+    let real = dir.join("real.py");
+    std::fs::rename(&path, &real).unwrap();
+    std::os::unix::fs::symlink("real.py", &path).unwrap();
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o750)).unwrap();
+    let before = std::fs::File::open(&real).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.save();
+    assert_eq!((a.dirty, a.message.as_str()), (false, ""));
+    assert_eq!(
+        std::io::read_to_string(before).unwrap(),
+        "one\n",
+        "the old file is never truncated: a disk that fills mid-save leaves it whole (#1532)"
+    );
+    assert!(path.is_symlink(), "the link stays a link");
+    assert_eq!(std::fs::read_to_string(&real).unwrap(), "xone\n");
+    let mode = std::fs::metadata(&real).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o750);
+    let mut names: Vec<_> = (std::fs::read_dir(&dir).unwrap())
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["f.py", "real.py"], "no temp file is left behind");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_save_writes_a_hard_linked_file_in_place_for_every_name() {
+    let (path, mut a) = temp_file("save-hard-link", "one\n");
+    let twin = path.with_file_name("twin.py");
+    std::fs::hard_link(&path, &twin).unwrap();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    a.save();
+    assert_eq!(std::fs::read_to_string(&twin).unwrap(), "xone\n");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}

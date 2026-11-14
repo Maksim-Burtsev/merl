@@ -408,7 +408,7 @@ impl App {
             return;
         }
         let bytes = self.buf.to_bytes();
-        match std::fs::write(path, &bytes) {
+        match crate::real::write_file(path, &bytes) {
             Ok(()) => {
                 if let Ok(mut kept) = self.shaped.lock() {
                     kept.remove(path);
