@@ -44,3 +44,40 @@ fn a_word_in_a_string_s_text_is_quoted_and_one_in_its_hole_is_code() {
     assert_eq!(texts(Kind::CSharp, "a.cs", block), [true, false]);
     assert_eq!(texts(Kind::Jvm, "A.scala", block), [true, false]);
 }
+
+#[test]
+fn code_after_a_quote_like_token_stays_code() {
+    let groovy = r#""$^p.^l() ${^c}" + "\${x//a/b}" + '$^t' + $/it's/$ + ~/'/ + """\$""" + s.^d"#;
+    assert_eq!(
+        texts(Kind::Jvm, "A.groovy", groovy),
+        [false, false, false, true, false]
+    );
+    assert_eq!(
+        texts(
+            Kind::Jvm,
+            "Jenkinsfile",
+            "sh \"\"\"\n  \\${x//a/b}\n\"\"\"\np.^l()"
+        ),
+        [false]
+    );
+    let cs = r#"@"""" + ^a + $$"""{^b} {{^c}}""" + $$$"""{{^d}}""" + """"^e"""" + ^f"#;
+    assert_eq!(
+        texts(Kind::CSharp, "a.cs", cs),
+        [false, true, false, true, true, false]
+    );
+    let tsx = "return <p a='^a' b={^b}>You're `${^c}`</p> && <><i/>{^d}</> + '^e' + x << y + '^f'";
+    assert_eq!(
+        texts(Kind::TsJs, "a.tsx", tsx),
+        [true, false, false, false, true, true]
+    );
+    let re = "return /'/.test(x) + i++ / 2 + '^a' + typeof /`/ + ^b";
+    assert_eq!(texts(Kind::TsJs, "a.ts", re), [true, false]);
+    let unclosed = "x = 'it\n^a.b()";
+    for (kind, file) in [
+        (Kind::TsJs, "a.ts"),
+        (Kind::Python, "a.py"),
+        (Kind::Go, "a.go"),
+    ] {
+        assert_eq!(texts(kind, file, unclosed), [false], "{file}");
+    }
+}
