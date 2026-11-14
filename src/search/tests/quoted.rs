@@ -80,4 +80,6 @@ fn code_after_a_quote_like_token_stays_code() {
     ] {
         assert_eq!(texts(kind, file, unclosed), [false], "{file}");
     }
+    let blank = format!("{}'^a'", "\n".repeat(1 << 20));
+    assert_eq!(texts(Kind::TsJs, "a.vue", &blank), [true]);
 }
