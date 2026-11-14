@@ -42,13 +42,6 @@ against the owner's "all in one epic" and spent a weekly limit on 18 reviews.
 then `P2`, `P3`. Read each with its comments. Leave out an issue with a question still open
 (move it to `needs-owner`) and a visible one without a picked `## Proposal`.
 
-- Bugs found on real projects go first. No open-ended passes over a family of issues (probing
-  for more `d` shapes of one kind): a new `d` shape becomes an issue only with a cursor from a
-  real project, never from a fixture a probe wrote (`docs/agents/d.md`).
-- The 17 languages of 1.0 (the `1.0` milestone's description lists them) go first. An issue
-  about another language stays in the milestone, but no night takes it while an issue about a
-  1.0 language is open, unless it fixes a wrong jump.
-
 Fill the hours with these minutes of one agent, measured in the ledgers of 2026-10-02..10-15:
 
 | Task | Minutes |
@@ -199,8 +192,7 @@ say it in the plan.
 - The epic merges itself when it is green (`--auto`, above), unless the owner said in the
   session that it waits; then it waits under `needs-owner`, with no auto-merge. One consolidated
   squash message, a paragraph per issue (`epic-body`'s `squash-msg.txt`, read and trimmed):
-  `gh pr merge --squash --auto --body-file`. Check it first as `docs/agents/merging.md` says:
-  no `/Users/` path, no task labels of the run, no words glued together.
+  `gh pr merge --squash --auto --body-file`.
 - Once the epic is on master, `.claude/skills/batch/bin/refresh-prs [-n] [RUN_DIR]` merges
   origin/master into each open `needs-owner` PR the ledger names (a merge, not a rebase:
   reviews link to the commits), pushes the clean ones and lists the conflicting ones; each of

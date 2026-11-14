@@ -3,11 +3,9 @@
 - Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
   without asking. Once the findings of its one review are fixed, `gh pr merge --squash --auto`:
   GitHub merges it when CI is green, and nobody waits on CI. A red check is yours to fix.
-- A change the user has to learn (a new or changed key, screen, animation or default, and also
-  a key that starts working in a new language, a new detail in a list row, or a changed answer
-  by default, such as a jump where merl said "no definition" or the reverse): leave the PR open
-  with the before/after screencasts, add the `needs-owner` label and name it in your status
-  line. Never ask "can I merge?" in chat.
+- A change the user has to learn (a new or changed key, screen, animation or default): leave the
+  PR open with the before/after screencasts, add the `needs-owner` label and name it in your
+  status line. Never ask "can I merge?" in chat.
 - The owner's comment `ok` on a PR merges it through `.github/workflows/owner-ok.yml`, at the
   commit it was given to; a push after it needs a new `ok`. Any other owner comment is a brief.
 - The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
@@ -29,11 +27,9 @@
   the owner reads first.
 
 `master` takes squash merges of PRs only, with the CI checks green; nobody can push to it
-directly or bypass the checks. Before a merge or `--auto`, read the squash commit's message
-(`--body-file` when you write it): no `/Users/` path, no internal task labels (a batch's task or
-branch names), no words glued together. A branch behind master merges as it is: a queue of
-green PRs goes in at once, and CI on the push to master catches two changes that break only
-together. A red master is fixed before the next merge.
+directly or bypass the checks. A branch behind master merges as it is: a queue of green PRs goes
+in at once, and CI on the push to master catches two changes that break only together. A red
+master is fixed before the next merge.
 
 - A PR that conflicts with master gets no CI at all on a push. Merge `origin/master` into the
   branch, resolve, push: a merge keeps the commits a posted review links to, and the squash keeps
