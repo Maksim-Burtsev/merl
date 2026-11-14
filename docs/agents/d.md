@@ -17,7 +17,8 @@ master.
   commits the new baseline with it (`--update-baseline`), so the next PR compares against what
   master will be.
 - It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
-  parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
+  parallel sessions' builds push it to 30–90 and skew timings two- to threefold. A time that
+  rises by more than 20 % with the load under 8 is measured again, never put down to load.
 - The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose
   recorded answer is debatable is marked `skip` with the reason in `answers/LANG.tsv`, not argued
   with in the code.
@@ -25,7 +26,9 @@ master.
 The expected answers of `d` are written in the fixtures, under the line they probe
 (`tests/fixtures/README.md`, #307). A fixed case flips its annotation from `today; want … (#N)`
 to the wanted answer, or adds one when no annotation covers it; a miss found in a real project
-becomes an annotation with the issue that will fix it.
+becomes an annotation with the issue that will fix it. A new `d` shape becomes an issue only
+with a cursor from a real project (the bench or a held-out set), never from a fixture a probe
+wrote.
 
 An adversarial fixture per language (shadowed imports, namesake types, declaration-shaped lines
 in strings) finds what real projects do not. To prove a test can fail, revert one fix at a time

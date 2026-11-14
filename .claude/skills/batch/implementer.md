@@ -27,6 +27,17 @@ points your task to.
 - Never change `tools/d-bench/answers/`: the answer key that scores your rule is not yours to
   write. A recorded answer you think is wrong, or an empty one you could answer, goes into your
   report as the row, the answer you would record and why; the dispatcher has it judged apart.
+- Running merl (tmux probes, screencasts) sets `HOME` to a folder in your scratch and puts a
+  stand-in `pbcopy` (`#!/bin/sh` and `cat >/dev/null`) first on `PATH`, for the merl process
+  only: merl counts key presses into the user's statistics and copies through the system
+  clipboard (#1506). Cargo and git keep the real `HOME`.
+- Visible also means a key that starts working in a new language, a new detail in a list row,
+  and a changed answer by default (a jump where merl said "no definition", or the reverse).
+  Such a change needs the owner's pick like any other visible one: do not build it in an
+  invisible task; report it.
+- Your issue closes when every example of its body works on your branch. What you find beyond
+  the body goes into a new issue (AGENTS.md `## Issues`); a known wrong jump is never left only
+  in a comment. Never write "not closing, that is for the epic".
 - Screencasts go as `docs/agents/screencasts.md` says; "before" ones use the master build from
   your task file.
 - A change to a screen updates the golden screens and snapshots in the same commit.
