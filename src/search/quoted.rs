@@ -270,7 +270,7 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
                 .iter()
                 .rposition(|&c| c != b'$' && c != b'@')
                 .map_or(0, |p| p + 1)..];
-            let dollars = marks.iter().filter(|&&c| c == b'$').count();
+            let dollars: usize = marks.split(|&c| c == b'@').map(<[u8]>::len).sum();
             let hole = if dollars > 0 {
                 Hole::Brace(dollars)
             } else {
