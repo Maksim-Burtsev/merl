@@ -14,6 +14,7 @@ impl App {
             self.buf = link;
         }
         self.notes.on = true;
+        self.notes_sync();
         self.refresh_diff();
         self.load_viewed();
         let marks_failed =
@@ -55,6 +56,9 @@ impl App {
             {
                 self.jump_to(&p, 1);
             }
+        }
+        if self.notes.home.is_none() {
+            self.notes.home = self.rel_current();
         }
         self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
@@ -167,11 +171,13 @@ impl App {
             && self.hunk_left(&r).is_none()
             && let Some(t) = self.unseen_in_hunk()
         {
+            self.notes.focus = None;
             self.stand_on(t);
             return;
         }
         let next = match self.next_hunk(&r, dir) {
             Next::Back(rel, h) => {
+                self.notes.focus = None;
                 let path = self.root.join(rel);
                 self.jump_to_hunk(&path, h);
                 if self.buf.path.as_deref() == Some(&*path) {
@@ -185,9 +191,15 @@ impl App {
             }
             next => next,
         };
+        let stop = self.next_stop(dir);
+        self.notes.focus = None;
         if let Next::Here(h) = next {
             let path = self.buf.path.clone().expect("hunks are of an open file");
             self.jump_to_hunk(&path, h);
+            if let Some((t, _, Some(idx))) = stop.filter(|s| s.0 == h) {
+                self.set_at(t);
+                self.notes.focus = Some(idx);
+            }
             self.remember_hunk();
             return;
         }
@@ -281,16 +293,58 @@ impl App {
         }
     }
 
-    pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
+    fn waiting_stops(&self) -> Vec<(TextLine, u8, Option<usize>)> {
+        (self.notes.here.iter())
+            .filter(|h| {
+                self.notes
+                    .list
+                    .get(h.idx)
+                    .is_some_and(super::notes::Note::agent_last)
+            })
+            .map(|h| {
+                let rank = if h.top.is_some() { 0 } else { 2 };
+                (h.at, rank, Some(h.idx))
+            })
+            .collect()
+    }
+
+    pub(super) fn enter_at_answer(&mut self, at: TextLine, last: bool) {
+        self.notes_sync();
+        let hunk = stop_order(&(at, 1, None));
+        let mut answers = self.waiting_stops();
+        answers.sort_by_key(stop_order);
+        let pick = if last {
+            answers.into_iter().rev().find(|s| stop_order(s) > hunk)
+        } else {
+            answers.into_iter().find(|s| stop_order(s) < hunk)
+        };
+        if let Some((t, _, Some(idx))) = pick {
+            self.set_at(t);
+            self.notes.focus = Some(idx);
+            self.center = true;
+        }
+    }
+
+    pub(super) fn next_stop(&self, dir: isize) -> Option<(TextLine, u8, Option<usize>)> {
         if self.folded_here().is_some() {
             return None;
         }
-        let at = self.hunk_place(self.at());
+        let focused = (self.notes.focus)
+            .and_then(|i| self.notes.here.iter().find(|h| h.idx == i))
+            .map(|h| (h.at, if h.top.is_some() { 0 } else { 2 }, Some(h.idx)));
+        let here = stop_order(&focused.unwrap_or_else(|| (self.hunk_place(self.at()), 1, None)));
+        let mut stops: Vec<_> = self.diff.hunks.iter().map(|&h| (h, 1, None)).collect();
+        stops.extend(self.waiting_stops());
+        stops.sort_by_key(stop_order);
         if dir > 0 {
-            self.diff.hunks.iter().find(|&&h| h > at).copied()
+            stops.into_iter().find(|s| stop_order(s) > here)
         } else {
-            self.diff.hunks.iter().rev().find(|&&h| h < at).copied()
+            stops.into_iter().rev().find(|s| stop_order(s) < here)
         }
+    }
+
+    pub(super) fn hunk_ahead(&self, dir: isize) -> Option<TextLine> {
+        self.next_stop(dir).map(|s| s.0)
     }
 
     pub(super) fn hunk_place(&self, t: TextLine) -> TextLine {
@@ -479,11 +533,20 @@ impl App {
     fn disk_hash(&self, rel: &Path) -> u64 {
         let path = self.root.join(rel);
         let link = self.reviewed_link(&path).map(|b| b.to_bytes());
+        let answers = self.answers_of(rel);
         link.map_or_else(|| std::fs::read(&path), Ok)
             .map_or(0, |bytes| {
                 let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
-                bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+                let h = bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv);
+                answers.as_bytes().iter().fold(h, fnv)
             })
+    }
+
+    fn answers_of(&self, rel: &Path) -> String {
+        (self.notes.list.iter())
+            .filter(|n| n.path == rel)
+            .map(crate::app::notes::Note::agent_text)
+            .collect()
     }
 
     fn recheck_viewed(&mut self) -> bool {
@@ -584,7 +647,14 @@ impl App {
         let path = self.root.join(&f.path);
         let hunks = review_hunks(&self.root, r, f);
         let h = if last { hunks.last() } else { hunks.first() };
-        self.jump_to_hunk(&path, h.copied().unwrap_or(TextLine::File(0)));
+        let h = h.copied().unwrap_or(TextLine::File(0));
+        self.jump_to_hunk(&path, h);
+        if self.buf.path.as_deref() == Some(&path) {
+            if self.notes.home.is_none() {
+                self.notes.home = self.rel_current();
+            }
+            self.enter_at_answer(h, last);
+        }
         self.buf.path.as_deref() == Some(&path)
     }
 
@@ -772,6 +842,10 @@ fn write_viewed<'a>(
         }
     }
     crate::stats::write(store, &text)
+}
+
+fn stop_order(s: &(TextLine, u8, Option<usize>)) -> (bool, TextLine, u8, usize) {
+    (s.1 != 0, s.0, s.1, s.2.unwrap_or(usize::MAX))
 }
 
 #[cfg(test)]

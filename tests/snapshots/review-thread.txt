@@ -1,0 +1,528 @@
+merl snapshot: review-thread
+
+==== 80x24 tokyonight-moon text, cursor 33,10
+┌feature ← main──────────────┐  ✎ old.py, file deleted
+│  D Makefile           +0 −7│    def gone():
+│✎ M store.py           +4 −1│    delete this file
+│  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file
+│                            │           itself now
+│                            │  ✎ line 13, changed
+│                            │            self.config = config or load_config()
+│                            │    why not pass the config in?
+│                            │  ↳ agent  the CLI builds it once; tests pass
+│                            │           their own
+│                            │ 1 """Storage: every note lives in one JSON file,
+│                            │   read and written as a whole."""
+│                            │ 2
+│                            │ 3 import json
+│                            │ 4
+│                            │ 5 from config import Config, load_config
+│                            │ 6 from models import Note
+│                            │ 7
+│                            │ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single
+│                            │       JSON file."""
+└ 3 files · +5 −8 · 4 notes ─┘11
+store.py  1:1  [code]  hunk 0/2  file 2/3
+
+==== 80x24 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+addddddddddddddddddddddddddddaiiikkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllll
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmmmdmmmmdddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnnnnoddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnndddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccpppppdnnnnnnnnnoddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd
+addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqdddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddddddddddddddddddddddddddddddddddddd
+rrrrrrrrssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #c8d3f5 bg #222436
+e fg #7d849f bg #222436
+f fg #82aaff bg #2d3f76
+g fg #c8d3f5 bg #2d3f76
+h fg #7d849f bg #2d3f76
+i fg #ff966c bg #222436 BOLD
+j fg #222436 bg #c8d3f5
+k fg #ffc777 bg #2f334d
+l fg #c8d3f5 bg #2f334d
+m fg #86e1fc bg #222436
+n fg #65bcff bg #222436
+o fg #89ddff bg #222436
+p fg #fca7ea bg #222436 ITALIC
+q fg #ffc777 bg #222436
+r fg #828bb8 bg #1e2030 BOLD
+s fg #828bb8 bg #1e2030
+
+==== 80x24 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+addddddddddddddddddddddddddddadddjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkkkkkkkkk
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllllddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmmmdddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmdddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllldmmmmmmmmmdddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnd
+addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnndddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddddddddddddddddddddddddddddddddddddd
+oooooooopppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #787b7e bg #ffffff
+f fg #6639ba bg #dae9f9
+g fg #1f2328 bg #dae9f9
+h fg #787b7e bg #dae9f9
+i fg #ffffff bg #1f2328
+j fg #0a3069 bg #e7eaf0
+k fg #1f2328 bg #e7eaf0
+l fg #cf222e bg #ffffff
+m fg #953800 bg #ffffff
+n fg #0a3069 bg #ffffff
+o fg #f6f8fa bg #5094e4 BOLD
+p fg #f6f8fa bg #5094e4
+
+==== 120x33 tokyonight-moon text, cursor 33,8
+┌feature ← main──────────────┐  ✎ old.py, file deleted
+│  D Makefile           +0 −7│    def gone():
+│✎ M store.py           +4 −1│    delete this file
+│  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file itself now
+│                            │  ✎ line 13, changed
+│                            │            self.config = config or load_config()
+│                            │    why not pass the config in?
+│                            │  ↳ agent  the CLI builds it once; tests pass their own
+│                            │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│                            │ 2
+│                            │ 3 import json
+│                            │ 4
+│                            │ 5 from config import Config, load_config
+│                            │ 6 from models import Note
+│                            │ 7
+│                            │ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None = None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │13▎        self.config = config or load_settings()
+│                            │  ✎ rename the call in config.py too
+│                            │  ↳ agent  config.py has no call to it, only cli.py, renamed there
+│                            │  ↳ you    then the docstring of cli.py too
+│                            │14         self.notes: list[Note] = self._read()
+│                            │  ✎ agent  read lazily, on the first access? the CLI often lists nothing
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+└ 3 files · +5 −8 · 4 notes ─┘19             return []
+store.py  1:1  [code]  hunk 0/2  file 2/3
+
+==== 120x33 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklllllllll
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmmmdmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnnnnoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccpppppdnnnnnnnnnoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdrrrrrrrrsttttodqqqqqqodnnnnnndodnnnndodnnnnsdoodnnnnodddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccuvvvvvvvvwwwwxyyyyyyvxvvvvvvvvxxvzzzzzzzzzzzAAvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccBCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddttttoIIIIIodJJJJsnnnnsdodttttoaaaaassdddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdaaaaasttttsdoodJJJJsnnnnsoddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqddddddddddddd
+addddddddddddddddddddddddddddacccddddddddrrdooodttttoIIIIIIoIIIIoaaaaaassodddddddddddddddddddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddppppppdssdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+KKKKKKKKLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #c8d3f5 bg #222436
+e fg #7d849f bg #222436
+f fg #82aaff bg #2d3f76
+g fg #c8d3f5 bg #2d3f76
+h fg #7d849f bg #2d3f76
+i fg #ff966c bg #222436 BOLD
+j fg #222436 bg #c8d3f5
+k fg #ffc777 bg #2f334d
+l fg #c8d3f5 bg #2f334d
+m fg #86e1fc bg #222436
+n fg #65bcff bg #222436
+o fg #89ddff bg #222436
+p fg #fca7ea bg #222436 ITALIC
+q fg #ffc777 bg #222436
+r fg #c099ff bg #222436
+s fg #828bb8 bg #222436
+t fg #ff757f bg #222436
+u fg red bg #222436
+v fg #c8d3f5 bg #372837
+w fg #ff757f bg #372837
+x fg #89ddff bg #372837
+y fg #4fd6be bg #372837
+z fg #c8d3f5 bg #77363d
+A fg #828bb8 bg #372837
+B fg green bg #222436
+C fg #c8d3f5 bg #233637
+D fg #ff757f bg #233637
+E fg #89ddff bg #233637
+F fg #4fd6be bg #233637
+G fg #c8d3f5 bg #26553b
+H fg #828bb8 bg #233637
+I fg #4fd6be bg #222436
+J fg #589ed7 bg #222436
+K fg #828bb8 bg #1e2030 BOLD
+L fg #828bb8 bg #1e2030
+
+==== 120x33 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkk
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllldmmmmmmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnndddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldmmmmmmmmdooooddddddddddmmmmmmdodoooododooooddoodooooddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+addddddddddddddddddddddddddddaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddooooddddddddoooodmmmmddodoooodaaaaadddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldaaaaadooooddoodoooodmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnddddddddddddd
+addddddddddddddddddddddddddddacccddddddddlldllldoooodddddddddddddaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddllllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+zzzzzzzzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #787b7e bg #ffffff
+f fg #6639ba bg #dae9f9
+g fg #1f2328 bg #dae9f9
+h fg #787b7e bg #dae9f9
+i fg #ffffff bg #1f2328
+j fg #0a3069 bg #e7eaf0
+k fg #1f2328 bg #e7eaf0
+l fg #cf222e bg #ffffff
+m fg #953800 bg #ffffff
+n fg #0a3069 bg #ffffff
+o fg #0550ae bg #ffffff
+p fg red bg #ffffff
+q fg #1f2328 bg #feeae9
+r fg #0550ae bg #feeae9
+s fg #cf222e bg #feeae9
+t fg #1f2328 bg #fdcecc
+u fg green bg #ffffff
+v fg #1f2328 bg #dbf7e2
+w fg #0550ae bg #dbf7e2
+x fg #cf222e bg #dbf7e2
+y fg #1f2328 bg #abedbb
+z fg #f6f8fa bg #5094e4 BOLD
+A fg #f6f8fa bg #5094e4
+
+==== 185x55 tokyonight-moon text, cursor 33,8
+┌feature ← main──────────────┐  ✎ old.py, file deleted
+│  D Makefile           +0 −7│    def gone():
+│✎ M store.py           +4 −1│    delete this file
+│  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file itself now
+│                            │  ✎ line 13, changed
+│                            │            self.config = config or load_config()
+│                            │    why not pass the config in?
+│                            │  ↳ agent  the CLI builds it once; tests pass their own
+│                            │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│                            │ 2
+│                            │ 3 import json
+│                            │ 4
+│                            │ 5 from config import Config, load_config
+│                            │ 6 from models import Note
+│                            │ 7
+│                            │ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None = None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │13▎        self.config = config or load_settings()
+│                            │  ✎ rename the call in config.py too
+│                            │  ↳ agent  config.py has no call to it, only cli.py, renamed there
+│                            │  ↳ you    then the docstring of cli.py too
+│                            │14         self.notes: list[Note] = self._read()
+│                            │  ✎ agent  read lazily, on the first access? the CLI often lists nothing
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+│                            │21         return [Note.from_dict(item) for item in raw]
+│                            │22
+│                            │23     def _write(self) -> None:
+│                            │24         """Write every note back to disk."""
+│                            │25         raw = [note.to_dict() for note in self.notes]
+│                            │26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+│                            │27
+│                            │28     def next_id(self) -> int:
+│                            │29         """One past the highest id in use."""
+│                            │30         return max((note.id for note in self.notes), default=0) + 1
+│                            │31
+│                            │32     def add(self, text: str, tags: list[str] | None = None) -> Note:
+│                            │33         """Append a note and save the file."""
+│                            │34         note = Note(id=self.next_id(), text=text, tags=tags or [])
+│                            │35         self.notes.append(note)
+│                            │36         self._write()
+│                            │37         return note
+│                            │38
+│                            │39▎    def count(self) -> int:
+│                            │40▎        return len(self.notes)
+└ 3 files · +5 −8 · 4 notes ─┘41▎
+store.py  1:1  [code]  hunk 0/2  file 2/3
+
+==== 185x55 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmmmdmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnnnnodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccmmmmdmmmmmmdmmmmmmdnnnnddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccpppppdnnnnnnnnnodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdrrrrrrrrsttttodqqqqqqodnnnnnndodnnnndodnnnnsdoodnnnnoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccuvvvvvvvvwwwwxyyyyyyvxvvvvvvvvxxvzzzzzzzzzzzAAvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccBCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddttttoIIIIIodJJJJsnnnnsdodttttoaaaaassddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdaaaaasttttsdoodJJJJsnnnnsodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddrrdooodttttoIIIIIIoIIIIoaaaaaassoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddppppppdssddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddodddddoaaaaasttttoIIIIIIoIIIIoaaaaaaaaasqqqqqqqqoKKKKKKKssdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddppppppdsnnnnoaaaaaaaaasddddsdrrrddddddooddddsddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdaaaaaasttttsdoodnnnnoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddodsddddoaaaaaaassdrrrddddddoodttttoIIIIIsddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddttttoIIIIIIoIIIIoaaaaaaaaaasddddoaaaaasdddodqqqqqqoLsodqqqqqqqqoKKKKKKKsdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdaaaaaaasttttsdoodJJJoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddppppppdnnnssddddoIIdrrrddddddoodttttoIIIIIsodqqqqqqqoLsdodLddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdaaasttttodqqqqodJJJodqqqqodJJJJsJJJsdodnnnndodnnnnsdoodnnnnodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddodrrrrsqqottttoaaaaaaassodqqqqoddddodqqqqodddddoodsssdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddttttoIIIIIoaaaaaasddddsddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddttttoaaaaaassddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddppppppdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccBCCCCMMMCNNNNNHDDDDHCEECOOOECCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+addddddddddddddddddddddddddddaccBCCCCCCCCPPPPPPCQQQHDDDDEFFFFFHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaaccBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+RRRRRRRRSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #c8d3f5 bg #222436
+e fg #7d849f bg #222436
+f fg #82aaff bg #2d3f76
+g fg #c8d3f5 bg #2d3f76
+h fg #7d849f bg #2d3f76
+i fg #ff966c bg #222436 BOLD
+j fg #222436 bg #c8d3f5
+k fg #ffc777 bg #2f334d
+l fg #c8d3f5 bg #2f334d
+m fg #86e1fc bg #222436
+n fg #65bcff bg #222436
+o fg #89ddff bg #222436
+p fg #fca7ea bg #222436 ITALIC
+q fg #ffc777 bg #222436
+r fg #c099ff bg #222436
+s fg #828bb8 bg #222436
+t fg #ff757f bg #222436
+u fg red bg #222436
+v fg #c8d3f5 bg #372837
+w fg #ff757f bg #372837
+x fg #89ddff bg #372837
+y fg #4fd6be bg #372837
+z fg #c8d3f5 bg #77363d
+A fg #828bb8 bg #372837
+B fg green bg #222436
+C fg #c8d3f5 bg #233637
+D fg #ff757f bg #233637
+E fg #89ddff bg #233637
+F fg #4fd6be bg #233637
+G fg #c8d3f5 bg #26553b
+H fg #828bb8 bg #233637
+I fg #4fd6be bg #222436
+J fg #589ed7 bg #222436
+K fg #c3e88d bg #222436
+L fg #ff966c bg #222436
+M fg #c099ff bg #233637
+N fg #82aaff bg #233637
+O fg #589ed7 bg #233637
+P fg #fca7ea bg #233637 ITALIC
+Q fg #65bcff bg #233637
+R fg #828bb8 bg #1e2030 BOLD
+S fg #828bb8 bg #1e2030
+
+==== 185x55 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aaadddddddddddddddddddddeeeeeacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccclllllldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllddddddddlllllldmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccllllldmmmmmmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldmmmmmmmmdooooddddddddddmmmmmmdodoooododooooddoodoooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+addddddddddddddddddddddddddddaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddooooddddddddoooodmmmmddodoooodaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccadcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldaaaaadooooddoodoooodmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddlldllldoooodddddddddddddaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddlllllldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddoddddddaaaaadoooodddddddddddddaaaaaaaaadddddddddonnnnnnndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddllllllddmmmmdaaaaaaaaadddddddlllddddddlldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldaaaaaadooooddoodoooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddodddddddaaaaaaadddlllddddddlldoooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddoooodddddddddddddaaaaaaaaaaddddddaaaaaddddddddddddoodddddddddddonnnnnnnddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldaaaaaaadooooddoodooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddlllllldaaaddddddddddlllddddddlldooooddddddddddddddddooddododdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldaaadooooddddddddoooddddddddoooodoooddodoooododooooddoodmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnndddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddodmmmmdddooooodaaaaaaaddddddddoddddddddddodddddlldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddoooodddddddaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddoooodaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddlllllldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccuvvvvxxxvzzzzzvwwwwvvwwvwwwvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccuvvvvvvvvxxxxxxvzzzvwwwwvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaaccuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+AAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #1f2328 bg #ffffff
+e fg #787b7e bg #ffffff
+f fg #6639ba bg #dae9f9
+g fg #1f2328 bg #dae9f9
+h fg #787b7e bg #dae9f9
+i fg #ffffff bg #1f2328
+j fg #0a3069 bg #e7eaf0
+k fg #1f2328 bg #e7eaf0
+l fg #cf222e bg #ffffff
+m fg #953800 bg #ffffff
+n fg #0a3069 bg #ffffff
+o fg #0550ae bg #ffffff
+p fg red bg #ffffff
+q fg #1f2328 bg #feeae9
+r fg #0550ae bg #feeae9
+s fg #cf222e bg #feeae9
+t fg #1f2328 bg #fdcecc
+u fg green bg #ffffff
+v fg #1f2328 bg #dbf7e2
+w fg #0550ae bg #dbf7e2
+x fg #cf222e bg #dbf7e2
+y fg #1f2328 bg #abedbb
+z fg #6639ba bg #dbf7e2
+A fg #f6f8fa bg #5094e4 BOLD
+B fg #f6f8fa bg #5094e4

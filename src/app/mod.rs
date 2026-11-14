@@ -45,7 +45,7 @@ mod lua;
 mod members;
 mod missed;
 pub(crate) mod notes;
-pub use notes::Slot;
+pub use notes::{Slot, Tone};
 mod ml;
 mod open;
 mod perl;
@@ -839,7 +839,8 @@ impl App {
         } else {
             0
         };
-        self.ghost_rows(l) + text + notes
+        let top = if l == 0 { self.note_rows_top() } else { 0 };
+        top + self.ghost_rows(l) + text + notes
     }
 
     pub fn cursor_row(&self) -> usize {
@@ -856,7 +857,12 @@ impl App {
                 .sum(),
             None => self.ghost_rows(self.line),
         };
-        above + wrap::col_to_row(&self.text_rows(self.line_str()), self.col)
+        let top = if self.at().key() == 0 {
+            self.note_rows_top()
+        } else {
+            0
+        };
+        top + above + wrap::col_to_row(&self.text_rows(self.line_str()), self.col)
     }
 
     pub fn cursor_at(&self) -> (usize, usize) {
@@ -864,6 +870,13 @@ impl App {
     }
 
     pub(super) fn line_at_row(&self, key: usize, mut row: usize) -> (TextLine, usize) {
+        if key == 0 {
+            let top = self.note_rows_top();
+            if row < top {
+                return (TextLine::File(0), 0);
+            }
+            row -= top;
+        }
         let ghosts = self.diff.ghosts.get(&key).map_or(&[][..], Vec::as_slice);
         for (i, g) in ghosts.iter().enumerate() {
             let n = self.text_rows(g).len();
