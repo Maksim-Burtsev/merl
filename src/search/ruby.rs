@@ -278,7 +278,7 @@ pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
             b'-' if b.get(i + 1) == Some(&b'>') => lambda = Some(i + 2),
             b'{' => open.push(lambda.take().map_or((i + 1, false), |o| (o, true))),
             b'd' if keyword(i, "do") => {
-                open.push(lambda.take().map_or((i + 2, false), |o| (o, true)))
+                open.push(lambda.take().map_or((i + 2, false), |o| (o, true)));
             }
             b'}' => drop(open.pop()),
             b'e' if keyword(i, "end") => drop(open.pop()),

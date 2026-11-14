@@ -1042,7 +1042,9 @@ pub fn ts_array_pushes(text: &str, decl: usize, name: &str) -> Option<Vec<(usize
         }
         let code = String::from_utf8_lossy(&bytes);
         for (i, _) in code.match_indices(name) {
-            let (before, rest) = (&code[..i], &code[i + name.len()..]);
+            let (Some(before), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
+                continue;
+            };
             if before.ends_with(|c: char| ident(c) || c == '.') || rest.starts_with(ident) {
                 continue;
             }
@@ -1056,13 +1058,13 @@ pub fn ts_array_pushes(text: &str, decl: usize, name: &str) -> Option<Vec<(usize
                 continue;
             }
             let method = rest.strip_prefix('.')?;
-            let method = &method[..method.find(|c: char| !ident(c)).unwrap_or(method.len())];
+            let method = method.split(|c: char| !ident(c)).next().unwrap_or_default();
             match method {
                 "push" | "unshift" => {
                     let open = i + name.len() + 1 + method.len();
-                    let end =
-                        close_of(kind, &code, open).filter(|_| code[open..].starts_with('('))?;
-                    for arg in split_top(kind, &code[open + 1..end - 1], b',') {
+                    let end = close_of(kind, &code, open)
+                        .filter(|_| code.get(open..).is_some_and(|r| r.starts_with('(')))?;
+                    for arg in split_top(kind, code.get(open + 1..end - 1)?, b',') {
                         let arg = arg.trim();
                         let value = match arg.strip_prefix("...").map(str::trim) {
                             Some(list) if CHAIN.is_match(list) => Value::Element(list.to_owned()),
