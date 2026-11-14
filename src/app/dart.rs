@@ -601,10 +601,7 @@ impl App {
                 scope = s;
                 ty
             }
-            [r] if p.is_some() => {
-                let (ty, line1, col) = p?;
-                self.dart_narrowed(here, text, r, ty.ok()?, (line1, col), &mut scope)?
-            }
+            [r] if p.is_some() => self.dart_narrowed(here, text, r, p?, &mut scope)?,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -668,10 +665,11 @@ impl App {
         here: &Path,
         text: &str,
         name: &str,
-        checked: search::DartType,
-        mut at: (usize, usize),
+        promoted: (Result<search::DartType, ()>, usize, usize),
         scope: &mut PathBuf,
     ) -> Option<search::DartType> {
+        let (checked, line1, col) = promoted;
+        let (checked, mut at) = (checked.ok()?, (line1, col));
         let (declared, s) = self.dart_bound(here, text, name, 0)?;
         let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
         if bindings
@@ -680,7 +678,7 @@ impl App {
         {
             return None;
         }
-        let mut outer = vec![declared.class.clone()];
+        let mut outer = vec![declared.class];
         while let Some((ty, line1, col)) = search::dart_promoted(text, at.0, at.1, name) {
             outer.push(ty.ok()?.class);
             at = (line1, col);

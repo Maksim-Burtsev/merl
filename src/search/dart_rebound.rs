@@ -252,11 +252,8 @@ pub fn dart_promoted(
                 && let Some(ty) = dart_narrows(c, &w, true)
                 && exits(rest)
             {
-                return Some((
-                    ty.ok().filter(|_| t.starts_with("if")).ok_or(()),
-                    i + 1,
-                    ind,
-                ));
+                let ty = ty.ok().filter(|_| t.starts_with("if")).ok_or(());
+                return Some((ty, i + 1, ind));
             }
             continue;
         }
@@ -266,11 +263,8 @@ pub fn dart_promoted(
         if let Some((c, rest)) = dart_condition(t)
             && let Some(ty) = dart_narrows(c, &w, false)
         {
-            return Some((
-                ty.ok().filter(|_| rest.is_empty() || rest == "{").ok_or(()),
-                i + 1,
-                ind,
-            ));
+            let ty = ty.ok().filter(|_| rest.is_empty() || rest == "{").ok_or(());
+            return Some((ty, i + 1, ind));
         }
         depth = ind;
         if depth == 0 || TYPE_BODY.is_match(lines[i]) {
