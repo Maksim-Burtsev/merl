@@ -176,6 +176,18 @@ impl App {
         let found = match import {
             Some(path) => {
                 let project = self.imported_definitions(a.kind, &a.here, &a.word, &a.chain, &path);
+                if a.kind == Kind::TsJs
+                    && a.chain.is_empty()
+                    && project.as_ref().is_some_and(Vec::is_empty)
+                    && let Some((star, module)) = path.split_last()
+                    && star == "*"
+                    && let Some(line) = search::ts_import_line1(&a.text, &a.word)
+                {
+                    let hit = self.line_hit(&a.here, line);
+                    let reason = Reason::Import(module.join("/"));
+                    self.show_found(a, vec![Candidate { hit, reason }]);
+                    return None;
+                }
                 import_read = project.is_some();
                 self.found_by_import(a, near, &path, project, &mut imported)?
             }
