@@ -1,0 +1,42 @@
+wait viewed 5/7
+┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
+│✓   M service.py      +13 −1│ 2▎from decimal import Decimal
+│  ▾ deploy                  │ 3▎
+│    ▾ helm                  │ 4▎import pytest
+│      ▾ orders              │ 5▎
+│✓       M values.yaml  +1 −0│ 6▎from app.models import Order, OrderStatus
+│  ▾ docs                    │ 7▎from app.refunds import RefundNotAllowed, refund_amount
+│    M architecture.png   bin│ 8▎
+│  ▾ scripts                 │ 9▎NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
+│✓   D refund_by_hand.… +0 −9│10▎
+│  ▾ tests                   │11▎
+│    A test_refunds.py +23 −0│12▎def paid(days_ago):
+│  ▾ worker                  │13▎    return Order(id=1, customer_id=7, total=Decimal("40.00"), status=OrderStatus.PAID,
+│    M main.go          +4 −1│14▎                 created_at=NOW - timedelta(days=days_ago))
+│                            │15▎
+│                            │16▎
+│                            │17▎def test_whole_total_inside_the_window():
+│                            │18▎    assert refund_amount(paid(3), window_days=30, now=NOW) == Decimal("40.00")
+│                            │19▎
+│                            │20▎
+│                            │21▎def test_nothing_after_the_window():
+│                            │22▎    with pytest.raises(RefundNotAllowed):
+│                            │23▎        refund_amount(paid(31), window_days=30, now=NOW)
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+tests/test_refunds.py  1:1  [code]  hunk 1/1  viewed 5/7                                                                                                                           14:32
+cursor (x,y,shown) 33,0,0

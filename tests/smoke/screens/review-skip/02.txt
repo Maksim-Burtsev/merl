@@ -1,4 +1,4 @@
-wait hunk 1/1  file 1/6
+wait app/models.py  25:1  [code]  hunk 1/1
 ┌agent/skip ← origin/main────┐ 1 from dataclasses import dataclass, field
 │  ▾ app                     │ 2 from datetime import datetime, timezone
 │    M models.py        +2 −0│ 3 from decimal import Decimal
@@ -53,5 +53,5 @@ wait hunk 1/1  file 1/6
 │                            │
 │                            │
 └ 6 files · +12 −0 ──────────┘
-app/models.py  25:1  [code]  hunk 1/1  file 1/6                                                                                                                                    14:32
+app/models.py  25:1  [code]  hunk 1/1  viewed 0/3                                                                                                                                  14:32
 cursor (x,y,shown) 33,24,0

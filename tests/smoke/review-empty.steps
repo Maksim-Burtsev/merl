@@ -14,12 +14,12 @@ merl README.md
 wait # orders
 run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
 merl --review
-wait hunk 1/1  file 1/4
+wait app/service.py  37:1  [code]  hunk 1/1
 caption c stops on the empty scripts/__init__.py like on any other file, and says it is empty (#720)
 key c
 wait scripts/__init__.py  1:1
 key c
-wait hunk 1/1  file 3/4
+wait worker/main.go  68:1  [code]  hunk 1/1
 caption the review's last file is empty: c opens it, c again ticks it and ends the review
 key c
 wait py.typed  1:1
@@ -37,11 +37,11 @@ run git switch -q main && git switch -q -c moved && mkdir -p tools && git mv scr
 merl --review
 wait renamed, no changes
 key c
-wait hunk 1/1  file 2/2
+wait worker/main.go  68:1  [code]  hunk 1/1
 caption a second round of typed: the author fixed worker/main.go since its tick, and the review opens on it (#824)
 run git switch -q typed && printf '// Jitter spreads the retries.\n' >> worker/main.go && git commit -qam jitter
 merl --review
-wait hunk 1/1  file 3/4
+wait worker/main.go  68:1  [code]  hunk 1/1
 caption c passes over py.typed, ticked in the first round: the review ends there (#824)
 key c
 wait last hunk of the review
@@ -55,7 +55,7 @@ wait scripts/refund_by_hand.py  →  tools/refund_by_hand.py
 caption a third round of typed, worker/main.go fixed again: C from it passes over the files ticked before (#823)
 run git switch -q typed && printf '// Five retries at most.\n' >> worker/main.go && git commit -qam five
 merl --review
-wait hunk 1/1  file 3/4
+wait worker/main.go  68:1  [code]  hunk 1/1
 key C
 wait first hunk of the review
 key c

@@ -53,5 +53,5 @@ wait all files viewed
 │                            │
 │                            │
 └ 4 files · +6 −0 ───────────┘
-app/service.py  37:1  [code]  hunk 1/1  file 1/4  all files viewed                                                                                                                 14:32
+app/service.py  37:1  [code]  hunk 1/1  viewed 4/4  all files viewed                                                                                                               14:32
 cursor (x,y,shown) 33,27,0

@@ -11,20 +11,20 @@ run git switch -q -c agent/skip && printf '\n# models\n' >> app/models.py && pri
 run mkdir -p .git/merl/review/agent && printf '# commit x\napp/models.py\napp/service.py\nskip tests/test_service.py\nskip docs/notes.md\nworker/main.go\nskip README.md\n' > .git/merl/review/agent/skip
 caption merl --review: the files the agent left out carry a robot and a dim row (#1041)
 merl --review
-wait hunk 1/1  file 1/6
+wait app/models.py  25:1  [code]  hunk 1/1
 key Escape
 caption c: on to app/service.py
 key c
-wait hunk 1/1  file 2/6
+wait app/service.py  37:1  [code]  hunk 1/1
 caption c walks past the skipped test and docs page, on to worker/main.go
 key c
-wait hunk 1/1  file 5/6
+wait worker/main.go  68:1  [code]  hunk 1/1
 caption the README is skipped too: worker/main.go holds the review's last hunk
 key c
 wait last hunk of the review
 caption C walks back past them to app/service.py
 key C
-wait hunk 1/1  file 2/6
+wait app/service.py  37:1  [code]  hunk 1/1
 caption Enter in the panel opens a skipped file
 key Tab Down Down Enter
 wait tests/test_service.py
@@ -32,4 +32,4 @@ caption the agent read this commit; then the docs page changes on the branch (#1
 run printf '# commit %s\napp/models.py\napp/service.py\nskip tests/test_service.py\nskip docs/notes.md\nworker/main.go\nskip README.md\n' "$(git rev-parse HEAD)" > .git/merl/review/agent/skip && printf '\nEven more notes.\n' >> docs/notes.md && git commit -qam 'docs: a change after the order'
 merl --review
 caption the docs page lost its robot: the review opens on it, the test keeps its robot
-wait hunk 1/1  file 4/6
+wait docs/notes.md  39:1  [code]  hunk 1/1

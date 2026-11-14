@@ -1,4 +1,4 @@
-wait hunk 1/1  file 2/6
+wait app/service.py  37:1  [code]  hunk 1/1
 ┌agent/skip ← origin/main────┐10
 │  ▾ app                     │11 class OrderService:
 │✓   M models.py        +2 −0│12     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
@@ -53,5 +53,5 @@ wait hunk 1/1  file 2/6
 │                            │
 │                            │
 └ 6 files · +12 −0 ──────────┘
-app/service.py  37:1  [code]  hunk 1/1  file 2/6                                                                                                                                   14:32
+app/service.py  37:1  [code]  hunk 1/1  viewed 3/3                                                                                                                                 14:32
 cursor (x,y,shown) 33,27,0

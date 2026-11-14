@@ -2,9 +2,9 @@
 merl --review
 wait hunk 1/1
 key c
-wait file 2/5
+wait models/repo/star_test.go
 key c
-wait file 3/5
+wait models/repo/watch.go
 key c
 wait hunk 1/10
 sleep 1
@@ -14,5 +14,5 @@ sleep 2.5
 wait block_note
 sleep 2.5
 key@0.18 c*10
-wait file 5/6
+wait services/user/block_note_test.go
 sleep 2.5

@@ -24,7 +24,7 @@ merl snapshot: review-rename-edited
 │                            │45         if len(keep) == len(self.notes):
 │                            │46             return False
 └ 3 files · +5 −8 ───────────┘47         self.notes = keep
-app/store.py  39:1  [code]  hunk 2/2  file 1/3
+app/store.py  39:1  [code]  hunk 2/2  viewed 0/3
 
 ==== 80x24 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccc
@@ -186,7 +186,7 @@ D fg #f6f8fa bg #5094e4
 │                            │51     def find(self, needle: str) -> list[Note]:
 │                            │52         """Every note whose text contains `needle`, case-insensitively."""
 └ 3 files · +5 −8 ───────────┘53         lowered = needle.lower()
-app/store.py  39:1  [code]  hunk 2/2  file 1/3
+app/store.py  39:1  [code]  hunk 2/2  viewed 0/3
 
 ==== 120x33 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -395,7 +395,7 @@ F fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └ 3 files · +5 −8 ───────────┘
-app/store.py  39:1  [code]  hunk 2/2  file 1/3
+app/store.py  39:1  [code]  hunk 2/2  viewed 0/3
 
 ==== 185x55 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

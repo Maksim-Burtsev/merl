@@ -10,5 +10,5 @@ wait app/refunds.py  18:1
 │  ▾ docs                    │
 │    M architecture.png   bin│
 └ 8 files · +59 −39 ─────────┘
-app/refunds.py  18:1  [code]  hunk 1/1  file 1/8                                                                                                                                   14:32
+app/refunds.py  18:1  [code]  hunk 1/1  viewed 3/7                                                                                                                                 14:32
 cursor (x,y,shown) 33,6,0

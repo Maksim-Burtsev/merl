@@ -1,4 +1,4 @@
-wait file 3/8  not viewed
+wait not viewed
 ┌agent/refund ← origin/main──┐14 class OrderService:
 │  ▾ app                     │19
 │✓   A refunds.py      +18 −0│20     def get(self, order_id: int) -> Order:
@@ -53,5 +53,5 @@ wait file 3/8  not viewed
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-app/service.py  44:18  [code]  hunk 4/4  file 3/8  not viewed                                                                                                                      14:32
+app/service.py  44:18  [code]  hunk 4/4  viewed 2/7  not viewed                                                                                                                    14:32
 cursor (x,y,shown) 50,27,0

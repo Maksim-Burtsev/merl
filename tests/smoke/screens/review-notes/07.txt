@@ -1,4 +1,4 @@
-wait hunk 1/1  file 2/8
+wait app/repos.py  -32:1  [code]  hunk 1/1
 ┌agent/refund ← origin/main──┐ 4 class OrderRepo:
 │  ▾ app                     │ 6
 │✎   A refunds.py      +18 −0│ 7     def __init__(self, db):
@@ -53,5 +53,5 @@ wait hunk 1/1  file 2/8
 │                            │  ▎        self.orders.pop(order_id, None)
 │                            │  ▎
 └ 8 files · +59 −39 · 1 note ┘  ▎    def clear(self) -> None:
-app/repos.py  -32:1  [code]  hunk 1/1  file 2/8                                                                                                                                    14:32
+app/repos.py  -32:1  [code]  hunk 1/1  viewed 1/7                                                                                                                                  14:32
 cursor (x,y,shown) 33,27,0

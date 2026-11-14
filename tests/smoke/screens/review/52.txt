@@ -1,0 +1,42 @@
+wait hunk 2/2  viewed 6/7
+┌agent/refund ← origin/main──┐44 func drain(q queue.Queue) error {
+│✓   M service.py      +13 −1│45     jobs := make(
+│  ▾ deploy                  │46         []queue.Job, 0, 16,
+│    ▾ helm                  │47     )
+│      ▾ orders              │48     for job, ok := q.Pop(); ok; job, ok = q.Pop() {
+│✓       M values.yaml  +1 −0│49         jobs = append(jobs, job)
+│  ▾ docs                    │50     }
+│    M architecture.png   bin│51     for _, job := range jobs {
+│  ▾ scripts                 │52         if err := handle(job); err != nil {
+│✓   D refund_by_hand.… +0 −9│53             return err
+│  ▾ tests                   │54         }
+│✓   A test_refunds.py +23 −0│55     }
+│  ▾ worker                  │56     return nil
+│    M main.go          +4 −1│57 }
+│                            │58
+│                            │59 func handle(job queue.Job) error {
+│                            │60     switch job.Kind {
+│                            │61     case "ship", "sync":
+│                            │62         log.Printf("order %d → %s", job.OrderID, job.Kind)
+│                            │63         return nil
+│                            │64▎    case "refund":
+│                            │65▎        log.Printf("order %d → refund sent to the payment provider", job.OrderID)
+│                            │66▎        return nil
+│                            │67     default:
+│                            │68         return fmt.Errorf("unknown job kind %q", job.Kind)
+│                            │69     }
+│                            │70 }
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +59 −39 ─────────┘
+worker/main.go  64:1  [code]  hunk 2/2  viewed 6/7                                                                                                                                 14:32
+cursor (x,y,shown) 33,20,0

@@ -53,5 +53,5 @@ wait Tutor 27/
 │                            │50         self.notes = keep
 │                            │51         self._write()
 └ 6 files · +138 −23 ────────┘52         return True
-store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Previous change                                                                                                                       14:32
+store.py  1:1  [code]  hunk 0/4  viewed 0/6  ✓ Previous change                                                                                                                     14:32
 cursor (x,y,shown) 33,0,0

@@ -5,7 +5,7 @@
 # quoted with `-`. The agent deletes the file while merl is open: the notes go. A file read
 # without a review takes no note: a does nothing
 merl --review=agent/refund
-wait hunk 1/1  file 1/8
+wait app/refunds.py  1:1  [code]  hunk 1/1
 key a
 wait [edit]
 type check the window
@@ -23,7 +23,7 @@ check ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Escape C-z
 wait and the clock
 key c
-wait hunk 1/1  file 2/8
+wait app/repos.py  -32:1  [code]  hunk 1/1
 key a
 type why delete these
 wait why delete these

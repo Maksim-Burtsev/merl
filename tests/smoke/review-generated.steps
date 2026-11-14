@@ -7,12 +7,12 @@ wait # orders
 run python3 -c 'import json; json.dump({"name": "orders", "packages": {f"dep-{i}": "1.0.0" for i in range(40)}}, open("web/package-lock.json", "w"), indent=2)' && git add -A && git commit -qm lock && git push -q origin main
 run git switch -q -c deps && sed -i.bak -e 's/"dep-3": "1.0.0"/"dep-3": "1.1.0"/' -e 's/"dep-19": "1.0.0"/"dep-19": "1.2.0"/' -e 's/"dep-35": "1.0.0"/"dep-35": "2.0.0"/' web/package-lock.json && rm web/package-lock.json.bak && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git commit -qam 'deps: bump three'
 merl --review
-wait file 1/2
+wait web/package-lock.json  [code]  folded
 key c
-wait file 2/2
+wait worker/main.go  68:1  [code]  hunk 1/1
 key C
-wait folded  file 1/2
+wait web/package-lock.json  [code]  folded
 key Enter
-wait hunk 1/3  file 1/2
+wait hunk 1/3
 key c
-wait hunk 2/3  file 1/2
+wait hunk 2/3
