@@ -397,6 +397,9 @@ impl App {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
+                if let Some(class) = search::cpp_auto_std(text, line0 + 1, Some(col), head) {
+                    return Some((vec!["std".to_owned(), class], code, here_ctx, None));
+                }
                 let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, Some(col), head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
