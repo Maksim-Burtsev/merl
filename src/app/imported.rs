@@ -517,6 +517,10 @@ impl App {
             } in search::reexported(&text, first).into_iter().chain(listed)
             {
                 if name_in_module == "*" && chain.is_empty() {
+                    let files = search::module_files(kind, &self.root, &self.files, f, &module);
+                    for c in self.module_candidates(files) {
+                        push_new(&mut found, c);
+                    }
                     continue;
                 }
                 module.push(name_in_module);

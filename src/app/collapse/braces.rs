@@ -123,14 +123,13 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         .collect();
     defs.sort_unstable();
     defs.dedup();
-    let semicolons = !matches!(
-        syntax.lang,
-        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala | Lang::Groovy
-    );
-    let heads = if semicolons {
-        heads(lines, &toks, &model.back, &starts)
-    } else {
-        HashMap::new()
+    let heads = match syntax.lang {
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Scala | Lang::Groovy => HashMap::new(),
+        lang => {
+            let lines_only = matches!(lang, Lang::Kotlin | Lang::Swift);
+            let headed = if lang == Lang::ObjC { &[][..] } else { &defs };
+            heads(lines, &toks, &model.back, &starts, headed, lines_only)
+        }
     };
     Folds {
         starts,
@@ -144,11 +143,15 @@ fn heads(
     toks: &[Tok],
     back: &[Option<usize>],
     starts: &HashMap<usize, usize>,
+    defs: &[(usize, usize)],
+    lines_only: bool,
 ) -> HashMap<usize, usize> {
     let mut heads = HashMap::new();
     for (k, t) in toks.iter().enumerate() {
-        let alone = lines[t.line].trim_start().starts_with('{');
-        if !(alone && t.kind == K::Punct && t.text == "{" && starts.contains_key(&t.line)) {
+        let alone = lines[t.line].trim_start().starts_with('{') && !lines_only;
+        let def = defs.binary_search_by_key(&t.line, |d| d.0).is_ok();
+        let brace = t.kind == K::Punct && t.text == "{" && starts.contains_key(&t.line);
+        if !(brace && (alone || def)) {
             continue;
         }
         let header = |p: &Tok| p.kind == K::Word || matches!(p.text, ")" | "]" | ">");
@@ -159,8 +162,13 @@ fn heads(
         while j > 0 {
             let p = toks[j - 1];
             let ends_line = toks[j].line > p.end;
-            if p.kind == K::Punct
-                && (matches!(p.text, ";" | "{" | "}" | "(" | "[") || (p.text == "," && ends_line))
+            let blank = (p.end + 1..toks[j].line).any(|l| lines[l].trim().is_empty());
+            if blank
+                || lines[p.line].trim_start().starts_with("#![")
+                || (lines_only && ends_line && j < k && !p.text.starts_with('@'))
+                || (p.kind == K::Punct
+                    && (matches!(p.text, ";" | "{" | "}" | "(" | "[")
+                        || (p.text == "," && ends_line)))
             {
                 break;
             }
@@ -170,8 +178,11 @@ fn heads(
             };
             from = j;
         }
+        let mut inside = None;
         for l in toks[from].line..t.line {
-            if !starts.contains_key(&l) {
+            if let Some(&e) = starts.get(&l) {
+                inside = inside.max(Some(e));
+            } else if inside.is_none_or(|e| l > e) {
                 heads.entry(l).or_insert(t.line);
             }
         }
@@ -978,6 +989,7 @@ impl<'t, 'a> Model<'t, 'a> {
                         j = self.pair[j].unwrap_or(j);
                     }
                     "(" | "[" | "{" => j = self.pair[j].unwrap_or(j),
+                    "," if angle > 0 => {}
                     ")" | "]" | "}" | ";" | "," => return None,
                     _ => {}
                 }

@@ -135,6 +135,16 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   comment under a generic method, `a < LOW || a > HIGH`, a `when` branch `a < size ->`, an
   anonymous `given Ordering[Krater] with`, a Rust `fn` nested in a generic `fn`, and Go's
   `type Buf [N + 1]byte` in `go/cart/bufs.go`.
+- standard values beside a namesake (#1536): `basket/` holds one small project per language
+  (Swift, TypeScript, Kotlin, C#, PHP, Dart; C++ is #1559), each a `Basket` with one method named like a
+  standard one and a `totals` file calling that method on a local bound to a literal (`"a,b"`,
+  `[]`, `<int>[]`, `[Int]()`) or to a standard constructor (`ArrayList<Int>()`,
+  `mutableListOf<Int>()`, `new \ArrayObject()`), which is no jump to the `Basket`. Beside it, a
+  `loud`/`tail` file per language calls the project's own extension of a standard type from
+  another file (`extension String`, `@available(…) extension Array`, `fun String.shout()`,
+  `extension Loud on String`, `this string`, `declare global { interface Array<T> }`) on such a
+  local, and Groovy, Scala and a JS local written again (`x = load(id)`) call a project method:
+  each is still a jump.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
@@ -396,6 +406,9 @@ body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the defi
 does; an out-of-class `operator()` keeps its parameters.
 `sieve.cc` reads the parameters of operators, in and out of their class, and a member of
 the class inside an operator before a global namesake; a call inside a free operator in a namespace keeps its picker (#1029).
+`strainer.cc` calls, behind `using namespace strainer;`, free functions of `strainer.hh` indented in
+their namespace with parameters wrapped and `{` on its own line, one named like a member of `Mesh`
+written the same way, which a call from outside the class cannot reach (#1548).
 `infuser.cc` defines constructors inside their class, after `explicit`, over an initializer
 list and a function-pointer parameter, and a destructor, each the answer on its own name, while
 a construction with `new` inside a method and in a function still leads to the class (#1248).

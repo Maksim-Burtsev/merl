@@ -626,3 +626,39 @@ fn f_folds_make_and_cmake_by_their_file_names() {
         assert_eq!(a.collapsed, vec![(0, 2)], "{name}");
     }
 }
+
+#[test]
+fn f_above_a_function_past_a_blank_line_or_an_inner_attribute_folds_nothing() {
+    let cases = [
+        (
+            "rs",
+            "#![allow(dead_code)]\n\nfn first() {\n    a();\n}\n",
+            2,
+        ),
+        ("rs", "#![allow(dead_code)]\nfn first() {\n    a();\n}\n", 1),
+        ("rs", "use a::b;\n\n#[test]\nfn first() {\n    a();\n}\n", 3),
+        (
+            "kt",
+            "@file:JvmName(\"A\")\n\nfun first() {\n    a()\n}\n",
+            2,
+        ),
+        ("kt", "@Composable\n\nfun first() {\n    a()\n}\n", 2),
+        ("swift", "@MainActor\n\nfunc first() {\n    a()\n}\n", 2),
+        (
+            "sol",
+            "pragma solidity ^0.8.0;\n\nfunction first() {\n    a();\n}\n",
+            2,
+        ),
+    ];
+    for (ext, text, fun) in cases {
+        let end = text.lines().count() - 1;
+        for l in 0..=end {
+            let mut a = app_as(ext, text);
+            a.go((l, 0));
+            key(&mut a, KeyCode::Char('f'));
+            let headed = l >= fun || text.lines().nth(l).is_some_and(|s| s.starts_with("#["));
+            let want = if headed { vec![(fun, end)] } else { vec![] };
+            assert_eq!(a.collapsed, want, "f on {ext} line {}: {text:?}", l + 1);
+        }
+    }
+}

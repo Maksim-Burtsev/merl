@@ -37,9 +37,9 @@ function add(Point memory a, Point memory b) pure returns (Point memory) {  // f
     });  // f: 33-38
 }  // f: 33-38
 
-function sub(  // f: none
-    Point memory a,  // f: none
-    Point memory b  // f: none
+function sub(  // f: 43-45
+    Point memory a,  // f: 43-45
+    Point memory b  // f: 43-45
 ) pure returns (Point memory) {  // f: 43-45
     return Point(a.x - b.x, a.y - b.y);  // f: 43-45
 }  // f: 43-45
@@ -65,8 +65,8 @@ abstract contract Base is  // f: none
             "key"  // f: 50-191
         );  // f: 50-191
 
-    modifier only(  // f: 50-191
-        address who  // f: 50-191
+    modifier only(  // f: 70-76
+        address who  // f: 70-76
     ) {  // f: 70-76
         require(  // f: 71-74
             msg.sender == who,  // f: 70-76
@@ -75,8 +75,8 @@ abstract contract Base is  // f: none
         _;  // f: 70-76
     }  // f: 70-76
 
-    constructor(uint256 a) A(  // f: 50-191
-        a  // f: 50-191
+    constructor(uint256 a) A(  // f: 80-82
+        a  // f: 80-82
     ) B() {  // f: 80-82
         _list.push(a);  // f: 80-82
     }  // f: 80-82

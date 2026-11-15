@@ -26,6 +26,7 @@ mod cs_typed;
 mod css;
 mod cursor;
 mod dart;
+mod dart_imports;
 mod definition;
 mod edit;
 mod erlang;

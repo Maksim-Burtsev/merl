@@ -85,7 +85,14 @@ fn class_fields(
             .filter_map(|i| {
                 go_field(lines[i]).map(|value| Binding {
                     line1: i + 1,
-                    value,
+                    value: match value {
+                        Value::Type(t)
+                            if t.strip_prefix("struct").is_some_and(|r| r.trim() == "{") =>
+                        {
+                            Value::Struct(i + 1)
+                        }
+                        v => v,
+                    },
                 })
             })
             .collect(),
