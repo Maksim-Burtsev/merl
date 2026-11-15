@@ -2,12 +2,7 @@ use super::dart::dart_names;
 use super::{App, Candidate, Kind, Path, PathBuf, Reason, search};
 
 impl App {
-    pub(super) fn dart_outside_by_import(
-        &self,
-        here: &Path,
-        word: &str,
-        found: &mut Vec<Candidate>,
-    ) {
+    fn dart_outside_by_import(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
         let Some(first) = found.first() else {
             return;
         };
@@ -64,6 +59,7 @@ impl App {
     }
 
     pub(super) fn dart_unimported(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
+        self.dart_outside_by_import(here, word, found);
         let Some((roots, _)) = self.external.get(&Kind::Dart) else {
             return;
         };

@@ -103,7 +103,6 @@ impl App {
             required_copy(&a.text, &mut found);
         }
         if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
-            self.dart_outside_by_import(&a.here, &a.word, &mut found);
             self.dart_unimported(&a.here, &a.word, &mut found);
             self.dart_outside_constructor(&a.word, &a.tail, &mut found);
         }
