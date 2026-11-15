@@ -221,7 +221,11 @@ impl App {
             found.clear();
             return;
         }
-        if !found.is_empty() && missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
+        if !found.is_empty()
+            && missing.is_empty()
+            && !before.trim_start().starts_with("export")
+            && found.iter().all(|c| top(c) && unseen(c))
+        {
             *found = self.dart_from_imports(here, word);
             return;
         }
