@@ -24,6 +24,10 @@ impl App {
         imported: &Imported,
     ) {
         let kind = a.kind;
+        if super::js_std::js_keyword(a) {
+            self.none_found(format!("no definition for {}", a.word));
+            return;
+        }
         let hits = self.hits_by_name(a, near, p, walk);
         let mut fallbacks = Vec::new();
         let mut aside = None;
