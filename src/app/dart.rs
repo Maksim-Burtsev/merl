@@ -97,17 +97,18 @@ impl App {
                         && dart_names(d, word)
                 })
                 .filter_map(|d| search::dart_uri_file(&self.root, here, &d.uri, sdk.as_deref()))
-                .flat_map(|f| self.dart_exported(here, f, word, &reason, 0))
+                .flat_map(|f| self.dart_exported(here, f, word, &[None], &reason, 0))
                 .collect();
         }
         (!found.is_empty()).then_some(found)
     }
 
-    fn dart_exported(
+    pub(super) fn dart_exported(
         &self,
         here: &Path,
         file: PathBuf,
         word: &str,
+        wanted: &[Option<String>],
         reason: &Reason,
         depth: usize,
     ) -> Vec<Candidate> {
@@ -120,7 +121,7 @@ impl App {
         };
         let found: Vec<Candidate> = files
             .iter()
-            .flat_map(|f| self.dart_declared_in(f, word, None, &[None], reason))
+            .flat_map(|f| self.dart_declared_in(f, word, None, wanted, reason))
             .collect();
         if !found.is_empty() {
             return found;
@@ -136,7 +137,7 @@ impl App {
                 };
                 search::dart_uri_file(&self.root, base, &d.uri, sdk.as_deref())
             })
-            .flat_map(|f| self.dart_exported(here, f, word, reason, depth + 1))
+            .flat_map(|f| self.dart_exported(here, f, word, wanted, reason, depth + 1))
             .collect()
     }
 
@@ -218,6 +219,10 @@ impl App {
                 || self.dart_sdk_class_file(here, word).is_some())
         {
             found.clear();
+            return;
+        }
+        if !found.is_empty() && missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
+            *found = self.dart_from_imports(here, word);
             return;
         }
         if found.iter().all(unseen)
@@ -329,96 +334,6 @@ impl App {
         });
     }
 
-    pub(super) fn dart_unimported(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
-        let Some((roots, _)) = self.external.get(&Kind::Dart) else {
-            return;
-        };
-        let built = Some(format!("{word}.{word}"));
-        let named = |c: &Candidate| {
-            c.hit.path.is_absolute()
-                && self.text_of(&c.hit.path).is_some_and(|t| {
-                    let q = search::qualified(Kind::Dart, &t, c.hit.line1, word);
-                    (q.is_none() && !c.hit.text.starts_with(char::is_whitespace)) || q == built
-                })
-        };
-        let homes: Vec<Option<PathBuf>> = found
-            .iter()
-            .map(|c| search::dart_root_of(roots, &c.hit.path).filter(|_| named(c)))
-            .collect();
-        let mut wanted: Vec<PathBuf> = homes.iter().flatten().cloned().collect();
-        wanted.sort();
-        wanted.dedup();
-        let Some(reached) = self.dart_import_roots(here, roots, &wanted) else {
-            return;
-        };
-        let unreached: Vec<bool> = homes
-            .iter()
-            .map(|h| h.as_ref().is_some_and(|r| !reached.contains(r)))
-            .collect();
-        if unreached.iter().all(|u| *u) {
-            return;
-        }
-        let mut drop = unreached.into_iter();
-        found.retain(|_| !drop.next().unwrap_or(false));
-    }
-
-    fn dart_import_roots(
-        &self,
-        here: &Path,
-        roots: &[PathBuf],
-        wanted: &[PathBuf],
-    ) -> Option<Vec<PathBuf>> {
-        let sdk = self.dart_sdk();
-        let sdk = sdk.as_deref();
-        let mut reached: Vec<PathBuf> = roots
-            .iter()
-            .filter(|r| r.join("core/core.dart").is_file())
-            .cloned()
-            .collect();
-        if wanted.iter().all(|w| reached.contains(w)) {
-            return None;
-        }
-        let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
-        let mut queue: Vec<(PathBuf, search::DartDirective)> = directives
-            .into_iter()
-            .filter(|d| d.keyword == "import")
-            .map(|d| (library[0].clone(), d))
-            .collect();
-        let mut seen = std::collections::HashSet::new();
-        while let Some((from, d)) = queue.pop() {
-            for uri in std::iter::once(&d.uri).chain(&d.alternatives) {
-                if uri.starts_with("dart:") && uri != "dart:ui" {
-                    continue;
-                }
-                let base = if uri.starts_with("package:") {
-                    here
-                } else {
-                    &from
-                };
-                let file = search::dart_uri_file(&self.root, base, uri, sdk)?;
-                if !seen.insert(file.clone()) {
-                    continue;
-                }
-                if let Some(r) = search::dart_root_of(roots, &file)
-                    && !reached.contains(&r)
-                {
-                    reached.push(r);
-                    if wanted.iter().all(|w| reached.contains(w)) {
-                        return None;
-                    }
-                }
-                let (library, directives) = self.dart_library(file, sdk, false)?;
-                queue.extend(
-                    directives
-                        .into_iter()
-                        .filter(|d| d.keyword == "export")
-                        .map(|d| (library[0].clone(), d)),
-                );
-            }
-        }
-        Some(reached)
-    }
-
     pub(super) fn dart_outside_constructor(
         &self,
         word: &str,
@@ -447,7 +362,7 @@ impl App {
         found.retain(|c| top(c) != called);
     }
 
-    fn dart_library(
+    pub(super) fn dart_library(
         &self,
         file: PathBuf,
         sdk: Option<&Path>,
@@ -471,7 +386,7 @@ impl App {
         Some((files, directives))
     }
 
-    fn dart_visible_files(
+    pub(super) fn dart_visible_files(
         &self,
         here: &Path,
         word: &str,
@@ -1392,7 +1307,7 @@ impl App {
         })
     }
 
-    fn dart_sdk(&self) -> Option<PathBuf> {
+    pub(super) fn dart_sdk(&self) -> Option<PathBuf> {
         self.external
             .get(&Kind::Dart)
             .and_then(|(roots, _)| {
@@ -1462,7 +1377,7 @@ const DART_CORE_NAMES: &str = "ArgumentError AssertionError BidirectionalIterato
     StringBuffer StringSink Symbol Type TypeError UnimplementedError UnsupportedError Uri UriData \
     WeakReference";
 
-fn dart_names(d: &search::DartDirective, name: &str) -> bool {
+pub(super) fn dart_names(d: &search::DartDirective, name: &str) -> bool {
     d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == name)) && !d.hide.iter().any(|n| n == name)
 }
 
