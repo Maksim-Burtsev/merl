@@ -717,10 +717,13 @@ impl App {
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let on = |h: &Hit| h.path == here && h.line1 == self.line + 1;
-        if hits.len() < 2 || self.c_source() || self.objc_file() || hits.iter().any(on) {
+        if hits.is_empty() || self.c_source() || self.objc_file() || hits.iter().any(on) {
             return hits;
         }
         let hits = self.cpp_members_out_of_reach(text, word, start, hits);
+        if hits.len() < 2 {
+            return hits;
+        }
         let Some((visible, args)) = self.cpp_visible(here, text, word, start, &hits) else {
             return hits;
         };
@@ -751,9 +754,6 @@ impl App {
                 })
             })
             .collect();
-        if member.iter().all(|&m| m) {
-            return hits;
-        }
         (hits.into_iter().zip(member))
             .filter_map(|(h, m)| (!m).then_some(h))
             .collect()
