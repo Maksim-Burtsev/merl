@@ -143,7 +143,7 @@ pub struct Notes {
     dirs: Option<Option<git::GitDirs>>,
     seen: Option<SystemTime>,
     loaded: bool,
-    last_seen: HashMap<String, TextLine>,
+    last_seen: HashMap<(PathBuf, String), TextLine>,
     pub home: Option<PathBuf>,
 }
 
@@ -329,6 +329,16 @@ fn reads_as(app: &App, at: TextLine, quote: &[String]) -> bool {
     true
 }
 
+impl Notes {
+    pub fn places_in<'a>(&'a mut self, rel: &'a Path) -> impl Iterator<Item = &'a mut TextLine> {
+        let editing = (self.editing.iter_mut()).flat_map(|e| [&mut e.first, &mut e.last]);
+        let seen = (self.last_seen.iter_mut())
+            .filter(move |(id, _)| id.0 == rel)
+            .map(|(_, at)| at);
+        editing.chain(seen)
+    }
+}
+
 impl App {
     fn notes_store(&mut self) -> Option<(PathBuf, String)> {
         let root = &self.root;
@@ -403,12 +413,9 @@ impl App {
             let Some(last_q) = n.quote.last() else {
                 continue;
             };
-            let id = format!(
-                "{}:{}-{}:{}",
-                n.path.display(),
-                n.first,
-                n.last,
-                n.quote.join("\n")
+            let id = (
+                n.path.clone(),
+                format!("{}-{}:{}", n.first, n.last, n.quote.join("\n")),
             );
             let seen = self.notes.last_seen.get(&id).copied().filter(|t| match *t {
                 TextLine::File(l) => l < len,

@@ -249,9 +249,8 @@ impl App {
         let old = std::mem::replace(&mut self.buf, buf);
         self.carry_collapsed(&old.lines);
         if self.review.is_some() {
-            if let Some(rel) = self.rel_current() {
-                self.seen.remove(&rel);
-            }
+            let rel = self.rel_current().unwrap_or_default();
+            self.seen.remove(&rel);
             let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
             let here = self.at();
             let stop = self.history.get_mut(self.hist_idx);
@@ -268,12 +267,7 @@ impl App {
                 .chain(self.anchor.as_mut().map(|a| &mut a.0))
                 .chain(self.find_sel.as_mut().map(|a| &mut a.0))
                 .chain(stop.map(|s| &mut s.1))
-                .chain(
-                    self.notes
-                        .editing
-                        .iter_mut()
-                        .flat_map(|e| [&mut e.first, &mut e.last]),
-                )
+                .chain(self.notes.places_in(&rel))
                 .for_each(carry);
         }
         self.dirty = false;
