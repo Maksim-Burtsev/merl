@@ -118,7 +118,7 @@ pub fn classify(points: &[Point<'_>], raw: &str) -> Result<usize, String> {  // 
 mod tests {  // f: 118-128
     use super::*;  // f: 118-128
 
-    #[test]  // f: 118-128
+    #[test]  // f: 122-127
     fn classifies() {  // f: 122-127
         assert_eq!(  // f: 123-126
             classify(&[], "x"),  // f: 122-127

@@ -73,3 +73,17 @@ public class A<T> extends B {  // f: 13-75
         );  // f: 53-74
     }  // f: 53-74
 }  // f: 13-75
+
+class Resolver {  // f: 77-89
+    @Override  // f: 81-83
+    public Resolution resolveTemplate(  // f: 81-83
+            Config configuration,  // f: 81-83
+            Map<String, Object> attributes) {  // f: 81-83
+        return resolve(configuration);  // f: 81-83
+    }  // f: 81-83
+
+    void shortOne(int a,  // f: 86-88
+            int b) {  // f: 86-88
+        run(a, b);  // f: 86-88
+    }  // f: 86-88
+}  // f: 77-89
