@@ -437,7 +437,7 @@ impl App {
             };
             let stored = cands
                 .iter()
-                .find(|&&t| seen.map_or(t.key() == k, |s| t == s));
+                .find(|&&t| seen.map_or_else(|| t.key() == k, |s| t == s));
             let found = match (stored, cands.as_slice()) {
                 (Some(&t), _) | (None, &[t]) => Some(t),
                 _ => None,
