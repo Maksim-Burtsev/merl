@@ -149,6 +149,7 @@ The go row with #1470 (a `type` declared inside a function or block is local: go
 The ts, js, vue, svelte and astro rows with #1337 (a JSDoc `@returns` of an intersection, `Required<A> & B`: a member lands on the one arm that declares it, js0160): over `9abaf737c`, 2026-11-11, release build, `vm.loadavg` { 6.15 7.16 7.53 } before the run, { 6.15 7.16 7.53 } after.
 The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an array a namespaced type declares, `scope.variables.forEach(variable => …)`, also when the arrow spans lines or starts the line after the call's `(`: js0028 and js0166 now direct hits): over `a048d3311`, 2026-11-13, release build, `vm.loadavg` { 7.26 9.56 9.16 } before the run, { 6.92 9.45 9.12 } after (the times read high under that load).
 The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and dart rows with #1536 (a method on a local bound to a literal or a standard constructor is no by-name jump; groovy0014 and six pickers on rows not scored say no definition): over `70b6c03e0`, 2026-11-15, release build, `vm.loadavg` { 2.70 3.56 4.04 } before the run. The swift and csharp times rose on the base build too: with the gate switched off they read 50.5 and 44.0 ms p50 against 49.7 and 43.2 with it.
+The groovy row with the review of #1536 (the gate runs in Kotlin only within the JVM kinds): groovy0014, not scored, jumps to `ToolRef.getRef` again, as on master; the other rows unchanged, played over `08bba79a0`, 2026-11-15, release build.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -166,7 +167,7 @@ The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 43.5 | 77.0 |
 | ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.4 | 408.7 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
-| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 3 | 107.7 | 241.6 |
+| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 107.7 | 241.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 79.3 | 176.4 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |

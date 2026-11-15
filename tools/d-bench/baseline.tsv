@@ -2388,7 +2388,7 @@ groovy0010	skip	stay	142.96
 groovy0011	no-answer	picker	147.36
 groovy0012	pick-hit	picker	135.24
 groovy0013	skip	stay	20.37
-groovy0014	no-answer	stay	119.39
+groovy0014	no-answer-jump	jump	84.59
 groovy0015	ok	jump	96.99
 groovy0016	pick-miss	picker	49.83
 groovy0017	skip	stay	20.83

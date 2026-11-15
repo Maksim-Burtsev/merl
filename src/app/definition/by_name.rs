@@ -130,11 +130,10 @@ impl App {
         let [receiver] = a.chain.as_slice() else {
             return false;
         };
+        let kotlin = a.here.extension().is_some_and(|e| e == "kt" || e == "kts");
         if !a.dotted
-            || !matches!(
-                kind,
-                Kind::Swift | Kind::TsJs | Kind::Jvm | Kind::CSharp | Kind::Dart
-            )
+            || !(matches!(kind, Kind::Swift | Kind::TsJs | Kind::CSharp | Kind::Dart)
+                || (kind == Kind::Jvm && kotlin))
             || hits.iter().any(|h| {
                 self.text_of(&h.path)
                     .is_some_and(|t| search::declares_extension(&t, h.line1, &a.word))
@@ -155,6 +154,9 @@ impl App {
             .iter()
             .map(|b| {
                 let line = lines.get(b.line1.checked_sub(1)?)?;
+                if search::reassigned(&a.text, b.line1, receiver) {
+                    return None;
+                }
                 search::outside_value(line, receiver)
             })
             .collect::<Option<Vec<_>>>()
