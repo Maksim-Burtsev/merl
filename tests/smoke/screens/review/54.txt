@@ -1,0 +1,42 @@
+wait app/repos.py  -32:1
+┌agent/refund ← origin/main──┐ 4 class OrderRepo:
+│  ▾ app                     │20     def save(self, order: Order) -> None:
+│✓   A refunds.py      +18 −0│23             "ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status",
+│✓   M repos.py        +0 −28│24             order.id,
+│✓   M service.py      +13 −1│25             order.customer_id,
+│  ▾ deploy                  │26             order.total,
+│    ▾ helm                  │27             order.status.value,
+│      ▾ orders              │28         )
+│✓       M values.yaml  +1 −0│29
+│  ▾ docs                    │30     def delete(self, order_id: int) -> None:
+│    M architecture.png   bin│31         self.db.execute("DELETE FROM orders WHERE id = %s", order_id)
+│  ▾ scripts                 │  ▎
+│✓   D refund_by_hand.… +0 −9│  ▎
+│  ▾ tests                   │  ▎class InMemoryOrderRepo:
+│✓   A test_refunds.py +23 −0│  ▎    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+│  ▾ worker                  │  ▎
+│✓   M main.go          +4 −1│  ▎    def __init__(self):
+│                            │  ▎        self.orders: dict[int, Order] = {}
+│                            │  ▎
+│                            │  ▎    def get(self, order_id: int) -> Order | None:
+│                            │  ▎        return self.orders.get(order_id)
+│                            │  ▎
+│                            │  ▎    def find_by_customer(self, customer_id: int) -> list[Order]:
+│                            │  ▎        return sorted(
+│                            │  ▎            (o for o in self.orders.values() if o.customer_id == customer_id),
+│                            │  ▎            key=lambda o: o.id,
+│                            │  ▎        )
+│                            │  ▎
+│                            │  ▎    def find_by_status(self, status: OrderStatus) -> list[Order]:
+│                            │  ▎        return [o for o in self.orders.values() if o.status is status]
+│                            │  ▎
+│                            │  ▎    def save(self, order: Order) -> None:
+│                            │  ▎        self.orders[order.id] = order
+│                            │  ▎
+│                            │  ▎    def delete(self, order_id: int) -> None:
+│                            │  ▎        self.orders.pop(order_id, None)
+│                            │  ▎
+│                            │  ▎    def clear(self) -> None:
+└ 8 files · +59 −39 ─────────┘  ▎        self.orders.clear()
+app/repos.py  -32:1  [code]  hunk 1/1  viewed 7/7                                                                                                                                  14:32
+cursor (x,y,shown) 33,11,0
