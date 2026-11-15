@@ -73,9 +73,11 @@ pub struct Diff {
     pub pairs: HashMap<usize, (usize, usize)>,
 }
 
+const READ_ONLY: [&str; 3] = ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false"];
+
 pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) -> Diff {
     let mut cmd = Command::new("git");
-    cmd.arg("--literal-pathspecs");
+    cmd.args(READ_ONLY).arg("--literal-pathspecs");
     cmd.arg("-C")
         .arg(root)
         .args(["diff", "-U0", "-M", "--no-color", "--no-ext-diff"])
@@ -323,7 +325,7 @@ impl Review {
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
-        let mut files = parse_name_status(&git(&raw)?);
+        let mut files = changed_in(root, &raw)?;
         let numstat = [
             "diff",
             "--numstat",
@@ -365,11 +367,22 @@ impl Review {
             (order_file.as_deref()).map_or_else(Order::default, |o| Order::read(o, Path::new("")));
         let skipped = order_file.as_deref().map(crate::tree::skipped_in);
         let changed = (order_file.as_deref().and_then(crate::tree::order_commit))
-            .and_then(|sha| git(&["diff", "--name-only", "--no-renames", "-z", &sha, "--"]).ok())
+            .and_then(|sha| {
+                let raw = [
+                    "diff",
+                    "--raw",
+                    "--no-abbrev",
+                    "--no-renames",
+                    "-z",
+                    &sha,
+                    "--",
+                ];
+                changed_in(root, &raw).ok()
+            })
             .unwrap_or_default();
-        let changed: Vec<&Path> = changed.split('\0').map(Path::new).collect();
+        let changed: Vec<PathBuf> = changed.into_iter().map(|f| f.path).collect();
         for f in &mut files {
-            f.agent_skipped = !changed.contains(&f.path.as_path())
+            f.agent_skipped = !changed.contains(&f.path)
                 && (skipped.as_ref()).is_some_and(|s| f.path.ancestors().any(|a| s.contains(a)));
         }
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
@@ -686,6 +699,7 @@ pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String> {
     let out = Command::new("git")
         .arg("-C")
         .arg(root)
+        .args(READ_ONLY)
         .args(args)
         .output()
         .context("cannot run git: --review needs it on PATH")?;
@@ -718,7 +732,6 @@ pub fn dirs(root: &Path) -> Option<GitDirs> {
 
 pub fn changed_files(root: &Path) -> HashMap<PathBuf, char> {
     let status = [
-        "--no-optional-locks",
         "status",
         "--porcelain",
         "-z",
@@ -918,6 +931,39 @@ fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
         lines += piece[..n].iter().filter(|&&b| b == b'\n').count();
         last = piece[n - 1];
     }
+}
+
+fn changed_in(root: &Path, raw: &[&str]) -> Result<Vec<ReviewFile>> {
+    let out = git(root, raw)?;
+    let mut unhashed: Vec<(&str, &str)> = Vec::new();
+    let mut it = out.split('\0');
+    while let Some(head) = it.next().filter(|s| !s.is_empty()) {
+        let Some(path) = it.next() else { break };
+        match head.split(' ').collect::<Vec<_>>()[..] {
+            [a, b, src, dst, "M"]
+                if a.strip_prefix(':') == Some(b)
+                    && matches!(b, "100644" | "100755")
+                    && dst.bytes().all(|c| c == b'0') =>
+            {
+                unhashed.push((path, src));
+            }
+            [.., s] if s.starts_with(['R', 'C']) => drop(it.next()),
+            _ => {}
+        }
+    }
+    let mut files = parse_name_status(&out);
+    if unhashed.is_empty() {
+        return Ok(files);
+    }
+    let paths = unhashed.iter().map(|&(p, _)| p);
+    let args: Vec<&str> = ["hash-object", "--"].into_iter().chain(paths).collect();
+    let hashes = git(root, &args).unwrap_or_default();
+    let same: std::collections::HashSet<&Path> = (unhashed.iter().zip(hashes.lines()))
+        .filter(|&(&(_, src), now)| src == now)
+        .map(|(&(p, _), _)| Path::new(p))
+        .collect();
+    files.retain(|f| !same.contains(&f.path.as_path()));
+    Ok(files)
 }
 
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
@@ -2400,5 +2446,55 @@ mod tests {
             .collect();
         got.sort_unstable();
         assert_eq!(got, want, "untracked: read the same way");
+    }
+
+    #[test]
+    fn reading_a_review_leaves_the_index_alone() {
+        let dir = std::env::temp_dir().join(format!("merl-index-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        std::fs::write(dir.join("a.rs"), "fn a() {}\n").unwrap();
+        std::fs::write(dir.join("b.rs"), "fn b() {}\n").unwrap();
+        std::fs::write(dir.join("c.bin"), b"\0\x01").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feat"]);
+        std::fs::write(dir.join("a.rs"), "fn a() {}\nfn c() {}\n").unwrap();
+        git(&["commit", "-q", "-am", "feat"]);
+        std::fs::write(dir.join("d.rs"), "fn d() {}\n").unwrap();
+        let touch = |p: &Path, t: SystemTime| {
+            let f = std::fs::File::options().write(true).open(p).unwrap();
+            f.set_modified(t).unwrap();
+        };
+        let now = SystemTime::now();
+        touch(&dir.join("b.rs"), now + Duration::from_secs(60));
+        touch(&dir.join("c.bin"), now + Duration::from_secs(60));
+        let index = dir.join(".git/index");
+        let old = now - Duration::from_secs(3600);
+        touch(&index, old);
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        let again = r.refresh(&dir).unwrap();
+        let marks = changed_files(&dir);
+        for base in [None, Some(r.merge_base.as_str())] {
+            assert_eq!(diff(&dir, &dir.join("b.rs"), base, None), Diff::default());
+        }
+        let after = std::fs::metadata(&index).unwrap().modified().unwrap();
+        drop(std::fs::remove_dir_all(&dir));
+        assert_eq!(after, old);
+        for r in [r, again] {
+            let files: Vec<&Path> = r.files.iter().map(|f| f.path.as_path()).collect();
+            assert_eq!(files, [Path::new("a.rs"), Path::new("d.rs")]);
+        }
+        assert_eq!(marks, HashMap::from([(PathBuf::from("d.rs"), 'A')]));
     }
 }
