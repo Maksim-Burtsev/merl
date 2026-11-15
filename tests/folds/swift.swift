@@ -38,8 +38,8 @@ final class Box<T>: NSObject, Shape where T: Equatable {  // f: 23-140
         }  // f: 36-38
     }  // f: 32-39
 
-    init?(  // f: 23-140
-        value: T  // f: 23-140
+    init?(  // f: 43-45
+        value: T  // f: 43-45
     ) {  // f: 43-45
         super.init()  // f: 43-45
     }  // f: 43-45
@@ -146,8 +146,8 @@ final class Panel: UIView {  // f: 142-161
         )  // f: 143-147
     }  // f: 143-147
 
-    func make(  // f: 142-161
-        a: Int  // f: 142-161
+    func make(  // f: 151-153
+        a: Int  // f: 151-153
     ) -> Int {  // f: 151-153
         a  // f: 151-153
     }  // f: 151-153
@@ -161,17 +161,27 @@ final class Panel: UIView {  // f: 142-161
 }  // f: 142-161
 
 extension Box {  // f: 163-169
-    subscript(  // f: 163-169
-        index: Int  // f: 163-169
+    subscript(  // f: 166-168
+        index: Int  // f: 166-168
     ) -> T {  // f: 166-168
         items[index]  // f: 166-168
     }  // f: 166-168
 }  // f: 163-169
 
 struct Named {  // f: 171-177
-    func `default`(  // f: 171-177
-        a: Int  // f: 171-177
+    func `default`(  // f: 174-176
+        a: Int  // f: 174-176
     ) -> Int {  // f: 174-176
         a  // f: 174-176
     }  // f: 174-176
 }  // f: 171-177
+
+final class Store {  // f: 179-187
+    func find(  // f: 183-186
+        id: String,  // f: 183-186
+        limit: Int  // f: 183-186
+    ) async throws -> [String: Order] {  // f: 183-186
+        let all = try await load()  // f: 183-186
+        return all  // f: 183-186
+    }  // f: 183-186
+}  // f: 179-187

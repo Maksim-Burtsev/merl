@@ -146,3 +146,13 @@ namespace Shop.Orders  // f: 10-148
         public void Dispose() { }  // f: 28-147
     }  // f: 28-147
 }  // f: 10-148
+
+public class Orders {  // f: 150-158
+    public void Short(string a,  // f: 152-154
+        string b) {  // f: 152-154
+        Console.WriteLine(a);  // f: 152-154
+    }  // f: 152-154
+
+    public void Long(string a) {  // f: 156-157
+    }  // f: 156-157
+}  // f: 150-158
