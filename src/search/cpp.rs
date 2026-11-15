@@ -9,7 +9,7 @@ use super::c::{
 };
 use super::c_block::scope_pos;
 
-static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+pub(super) static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
         .expect("the regex is a literal")
 });

@@ -717,6 +717,7 @@ impl App {
         if hits.len() < 2 || self.c_source() || self.objc_file() || hits.iter().any(on) {
             return hits;
         }
+        let hits = self.cpp_members_out_of_reach(text, word, start, hits);
         let Some((visible, args)) = self.cpp_visible(here, text, word, start, &hits) else {
             return hits;
         };
@@ -726,6 +727,33 @@ impl App {
             .filter(|_| keep.next().unwrap_or(true))
             .collect();
         self.cpp_viable_only(word, &args, hits, |h| h)
+    }
+
+    fn cpp_members_out_of_reach(
+        &self,
+        text: &str,
+        word: &str,
+        start: usize,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let code = search::c_code(text);
+        if search::cpp_call_namespaces(&code, offset(text, self.line, start)).is_none() {
+            return hits;
+        }
+        let member: Vec<bool> = (hits.iter())
+            .map(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::cpp_function_namespace(&t, h.line1, word) == Ok(None)
+                        && search::cpp_member_class(&t, h.line1, word).as_deref() != Some(word)
+                })
+            })
+            .collect();
+        if member.iter().all(|&m| m) {
+            return hits;
+        }
+        (hits.into_iter().zip(member))
+            .filter_map(|(h, m)| (!m).then_some(h))
+            .collect()
     }
 
     fn cpp_visible(
