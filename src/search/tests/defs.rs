@@ -1170,4 +1170,21 @@ fn a_cut_pattern_leaves_with_its_one_line_class_copy() {
     assert!(Regex::new(&ruby.join("|")).unwrap().is_match(line));
     cut_def_patterns(Kind::Ruby, &mut ruby, &[ruby_assignment("steep")]);
     assert!(!Regex::new(&ruby.join("|")).unwrap().is_match(line));
+    let kept = Regex::new(&ruby.join("|")).unwrap();
+    assert!(kept.is_match("class Pot; def steep; end; end"));
+}
+
+#[test]
+fn the_one_line_class_head_is_compiled_once_per_word() {
+    for kind in [
+        Kind::Rust,
+        Kind::Swift,
+        Kind::CSharp,
+        Kind::Php,
+        Kind::Dart,
+        Kind::Ruby,
+    ] {
+        let all = def_patterns(kind, "steep").join("|");
+        assert_eq!(all.matches(ONE_LINE_TYPE).count(), 1, "{kind:?}");
+    }
 }
