@@ -1,8 +1,9 @@
 use super::c::{
-    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_bindings_at, c_body_head,
-    c_class_around, c_code, c_enum_head, c_enumerators, c_innermost_open_brace, c_member_decl,
-    c_type_def, close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
+    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_bindings_at, c_body_head, c_code,
+    c_enum_head, c_enumerators, c_innermost_open_brace, c_member_decl, c_struct_head, c_type_def,
+    close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
 };
+use super::cpp::NAMESPACE;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -273,7 +274,9 @@ pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
     }
     let t = text.trim_start();
     if MEMBER.is_match(text) && !t.starts_with("typedef") && !t.starts_with("friend") {
-        return c_class_around(lines(), line1).is_some();
+        let head = c_body_head(lines(), line1).unwrap_or_default();
+        return c_struct_head(&head).is_some()
+            || (!c_code(text).contains(';') && NAMESPACE.is_match(&head));
     }
     true
 }
