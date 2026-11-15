@@ -947,3 +947,53 @@ fn a_note_whose_line_changed_stays_dim_and_a_block_finds_its_whole_quote() {
     assert_eq!(placed(&b), want, "after a reopen: {}", screen(&mut b));
     drop(std::fs::remove_dir_all(dir));
 }
+
+fn after_a_reload(tag: &str, before: &str, line: usize, after: &str) -> Vec<(TextLine, bool)> {
+    let (dir, _) = review_app_with(tag, &[("dup.go", before.as_bytes())]);
+    let mut a = on_twins(&dir, 1);
+    agent_wrote(
+        &dir,
+        &format!("\ndup.go:{line}\n> \treturn err\nwrap this\n"),
+    );
+    screen(&mut a);
+    assert_eq!(placed(&a), [(TextLine::File(line - 1), false)]);
+    std::fs::write(dir.join("dup.go"), after).unwrap();
+    a.reload(false);
+    screen(&mut a);
+    let got = placed(&a);
+    drop(std::fs::remove_dir_all(dir));
+    got
+}
+
+#[test]
+fn a_note_on_one_of_like_lines_follows_a_line_added_above() {
+    let after = format!("import \"fmt\"\n{TWINS}");
+    let got = after_a_reload("notes-added", TWINS, 5, &after);
+    assert_eq!(got, [(TextLine::File(5), false)]);
+}
+
+#[test]
+fn a_note_on_one_of_like_lines_follows_a_line_removed_above() {
+    let before = format!("import \"fmt\"\n{TWINS}");
+    let got = after_a_reload("notes-removed", &before, 6, TWINS);
+    assert_eq!(got, [(TextLine::File(4), false)]);
+}
+
+#[test]
+fn a_dim_note_follows_its_changed_line_down() {
+    let changed = TWINS.replace("b() {\n\treturn err", "b() {\n\treturn nil");
+    let (dir, _) = review_app_with("notes-dim-moves", &[("dup.go", TWINS.as_bytes())]);
+    let mut a = on_twins(&dir, 1);
+    agent_wrote(&dir, "\ndup.go:5\n> \treturn err\nwrap this\n");
+    screen(&mut a);
+    std::fs::write(dir.join("dup.go"), &changed).unwrap();
+    a.reload(false);
+    screen(&mut a);
+    assert_eq!(placed(&a), [(TextLine::File(4), true)]);
+    std::fs::write(dir.join("dup.go"), format!("import \"fmt\"\n{changed}")).unwrap();
+    a.reload(false);
+    let s = screen(&mut a);
+    assert_eq!(placed(&a), [(TextLine::File(5), true)], "{s}");
+    assert!(s.contains("wrap this (changed)"), "{s}");
+    drop(std::fs::remove_dir_all(dir));
+}
