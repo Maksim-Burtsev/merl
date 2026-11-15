@@ -111,10 +111,25 @@ impl App {
             }
         }
         if !dotted && search::field_decl_at(kind, &a.text, self.line + 1, a.range.start, word) {
-            let found = self.field_namesakes(kind, &a.here, word);
+            let found = self.declared_field_namesakes(a);
             return self.show_found(a, found);
         }
         false
+    }
+
+    fn declared_field_namesakes(&self, a: &Asked) -> Vec<super::Candidate> {
+        let mut found = self.field_namesakes(a.kind, &a.here, &a.word);
+        if a.kind == Kind::Go
+            && !found
+                .iter()
+                .any(|c| c.hit.path == a.here && c.hit.line1 == self.line + 1)
+        {
+            found.push(super::Candidate {
+                hit: self.own_hit(a),
+                reason: super::Reason::ByName,
+            });
+        }
+        found
     }
 
     fn type_param_bindings(

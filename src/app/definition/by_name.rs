@@ -807,7 +807,7 @@ impl App {
         }
     }
 
-    fn own_hit(&self, a: &Asked) -> Hit {
+    pub(super) fn own_hit(&self, a: &Asked) -> Hit {
         Hit {
             path: a.here.clone(),
             line1: self.line + 1,
