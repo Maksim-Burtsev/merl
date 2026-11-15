@@ -162,7 +162,7 @@ fn heads(
         while j > 0 {
             let p = toks[j - 1];
             let ends_line = toks[j].line > p.end;
-            if (lines_only && ends_line && j < k)
+            if (lines_only && ends_line && j < k && !p.text.starts_with('@'))
                 || (p.kind == K::Punct
                     && (matches!(p.text, ";" | "{" | "}" | "(" | "[")
                         || (p.text == "," && ends_line)))

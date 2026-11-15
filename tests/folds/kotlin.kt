@@ -101,7 +101,7 @@ enum class E {  // f: 99-102
     Y,  // f: 99-102
 }  // f: 99-102
 
-@Composable
+@Composable  // f: 107-109
 fun DebugVisibleWindowInsets(  // f: 107-109
     modifier: Modifier = Modifier,  // f: 107-109
 ) {  // f: 107-109
