@@ -100,3 +100,20 @@ enum class E {  // f: 99-102
     X,  // f: 99-102
     Y,  // f: 99-102
 }  // f: 99-102
+
+@Composable  // f: 107-109
+fun DebugVisibleWindowInsets(  // f: 107-109
+    modifier: Modifier = Modifier,  // f: 107-109
+) {  // f: 107-109
+    Box(modifier = modifier)  // f: 107-109
+}  // f: 107-109
+
+class Repo {  // f: 111-119
+    fun find(  // f: 115-118
+        id: String,  // f: 115-118
+        limit: Int,  // f: 115-118
+    ): List<Order> {  // f: 115-118
+        val all = load()  // f: 115-118
+        return all  // f: 115-118
+    }  // f: 115-118
+}  // f: 111-119
