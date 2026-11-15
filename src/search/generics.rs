@@ -557,6 +557,9 @@ fn param_name(part: &str, last: bool) -> Option<&str> {
 }
 
 pub fn declared_type_on(kind: Kind, line: &str, name: &str) -> Option<String> {
+    if !line.contains(name) {
+        return None;
+    }
     let n = regex::escape(name);
     let pattern = match kind {
         Kind::Rust | Kind::Swift => format!(
