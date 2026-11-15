@@ -1,5 +1,5 @@
 use super::{
-    App, Buffer, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, is_word,
+    App, Buffer, Center, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, is_word,
     next_char, search, shown_str, whole,
 };
 use std::ops::Range;
@@ -119,7 +119,7 @@ impl App {
             self.set_at(t);
             self.col = col;
             (self.top_line, self.top_row, self.left, self.want_x) = self.find_view;
-            self.center = false;
+            self.center = Center::Off;
             self.message = "no match".into();
         }
         self.find_re = Some(re);
@@ -230,7 +230,7 @@ impl App {
         self.set_at(t);
         self.col = col;
         self.sync_want_x();
-        self.center = true;
+        self.center = Center::Cursor;
     }
 
     pub(super) fn reach(&mut self, (t, col): (TextLine, usize)) {

@@ -942,7 +942,7 @@ fn p_with_the_pane_scrolled_onto_the_lines_deleted_at_the_end_puts_the_cursor_ro
     let end = a.buf.lines.len();
     a.line = 10;
     assert_eq!(a.deleted_at(end), 10);
-    (a.top_line, a.top_row, a.center) = (end, 5, false);
+    (a.top_line, a.top_row, a.center) = (end, 5, Center::Off);
     key(&mut a, KeyCode::Char('p'));
     let (row, top, text) = at_row(&a);
     assert_eq!((top, text.as_str()), (row, "p5"));

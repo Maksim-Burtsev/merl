@@ -1,4 +1,4 @@
-use super::{App, SIDE_OFF, search, shown_str, wrap};
+use super::{App, Center, SIDE_OFF, search, shown_str, wrap};
 
 const MAX_PINNED: usize = 2;
 
@@ -11,7 +11,6 @@ impl App {
             self.view_w,
             self.view_h,
             self.center,
-            self.whole_hunk,
         );
         draw(self);
         (
@@ -21,7 +20,6 @@ impl App {
             self.view_w,
             self.view_h,
             self.center,
-            self.whole_hunk,
         ) = kept;
     }
 
@@ -29,13 +27,13 @@ impl App {
         self.clamp_top();
         self.clamp_left();
         let cur = self.cursor_at();
-        let whole_hunk = std::mem::take(&mut self.whole_hunk);
-        if std::mem::take(&mut self.center) {
-            self.center_cursor();
-            if whole_hunk {
-                self.show_whole_hunk();
+        match std::mem::take(&mut self.center) {
+            Center::Off => {}
+            Center::Cursor => return self.center_cursor(),
+            Center::WholeHunk => {
+                self.center_cursor();
+                return self.show_whole_hunk();
             }
-            return;
         }
         if cur < (self.top_line, self.top_row) {
             (self.top_line, self.top_row) = cur;

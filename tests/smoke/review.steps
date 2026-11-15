@@ -32,7 +32,7 @@ key c
 wait app/repos.py  -32:1  [code]  hunk 1/1
 caption the lines the branch deleted at the end of repos.py are lines: PgDn walks them, down to the last (#179, #439)
 key PageDown
-wait self.orders.clear()
+wait app/repos.py  -59:1
 caption two imports three lines apart are two hunks, though git's interHunkContext would merge them (#220)
 key c
 wait hunk 1/4

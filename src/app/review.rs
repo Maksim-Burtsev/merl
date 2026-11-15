@@ -1,7 +1,8 @@
 use anyhow::Context as _;
 
 use super::{
-    App, Focus, HashMap, HashSet, Instant, Mode, Path, PathBuf, TextLine, error_text, git, plural,
+    App, Center, Focus, HashMap, HashSet, Instant, Mode, Path, PathBuf, TextLine, error_text, git,
+    plural,
 };
 use crate::reviews::{Session, Spot, Stop};
 
@@ -263,8 +264,9 @@ impl App {
     }
 
     pub(super) fn tall_hunk_rows(&self, t: TextLine) -> Option<Vec<TextLine>> {
-        let rows: Vec<_> = self.hunk_rows(t).into_iter().map(|r| r.1).collect();
-        (rows.len() > self.view_h && rows.contains(&t)).then_some(rows)
+        let rows = self.hunk_rows(t);
+        let tall = !self.fits(&rows) && rows.iter().any(|r| r.1 == t);
+        tall.then(|| rows.into_iter().map(|r| r.1).collect())
     }
 
     pub(super) fn show_whole_hunk(&mut self) {
@@ -272,9 +274,16 @@ impl App {
         let (Some(first), Some(last)) = (rows.first(), rows.last()) else {
             return;
         };
-        let top = (self.fit_top((self.top_line, self.top_row), last.0)).min(first.0);
-        if rows.iter().any(|r| r.1 == self.at()) && self.fit_top(top, last.0) == top {
-            (self.top_line, self.top_row) = top;
+        if rows.iter().any(|r| r.1 == self.at()) && self.fits(&rows) {
+            let top = self.fit_top((self.top_line, self.top_row), last.0);
+            (self.top_line, self.top_row) = top.min(first.0);
+        }
+    }
+
+    fn fits(&self, rows: &[((usize, usize), TextLine)]) -> bool {
+        match (rows.first(), rows.last()) {
+            (Some(first), Some(last)) => self.fit_top(first.0, last.0) == first.0,
+            _ => true,
         }
     }
 
@@ -337,7 +346,7 @@ impl App {
         if let Some((t, _, Some(idx))) = pick {
             self.set_at(t);
             self.notes.focus = Some(idx);
-            self.center = true;
+            self.center = Center::Cursor;
         }
     }
 
@@ -493,7 +502,7 @@ impl App {
         self.save_unfolded();
         match self.diff.hunks.first() {
             Some(&h) if self.diff.hunks.contains(&self.at()) => self.stand_on(h),
-            _ => self.center = true,
+            _ => self.center = Center::Cursor,
         }
         self.remember_hunk();
     }
@@ -681,13 +690,14 @@ impl App {
         self.jump_to(path, h.key() + 1);
         if self.buf.path.as_deref() == Some(path) {
             self.stand_on(h);
+        } else {
+            self.center = Center::Cursor;
         }
-        self.center = true;
     }
 
     fn stand_on(&mut self, h: TextLine) {
         self.set_at(self.clamp_line(h));
-        (self.col, self.want_x, self.center, self.whole_hunk) = (0, 0, true, true);
+        (self.col, self.want_x, self.center) = (0, 0, Center::WholeHunk);
     }
 
     pub fn review_status(&self) -> Option<String> {
