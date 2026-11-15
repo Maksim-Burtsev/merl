@@ -125,6 +125,23 @@ impl App {
         }
     }
 
+    pub(super) fn answered_as_keyword_or_prelude(&mut self, a: &Asked) -> bool {
+        if super::js_std::js_keyword(a) {
+            return self.none_found(format!("no definition for {}", a.word));
+        }
+        if a.kind == Kind::Rust
+            && !a.dotted
+            && a.chain.is_empty()
+            && !a.before.ends_with("::")
+            && !a.tail.trim_start().starts_with("::")
+            && let Some(found) = self.rust_prelude(&a.here, &a.text, &a.word)
+        {
+            self.show_definitions(a.kind, &a.word, &a.here, found, None);
+            return true;
+        }
+        false
+    }
+
     fn answered_as_outside_value(&mut self, a: &Asked, hits: &[Hit]) -> bool {
         let kind = a.kind;
         let [receiver] = a.chain.as_slice() else {
