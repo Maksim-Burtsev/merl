@@ -36,26 +36,25 @@ pub fn grep_project(
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
 ) -> Result<Vec<Hit>> {
-    static BUILT: std::sync::LazyLock<Mutex<HashMap<(String, bool, bool), RegexMatcher>>> =
-        std::sync::LazyLock::new(Mutex::default);
+    type Built = HashMap<(String, bool, bool), RegexMatcher>;
+    static BUILT: std::sync::LazyLock<Mutex<Built>> = std::sync::LazyLock::new(Mutex::default);
     let key = (pattern.to_owned(), whole_word, ignore_case);
     let cached = BUILT.lock().ok().and_then(|b| b.get(&key).cloned());
-    let matcher = match cached {
-        Some(m) => m,
-        None => {
-            let m = RegexMatcherBuilder::new()
-                .case_insensitive(ignore_case)
-                .word(whole_word)
-                .build(pattern)
-                .with_context(|| format!("bad pattern `{pattern}`"))?;
-            if let Ok(mut b) = BUILT.lock() {
-                if b.len() >= 64 {
-                    b.clear();
-                }
-                b.insert(key, m.clone());
+    let matcher = if let Some(m) = cached {
+        m
+    } else {
+        let m = RegexMatcherBuilder::new()
+            .case_insensitive(ignore_case)
+            .word(whole_word)
+            .build(pattern)
+            .with_context(|| format!("bad pattern `{pattern}`"))?;
+        if let Ok(mut b) = BUILT.lock() {
+            if b.len() >= 64 {
+                b.clear();
             }
-            m
+            b.insert(key, m.clone());
         }
+        m
     };
     Ok(collect(
         root,

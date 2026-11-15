@@ -215,14 +215,11 @@ pub fn dart_called(rest: &str) -> bool {
 }
 
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
-    let wrapped = patterns.len() == 2 * DART_PATTERN_COUNT;
-    if (wrapped || patterns.len() == DART_PATTERN_COUNT)
+    if (patterns.len() == DART_PATTERN_COUNT + 1 || patterns.len() == DART_PATTERN_COUNT)
         && line.get(word.end..).is_some_and(|rest| !dart_called(rest))
     {
-        if wrapped {
-            patterns.remove(DART_PATTERN_COUNT + DART_CONSTRUCTOR_PATTERN);
-        }
-        patterns.remove(DART_CONSTRUCTOR_PATTERN);
+        let constructor = patterns[DART_CONSTRUCTOR_PATTERN].clone();
+        super::cut_def_patterns(Kind::Dart, patterns, &[constructor]);
     }
 }
 
