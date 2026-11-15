@@ -61,8 +61,13 @@ pub fn outside_value(line: &str, name: &str) -> Option<OutsideValue> {
 
 pub fn declares_extension(text: &str, line1: usize, word: &str) -> bool {
     static OWNER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:(?:public|private|fileprivate|internal|@\w+)\s+)*extension\b")
-            .expect("the pattern is valid")
+        Regex::new(
+            r"^(?:(?:public|private|fileprivate|internal|@\w+(?:\([^()]*\))?)\s+)*extension\b",
+        )
+        .expect("the pattern is valid")
+    });
+    static INTERFACE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?interface\s+\w").expect("the pattern is valid")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -83,17 +88,51 @@ pub fn declares_extension(text: &str, line1: usize, word: &str) -> bool {
         return true;
     }
     let indent = |l: &str| l.len() - l.trim_start().len();
-    let own = indent(lines[at]);
-    lines[..at]
+    let mut own = indent(lines[at]);
+    let owners: Vec<&str> = lines[..at]
         .iter()
         .rev()
-        .find(|l| !l.trim().is_empty() && indent(l) < own)
-        .is_some_and(|l| OWNER.is_match(l.trim_start()))
+        .filter(|l| {
+            let enclosing = !l.trim().is_empty() && indent(l) < own;
+            if enclosing {
+                own = indent(l);
+            }
+            enclosing
+        })
+        .map(|l| l.trim_start())
+        .collect();
+    let Some(owner) = owners.first() else {
+        return false;
+    };
+    let global = owners[1..].iter().any(|l| l.starts_with("declare global"))
+        || (owners.len() == 1
+            && !lines
+                .iter()
+                .any(|l| l.starts_with("import ") || l.starts_with("export ")));
+    OWNER.is_match(owner) || (INTERFACE.is_match(owner) && global)
+}
+
+pub fn reassigned(text: &str, from1: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(from) = lines.get(from1.saturating_sub(1)) else {
+        return false;
+    };
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let own = indent(from);
+    let assigns = Regex::new(&format!(
+        r"(?:^|[^\w$.]){}\s*(?:[-+*/%|&^?]|\?\?|<<|>>)?=(?:[^=]|$)",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    lines[from1..]
+        .iter()
+        .take_while(|l| l.trim().is_empty() || indent(l) >= own)
+        .any(|l| assigns.is_match(l))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{declares_extension, outside_value};
+    use super::{declares_extension, outside_value, reassigned};
 
     #[test]
     fn an_extension_member_is_told_from_a_class_member() {
@@ -110,6 +149,25 @@ mod tests {
         assert!(declares_extension(cs, 1, "Shout"));
         let class = "struct Basket {\n    func append(_ i: Int) {}\n}\n";
         assert!(!declares_extension(class, 2, "append"));
+        let marked = "@available(macOS 10.15, *) extension Array {\n    func chunked() {}\n}\n";
+        assert!(declares_extension(marked, 2, "chunked"));
+        let global =
+            "export {};\ndeclare global {\n  interface Array<T> {\n    last(): T;\n  }\n}\n";
+        assert!(declares_extension(global, 4, "last"));
+        let script = "interface Array<T> {\n  last(): T;\n}\n";
+        assert!(declares_extension(script, 2, "last"));
+        let module = "export interface Shelf<T> {\n  last(): T;\n}\n";
+        assert!(!declares_extension(module, 2, "last"));
+    }
+
+    #[test]
+    fn a_local_written_again_in_its_block_is_reassigned() {
+        let js = "function f() {\n  let x = \"\";\n  x = load(id);\n  x.brew();\n}\nx = 1;\n";
+        assert!(reassigned(js, 2, "x"));
+        let kept = "function f() {\n  let x = \"\";\n  x.brew(x == y);\n}\nx = 1;\n";
+        assert!(!reassigned(kept, 2, "x"));
+        assert!(reassigned("  let n = 0\n  n += 1\n", 1, "n"));
+        assert!(!reassigned("  let n = 0\n  m.n = 1\n", 1, "n"));
     }
 
     fn names(line: &str, name: &str) -> Option<Vec<String>> {

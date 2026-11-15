@@ -139,7 +139,12 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   (Swift, TypeScript, Kotlin, C#, PHP, Dart; C++ is #1559), each a `Basket` with one method named like a
   standard one and a `totals` file calling that method on a local bound to a literal (`"a,b"`,
   `[]`, `<int>[]`, `[Int]()`) or to a standard constructor (`ArrayList<Int>()`,
-  `mutableListOf<Int>()`, `new \ArrayObject()`), which is no jump to the `Basket`.
+  `mutableListOf<Int>()`, `new \ArrayObject()`), which is no jump to the `Basket`. Beside it, a
+  `loud`/`tail` file per language calls the project's own extension of a standard type from
+  another file (`extension String`, `@available(…) extension Array`, `fun String.shout()`,
+  `extension Loud on String`, `this string`, `declare global { interface Array<T> }`) on such a
+  local, and Groovy, Scala and a JS local written again (`x = load(id)`) call a project method:
+  each is still a jump.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
