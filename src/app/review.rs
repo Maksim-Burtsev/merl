@@ -263,6 +263,22 @@ impl App {
     }
 
     pub(super) fn tall_hunk_rows(&self, t: TextLine) -> Option<Vec<TextLine>> {
+        let rows: Vec<_> = self.hunk_rows(t).into_iter().map(|r| r.1).collect();
+        (rows.len() > self.view_h && rows.contains(&t)).then_some(rows)
+    }
+
+    pub(super) fn show_whole_hunk(&mut self) {
+        let rows = self.hunk_rows(self.at());
+        let (Some(first), Some(last)) = (rows.first(), rows.last()) else {
+            return;
+        };
+        let top = (self.fit_top((self.top_line, self.top_row), last.0)).min(first.0);
+        if rows.iter().any(|r| r.1 == self.at()) && self.fit_top(top, last.0) == top {
+            (self.top_line, self.top_row) = top;
+        }
+    }
+
+    fn hunk_rows(&self, t: TextLine) -> Vec<((usize, usize), TextLine)> {
         let at = self.hunk_place(t);
         let hunks = self.diff.hunks.iter().rev();
         let start = hunks
@@ -276,14 +292,14 @@ impl App {
             if matches!(t, TextLine::File(l) if !self.diff.marks.contains_key(&l)) {
                 break;
             }
-            rows.push(t);
+            rows.push((pos, t));
             let next = self.forward_rows(pos, 1);
             if next == pos {
                 break;
             }
             pos = next;
         }
-        (rows.len() > self.view_h && rows.contains(&t)).then_some(rows)
+        rows
     }
 
     pub(super) fn next_hunk(&self, r: &git::Review, dir: isize) -> Next {
@@ -671,7 +687,7 @@ impl App {
 
     fn stand_on(&mut self, h: TextLine) {
         self.set_at(self.clamp_line(h));
-        (self.col, self.want_x, self.center) = (0, 0, true);
+        (self.col, self.want_x, self.center, self.whole_hunk) = (0, 0, true, true);
     }
 
     pub fn review_status(&self) -> Option<String> {

@@ -2945,3 +2945,84 @@ fn c_walks_the_deleted_rows_of_a_tall_replaced_block_and_a_tall_deleted_file() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn c_on_a_change_taller_than_half_the_screen_draws_it_whole() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let dir = std::env::temp_dir().join(format!("merl-halfhunk-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines =
+        |p: &str, r: std::ops::Range<usize>| r.map(|i| format!("{p}{i}\n")).collect::<String>();
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    std::fs::write(dir.join("big"), lines("b", 0..100)).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    let changed = lines("b", 0..30)
+        + &lines("added", 0..15)
+        + &lines("b", 30..60)
+        + &lines("new", 0..12)
+        + &lines("b", 64..90)
+        + "short\n"
+        + &lines("b", 91..100);
+    std::fs::write(dir.join("big"), changed).unwrap();
+    std::fs::write(dir.join("new"), "n\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "work"]);
+    let mut a = review_start(&dir, None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("big"), 1);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut press_drawn = |a: &mut App, key: char| {
+        press(a, KeyCode::Char(key), KeyModifiers::NONE);
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        (a.at(), a.top_line, a.top_row, a.bottom_line())
+    };
+    let half = a.view_h / 2;
+    assert_eq!(
+        press_drawn(&mut a, 'c'),
+        (TextLine::File(30), 30 + 15 - a.view_h, 0, 44),
+        "15 added rows on a pane of {}: the last one on the bottom row",
+        a.view_h
+    );
+    let (at, top_line, top_row, bottom) = press_drawn(&mut a, 'c');
+    assert_eq!(
+        at,
+        TextLine::File(75),
+        "the replaced block's first added line"
+    );
+    assert!(
+        (top_line, top_row) <= (75, 0) && bottom >= 86,
+        "its 4 deleted rows above and 12 added rows below all on screen: top {top_line}:{top_row}, bottom {bottom}"
+    );
+    assert_eq!(
+        press_drawn(&mut a, 'c'),
+        (
+            TextLine::File(113),
+            113 - half,
+            0,
+            113 - half + a.view_h - 1
+        ),
+        "a short change is centred, as before"
+    );
+    assert_eq!(
+        press_drawn(&mut a, 'C'),
+        (TextLine::File(75), top_line, top_row, bottom),
+        "C back lands on it whole too"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

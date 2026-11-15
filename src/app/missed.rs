@@ -90,6 +90,7 @@ struct Spot {
     top: (usize, usize),
     left: usize,
     center: bool,
+    whole_hunk: bool,
     row: Option<usize>,
     grown: Vec<super::grow::Grown>,
 }
@@ -489,6 +490,7 @@ impl App {
             top: (self.top_line, self.top_row),
             left: self.left,
             center: self.center,
+            whole_hunk: self.whole_hunk,
             row: self.picker.as_ref().map(|p| p.selected),
             grown: self.grown.clone(),
         }
@@ -498,7 +500,7 @@ impl App {
         (self.line, self.col, self.deleted) = (s.line, s.col, s.deleted);
         (self.want_x, self.anchor) = (s.want_x, s.anchor);
         (self.top_line, self.top_row) = s.top;
-        (self.left, self.center) = (s.left, s.center);
+        (self.left, self.center, self.whole_hunk) = (s.left, s.center, s.whole_hunk);
         self.grown.clone_from(&s.grown);
         if let (Some(p), Some(row)) = (&mut self.picker, s.row) {
             p.selected = row;
