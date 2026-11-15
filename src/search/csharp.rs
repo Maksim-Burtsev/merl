@@ -157,6 +157,12 @@ pub(super) fn cs_opener_in(outer: &str, header: &str, name: &str) -> CsOpener {
         Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$")
             .expect("the regex is a literal")
     });
+    if !header.contains(name) {
+        return CsOpener {
+            binds: false,
+            hides_outer_scopes: false,
+        };
+    }
     let h = header.replace('\n', " ");
     let n = regex::escape(name);
     let found = |p: String| Regex::new(&p).is_ok_and(|re| re.is_match(&h));
@@ -289,6 +295,9 @@ fn cs_params(params: &str, name: &str, bare: bool) -> bool {
 }
 
 pub(super) fn cs_statement(t: &str, name: &str) -> bool {
+    if !t.contains(name) {
+        return false;
+    }
     let n = regex::escape(name);
     let ty = cs_type!();
     let ty_short = r"(?:var|[\w.]+(?:<[^()]*?>)?\??(?:\[[,\s]*\])*)";

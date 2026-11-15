@@ -70,10 +70,19 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
     patterns
 }
 pub fn cut_def_patterns(kind: Kind, patterns: &mut Vec<String>, cut: &[String]) {
-    let copies = one_line_body(kind, cut);
-    patterns.retain(|p| !cut.contains(p) && !copies.contains(p));
+    if let Some(i) =
+        (1..patterns.len()).find(|&i| one_line_body(kind, &patterns[..i]).contains(&patterns[i]))
+    {
+        let kept: Vec<String> = patterns[..i]
+            .iter()
+            .filter(|p| !cut.contains(p))
+            .cloned()
+            .collect();
+        patterns.splice(i..=i, one_line_body(kind, &kept));
+    }
+    patterns.retain(|p| !cut.contains(p));
 }
-const ONE_LINE_TYPE: &str = r"^\s*(?:[\w@]+(?:\([^)]*\))?\s+)*(?:class|struct|interface|trait|enum|record|object|mixin|protocol|actor|extension|impl)\b";
+pub(super) const ONE_LINE_TYPE: &str = r"^\s*(?:[\w@]+(?:\([^)]*\))?\s+)*(?:class|struct|interface|trait|enum|record|object|mixin|protocol|actor|extension|impl)\b";
 pub(super) fn one_line_body(kind: Kind, patterns: &[String]) -> Vec<String> {
     let head = match kind {
         Kind::Ruby => format!(r"{ONE_LINE_TYPE}[^;#]*;(?:[^#]*?;)?"),
@@ -81,11 +90,14 @@ pub(super) fn one_line_body(kind: Kind, patterns: &[String]) -> Vec<String> {
             r"{ONE_LINE_TYPE}[^{{;]*\{{(?:(?:[^{{}}]|\{{[^{{}}]*\}})*?(?:;|\{{[^{{}}]*\}}))?"
         ),
     };
-    patterns
+    let bodies: Vec<&str> = patterns
         .iter()
         .filter_map(|p| p.strip_prefix('^'))
-        .map(|p| format!("{head}{p}"))
-        .collect()
+        .collect();
+    if bodies.is_empty() {
+        return Vec::new();
+    }
+    vec![format!("{head}(?:{})", bodies.join("|"))]
 }
 pub fn one_line_owner(kind: Kind, line: &str, word: &str) -> Option<String> {
     static OWNER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -102,12 +114,15 @@ pub fn one_line_owner(kind: Kind, line: &str, word: &str) -> Option<String> {
     }
     let c = OWNER.captures(line)?;
     let owner = c.get(1)?.as_str();
+    if owner == word || !line.contains(word) {
+        return None;
+    }
     let patterns = match kind {
         Kind::TsJs => member_patterns(kind, word)?,
         _ => one_line_body(kind, &kind_patterns(kind, word)),
     };
     let re = Regex::new(&patterns.join("|")).ok()?;
-    (owner != word && re.is_match(line)).then(|| owner.to_owned())
+    re.is_match(line).then(|| owner.to_owned())
 }
 fn kind_patterns(kind: Kind, word: &str) -> Vec<String> {
     let w = regex::escape(word);

@@ -146,6 +146,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   by parallel agents on branches off the epic when there are many. No second review. A finding
   outside the batch becomes an issue. With the fixes pushed, `gh pr merge --squash --auto`, and
   one background `gh pr checks --watch` on it; a red check gets a fixer agent.
+- **A `d` epic** reports both numbers in its PR: the bench table and the held-out set's
+  (`tools/d-bench/run --heldout DIR` on the epic, run by you, never by an implementer;
+  aggregates only, `docs/agents/d.md`). A `d` family issue whose night moves neither number is
+  closed with what shipped, not kept open for another night.
 - **While the epic closes.** Tasks still waiting do not wait for it: from the moment the epic PR
   is opened, they go into `epic/agent-ok-<date>-2`, cut from the epic, with the free agents.
   Merge the epic's last commit into it before the squash, and origin/master after. Lines the

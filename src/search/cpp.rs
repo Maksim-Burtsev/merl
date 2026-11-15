@@ -922,7 +922,7 @@ pub fn cpp_value_type(
     }
 }
 
-pub fn cpp_auto_init(
+fn auto_expr(
     text: &str,
     line1: usize,
     col: Option<usize>,
@@ -942,10 +942,57 @@ pub fn cpp_auto_init(
         .trim_start()
         .strip_prefix('=')?;
     let expr = rest.get(..bracket_contents_blanked(rest).find(';')?)?;
-    let r = super::cpp_receiver(&format!("{expr}."))?;
     let end = code.len() - rest.len() + expr.len() - starts[p.line1 - 1];
-    (!rest.starts_with('=') && expr.get(..r.start)?.trim().is_empty())
-        .then(|| (expr.to_owned(), p.line1 - 1, end))
+    (!rest.starts_with('=')).then(|| (expr.to_owned(), p.line1 - 1, end))
+}
+
+pub fn cpp_auto_init(
+    text: &str,
+    line1: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Option<(String, usize, usize)> {
+    let (expr, line0, end) = auto_expr(text, line1, col, name)?;
+    let r = super::cpp_receiver(&format!("{expr}."))?;
+    expr.get(..r.start)?
+        .trim()
+        .is_empty()
+        .then_some((expr, line0, end))
+}
+
+pub fn cpp_auto_std(text: &str, line1: usize, col: Option<usize>, name: &str) -> Option<String> {
+    const CLASSES: &[&str] = &[
+        "vector",
+        "string",
+        "wstring",
+        "string_view",
+        "map",
+        "multimap",
+        "unordered_map",
+        "unordered_multimap",
+        "set",
+        "multiset",
+        "unordered_set",
+        "unordered_multiset",
+        "deque",
+        "list",
+        "forward_list",
+        "array",
+        "pair",
+        "tuple",
+        "bitset",
+        "stack",
+        "queue",
+        "priority_queue",
+    ];
+    static CONSTRUCTED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^std\s*::\s*(\w+)\s*(?:<[^()]*>)?\s*(?:\(\s*\)|\{\s*\})$")
+            .expect("the regex is a literal")
+    });
+    let (expr, ..) = auto_expr(text, line1, col, name)?;
+    let blanked = bracket_contents_blanked(expr.trim());
+    let class = CONSTRUCTED.captures(&blanked)?.get(1)?.as_str();
+    CLASSES.contains(&class).then(|| class.to_owned())
 }
 
 pub fn cpp_alias_target(code: &str, line1: usize, name: &str) -> Option<(usize, Vec<String>)> {
