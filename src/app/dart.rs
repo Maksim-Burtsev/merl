@@ -97,7 +97,7 @@ impl App {
                         && dart_names(d, word)
                 })
                 .filter_map(|d| search::dart_uri_file(&self.root, here, &d.uri, sdk.as_deref()))
-                .flat_map(|f| self.dart_exported(here, f, word, &reason, 0))
+                .flat_map(|f| self.dart_exported(here, f, word, &[None], &reason, 0))
                 .collect();
         }
         (!found.is_empty()).then_some(found)
@@ -108,6 +108,7 @@ impl App {
         here: &Path,
         file: PathBuf,
         word: &str,
+        wanted: &[Option<String>],
         reason: &Reason,
         depth: usize,
     ) -> Vec<Candidate> {
@@ -120,7 +121,7 @@ impl App {
         };
         let found: Vec<Candidate> = files
             .iter()
-            .flat_map(|f| self.dart_declared_in(f, word, None, &[None], reason))
+            .flat_map(|f| self.dart_declared_in(f, word, None, wanted, reason))
             .collect();
         if !found.is_empty() {
             return found;
@@ -136,7 +137,7 @@ impl App {
                 };
                 search::dart_uri_file(&self.root, base, &d.uri, sdk.as_deref())
             })
-            .flat_map(|f| self.dart_exported(here, f, word, reason, depth + 1))
+            .flat_map(|f| self.dart_exported(here, f, word, wanted, reason, depth + 1))
             .collect()
     }
 
@@ -220,7 +221,7 @@ impl App {
             found.clear();
             return;
         }
-        if missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
+        if !found.is_empty() && missing.is_empty() && found.iter().all(|c| top(c) && unseen(c)) {
             *found = self.dart_from_imports(here, word);
             return;
         }
@@ -263,6 +264,39 @@ impl App {
         }
     }
 
+    pub(super) fn dart_outside_by_import(
+        &self,
+        here: &Path,
+        word: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let Some(first) = found.first() else {
+            return;
+        };
+        let sdk: Vec<&PathBuf> = self
+            .external
+            .get(&Kind::Dart)
+            .map(|(roots, _)| {
+                roots
+                    .iter()
+                    .filter(|r| r.join("core/core.dart").is_file())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if found.iter().all(|c| c.hit.path.is_absolute())
+            && found.iter().any(|c| c.hit.path != first.hit.path)
+            && !found
+                .iter()
+                .any(|c| sdk.iter().any(|s| c.hit.path.starts_with(s)))
+            && self.dart_visible_files(here, word, None).is_some()
+        {
+            let imported = self.dart_from_imports(here, word);
+            if !imported.is_empty() {
+                *found = imported;
+            }
+        }
+    }
+
     fn dart_from_imports(&self, here: &Path, word: &str) -> Vec<Candidate> {
         let inherits = self
             .text_of(here)
@@ -274,12 +308,19 @@ impl App {
         else {
             return Vec::new();
         };
+        let wanted = [None, Some(format!("{word}.{word}"))];
         let mut seen = std::collections::HashSet::new();
         directives
             .into_iter()
-            .filter(|d| d.keyword == "import" && d.prefix.is_none() && dart_names(d, word))
+            .filter(|d| {
+                d.keyword == "import"
+                    && d.prefix.is_none()
+                    && d.uri.starts_with("package:")
+                    && dart_names(d, word)
+            })
             .filter_map(|d| search::dart_uri_file(&self.root, &library[0], &d.uri, sdk.as_deref()))
-            .flat_map(|file| self.dart_exported(here, file, word, &Reason::ByName, 0))
+            .filter(|file| file.is_absolute())
+            .flat_map(|file| self.dart_exported(here, file, word, &wanted, &Reason::ByName, 0))
             .filter(|c| seen.insert((c.hit.path.clone(), c.hit.line1)))
             .collect()
     }
