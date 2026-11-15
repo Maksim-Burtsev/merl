@@ -706,11 +706,7 @@ const PRELUDE: &[(&str, &str)] = &[
     ("String", "string"),
     ("Box", "boxed"),
     ("Option", "option"),
-    ("Some", "option"),
-    ("None", "option"),
     ("Result", "result"),
-    ("Ok", "result"),
-    ("Err", "result"),
 ];
 
 const PRIMITIVES: &[&str] = &[
@@ -729,7 +725,7 @@ impl App {
         if module.is_none() && !PRIMITIVES.contains(&word)
             || text
                 .lines()
-                .any(|l| l.contains("::*") && !(l.starts_with(" ") && l.trim() == "use super::*;"))
+                .any(|l| l.contains("::*") && !(l.starts_with(' ') && l.trim() == "use super::*;"))
             || bound(&search::imports(Kind::Rust, text), word).is_some()
             || Regex::new(&format!(
                 "(?m){}",

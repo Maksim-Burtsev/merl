@@ -24,18 +24,7 @@ impl App {
         imported: &Imported,
     ) {
         let kind = a.kind;
-        if super::js_std::js_keyword(a) {
-            self.none_found(format!("no definition for {}", a.word));
-            return;
-        }
-        if kind == Kind::Rust
-            && !a.dotted
-            && a.chain.is_empty()
-            && !a.before.ends_with("::")
-            && !a.tail.trim_start().starts_with("::")
-            && let Some(found) = self.rust_prelude(&a.here, &a.text, &a.word)
-        {
-            self.show_definitions(kind, &a.word, &a.here, found, None);
+        if self.answered_as_keyword_or_prelude(a) {
             return;
         }
         let hits = self.hits_by_name(a, near, p, walk);
@@ -137,6 +126,23 @@ impl App {
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    fn answered_as_keyword_or_prelude(&mut self, a: &Asked) -> bool {
+        if super::js_std::js_keyword(a) {
+            return self.none_found(format!("no definition for {}", a.word));
+        }
+        if a.kind == Kind::Rust
+            && !a.dotted
+            && a.chain.is_empty()
+            && !a.before.ends_with("::")
+            && !a.tail.trim_start().starts_with("::")
+            && let Some(found) = self.rust_prelude(&a.here, &a.text, &a.word)
+        {
+            self.show_definitions(a.kind, &a.word, &a.here, found, None);
+            return true;
+        }
+        false
     }
 
     fn answered_as_outside_value(&mut self, a: &Asked, hits: &[Hit]) -> bool {
