@@ -29,4 +29,11 @@ mod tests {
             assert!(guide.contains(&format!("`{base}`")), "{base} is missing");
         }
     }
+
+    #[test]
+    fn the_guide_tells_an_agent_to_skip_by_default() {
+        let guide = super::guide();
+        assert!(guide.contains("In every review you prepare, leave out what the user need not read, unless they say otherwise"));
+        assert!(!guide.contains("When the user asks you to leave out"));
+    }
 }

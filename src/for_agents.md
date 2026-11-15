@@ -35,7 +35,7 @@ For each branch:
    names another base, use that. Read the diff from these
    refs. Do not switch, check out, reset or stash anything: the working tree is the user's, and
    merl checks the branch out itself when they open it.
-2. Decide the order (see "The order").
+2. Decide the order and what to skip (see "The order").
 3. Write the order to `$(git rev-parse --git-common-dir)/merl/review/BRANCH`, the branch name
    with its slashes (`.git/merl/review/feat/paging`). Create the directories. The first line is
    `# commit SHA`, the commit of `origin/BRANCH` you read; then the paths, one per line.
@@ -91,10 +91,10 @@ how it works.
 
 ### What the user need not read
 
-When the user asks you to leave out what they need not read, write `skip ` before each such
-path, in its place in the order (`skip CHANGELOG.md`; `skip docs/` skips every file under it),
-and put those paths last. merl keeps the file in its panel with a mark, `c` / `C` walk past it,
-and the user can still open it from the panel.
+In every review you prepare, leave out what the user need not read, unless they say otherwise:
+write `skip ` before each such path, in its place in the order (`skip CHANGELOG.md`; `skip
+docs/` skips every file under it), and put those paths last. merl keeps the file in its panel
+with a mark, `c` / `C` walk past it, and the user can still open it from the panel.
 
 Read a file's diff before you skip it, and skip only what is not production code:
 
