@@ -2525,7 +2525,8 @@ mod tests {
             f.unwrap().set_modified(later).unwrap();
         }
         let shut = dir.join("shut.rs");
-        std::fs::set_permissions(&shut, std::os::unix::fs::PermissionsExt::from_mode(0)).unwrap();
+        std::fs::set_permissions(&shut, std::os::unix::fs::PermissionsExt::from_mode(0o000))
+            .unwrap();
         let unreadable = std::fs::read(&shut).is_err();
         let raw = changed_in(&dir, &["diff", "--raw", "--no-abbrev", "-z", "main"]);
         std::fs::set_permissions(&shut, std::os::unix::fs::PermissionsExt::from_mode(0o644))
