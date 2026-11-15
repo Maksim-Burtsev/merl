@@ -9,6 +9,9 @@ namespace strainer
         {
             return a;
         }
+        double shake (int a) const { return a; }
+        static double tilt (int a) { return a; }
+        double sluice () const;
     };
 
     double finest (
