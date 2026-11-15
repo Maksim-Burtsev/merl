@@ -938,6 +938,12 @@ fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     }
 }
 
+#[cfg(target_family = "wasm")]
+fn changed_in(root: &Path, raw: &[&str]) -> Result<Vec<ReviewFile>> {
+    Ok(parse_name_status(&git(root, raw)?))
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn changed_in(root: &Path, raw: &[&str]) -> Result<Vec<ReviewFile>> {
     static COPIES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let n = COPIES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
