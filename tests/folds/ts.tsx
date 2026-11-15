@@ -52,3 +52,21 @@ export function Card({ title, body }: Props) {  // f: 31-54
     </div>  // f: 31-54
   );  // f: 31-54
 }  // f: 31-54
+
+export class History {  // f: 56-72
+  commands(): Record<string, Command | Factory> {  // f: 57-61
+    return {  // f: 58-60
+      undo: () => undo,  // f: 57-61
+    };  // f: 57-61
+  }  // f: 57-61
+
+  index(  // f: 63-71
+    items: Item[],  // f: 63-71
+  ): Promise<Map<string, Item>> {  // f: 65-71
+    const m = new Map();  // f: 63-71
+    for (const i of items) {  // f: 67-69
+      m.set(i.id, i);  // f: 63-71
+    }  // f: 63-71
+    return m;  // f: 63-71
+  }  // f: 63-71
+}  // f: 56-72

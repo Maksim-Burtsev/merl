@@ -978,6 +978,7 @@ impl<'t, 'a> Model<'t, 'a> {
                         j = self.pair[j].unwrap_or(j);
                     }
                     "(" | "[" | "{" => j = self.pair[j].unwrap_or(j),
+                    "," if angle > 0 => {}
                     ")" | "]" | "}" | ";" | "," => return None,
                     _ => {}
                 }
