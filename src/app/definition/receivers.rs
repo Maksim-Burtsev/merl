@@ -748,8 +748,11 @@ impl App {
         let dir = file.parent().unwrap_or_else(|| Path::new(""));
         let mut via = None;
         for b in &bindings {
-            let search::Value::Type(written) = &b.value else {
-                continue;
+            let (written, shown) = match &b.value {
+                search::Value::Type(w) => (w, format!("{at}: {}", w.trim())),
+                search::Value::Call(w) => (w, format!("{at} = {w}()")),
+                search::Value::New(w) => (w, format!("{at} = new {w}()")),
+                _ => continue,
             };
             let parts = search::type_path(kind, written)?;
             let path = bound(&imports, &parts[0])?;
@@ -758,7 +761,7 @@ impl App {
             }
             let parts_of_name = if path[0].starts_with('@') { 2 } else { 1 };
             let package = path[..parts_of_name.min(path.len())].join("/");
-            via.get_or_insert_with(|| format!("{at}: {}, {package} not installed", written.trim()));
+            via.get_or_insert_with(|| format!("{shown}, {package} not installed"));
         }
         via
     }
