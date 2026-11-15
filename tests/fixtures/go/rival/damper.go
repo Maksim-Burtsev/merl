@@ -221,3 +221,19 @@ func Stoke(b Bellows) int { return b.Vent + b.Puff + b.Draft }
 //                                   ^ d: rival/damper.go:211
 //                                            ^ d: rival/damper.go:211
 //                                                     ^ d: rival/damper.go:4
+
+type Hob struct {
+	Grate struct {
+		Draft int
+		Ash   struct {
+			Soot int
+		}
+	}
+}
+
+func Lit(c Hob) int {
+	return c.Grate.Draft + c.Grate.Ash.Soot
+	//             ^ d: rival/damper.go:227
+	//                             ^ d: rival/damper.go:228
+	//                                 ^ d: rival/damper.go:229
+}
