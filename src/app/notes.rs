@@ -312,6 +312,23 @@ fn next(app: &App, l: TextLine) -> TextLine {
     }
 }
 
+fn reads_as(app: &App, at: TextLine, quote: &[String]) -> bool {
+    let mut t = at;
+    for (i, q) in quote.iter().rev().enumerate() {
+        if i > 0 {
+            let p = prev(app, t);
+            if p == t {
+                return false;
+            }
+            t = p;
+        }
+        if quote_of(app, t) != *q {
+            return false;
+        }
+    }
+    true
+}
+
 impl App {
     fn notes_store(&mut self) -> Option<(PathBuf, String)> {
         let root = &self.root;
@@ -386,7 +403,13 @@ impl App {
             let Some(last_q) = n.quote.last() else {
                 continue;
             };
-            let id = format!("{}:{}", n.path.display(), n.text);
+            let id = format!(
+                "{}:{}-{}:{}",
+                n.path.display(),
+                n.first,
+                n.last,
+                n.quote.join("\n")
+            );
             let seen = self.notes.last_seen.get(&id).copied().filter(|t| match *t {
                 TextLine::File(l) => l < len,
                 TextLine::Deleted(key, i) => {
@@ -394,7 +417,7 @@ impl App {
                 }
             });
             let k = seen.map_or_else(|| n.last.saturating_sub(1), TextLine::key);
-            let found = if let Some(text) = last_q.strip_prefix("- ") {
+            let cands: Vec<TextLine> = if let Some(text) = last_q.strip_prefix("- ") {
                 (self.diff.ghosts.iter())
                     .flat_map(|(&key, g)| {
                         g.iter()
@@ -402,15 +425,24 @@ impl App {
                             .filter(|(_, s)| s.as_str() == text)
                             .map(move |(i, _)| TextLine::Deleted(key, i))
                     })
-                    .min_by_key(|t| t.key().abs_diff(k))
+                    .filter(|&t| reads_as(self, t, &n.quote))
+                    .collect()
             } else {
                 let text = last_q.get(2..).unwrap_or("");
                 (0..len)
                     .filter(|&l| self.buf.lines[l] == text)
-                    .min_by_key(|l| l.abs_diff(k))
                     .map(TextLine::File)
+                    .filter(|&t| reads_as(self, t, &n.quote))
+                    .collect()
             };
-            if found.is_none() && seen.is_none() {
+            let stored = cands
+                .iter()
+                .find(|&&t| seen.map_or(t.key() == k, |s| t == s));
+            let found = match (stored, cands.as_slice()) {
+                (Some(&t), _) | (None, &[t]) => Some(t),
+                _ => None,
+            };
+            if cands.is_empty() && seen.is_none() {
                 tops.push(Here {
                     first: TextLine::File(0),
                     at: TextLine::File(0),

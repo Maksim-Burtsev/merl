@@ -883,3 +883,67 @@ fn the_agent_s_own_thread_takes_an_answer_and_a_moved_up_one_takes_no_new_note()
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+const TWINS: &str =
+    "func a() {\n\treturn err\n}\nfunc b() {\n\treturn err\n}\nfunc c() {\n\treturn err\n}\n";
+
+fn on_twins(dir: &Path, line: usize) -> App {
+    let mut a = review_start(dir, None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("dup.go"), line);
+    screen(&mut a);
+    a
+}
+
+fn placed(a: &App) -> Vec<(TextLine, bool)> {
+    let mut v: Vec<_> = a
+        .notes
+        .here
+        .iter()
+        .map(|h| (h.idx, h.at, h.stale))
+        .collect();
+    v.sort_by_key(|h| h.0);
+    v.into_iter().map(|(_, at, stale)| (at, stale)).collect()
+}
+
+#[test]
+fn two_notes_of_one_text_on_two_like_lines_stay_on_their_own_lines() {
+    let (dir, _) = review_app_with("notes-twins", &[("dup.go", TWINS.as_bytes())]);
+    let mut a = on_twins(&dir, 2);
+    note(&mut a, "wrap");
+    let mut a = on_twins(&dir, 8);
+    note(&mut a, "wrap");
+    let want = [(TextLine::File(1), false), (TextLine::File(7), false)];
+    assert_eq!(placed(&a), want, "{}", screen(&mut a));
+    let mut b = on_twins(&dir, 1);
+    assert_eq!(placed(&b), want, "after a reopen: {}", screen(&mut b));
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_note_whose_line_changed_stays_dim_and_a_block_finds_its_whole_quote() {
+    let (dir, _) = review_app_with("notes-moved", &[("dup.go", TWINS.as_bytes())]);
+    let mut a = on_twins(&dir, 1);
+    agent_wrote(
+        &dir,
+        "\ndup.go:5\n> \treturn err\nwrap this\n\ndup.go:7-9\n> func c() {\n> \treturn err\n> }\nsplit c\n",
+    );
+    screen(&mut a);
+    assert_eq!(
+        placed(&a),
+        [(TextLine::File(4), false), (TextLine::File(8), false)]
+    );
+    let fixed = TWINS.replace(
+        "}\nfunc b() {\n\treturn err",
+        "}\nfunc b() {\n\treturn fmt.Errorf(\"b: %w\", err)",
+    );
+    std::fs::write(dir.join("dup.go"), format!("import \"fmt\"\n\n{fixed}")).unwrap();
+    a.reload(false);
+    let want = [(TextLine::File(4), true), (TextLine::File(10), false)];
+    let s = screen(&mut a);
+    assert_eq!(placed(&a), want, "{s}");
+    assert!(s.contains("wrap this (changed)"), "{s}");
+    let mut b = on_twins(&dir, 1);
+    assert_eq!(placed(&b), want, "after a reopen: {}", screen(&mut b));
+    drop(std::fs::remove_dir_all(dir));
+}
