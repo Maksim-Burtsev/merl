@@ -2432,3 +2432,66 @@ fn a_marker_trait_lands_on_core_s_auto_trait_not_a_rtstartup_stub() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn prelude_names_and_primitives_resolve_in_the_sysroot_before_a_project_namesake() {
+    let (dir, mut a) = project_app(
+        "rust-prelude",
+        &[
+            ("Cargo.toml", "[package]\nname = \"repro\"\n"),
+            (
+                "vendor/boxcar.rs",
+                "pub(crate) struct Vec<T> {\n    items: T,\n}\n\npub fn usize(v: u32) -> u32 {\n    v\n}\n\npub fn sized(v: Vec<u8>) {}\n",
+            ),
+            (
+                "src/lib.rs",
+                "pub fn build(n: usize) -> Vec<u8> {\n    Vec::new()\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n}\n",
+            ),
+            (
+                "src/glob.rs",
+                "use crate::vendor::*;\n\npub fn held() -> Vec<u8> {\n    todo!()\n}\n",
+            ),
+        ],
+    );
+    let std = external_root(
+        "rust-prelude-std",
+        &[
+            ("std/src/lib.rs", "pub mod vec;\n"),
+            ("std/src/vec.rs", "pub struct Vec<T> {\n    buf: T,\n}\n"),
+            (
+                "core/src/primitive_docs.rs",
+                "#[rustc_doc_primitive = \"bool\"]\nmod prim_bool {}\n\n#[rustc_doc_primitive = \"usize\"]\n//\n/// The pointer-sized unsigned integer type.\nconst _: () = ();\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&std));
+    let mut seen = Vec::new();
+    for (file, code) in [
+        ("src/lib.rs", "-> |Vec"),
+        ("src/lib.rs", "n: |usize"),
+        ("src/glob.rs", "-> |Vec"),
+        ("vendor/boxcar.rs", "v: |Vec"),
+    ] {
+        d_on(&mut a, file, code);
+        seen.push(match shown(&mut a) {
+            Shown::Jump(status, place) => {
+                format!(
+                    "{status} @ {}",
+                    place.replace(&format!("{}/", std.display()), "")
+                )
+            }
+            Shown::Picker(status, _) => status,
+        });
+    }
+    assert_eq!(
+        seen,
+        [
+            "Vec: via std::vec @ std/src/vec.rs:1",
+            "usize: via core::primitive @ core/src/primitive_docs.rs:4",
+            "Vec: by name, 1 match @ vendor/boxcar.rs:1",
+            "Vec: in this file @ vendor/boxcar.rs:1",
+        ]
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}

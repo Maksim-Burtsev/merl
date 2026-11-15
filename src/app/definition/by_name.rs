@@ -28,6 +28,16 @@ impl App {
             self.none_found(format!("no definition for {}", a.word));
             return;
         }
+        if kind == Kind::Rust
+            && !a.dotted
+            && a.chain.is_empty()
+            && !a.before.ends_with("::")
+            && !a.tail.trim_start().starts_with("::")
+            && let Some(found) = self.rust_prelude(&a.here, &a.text, &a.word)
+        {
+            self.show_definitions(kind, &a.word, &a.here, found, None);
+            return;
+        }
         let hits = self.hits_by_name(a, near, p, walk);
         let mut fallbacks = Vec::new();
         let mut aside = None;

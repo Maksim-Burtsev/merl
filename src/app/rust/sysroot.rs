@@ -700,3 +700,65 @@ impl App {
         })
     }
 }
+
+const PRELUDE: &[(&str, &str)] = &[
+    ("Vec", "vec"),
+    ("String", "string"),
+    ("Box", "boxed"),
+    ("Option", "option"),
+    ("Some", "option"),
+    ("None", "option"),
+    ("Result", "result"),
+    ("Ok", "result"),
+    ("Err", "result"),
+];
+
+const PRIMITIVES: &[&str] = &[
+    "bool", "char", "str", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64",
+    "i128", "isize", "f32", "f64",
+];
+
+impl App {
+    pub(in crate::app) fn rust_prelude(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let module = PRELUDE.iter().find(|(n, _)| *n == word).map(|&(_, m)| m);
+        if module.is_none() && !PRIMITIVES.contains(&word)
+            || text
+                .lines()
+                .any(|l| l.contains("::*") && !(l.starts_with(" ") && l.trim() == "use super::*;"))
+            || bound(&search::imports(Kind::Rust, text), word).is_some()
+            || Regex::new(&format!(
+                "(?m){}",
+                search::def_patterns(Kind::Rust, word).join("|")
+            ))
+            .is_ok_and(|re| re.is_match(text))
+        {
+            return None;
+        }
+        if let Some(module) = module {
+            let chain = ["std".to_owned(), module.to_owned()];
+            return self
+                .rust_crate_path(here, text, word, &chain, MacroUse::NotMacro)
+                .filter(|found| !found.is_empty());
+        }
+        let path = (self.sysroot_crate("core")?.files.into_iter())
+            .find(|f| f.ends_with("core/src/primitive_docs.rs"))?;
+        let docs = self.text_of(&path)?;
+        let (i, line) = (docs.lines().enumerate())
+            .find(|(_, l)| l.trim() == format!("#[rustc_doc_primitive = \"{word}\"]"))?;
+        Some(vec![Candidate {
+            hit: Hit {
+                path,
+                line1: i + 1,
+                byte_col: None,
+                deleted: None,
+                text: line.to_owned(),
+            },
+            reason: Reason::Path("core::primitive".to_owned()),
+        }])
+    }
+}
