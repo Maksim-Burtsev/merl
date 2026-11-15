@@ -107,7 +107,10 @@ impl App {
         let Some(q) = self.pathed(&mut a, &near, &mut p) else {
             return;
         };
-        if self.answered_by_elixir(&a, &near) || self.answered_by_cs_path(&a, &near, &q) {
+        if self.answered_by_elixir(&a, &near)
+            || self.answered_by_cs_path(&a, &near, &q)
+            || self.answered_as_keyword_or_prelude(&a)
+        {
             return;
         }
         self.define_by_name(&a, &near, &p, &walk, &imported);

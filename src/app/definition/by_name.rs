@@ -24,9 +24,6 @@ impl App {
         imported: &Imported,
     ) {
         let kind = a.kind;
-        if self.answered_as_keyword_or_prelude(a) {
-            return;
-        }
         let hits = self.hits_by_name(a, near, p, walk);
         let mut fallbacks = Vec::new();
         let mut aside = None;
@@ -128,7 +125,7 @@ impl App {
         }
     }
 
-    fn answered_as_keyword_or_prelude(&mut self, a: &Asked) -> bool {
+    pub(super) fn answered_as_keyword_or_prelude(&mut self, a: &Asked) -> bool {
         if super::js_std::js_keyword(a) {
             return self.none_found(format!("no definition for {}", a.word));
         }
