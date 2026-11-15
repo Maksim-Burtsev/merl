@@ -2992,7 +2992,6 @@ fn c_on_a_change_taller_than_half_the_screen_draws_it_whole() {
         t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
         (a.at(), a.top_line, a.top_row, a.bottom_line())
     };
-    let half = a.view_h / 2;
     assert_eq!(
         press_drawn(&mut a, 'c'),
         (TextLine::File(30), 30 + 15 - a.view_h, 0, 44),
@@ -3011,12 +3010,7 @@ fn c_on_a_change_taller_than_half_the_screen_draws_it_whole() {
     );
     assert_eq!(
         press_drawn(&mut a, 'c'),
-        (
-            TextLine::File(113),
-            113 - half,
-            0,
-            113 - half + a.view_h - 1
-        ),
+        (TextLine::File(113), 104, 0, 122),
         "a short change is centred, as before"
     );
     assert_eq!(
