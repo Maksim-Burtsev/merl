@@ -696,11 +696,16 @@ fn unquote(s: &str) -> String {
 }
 
 pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(READ_ONLY)
-        .args(args)
+    git_with(root, args, None)
+}
+
+fn git_with(root: &Path, args: &[&str], index: Option<&Path>) -> Result<String> {
+    let mut cmd = Command::new("git");
+    cmd.arg("-C").arg(root).args(READ_ONLY).args(args);
+    if let Some(index) = index {
+        cmd.env("GIT_INDEX_FILE", index);
+    }
+    let out = cmd
         .output()
         .context("cannot run git: --review needs it on PATH")?;
     if !out.status.success() {
@@ -934,36 +939,19 @@ fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
 }
 
 fn changed_in(root: &Path, raw: &[&str]) -> Result<Vec<ReviewFile>> {
-    let out = git(root, raw)?;
-    let mut unhashed: Vec<(&str, &str)> = Vec::new();
-    let mut it = out.split('\0');
-    while let Some(head) = it.next().filter(|s| !s.is_empty()) {
-        let Some(path) = it.next() else { break };
-        match head.split(' ').collect::<Vec<_>>()[..] {
-            [a, b, src, dst, "M"]
-                if a.strip_prefix(':') == Some(b)
-                    && matches!(b, "100644" | "100755")
-                    && dst.bytes().all(|c| c == b'0') =>
-            {
-                unhashed.push((path, src));
-            }
-            [.., s] if s.starts_with(['R', 'C']) => drop(it.next()),
-            _ => {}
-        }
-    }
-    let mut files = parse_name_status(&out);
-    if unhashed.is_empty() {
-        return Ok(files);
-    }
-    let paths = unhashed.iter().map(|&(p, _)| p);
-    let args: Vec<&str> = ["hash-object", "--"].into_iter().chain(paths).collect();
-    let hashes = git(root, &args).unwrap_or_default();
-    let same: std::collections::HashSet<&Path> = (unhashed.iter().zip(hashes.lines()))
-        .filter(|&(&(_, src), now)| src == now)
-        .map(|(&(p, _), _)| Path::new(p))
-        .collect();
-    files.retain(|f| !same.contains(&f.path.as_path()));
-    Ok(files)
+    static COPIES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = COPIES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let copy = std::env::temp_dir().join(format!("merl-index-{}-{n}", std::process::id()));
+    let index = git(root, &["rev-parse", "--git-path", "index"])?;
+    let out = if std::fs::copy(root.join(index), &copy).is_ok() {
+        let refresh = [&["-c", "diff.autoRefreshIndex=true"][..], raw].concat();
+        let out = git_with(root, &refresh, Some(&copy));
+        drop(std::fs::remove_file(&copy));
+        out?
+    } else {
+        git(root, raw)?
+    };
+    Ok(parse_name_status(&out))
 }
 
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
@@ -2496,5 +2484,64 @@ mod tests {
             assert_eq!(files, [Path::new("a.rs"), Path::new("d.rs")]);
         }
         assert_eq!(marks, HashMap::from([(PathBuf::from("d.rs"), 'A')]));
+    }
+
+    #[test]
+    fn a_review_lists_what_git_diff_lists_for_touched_files() {
+        let dir = std::env::temp_dir().join(format!("merl-touched-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(dir.join("gen")).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}");
+            String::from_utf8(out.stdout).unwrap()
+        };
+        git(&["init", "-q", "-b", "main"]);
+        std::fs::write(dir.join("crlf.txt"), "a\r\nb\r\n").unwrap();
+        std::fs::write(dir.join("old.rs"), "fn a() {}\nfn b() {}\nfn c() {}\n").unwrap();
+        std::fs::write(dir.join("shut.rs"), "fn s() {}\n").unwrap();
+        std::fs::write(dir.join("gen/g.rs"), "fn g() {}\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["config", "core.autocrlf", "true"]);
+        git(&["switch", "-q", "-c", "feat"]);
+        git(&["mv", "old.rs", "new.rs"]);
+        std::fs::write(dir.join("gen/g.rs"), "fn g() {}\nfn h() {}\n").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "rename"]);
+        let sha = git(&["rev-parse", "HEAD"]);
+        let order = dir.join(".git/merl/review/feat");
+        std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+        std::fs::write(&order, format!("# commit {sha}skip gen\n")).unwrap();
+        let later = SystemTime::now() + Duration::from_secs(60);
+        for f in ["crlf.txt", "new.rs", "shut.rs", "gen/g.rs"] {
+            let f = std::fs::File::options().write(true).open(dir.join(f));
+            f.unwrap().set_modified(later).unwrap();
+        }
+        let shut = dir.join("shut.rs");
+        std::fs::set_permissions(&shut, std::os::unix::fs::PermissionsExt::from_mode(0)).unwrap();
+        let unreadable = std::fs::read(&shut).is_err();
+        let raw = changed_in(&dir, &["diff", "--raw", "--no-abbrev", "-z", "main"]);
+        std::fs::set_permissions(&shut, std::os::unix::fs::PermissionsExt::from_mode(0o644))
+            .unwrap();
+        let r = Review::open(&dir, None, Some("main"));
+        drop(std::fs::remove_dir_all(&dir));
+        let files: Vec<_> = (r.unwrap().files.iter())
+            .map(|f| (f.path.display().to_string(), f.status, f.agent_skipped))
+            .collect();
+        let review = [("gen/g.rs", 'M', true), ("new.rs", 'R', false)];
+        assert_eq!(files, review.map(|(p, s, a)| (p.to_owned(), s, a)));
+        let raw: Vec<_> = (raw.unwrap().iter())
+            .map(|f| (f.path.display().to_string(), f.status))
+            .collect();
+        let mut want = vec![("gen/g.rs".to_owned(), 'M'), ("new.rs".to_owned(), 'R')];
+        want.extend(unreadable.then(|| ("shut.rs".to_owned(), 'M')));
+        assert_eq!(raw, want);
     }
 }
