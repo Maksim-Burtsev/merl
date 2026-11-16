@@ -168,7 +168,7 @@ func Typed() func() struct {
 type Hearth struct {
 	Grate struct {
 		Flue Flue
-	//^ d: none
+	//^ d: picker rival/damper.go:139, rival/damper.go:178
 	//     ^ d: rival/damper.go:9
 	}
 }
@@ -236,4 +236,31 @@ func Lit(c Hob) int {
 	//             ^ d: rival/damper.go:227
 	//                             ^ d: rival/damper.go:228
 	//                                 ^ d: rival/damper.go:229
+}
+
+type Chute struct {
+	Ptr *struct {
+		Port int
+	//^ d: rival/damper.go:243
+	}
+	Mono struct{ Port int }
+}
+
+func Tumble(c Chute) int {
+	return c.Ptr.Port + c.Mono.Port
+	//           ^ d: rival/damper.go:243
+	//                         ^ d: rival/damper.go:246
+}
+
+type Flint struct {
+	Rows []struct {
+		Flue Flue
+	//^ d: none
+	}
+	Hood *struct {
+		Flue Flue
+	//^ d: picker rival/damper.go:139, rival/damper.go:178
+	}
+	Cap struct{ Flue Flue }
+	//          ^ d: none
 }

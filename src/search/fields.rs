@@ -87,7 +87,9 @@ fn class_fields(
                     line1: i + 1,
                     value: match value {
                         Value::Type(t)
-                            if t.strip_prefix("struct").is_some_and(|r| r.trim() == "{") =>
+                            if t.trim_start_matches('*')
+                                .strip_prefix("struct")
+                                .is_some_and(|r| r.trim_start().starts_with('{')) =>
                         {
                             Value::Struct(i + 1)
                         }
@@ -366,13 +368,23 @@ pub fn go_anonymous_field_name(lines: &[String], line: usize, lead: &str, tail: 
     static STRUCT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bstruct\s*\{\s*$").expect("the regex is a literal")
     });
-    let opener = go_opener(lines, line, indent(lead)).map(|(at, o)| {
-        let nested = STRUCT.is_match(o)
-            && go_opener(lines, at, indent(o)).is_some_and(|(_, g)| STRUCT.is_match(g));
-        if nested { "struct {" } else { o }
+    let opener = go_opener(lines, line, indent(lead)).map(|(mut at, mut o)| {
+        while go_nested_struct(o)
+            && let Some((up, g)) =
+                go_opener(lines, at, indent(o)).filter(|(_, g)| STRUCT.is_match(g))
+        {
+            (at, o) = (up, g);
+        }
+        o
     });
     go_one_line_field_name(lead, tail)
         || opener.is_some_and(|o| go_one_line_field_name(&format!("{o}{lead}"), tail))
+}
+fn go_nested_struct(line: &str) -> bool {
+    static NESTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s+\w+(?:\s*,\s*\w+)*\s+\*?struct\s*\{\s*$").expect("the regex is a literal")
+    });
+    NESTED.is_match(line)
 }
 fn go_opener(lines: &[String], line: usize, depth: usize) -> Option<(usize, &str)> {
     (lines
@@ -423,7 +435,7 @@ pub(super) fn go_embedded(t: &str) -> Option<&str> {
     Some(EMBEDDED.captures(t)?.get(1)?.as_str())
 }
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
-    enclosing_at(kind, lines, &levels(kind, lines), k)
+    enclosing_at(kind, lines, &levels(kind, lines), k, false)
 }
 pub fn ts_namespaced(text: &str, line1: usize, written: &str) -> Option<String> {
     static NAMESPACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -462,8 +474,15 @@ fn levels(kind: Kind, lines: &[&str]) -> Vec<Option<usize>> {
         })
         .collect()
 }
-fn enclosing_at(kind: Kind, lines: &[&str], levels: &[Option<usize>], k: usize) -> Option<usize> {
+fn enclosing_at(
+    kind: Kind,
+    lines: &[&str],
+    levels: &[Option<usize>],
+    k: usize,
+    in_nested: bool,
+) -> Option<usize> {
     let mut depth = indent(lines[k]);
+    let mut nested = None;
     for i in (0..k).rev() {
         if depth == 0 {
             break;
@@ -471,9 +490,13 @@ fn enclosing_at(kind: Kind, lines: &[&str], levels: &[Option<usize>], k: usize) 
         let Some(level) = levels[i].filter(|&l| l < depth) else {
             continue;
         };
+        let direct = depth == indent(lines[k]);
         depth = level;
         if declares_type(kind, lines[i]) || (kind == Kind::Go && go_type_group_member(lines, i)) {
-            return Some(i + 1);
+            return Some(nested.unwrap_or(i) + 1);
+        }
+        if in_nested && kind == Kind::Go && direct && go_nested_struct(lines[i]) {
+            nested = Some(i);
         }
     }
     None
@@ -538,7 +561,7 @@ fn field_rows_at(
             .map(|i| i + 1);
         let Some(decl) = owner.or_else(|| {
             let levels = levels_of.get_or_insert_with(|| levels(kind, &lines));
-            enclosing_at(kind, &lines, levels, k)
+            enclosing_at(kind, &lines, levels, k, at.is_some())
         }) else {
             continue;
         };

@@ -397,6 +397,9 @@ impl App {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
+                if let Some(class) = search::cpp_auto_std(text, line0 + 1, Some(col), head) {
+                    return Some((vec!["std".to_owned(), class], code, here_ctx, None));
+                }
                 let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, Some(col), head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
@@ -714,10 +717,18 @@ impl App {
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let on = |h: &Hit| h.path == here && h.line1 == self.line + 1;
-        if hits.len() < 2 || self.c_source() || self.objc_file() || hits.iter().any(on) {
+        if hits.is_empty() || self.c_source() || self.objc_file() || hits.iter().any(on) {
             return hits;
         }
-        let hits = self.cpp_members_out_of_reach(text, word, start, hits);
+        let code = search::c_code(text);
+        let free = search::cpp_in_free_function(&code, offset(text, self.line, start));
+        if hits.len() < 2 && !free {
+            return hits;
+        }
+        let hits = self.cpp_members_out_of_reach(&code, text, word, start, hits, free);
+        if hits.len() < 2 && free {
+            return hits;
+        }
         let Some((visible, args)) = self.cpp_visible(here, text, word, start, &hits) else {
             return hits;
         };
@@ -731,13 +742,14 @@ impl App {
 
     fn cpp_members_out_of_reach(
         &self,
+        code: &str,
         text: &str,
         word: &str,
         start: usize,
         hits: Vec<Hit>,
+        free: bool,
     ) -> Vec<Hit> {
-        let code = search::c_code(text);
-        if search::cpp_call_namespaces(&code, offset(text, self.line, start)).is_none() {
+        if search::cpp_call_namespaces(code, offset(text, self.line, start)).is_none() {
             return hits;
         }
         let member: Vec<bool> = (hits.iter())
@@ -748,7 +760,7 @@ impl App {
                 })
             })
             .collect();
-        if member.iter().all(|&m| m) {
+        if !free && member.iter().all(|&m| m) {
             return hits;
         }
         (hits.into_iter().zip(member))
