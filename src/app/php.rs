@@ -688,9 +688,12 @@ impl App {
 
     fn php_maps_outside(&self, path: &Path, full: &str) -> bool {
         let map = search::php_psr4(&self.root, path.parent().unwrap_or_else(|| Path::new("")));
-        !map.is_empty()
-            && search::php_psr4_file(&map, full, |f| self.files.iter().any(|p| p == f))
-                == search::Psr4File::OutsideProject
+        if map.is_empty() {
+            return !full.contains('\\')
+                && self.php_class(path, "", &format!("\\{full}")).1.is_empty();
+        }
+        search::php_psr4_file(&map, full, |f| self.files.iter().any(|p| p == f))
+            == search::Psr4File::OutsideProject
     }
 
     fn php_supplies(&mut self, class: &PhpClass, re: &Regex) -> bool {
