@@ -191,11 +191,7 @@ impl App {
         let search::PhpResolved { full, imported } =
             search::php_resolve(search::php_block(text, self.line), &written)?;
         if map.is_empty() {
-            let block = search::php_block(text, self.line);
-            if member || !imported || !self.php_class(here, block, &written).1.is_empty() {
-                return None;
-            }
-            return self.php_not_installed(here, text, &full, &written, true);
+            return self.php_unmapped(here, text, &full, &written, !member && imported);
         }
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
@@ -288,6 +284,21 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    fn php_unmapped(
+        &mut self,
+        here: &Path,
+        text: &str,
+        full: &str,
+        written: &str,
+        named: bool,
+    ) -> Option<Vec<Candidate>> {
+        let block = search::php_block(text, self.line);
+        if !named || !self.php_class(here, block, written).1.is_empty() {
+            return None;
+        }
+        self.php_not_installed(here, text, full, written, true)
     }
 
     fn php_not_installed(
