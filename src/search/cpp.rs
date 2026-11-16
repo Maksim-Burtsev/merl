@@ -5,7 +5,7 @@ use super::c::{
     ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_bindings_from,
     c_body_name, c_code, c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head,
     c_words_on_line, close_or_end, cpp_class_path, cpp_decl_start, line_starts,
-    scopes_inside_out_to_type_or_namespace, untemplated,
+    scopes_inside_out_to_type_or_namespace, top_level_paren_groups, untemplated,
 };
 use super::c_block::scope_pos;
 
@@ -712,6 +712,32 @@ pub fn cpp_call_namespaces(code: &str, pos: usize) -> Option<Vec<String>> {
         at = open;
     }
     Some(out)
+}
+
+pub fn cpp_in_free_function(code: &str, pos: usize) -> bool {
+    let mut body = None;
+    let mut at = pos;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
+        match brace(code, open) {
+            Brace::Code => body = Some(open),
+            Brace::Namespace(_) | Brace::Linkage => {}
+            Brace::Class | Brace::Unknown => return false,
+        }
+        at = open;
+    }
+    let Some(head) = body.and_then(|open| code.get(c_head_start(code, open)..open)) else {
+        return false;
+    };
+    let Head::Function { params, name } = c_head(head) else {
+        return false;
+    };
+    let prefix = (head.get(..params.start).map(str::trim_end))
+        .and_then(|b| b.strip_suffix(name.as_str()))
+        .map(str::trim_end);
+    name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        && name.bytes().any(|b| b.is_ascii_lowercase())
+        && top_level_paren_groups(head).first() == Some(&params)
+        && prefix.is_some_and(|p| !p.ends_with("::") && !p.ends_with("operator"))
 }
 
 pub fn cpp_function_namespace(
