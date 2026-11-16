@@ -20,6 +20,7 @@ mod edit;
 mod edit_fuzz;
 mod find;
 mod fold_bench;
+mod tree_proto;
 mod grow;
 mod haskell;
 mod julia;

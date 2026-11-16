@@ -26,8 +26,12 @@ pub struct Rules {
     locals: Query,
 }
 
+thread_local! {
+    pub static FORCE_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 pub fn off() -> bool {
-    std::env::var_os("MERL_NO_TREE").is_some()
+    FORCE_OFF.get() || std::env::var_os("MERL_NO_TREE").is_some()
 }
 
 pub fn rules(ext: &str) -> Option<&'static Rules> {
@@ -55,6 +59,12 @@ thread_local! {
 }
 
 impl Rules {
+    pub fn parser(&self) -> Option<Parser> {
+        let mut parser = Parser::new();
+        parser.set_language(&self.language).ok()?;
+        Some(parser)
+    }
+
     pub fn parse(&self, text: &str) -> Option<Tree> {
         let hit = LAST.with_borrow(|last| {
             last.as_ref()
@@ -64,9 +74,7 @@ impl Rules {
         if hit.is_some() {
             return hit;
         }
-        let mut parser = Parser::new();
-        parser.set_language(&self.language).ok()?;
-        let tree = parser.parse(text, None)?;
+        let tree = self.parser()?.parse(text, None)?;
         LAST.set(Some((self.name, text.to_owned(), tree.clone())));
         Some(tree)
     }
@@ -77,7 +85,7 @@ impl Rules {
         let mut matches = cursor.matches(&self.folds, tree.root_node(), text.as_bytes());
         let mut prev = None;
         while let Some(m) = matches.next() {
-            let (Some(first), Some(last)) = (m.captures.first(), m.captures.last()) else {
+            let (Some(first), Some(last)) = (m.captures().first(), m.captures().last()) else {
                 continue;
             };
             let start = first.node.start_position().row;
@@ -108,7 +116,7 @@ impl Rules {
                 .property_settings(m.pattern_index)
                 .iter()
                 .any(|p| &*p.key == "definition.var.scope" && p.value.as_deref() == Some("parent"));
-            for c in m.captures {
+            for c in m.captures() {
                 let kind = names[c.index as usize];
                 if kind == "local.scope" {
                     scopes.insert(c.node.id());
@@ -120,29 +128,19 @@ impl Rules {
             }
         }
         let root = tree.root_node();
-        let scope_of = |n: Option<Node>| {
-            let mut n = n;
-            while let Some(x) = n {
-                if scopes.contains(&x.id()) {
-                    return x;
-                }
-                n = x.parent();
-            }
-            root
-        };
         let mut owned: Vec<(usize, usize)> = Vec::new();
         for (d, parent) in defs {
-            let own = scope_of(Some(d));
+            let own = scope_or_root(&scopes, root, Some(d));
             owned.push((own.id(), d.start_position().row + 1));
             if parent && own.id() != root.id() {
-                owned.push((scope_of(own.parent()).id(), d.start_position().row + 1));
+                owned.push((scope_or_root(&scopes, root, own.parent()).id(), d.start_position().row + 1));
             }
         }
         let Some(mut node) = root.descendant_for_point_range(at, at) else {
             return Vec::new();
         };
         loop {
-            let scope = scope_of(Some(node));
+            let scope = scope_or_root(&scopes, root, Some(node));
             let mut rows: Vec<usize> = (owned.iter())
                 .filter(|(s, _)| *s == scope.id())
                 .map(|&(_, r)| r)
@@ -158,4 +156,14 @@ impl Rules {
             }
         }
     }
+}
+
+fn scope_or_root<'t>(scopes: &HashSet<usize>, root: Node<'t>, mut n: Option<Node<'t>>) -> Node<'t> {
+    while let Some(x) = n {
+        if scopes.contains(&x.id()) {
+            return x;
+        }
+        n = x.parent();
+    }
+    root
 }
