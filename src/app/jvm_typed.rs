@@ -485,9 +485,10 @@ impl App {
         called: bool,
     ) -> Option<Vec<Candidate>> {
         let line = self.line + 1;
-        let scope = match called {
-            true => Some(search::kotlin_scope_receiver(text, line, before)?),
-            false => None,
+        let scope = if called {
+            Some(search::kotlin_scope_receiver(text, line, before)?)
+        } else {
+            None
         };
         let made =
             (scope.as_ref()).and_then(|s| search::jvm_constructed_receiver(&format!("{s}."), true));
