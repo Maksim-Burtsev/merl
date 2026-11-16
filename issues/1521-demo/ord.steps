@@ -1,0 +1,8 @@
+# An ordinary review: no notes at all.
+wait viewed
+key Escape
+sleep 1.5
+key Tab
+sleep 0.6
+key Down Down Down Down Down Down Down Down Down
+sleep 2.5
