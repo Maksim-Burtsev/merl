@@ -97,3 +97,21 @@ struct Fast : Hasher {
 };
 template <class H> int crc_pick(H *h) { return h->Sum() ? 1 : 0; }
 //                                                ^ d: picker src/goblets.cc:93, src/goblets.cc:96
+template <typename Goblet> class Rack8 {
+public:
+    Goblet* held;
+    void f() { held->quaff(); }
+    //               ^ d: none
+};
+template <typename Goblet> class Rack9 {
+public:
+    Goblet held;
+    void f() { held.quaff(); this->held.quaff(); }
+    //              ^ d: none
+    //                                  ^ d: none
+};
+template <typename Goblet> class Rack10 {
+    Goblet held;
+    void f() { held.quaff(); }
+    //              ^ d: none
+};

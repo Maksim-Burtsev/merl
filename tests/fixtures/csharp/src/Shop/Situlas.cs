@@ -17,7 +17,7 @@ namespace Shop.Situlas
         public Situla Held;
         //     ^ d: src/Shop/Situlas.cs:15
         public void Use() { Held.Tipple(); }
-        //                       ^ d: picker src/Shop/Situlas.cs:7, src/Shop/Situlas.cs:12; want none (#1572)
+        //                       ^ d: none
     }
 
     public class Pails
