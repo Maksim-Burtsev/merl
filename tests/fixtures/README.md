@@ -144,7 +144,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   another file (`extension String`, `@available(…) extension Array`, `fun String.shout()`,
   `extension Loud on String`, `this string`, `declare global { interface Array<T> }`) on such a
   local, and Groovy, Scala and a JS local written again (`x = load(id)`) call a project method:
-  each is still a jump.
+  each is still a jump. `basket/loose/` (#1452) is PHP with no `composer.json` above it: its
+  `Route` from an uninstalled package answers the `use` line, never `Other/Route.php`.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

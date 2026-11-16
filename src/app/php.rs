@@ -188,11 +188,15 @@ impl App {
         let word = line.get(range.clone())?.to_owned();
         let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
         let map = search::php_psr4(&self.root, here.parent().unwrap_or_else(|| Path::new("")));
-        if map.is_empty() {
-            return None;
-        }
         let search::PhpResolved { full, imported } =
             search::php_resolve(search::php_block(text, self.line), &written)?;
+        if map.is_empty() {
+            let block = search::php_block(text, self.line);
+            if member || !imported || !self.php_class(here, block, &written).1.is_empty() {
+                return None;
+            }
+            return self.php_not_installed(here, text, &full, &written, true);
+        }
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
             None => ("", full.as_str()),

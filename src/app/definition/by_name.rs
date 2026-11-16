@@ -105,6 +105,11 @@ impl App {
         if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
             self.dart_unimported(&a.here, &a.word, &mut found);
             self.dart_outside_constructor(&a.word, &a.tail, &mut found);
+            if a.before.trim_end().ends_with('@')
+                && matches!(a.word.as_str(), "override" | "deprecated")
+            {
+                found.retain(|c| !c.hit.text.starts_with(char::is_whitespace));
+            }
         }
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Jvm && a.dotted {
