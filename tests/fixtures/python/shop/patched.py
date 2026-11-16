@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from shop import quoted
 from shop.quoted import Stylus
 
 
@@ -13,6 +14,10 @@ from shop.quoted import Stylus
 #                       ^ d: none
 @patch("shelf.quoted.Nib.blot")
 #                        ^ d: none
+@patch("kitchen.Nib")
+#               ^ d: shop/quoted.py:6
+@patch("quoted.Nib.blot")
+#              ^ d: shop/quoted.py:6
 def test_blot(s: Stylus) -> str:
-    return "s.blot"
+    return "s.blot" + quoted.a(s)
     #         ^ d: none

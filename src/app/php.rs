@@ -552,7 +552,7 @@ impl App {
                 let code = search::literal_lines(kind, &t).get(h.line1 - 1) != Some(&true);
                 let fits = full
                     .as_ref()
-                    .is_none_or(|f| namespaced(&t, h.line1 - 1) == *f);
+                    .is_none_or(|f| namespaced(&t, h.line1 - 1).eq_ignore_ascii_case(f));
                 (code && fits).then_some(PhpClass {
                     path: h.path,
                     text: t,
