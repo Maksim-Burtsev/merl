@@ -1003,8 +1003,9 @@ impl<'t, 'a> Model<'t, 'a> {
         let mut j = k;
         while j < self.toks.len() {
             if self.opener(j) {
+                let typed = j > k && matches!(self.before(j), ":" | "|" | "&" | "<" | ",");
                 j = self.pair[j]?;
-                if self.tx(j) == "}" {
+                if self.tx(j) == "}" && !typed {
                     let next = self.tx(j + 1);
                     if more.contains(&next) || (next == "while" && self.tx(k) == "do") {
                         j += 1;

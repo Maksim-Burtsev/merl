@@ -150,6 +150,7 @@ The ts, js, vue, svelte and astro rows with #1337 (a JSDoc `@returns` of an inte
 The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an array a namespaced type declares, `scope.variables.forEach(variable => …)`, also when the arrow spans lines or starts the line after the call's `(`: js0028 and js0166 now direct hits): over `a048d3311`, 2026-11-13, release build, `vm.loadavg` { 7.26 9.56 9.16 } before the run, { 6.92 9.45 9.12 } after (the times read high under that load).
 The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and dart rows with #1536 (a method on a local bound to a literal or a standard constructor is no by-name jump; groovy0014 and six pickers on rows not scored say no definition): over `70b6c03e0`, 2026-11-15, release build, `vm.loadavg` { 2.70 3.56 4.04 } before the run. The swift and csharp times rose on the base build too: with the gate switched off they read 50.5 and 44.0 ms p50 against 49.7 and 43.2 with it.
 The groovy row with the review of #1536 (the gate runs in Kotlin only within the JVM kinds): groovy0014, not scored, jumps to `ToolRef.getRef` again, as on master; the other rows unchanged, played over `08bba79a0`, 2026-11-15, release build.
+The swift, csharp, php, dart, ruby and rust rows with #1561 (times only: one combined one-line class body pattern per word, compiled matchers reused, C# and Swift binding checks skip lines without the name; swift 50.6 -> 25.5 ms p50, csharp 43.9 -> 31.5): over `489b994f6`, 2026-11-16, release build, `vm.loadavg` { 2.58 3.10 3.73 } before the run, { 5.39 4.38 4.08 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -157,15 +158,15 @@ The groovy row with the review of #1536 (the gate runs in Kotlin only within the
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 61.1 | 141.4 |
 | js (eslint, uptime-kuma) | 217 | 208 (96%) | 7 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 52.6 | 265.5 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
-| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
+| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.3 | 51.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
-| php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
+| php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 31.5 | 232.7 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 50.5 | 124.6 |
+| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 25.5 | 55.4 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 94.4 | 208.6 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 35.2 | 96.3 |
-| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 43.5 | 77.0 |
-| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.4 | 408.7 |
+| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 31.5 | 46.4 |
+| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 75.1 | 514.9 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 107.7 | 241.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 79.3 | 176.4 |
@@ -184,5 +185,5 @@ The groovy row with the review of #1536 (the gate runs in Kotlin only within the
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 79.5 | 169.5 |
+| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 71.0 | 168.5 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
