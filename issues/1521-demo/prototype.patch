@@ -1,0 +1,94 @@
+diff --git a/src/app/review.rs b/src/app/review.rs
+index 5d2619872..526129eba 100644
+--- a/src/app/review.rs
++++ b/src/app/review.rs
+@@ -506,6 +506,7 @@ impl App {
+             let hash = self.disk_hash(&rel);
+             self.hidden.remove(&rel);
+             self.ticked_this_round.insert(rel.clone());
++            self.p1521_save_seen(&rel);
+             self.viewed.insert(rel, hash);
+             any = true;
+         }
+@@ -515,7 +516,58 @@ impl App {
+     }
+ 
+     fn ticked(&self, rel: &Path) -> bool {
+-        self.viewed.get(rel) == Some(&self.disk_hash(rel))
++        self.viewed.get(rel) == Some(&self.disk_hash(rel)) && !self.p1521_new_answer(rel)
++    }
++
++    fn p1521_seen_store(&self) -> PathBuf {
++        self.root.join(".git/merl/viewed-answers")
++    }
++
++    fn p1521_answer_hashes(&self, rel: &Path) -> Vec<String> {
++        (self.notes.list.iter())
++            .filter(|n| n.path == rel)
++            .map(crate::app::notes::Note::agent_text)
++            .filter(|t| !t.is_empty())
++            .map(|t| {
++                let h = t.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
++                    (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3)
++                });
++                format!("{h:016x}")
++            })
++            .collect()
++    }
++
++    fn p1521_save_seen(&self, rel: &Path) {
++        if std::env::var("MERL_P1521").as_deref() != Ok("A") {
++            return;
++        }
++        let store = self.p1521_seen_store();
++        let key = rel.to_string_lossy().to_string();
++        let mut text: String = std::fs::read_to_string(&store)
++            .unwrap_or_default()
++            .lines()
++            .filter(|l| l.split('\t').next() != Some(key.as_str()))
++            .map(|l| format!("{l}\n"))
++            .collect();
++        for h in self.p1521_answer_hashes(rel) {
++            text += &format!("{key}\t{h}\n");
++        }
++        _ = std::fs::write(&store, text);
++    }
++
++    fn p1521_new_answer(&self, rel: &Path) -> bool {
++        if std::env::var("MERL_P1521").as_deref() != Ok("A") {
++            return false;
++        }
++        let key = rel.to_string_lossy().to_string();
++        let seen: HashSet<String> = std::fs::read_to_string(self.p1521_seen_store())
++            .unwrap_or_default()
++            .lines()
++            .filter_map(|l| l.split_once('\t'))
++            .filter(|(p, _)| *p == key)
++            .map(|(_, h)| h.to_owned())
++            .collect();
++        self.p1521_answer_hashes(rel).iter().any(|h| !seen.contains(h))
+     }
+ 
+     fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
+@@ -536,7 +588,11 @@ impl App {
+     fn disk_hash(&self, rel: &Path) -> u64 {
+         let path = self.root.join(rel);
+         let link = self.reviewed_link(&path).map(|b| b.to_bytes());
+-        let answers = self.answers_of(rel);
++        let answers = if std::env::var("MERL_P1521").is_ok() {
++            String::new()
++        } else {
++            self.answers_of(rel)
++        };
+         link.map_or_else(|| std::fs::read(&path), Ok)
+             .map_or(0, |bytes| {
+                 let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
+@@ -556,7 +612,7 @@ impl App {
+         let (mut viewed, mut hidden) = (HashMap::new(), HashMap::new());
+         for (p, &h) in self.viewed.iter().chain(&self.hidden) {
+             let listed = self.review.as_ref().is_some_and(|r| r.file(p).is_some());
+-            let to = if listed && self.disk_hash(p) == h {
++            let to = if listed && self.disk_hash(p) == h && !self.p1521_new_answer(p) {
+                 &mut viewed
+             } else {
+                 &mut hidden
