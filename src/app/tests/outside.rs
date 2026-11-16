@@ -791,6 +791,50 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
 }
 
 #[test]
+fn a_php_global_class_is_outside_a_project_without_composer_json() {
+    let totals = "<?php\n\nnamespace App;\n\nfunction doubled(array $prices): \\ArrayObject\n{\n    $out = new \\ArrayObject();\n    foreach ($prices as $p) {\n        $out->append($p * 2);\n    }\n    echo $out->count();\n    $own = new \\Basket();\n    $own->count();\n    $ns = new \\App\\Basket();\n    $ns->count();\n    return $out;\n}\n";
+    let basket = "<?php\n\nnamespace App;\n\nclass Basket\n{\n    public function append(string $item): void\n    {\n    }\n\n    public function count(): int\n    {\n        return 0;\n    }\n}\n";
+    let global = "<?php\n\nclass Basket\n{\n    public function count(): int\n    {\n        return 1;\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-global-outside",
+        &[
+            ("Totals.php", totals),
+            ("Basket.php", basket),
+            ("Global.php", global),
+        ],
+    );
+    a.no_external();
+    let mut d = |code: &str| {
+        d_on(&mut a, "Totals.php", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("$out->append"),
+        jump("no definition for append", "Totals.php:9")
+    );
+    assert_eq!(
+        d("$out->count"),
+        jump("no definition for count", "Totals.php:11")
+    );
+    assert_eq!(
+        d("$own->count"),
+        jump(
+            "count \u{2192} Basket::count (via $own: Basket)",
+            "Global.php:5"
+        ),
+        "a global class the project declares is no outside class"
+    );
+    assert_eq!(
+        d("$ns->count"),
+        jump(
+            "count \u{2192} Basket::count (via $ns: Basket)",
+            "Basket.php:11"
+        )
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn a_dart_name_skips_the_packages_the_library_cannot_see() {
     let cache = external_root(
         "outside-dart-unimported",
