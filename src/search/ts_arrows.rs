@@ -96,6 +96,12 @@ fn ts_callee_param(text: &str, before: &str, params: &str, name: &str) -> Option
     TYPE.is_match(t.trim())
         .then(|| Value::Type(t.trim().to_owned()))
 }
+pub fn ts_function_name(lead: &str) -> bool {
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])function\s*\*?\s*$").expect("the regex is a literal")
+    });
+    FUNCTION.is_match(lead)
+}
 pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
     let (Some(before), Some(after)) = (line.get(..at), line.get(at + name.len()..)) else {
         return false;

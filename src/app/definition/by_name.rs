@@ -491,13 +491,7 @@ impl App {
         if kind == Kind::Lua {
             self.lua_hits(a, &mut hits);
         }
-        if near.arrow_param
-            && !hits
-                .iter()
-                .any(|h| h.path == a.here && h.line1 == self.line + 1)
-        {
-            hits.push(self.own_hit(a));
-        }
+        self.own_line_at_declaration(a, near, &mut hits);
         if kind == Kind::Swift {
             self.swift_scoped(a, near, &mut hits);
             if a.before.ends_with('@') {
@@ -518,6 +512,21 @@ impl App {
         match kind {
             Kind::Jvm => self.jvm_hits(a, hits),
             _ => hits,
+        }
+    }
+
+    fn own_line_at_declaration(&self, a: &Asked, near: &Near, hits: &mut Vec<Hit>) {
+        let function_name = a.kind == Kind::TsJs
+            && !a.dotted
+            && a.chain.is_empty()
+            && !hits.is_empty()
+            && search::ts_function_name(&a.lead);
+        if (near.arrow_param || function_name)
+            && !hits
+                .iter()
+                .any(|h| h.path == a.here && h.line1 == self.line + 1)
+        {
+            hits.push(self.own_hit(a));
         }
     }
 
