@@ -17,6 +17,7 @@ pub(super) struct Asked {
     pub(super) text: String,
     pub(super) dotted: bool,
     pub(super) captured: bool,
+    pub(super) quoted: bool,
     pub(super) go_keyed: bool,
 }
 
@@ -204,6 +205,7 @@ impl App {
             text,
             dotted,
             captured,
+            quoted,
             go_keyed: false,
         })
     }
@@ -517,6 +519,7 @@ impl App {
             return shown;
         }
         if kind == Kind::C
+            && !a.quoted
             && !self.c_source()
             && !self.objc_file()
             && let Some(before) = self.line_str().get(..a.range.start).map(str::to_owned)
@@ -528,7 +531,8 @@ impl App {
             ));
         }
         if kind == Kind::C
-            && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
+            && let Some((found, broke)) =
+                self.c_early(&a.here, &a.text, &a.word, a.range.clone(), a.quoted)
         {
             self.show_definitions(kind, &a.word, &a.here, found, broke.as_deref());
             return true;
