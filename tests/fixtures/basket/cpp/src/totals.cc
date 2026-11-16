@@ -8,7 +8,7 @@ std::vector<int> doubled(const std::vector<int>& prices) {
     out.push_back(p * 2);
     //  ^ d: none
     seen.push_back(p);
-    //   ^ d: cpp/src/basket.h:2; want none (#1559)
+    //   ^ d: none
   }
   std::string text = "a,b";
   return text.empty() ? out : seen;

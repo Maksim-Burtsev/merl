@@ -662,3 +662,36 @@ fn f_above_a_function_past_a_blank_line_or_an_inner_attribute_folds_nothing() {
         }
     }
 }
+
+#[test]
+fn a_ts_function_with_an_object_type_in_its_return_type_folds_whole() {
+    let text = "export async function paginateQuery<T>(\n  ctx: AppContext,\n  find: (opts: { offset: number; limit: number }) => Promise<T[]>,\n  count: () => Promise<number>\n): Promise<{\n  results: T[];\n  pagination: PaginationType & { total: number };\n}> {\n  return find({ offset: 0, limit: 1 });\n}\n";
+    for ext in ["ts", "tsx", "js"] {
+        let mut a = app_as(ext, text);
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(0, 9)], "f in .{ext}");
+    }
+}
+
+#[test]
+fn a_ts_function_whose_return_type_is_or_holds_a_bare_object_type_folds_whole() {
+    let mut folded = Vec::new();
+    for (head, tail) in [
+        ("): {", "}"),
+        ("): null | {", "}"),
+        ("): Base & {", "}"),
+        ("): Map<string, {", "}>"),
+    ] {
+        let mut a = app_as(
+            "ts",
+            &format!(
+                "function f(\n  x: number\n{head}\n  a: number;\n{tail} {{\n  return f(x);\n}}\n"
+            ),
+        );
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        folded.push((head, a.collapsed.clone()));
+    }
+    assert!(folded.iter().all(|(_, c)| c == &[(0, 6)]), "{folded:?}");
+}

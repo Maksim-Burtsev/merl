@@ -120,6 +120,66 @@ const STD_RESULTS: &[&str] = &[
     "finally",
 ];
 
+const RESERVED: &[&str] = &[
+    "await",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "const",
+    "continue",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "else",
+    "enum",
+    "export",
+    "extends",
+    "false",
+    "finally",
+    "for",
+    "function",
+    "if",
+    "implements",
+    "import",
+    "in",
+    "instanceof",
+    "interface",
+    "let",
+    "new",
+    "null",
+    "return",
+    "switch",
+    "throw",
+    "true",
+    "try",
+    "typeof",
+    "undefined",
+    "var",
+    "void",
+    "while",
+    "with",
+    "yield",
+];
+
+const PRIMITIVES: &[&str] = &[
+    "any", "unknown", "never", "string", "number", "boolean", "bigint", "symbol", "object",
+];
+
+pub(super) fn js_keyword(a: &Asked) -> bool {
+    let typed =
+        (a.here.extension()).is_some_and(|e| e == "ts" || e == "tsx" || e == "mts" || e == "cts");
+    let word = a.word.as_str();
+    a.kind == Kind::TsJs
+        && !a.dotted
+        && !a.tail.trim_start().starts_with([':', '(', '?'])
+        && (RESERVED.contains(&word)
+            || typed
+                && PRIMITIVES.contains(&word)
+                && a.before.trim_end().ends_with([':', '<', '|', '&']))
+}
+
 fn std_global_call(global: &str, method: &str) -> bool {
     match global {
         "Promise" => matches!(

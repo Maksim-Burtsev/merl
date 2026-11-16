@@ -408,7 +408,9 @@ does; an out-of-class `operator()` keeps its parameters.
 the class inside an operator before a global namesake; a call inside a free operator in a namespace keeps its picker (#1029).
 `strainer.cc` calls, behind `using namespace strainer;`, free functions of `strainer.hh` indented in
 their namespace with parameters wrapped and `{` on its own line, one named like a member of `Mesh`
-written the same way, which a call from outside the class cannot reach (#1548).
+written the same way, which a call from outside the class cannot reach (#1548). Its `shake` and
+static `tilt`, with no free namesake, are no answer from `pour`, while `Mesh::sluice` defined out of
+the class still calls `shake` (#1562).
 `infuser.cc` defines constructors inside their class, after `explicit`, over an initializer
 list and a function-pointer parameter, and a destructor, each the answer on its own name, while
 a construction with `new` inside a method and in a function still leads to the class (#1248).

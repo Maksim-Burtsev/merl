@@ -3,6 +3,9 @@
 
   record.py sample LANG N [--exclude dir,dir]   picks N cursors in LANG's project -> cursors/LANG.tsv
   record.py oracle LANG                         asks a language server -> answers/LANG.tsv
+  record.py sample LANG N --heldout DIR/LANG/PROJECT [--seed S]   a held-out draw (seed 1114 by default)
+                                                -> DIR/LANG/cursors.tsv, never into the repository
+  record.py oracle LANG --heldout DIR/LANG/PROJECT                -> DIR/LANG/answers.tsv
 
 The projects are LANG's rows of projects.tsv, N cursors from each, cloned into the cache by `run`
 first ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
@@ -400,7 +403,7 @@ CSS_SHAPES = [
 ]
 
 
-def sample_css(root, n, exclude=()):
+def sample_css(root, n, exclude=(), seed=None):
     buckets = defaultdict(list)
     declared = set(re.findall(r"@function\s+([\w-]+)", subprocess.run(
         ["grep", "-rh", "@function", os.path.join(root, "scss")], capture_output=True, text=True).stdout))
@@ -429,7 +432,7 @@ def sample_css(root, n, exclude=()):
                     for m in re.finditer(r'\bclass="([^"{}]*)"', line):
                         for w in re.finditer(r"[^\s]+", m.group(1)):
                             buckets["class"].append((rel, ln, m.start(1) + w.start(), "class", w.group()))
-    return draw(buckets, {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}, 20261002, n)
+    return draw(buckets, {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}, seed or 20261002, n)
 
 
 SH_VARS = set("BASH_SOURCE FUNCNAME LINENO PWD HOME PATH IFS RANDOM OPTARG OPTIND BASH_VERSION".split())
@@ -567,12 +570,12 @@ def script_files(root, spec, only, exclude):
                 yield os.path.relpath(p, root), text
 
 
-def sample_script(lang, project, root, n, exclude):
+def sample_script(lang, project, root, n, exclude, seed=None):
     spec, kw, buckets = SPEC[lang], set(KW[lang]), defaultdict(list)
     for rel, text in script_files(root, spec, spec.get("only", {}).get(project, ()), exclude):
         for ln, col, sh, w in spec["words"](text, kw):
             buckets[sh].append((rel, ln, col, sh, w))
-    return draw(buckets, spec["mix"], 20261018, n)
+    return draw(buckets, spec["mix"], seed or 20261018, n)
 
 
 def draw(buckets, mix, seed, n):
@@ -586,12 +589,12 @@ def draw(buckets, mix, seed, n):
     return chosen
 
 
-def sample(lang, project, root, n, exclude=()):
+def sample(lang, project, root, n, exclude=(), seed=None):
     if lang == "css":
-        return sample_css(root, n, exclude)
+        return sample_css(root, n, exclude, seed)
     spec = SPEC[lang]
     if spec.get("words"):
-        return sample_script(lang, project, root, n, exclude)
+        return sample_script(lang, project, root, n, exclude, seed)
     kw = set(KW[lang])
     buckets = defaultdict(list)
     for d, dirs, files in os.walk(root):
@@ -636,7 +639,7 @@ def sample(lang, project, root, n, exclude=()):
     mix = {"member": 0.35, "call": 0.25, "type": 0.2, "name": 0.1, "path": 0.1}
     if spec.get("lisp"):
         mix = {"call": 0.5, "name": 0.35, "path": 0.1, "member": 0.025, "type": 0.025}
-    return draw(buckets, mix, 20260928, n)
+    return draw(buckets, mix, seed or 20260928, n)
 
 
 class Lsp:
@@ -917,16 +920,23 @@ def projects(lang):
 if __name__ == "__main__":
     a = sys.argv[1:]
     lang = a[1]
-    cursors, answers = (os.path.join(HERE, d, f"{lang}.tsv") for d in ("cursors", "answers"))
+    flag = lambda f, default=None: a[a.index(f) + 1] if f in a else default
+    if flag("--heldout"):
+        link = os.path.abspath(flag("--heldout"))
+        found, prefix, seed = [(os.path.basename(link), os.path.realpath(link))], "h" + lang, int(flag("--seed", 1114))
+        cursors, answers = (os.path.join(os.path.dirname(link), f"{d}.tsv") for d in ("cursors", "answers"))
+    else:
+        found, prefix, seed = projects(lang), lang, None
+        cursors, answers = (os.path.join(HERE, d, f"{lang}.tsv") for d in ("cursors", "answers"))
     if a[0] == "sample":
-        ex = a[a.index("--exclude") + 1].split(",") if "--exclude" in a else ()
-        rows = [(name, *c) for name, root in projects(lang) for c in sample(lang, name, root, int(a[2]), ex)]
+        ex = flag("--exclude", "").split(",") if "--exclude" in a else ()
+        rows = [(name, *c) for name, root in found for c in sample(lang, name, root, int(a[2]), ex, seed)]
         with open(cursors, "w") as fh:
             fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
             for i, (name, rel, ln, col, sh, w) in enumerate(rows):
-                fh.write(f"{lang}{i:04d}\t{name}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
+                fh.write(f"{prefix}{i:04d}\t{name}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
     elif a[0] == "oracle":
-        for name, root in projects(lang):
+        for name, root in found:
             oracle(lang, name, root, cursors, answers)
     else:
         raise SystemExit(__doc__)

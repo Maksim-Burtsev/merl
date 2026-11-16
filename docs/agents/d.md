@@ -16,6 +16,15 @@ master.
   when a shared path moves; the table goes into the commit message. A PR that changes the table
   commits the new baseline with it (`--update-baseline`), so the next PR compares against what
   master will be.
+- **The held-out set** (#1549): fresh projects, kept on the owner's machine outside the
+  repository, that no fix is tuned on. `tools/d-bench/run --heldout DIR` plays it and prints
+  aggregates per language only; `record.py sample|oracle LANG --heldout DIR/LANG/PROJECT` draws
+  and answers a language of it with a seed. No cursor, answer or project name of it goes into
+  the repository, an issue, a PR or a commit, and whoever writes a rule never reads it: the
+  dispatcher plays it once on a `d` epic, and the epic reports both numbers, bench and
+  held-out. The bar for showing merl: zero wrong jumps on the held-out set and at least 70 %
+  direct hits in each of the 17 languages of 1.0. A family issue whose night moves neither
+  number is closed with what shipped.
 - It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
   parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
 - The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose
