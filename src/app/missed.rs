@@ -2,7 +2,7 @@ use super::cursor::{word_end, word_start};
 use super::keys::named;
 use super::review::Next;
 use super::{
-    App, Duration, Focus, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, PathBuf,
+    App, Center, Duration, Focus, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, PathBuf,
     PickerKind, TextLine, Tier, UnicodeSegmentation, usages,
 };
 
@@ -89,7 +89,7 @@ struct Spot {
     anchor: Option<(TextLine, usize)>,
     top: (usize, usize),
     left: usize,
-    center: bool,
+    center: Center,
     row: Option<usize>,
     grown: Vec<super::grow::Grown>,
 }

@@ -1,6 +1,6 @@
 use super::{
-    App, Buffer, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine, Tree,
-    buffer, edit, git, lock_no_write,
+    App, Buffer, Center, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine,
+    Tree, buffer, edit, git, lock_no_write,
 };
 use crate::real::canonicalize;
 
@@ -402,7 +402,7 @@ impl App {
             self.set_at(t);
             self.col = col;
             self.sync_want_x();
-            self.center = true;
+            self.center = Center::Cursor;
         }
         self.drop_selection_if_moved(before);
         self.hist_note(true);
@@ -452,7 +452,7 @@ impl App {
         self.col = col;
         self.sync_want_x();
         if let Some(&row) = self.hist_rows.get(&self.history[i]) {
-            self.center = false;
+            self.center = Center::Off;
             (self.top_line, self.top_row) = self.back_rows(self.cursor_at(), row);
         }
         self.history[i] = (path, self.at(), self.col);

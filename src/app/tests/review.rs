@@ -2945,3 +2945,149 @@ fn c_walks_the_deleted_rows_of_a_tall_replaced_block_and_a_tall_deleted_file() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+fn feature_repo(tag: &str, base: &[(&str, String)], feature: &[(&str, String)]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    for (name, text) in base {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    for (name, text) in feature {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    std::fs::write(dir.join("new"), "n\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "work"]);
+    dir
+}
+
+fn numbered(p: &str, r: std::ops::Range<usize>) -> String {
+    r.map(|i| format!("{p}{i}\n")).collect()
+}
+
+#[test]
+fn c_on_a_change_taller_than_half_the_screen_draws_it_whole() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let changed = numbered("b", 0..30)
+        + &numbered("added", 0..15)
+        + &numbered("b", 30..60)
+        + &numbered("new", 0..5)
+        + &numbered("b", 72..90)
+        + "short\n"
+        + &numbered("b", 91..100);
+    let dir = feature_repo(
+        "halfhunk",
+        &[("big", numbered("b", 0..100))],
+        &[("big", changed)],
+    );
+    let mut a = review_start(&dir, None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("big"), 1);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut step = |a: &mut App, key: Option<char>| {
+        if let Some(k) = key {
+            press(a, KeyCode::Char(k), KeyModifiers::NONE);
+        }
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        (a.at(), a.top_line, a.top_row, a.bottom_line())
+    };
+    let whole_added = |a: &App| (TextLine::File(30), 30 + 15 - a.view_h, 0, 44);
+    let now = step(&mut a, Some('c'));
+    assert_eq!(
+        now,
+        whole_added(&a),
+        "15 added rows on a pane of {}: the last one on the bottom row",
+        a.view_h
+    );
+    let place = |s: (TextLine, usize, usize, usize)| (s.0, s.1, s.2);
+    let replaced = (TextLine::File(75), 75, 0);
+    assert_eq!(
+        place(step(&mut a, Some('c'))),
+        replaced,
+        "12 deleted rows above the first added line and 5 added below: the top on the first deleted row"
+    );
+    assert_eq!(
+        step(&mut a, Some('c')),
+        (TextLine::File(98), 89, 0, 107),
+        "a short change is centred, as before"
+    );
+    assert_eq!(
+        place(step(&mut a, Some('C'))),
+        replaced,
+        "C back lands on it whole too"
+    );
+    for _ in 0..3 {
+        if a.buf.path.as_deref() != Some(&*dir.join("big")) {
+            break;
+        }
+        step(&mut a, Some('c'));
+    }
+    walk_into(&mut a, "big");
+    let now = step(&mut a, None);
+    assert_eq!(now, whole_added(&a), "the panel opens the file on it whole");
+    find(&mut a, "new0");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        place(step(&mut a, None)),
+        (TextLine::File(75), 75, 2),
+        "/ onto a change's first line centres it, as before"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn c_steps_through_a_change_the_pinned_declarations_keep_from_fitting() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let body = |r: std::ops::Range<usize>| -> String {
+        r.map(|i| format!("        x{i} = {i}\n")).collect()
+    };
+    let head = "class K:\n    def m(self):\n";
+    let base = format!("{head}{}", body(0..60));
+    let block: String = (0..20).map(|i| format!("        y{i} = {i}\n")).collect();
+    let changed = format!("{head}{}{block}{}", body(0..30), body(30..60));
+    let dir = feature_repo("pinnedhunk", &[("k.py", base)], &[("k.py", changed)]);
+    let mut a = review_start(&dir, None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("k.py"), 1);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut c = |a: &mut App| {
+        press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        (a.buf.path.clone().unwrap(), a.line)
+    };
+    assert_eq!(c(&mut a), (dir.join("k.py"), 32), "the block's first line");
+    assert!(
+        a.view_h >= 20 && !a.pinned(a.top_line).is_empty(),
+        "20 rows fit on the pane of {} only without its pinned rows",
+        a.view_h
+    );
+    let mut stops = Vec::new();
+    while c(&mut a).0 == dir.join("k.py") && stops.len() < 9 {
+        stops.push(a.line);
+    }
+    assert!(
+        a.seen[Path::new("k.py")].is_superset(&(32..52).map(TextLine::File).collect()),
+        "every row of the block was drawn before c left it: {stops:?}"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

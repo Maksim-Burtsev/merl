@@ -326,6 +326,14 @@ pub enum Focus {
     Code,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum Center {
+    #[default]
+    Off,
+    Cursor,
+    WholeHunk,
+}
+
 const SIDE_OFF: usize = 8;
 const HIST_NEAR: usize = 10;
 const HIST_MAX: usize = 50;
@@ -412,7 +420,7 @@ pub struct App {
     pub view_w: usize,
     pub view_h: usize,
     pub cursor_cell: Option<ratatui::layout::Position>,
-    center: bool,
+    center: Center,
     pub tutor: Option<Tutor>,
     pub help_top: usize,
     pub no_watch: bool,
@@ -581,7 +589,7 @@ impl App {
             view_w: 80,
             view_h: 24,
             cursor_cell: None,
-            center: false,
+            center: Center::Off,
             tutor: None,
             help_top: 0,
             no_watch: false,

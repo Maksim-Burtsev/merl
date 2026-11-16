@@ -22,7 +22,8 @@
 # On a pane of 12 rows, c in refunds.py, a hunk taller than the screen, stands on its first rows
 # not drawn yet, 12 then 18, before it goes on to the next file not ticked (#908). Then c walks
 # to the end: the status bar's `viewed 5/7` counts the ticked files of the 7 that c stops on (the
-# PNG is not one), and reads 7/7 once the walk is over (#1505).
+# PNG is not one), and reads 7/7 once the walk is over (#1505). Last, on that pane of 40 rows, the panel opens
+# repos.py on the 28 rows it deleted and draws them all, their last on the bottom row, not centred with their end cut off (#1190).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait app/refunds.py  1:1  [code]  hunk 1/1
@@ -31,7 +32,7 @@ key c
 wait app/repos.py  -32:1  [code]  hunk 1/1
 caption the lines the branch deleted at the end of repos.py are lines: PgDn walks them, down to the last (#179, #439)
 key PageDown
-wait self.orders.clear()
+wait app/repos.py  -59:1
 caption two imports three lines apart are two hunks, though git's interHunkContext would merge them (#220)
 key c
 wait hunk 1/4
@@ -178,3 +179,6 @@ key c
 wait hunk 2/2  viewed 6/7
 key c
 wait viewed 7/7
+caption the panel opens repos.py on its change, taller than half the screen but not the whole: drawn whole, its last row on the bottom row (#1190)
+key Tab Home Down Down Enter
+wait app/repos.py  -32:1

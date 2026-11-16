@@ -1,4 +1,4 @@
-use super::{App, SIDE_OFF, search, shown_str, wrap};
+use super::{App, Center, SIDE_OFF, search, shown_str, wrap};
 
 const MAX_PINNED: usize = 2;
 
@@ -27,9 +27,13 @@ impl App {
         self.clamp_top();
         self.clamp_left();
         let cur = self.cursor_at();
-        if std::mem::take(&mut self.center) {
-            self.center_cursor();
-            return;
+        match std::mem::take(&mut self.center) {
+            Center::Off => {}
+            Center::Cursor => return self.center_cursor(),
+            Center::WholeHunk => {
+                self.center_cursor();
+                return self.show_whole_hunk();
+            }
         }
         if cur < (self.top_line, self.top_row) {
             (self.top_line, self.top_row) = cur;

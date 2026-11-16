@@ -1,4 +1,4 @@
-use super::{App, Buffer, Focus, KeyCode, KeyEvent, KeyModifiers, Path, PathBuf};
+use super::{App, Buffer, Center, Focus, KeyCode, KeyEvent, KeyModifiers, Path, PathBuf};
 use crate::markdown::data::{Data, Parsed, data};
 use crate::markdown::{self, Ask, Doc, Kind};
 
@@ -180,7 +180,7 @@ impl App {
 
     pub(crate) fn preview_clamp(&mut self) {
         let h = self.view_h.max(1);
-        let center = std::mem::take(&mut self.center);
+        let center = std::mem::take(&mut self.center) != Center::Off;
         let Some(p) = &mut self.preview else {
             return;
         };

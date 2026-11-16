@@ -7,7 +7,9 @@ PgDn
 Picker: Enter
 Picker: Esc
 Tab
+Tree: Down
 Tree: Enter
+Tree: Home
 Tree: Up
 [
 c

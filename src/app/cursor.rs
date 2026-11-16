@@ -1,4 +1,6 @@
-use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
+use super::{
+    App, Center, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap,
+};
 
 impl App {
     pub(crate) fn sync_want_x(&mut self) {
@@ -351,7 +353,7 @@ impl App {
     pub fn goto_line(&mut self, line1: usize) {
         self.go((line1.max(1).min(self.buf.lines.len()) - 1, 0));
         self.want_x = 0;
-        self.center = true;
+        self.center = Center::Cursor;
     }
 
     pub(super) fn written(&self, kind: Option<Kind>, start: usize) -> search::LineAsRead {
