@@ -389,6 +389,7 @@ impl App {
         text: &str,
         before: &str,
         word: &str,
+        called: bool,
     ) -> Option<Vec<Candidate>> {
         let lines: Vec<&str> = text.lines().collect();
         let candidate = |path: &Path, lines: &[&str], line: usize, reason: Reason| Candidate {
@@ -410,9 +411,9 @@ impl App {
         }
         if kotlin
             && word.starts_with(|c: char| c.is_ascii_lowercase())
-            && let Some(found) = self.kotlin_scope_member(here, text, before, word)
+            && let Some(found) = self.kotlin_scope_member(here, text, before, word, called)
         {
-            return Some(found);
+            return (!found.is_empty()).then_some(found);
         }
         if search::groovy(here)
             && word.starts_with(|c: char| c.is_ascii_lowercase())

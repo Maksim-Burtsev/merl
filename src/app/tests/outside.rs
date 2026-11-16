@@ -1651,3 +1651,53 @@ fn a_php_variable_bound_from_a_method_on_a_typed_property_reads_its_native_retur
          picker"
     );
 }
+
+#[test]
+fn a_dart_override_annotation_skips_a_package_s_fields_of_that_name() {
+    let cache = external_root(
+        "outside-dart-override",
+        &[
+            (
+                "analyzer/lib/element.dart",
+                "class Version {\n  final Version? override;\n  Version(this.override);\n}\n\nvoid read(Version v) {\n  final override = v.override;\n}\n",
+            ),
+            ("sdk/lib/core/core.dart", "part 'annotations.dart';\n"),
+            (
+                "sdk/lib/core/annotations.dart",
+                "part of dart.core;\n\nconst Object override = _Override();\n",
+            ),
+        ],
+    );
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{{\"name\": \"analyzer\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}]}}\n",
+        cache.join("analyzer").display()
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-override-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            (
+                "test/fake_test.dart",
+                "class Fake implements Comparable<int> {\n  @override\n  int compareTo(int other) => 0;\n}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Dart,
+        &[cache.join("analyzer/lib"), cache.join("sdk/lib")],
+    );
+    d_on(&mut a, "test/fake_test.dart", "@|override");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "override: by name, 1 match",
+            &at(&cache, "sdk/lib/core/annotations.dart", 3)
+        ),
+        "`@override` is dart:core's const, never a package's field or local named `override`"
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

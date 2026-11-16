@@ -63,7 +63,7 @@ extension SitulaBrim {
         typealias Brim = Int
         struct Pin {
             func push(_ b: Brim) {}
-            //             ^ d: picker Sources/Shop/SitulasNest.swift:63, Sources/Shop/SitulasFar.swift:34, Sources/Shop/SitulasFar.swift:42; want Sources/Shop/SitulasNest.swift:63 (#1438)
+            //             ^ d: picker Sources/Shop/SitulasNest.swift:63, Sources/Shop/SitulasFar.swift:34, Sources/Shop/SitulasFar.swift:42; want Sources/Shop/SitulasNest.swift:63 (#1572)
         }
     }
 }
