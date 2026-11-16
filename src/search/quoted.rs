@@ -375,3 +375,19 @@ fn regex_literal(b: &[u8], i: usize) -> Option<usize> {
     }
     None
 }
+
+pub fn python_path_string(lead: &str, tail: &str) -> bool {
+    let part = |c: char| c == '_' || c == '.' || c.is_alphanumeric();
+    let open = lead.trim_end_matches(part);
+    let close = tail.trim_start_matches(part);
+    let named = |s: &str| s.starts_with(|c: char| c == '_' || c.is_alphabetic());
+    let after = &tail[..tail.len() - close.len()];
+    open.chars()
+        .last()
+        .is_some_and(|q| (q == '"' || q == '\'') && close.starts_with(q))
+        && (lead[open.len()..].strip_suffix('.')).is_some_and(|b| b.split('.').all(named))
+        && (after.is_empty()
+            || after
+                .strip_prefix('.')
+                .is_some_and(|a| a.split('.').all(named)))
+}

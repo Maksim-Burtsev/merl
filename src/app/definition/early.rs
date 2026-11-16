@@ -182,6 +182,16 @@ impl App {
             .sum::<usize>()
             + range.start;
         let quoted = search::in_string_text(kind, &here, &text, script_at);
+        if quoted
+            && kind == Kind::Python
+            && search::python_path_string(&lead, &tail)
+            && let Some(top) = chain.first()
+        {
+            let found =
+                self.imported_definitions(kind, &here, &word, &chain, std::slice::from_ref(top));
+            self.show_definitions(kind, &word, &here, found.unwrap_or_default(), None);
+            return None;
+        }
         let (chain, dotted) = if quoted {
             (Vec::new(), false)
         } else {
