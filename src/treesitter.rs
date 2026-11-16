@@ -1464,6 +1464,7 @@ mod filetype;
 mod heads;
 mod layers;
 mod pattern;
+pub mod syntax;
 
 #[cfg(test)]
 mod tests;

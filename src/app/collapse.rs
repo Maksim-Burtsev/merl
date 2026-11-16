@@ -51,6 +51,15 @@ impl App {
             .path
             .as_deref()
             .and_then(|p| p.extension()?.to_str());
+        if let Some(rules) = ext
+            .and_then(crate::treesitter::syntax::rules)
+            .filter(|_| !crate::treesitter::syntax::off())
+        {
+            let text = lines.join("\n") + "\n";
+            let tree = rules.parse(&text)?;
+            let folds = vim_folds(lines.len(), rules.folds(&tree, &text).into_iter());
+            return Some(Folds::Spans(folds.into_iter().collect()));
+        }
         let spans = match ext {
             Some("json") => Some(spans::json(lines)),
             Some("css") => Some(spans::css(lines)),
