@@ -85,11 +85,14 @@ carries three labels:
   time allows.
 
 A large piece of work is an `epic`: a parent issue whose sub-issues are the work. The next issue
-to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`. An
-issue you file gets its three labels, the milestone if 1.0 needs it (never a `to-think` one), and
-its epic as the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
+to take is the top of `is:open label:agent-ok label:P1 -label:epic -label:in-progress`, bugs
+found on real projects and the 17 languages of 1.0 (named in the milestone's description)
+before the rest. An issue you file gets its three labels, the milestone if 1.0 needs it (never a
+`to-think` one), and its epic as the parent when one fits (`gh issue edit EPIC --add-sub-issue N`).
 
-An issue's body opens with `Visible:`: `no`, or what the user will see change. A visible issue
+An issue's body opens with `Visible:`: `no`, or what the user will see change. Visible also
+means a key that starts working in a new language, a new detail in a list row, and a changed
+answer by default (a jump where merl said "no definition", or the reverse). A visible issue
 gets `agent-ok` only with a `## Proposal` in its body that the owner has picked from
 (`.claude/skills/proposal/SKILL.md` shapes one): what is built before the owner saw it tends to
 be built twice. A visible change the owner takes as an experiment ships behind a hidden setting,
@@ -126,7 +129,12 @@ with its issue closed, or waits under `needs-owner` (see `docs/agents/merging.md
    merl` before trusting a result. A build of master (for a screencast) gets a
    worktree and a target of its own too.
 4. Keep scratch files (fixtures, GIFs, harnesses) in a folder named after the issue: parallel
-   runs share a scratchpad and overwrite each other's `before.gif`.
+   runs share a scratchpad and overwrite each other's `before.gif`. Running merl yourself (tmux
+   probes, screencasts), give the merl process a `HOME` in that folder and a stand-in `pbcopy`
+   first on `PATH`: merl counts key presses into the user's statistics and copies through the
+   system clipboard (#1506). Keep its toolchains real (`CARGO_HOME`, `RUSTUP_HOME`, `GOPATH`):
+   without them rustup downloads a toolchain into that `HOME`, and `d` loses the sysroot and the
+   crate registry the user's merl reads.
 5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
    by step (`tools/ci-local clippy tests` runs only those), and the Deny workflow's `cargo deny`
    (`deny`), stopping non-zero at the first that fails. A change a user can see adds its
@@ -163,9 +171,10 @@ with its issue closed, or waits under `needs-owner` (see `docs/agents/merging.md
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast (`docs/agents/screencasts.md`), open the PR, and check `gh pr diff
-   --name-only` holds only your files. The PR says `Closes #N` only when the issue's own example
-   now does what the issue wants: run it on the build. Otherwise it says `Part of #N`, and what
-   is left is filed as an issue.
+   --name-only` holds only your files. The PR says `Closes #N` only when every example of the
+   issue's body now does what the issue wants: run them on the build. Otherwise it says `Part
+   of #N`, and what is left is filed as an issue. What you find beyond the body goes into a new
+   issue too; a known wrong jump is never left only in a comment.
 8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
    branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
    with the fixes pushed, go on as `docs/agents/merging.md` says. A docs-only PR needs no review.
