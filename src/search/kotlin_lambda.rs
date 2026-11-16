@@ -159,6 +159,21 @@ pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<
     Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
+pub fn kotlin_scope_receiver(text: &str, line1: usize, before: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:(.*\S)\s*\.\s*(?:run|apply)|(?:^|[^\w.])with\s*\((.+)\))\s*\{$")
+            .expect("the regex is a literal")
+    });
+    static THIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])this(?:@\w+)?$").expect("the regex is a literal")
+    });
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == "it").then_some(())?;
+    let c = CALL.captures(&head)?;
+    let receiver = c.get(1).or_else(|| c.get(2))?.as_str().trim();
+    (!THIS.is_match(receiver)).then(|| receiver.to_owned())
+}
+
 pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str) -> bool {
     static GROOVY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\.\s*(?:with|tap)\s*\{$").expect("the regex is a literal")

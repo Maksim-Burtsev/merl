@@ -58,7 +58,22 @@ impl App {
             .collect()
     }
 
-    pub(super) fn dart_unimported(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
+    pub(super) fn dart_outside_kept(
+        &self,
+        here: &Path,
+        word: &str,
+        before: &str,
+        tail: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        self.dart_unimported(here, word, found);
+        self.dart_outside_constructor(word, tail, found);
+        if before.trim_end().ends_with('@') && matches!(word, "override" | "deprecated") {
+            found.retain(|c| !c.hit.text.starts_with(char::is_whitespace));
+        }
+    }
+
+    fn dart_unimported(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
         self.dart_outside_by_import(here, word, found);
         let Some((roots, _)) = self.external.get(&Kind::Dart) else {
             return;
