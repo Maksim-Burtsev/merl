@@ -96,6 +96,42 @@ impl App {
         self.cpp_found(here, text, &owner, &ats, word, &links)
     }
 
+    pub(super) fn cpp_param_receiver(
+        &mut self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<String> {
+        let r = search::cpp_receiver(before)?;
+        let this = r.head == "this";
+        if r.head_called
+            || r.braced
+            || r.indexed
+            || r.calls.contains(&true)
+            || r.fields.len() != usize::from(this)
+        {
+            return None;
+        }
+        let start = self.cpp_start(here, text, &r, word, (self.line, self.col), 0)?;
+        let around = search::c_method_class(text, self.line + 1, word);
+        let ((ty, ..), _, prev) = self
+            .cpp_walk(here, start, around, &r, &mut Vec::new())
+            .ok()?;
+        let [one] = ty.as_slice() else {
+            return None;
+        };
+        let at = search::type_param_line(Kind::C, text, self.line + 1, one)?;
+        let required = (text.lines().skip(at.saturating_sub(1)))
+            .take((self.line + 2).saturating_sub(at))
+            .any(|l| {
+                l.split(|c: char| !c.is_alphanumeric() && c != '_')
+                    .any(|w| w == "requires")
+            });
+        let bound = search::type_param_bound(Kind::C, text, self.line + 1, one)?.bound;
+        (bound.is_none() && !required).then(|| format!("{prev}: type parameter {one}"))
+    }
+
     fn cpp_walk(
         &mut self,
         here: &Path,
