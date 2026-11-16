@@ -412,7 +412,7 @@ impl App {
             && word.starts_with(|c: char| c.is_ascii_lowercase())
             && let Some(found) = self.kotlin_scope_member(here, text, before, word)
         {
-            return Some(found);
+            return (!found.is_empty()).then_some(found);
         }
         if search::groovy(here)
             && word.starts_with(|c: char| c.is_ascii_lowercase())

@@ -484,13 +484,21 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let line = self.line + 1;
-        let receiver = search::kotlin_lambda_receiver(text, line, before)?;
-        let WrittenType {
-            resolved: JvmType::Project(decl),
-            written,
-        } = self.jvm_value(here, text, line, &receiver, true, 1)?
-        else {
-            return None;
+        let scope = search::kotlin_scope_receiver(text, line, before)?;
+        let typed = match search::jvm_constructed_receiver(&format!("{scope}."), true) {
+            Some(made) => match self.jvm_made(here, text, &made, true) {
+                JvmType::Project(decl) => Some((decl, format!("{made}()"))),
+                _ => None,
+            },
+            None => search::kotlin_lambda_receiver(text, line, before)
+                .and_then(|receiver| self.jvm_value(here, text, line, &receiver, true, 1))
+                .and_then(|w| match w.resolved {
+                    JvmType::Project(decl) => Some((decl, w.written)),
+                    _ => None,
+                }),
+        };
+        let Some((decl, written)) = typed else {
+            return Some(Vec::new());
         };
         let reason = Reason::Receiver(format!("this: {written}"));
         let found: Vec<Candidate> =
