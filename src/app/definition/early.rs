@@ -16,11 +16,22 @@ pub(super) struct Asked {
     pub(super) chain: Vec<String>,
     pub(super) text: String,
     pub(super) dotted: bool,
-    pub(super) captured: bool,
+    pub(super) quoted: bool,
     pub(super) go_keyed: bool,
 }
 
+fn captured(kind: Kind, lead: &str, tail: &str) -> bool {
+    kind == Kind::Rust
+        && lead.ends_with('{')
+        && !lead.ends_with("{{")
+        && tail.starts_with(['}', ':'])
+}
+
 impl Asked {
+    pub(super) fn captured(&self) -> bool {
+        captured(self.kind, &self.lead, &self.tail)
+    }
+
     pub(super) fn first(&self) -> &str {
         self.chain
             .first()
@@ -163,11 +174,7 @@ impl App {
             .map(|l| l.len() + 1)
             .sum::<usize>()
             + range.start;
-        let captured = kind == Kind::Rust
-            && lead.ends_with('{')
-            && !lead.ends_with("{{")
-            && tail.starts_with(['}', ':']);
-        if !captured
+        if !captured(kind, &lead, &tail)
             && (search::in_string(kind, &text, at)
                 || (kind == Kind::Scheme
                     && (search::racket_prose(&here, &text, at)
@@ -203,7 +210,7 @@ impl App {
             chain,
             text,
             dotted,
-            captured,
+            quoted,
             go_keyed: false,
         })
     }
@@ -517,6 +524,7 @@ impl App {
             return shown;
         }
         if kind == Kind::C
+            && !a.quoted
             && !self.c_source()
             && !self.objc_file()
             && let Some(before) = self.line_str().get(..a.range.start).map(str::to_owned)
@@ -528,7 +536,8 @@ impl App {
             ));
         }
         if kind == Kind::C
-            && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
+            && let Some((found, broke)) =
+                self.c_early(&a.here, &a.text, &a.word, a.range.clone(), a.quoted)
         {
             self.show_definitions(kind, &a.word, &a.here, found, broke.as_deref());
             return true;

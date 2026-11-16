@@ -80,6 +80,11 @@ fn code_after_a_quote_like_token_stays_code() {
     ] {
         assert_eq!(texts(kind, file, unclosed), [false], "{file}");
     }
+    let cpp = "u8R\"x(\n)\" s.^a )x\" + R\"(^b)\" + 1'000 + s.^c + FOO_R\"(\" + ^d + '\"' + ^e";
+    assert_eq!(
+        texts(Kind::C, "a.cc", cpp),
+        [true, true, false, false, false]
+    );
     let blank = format!("{}'^a'", "\n".repeat(1 << 20));
     assert_eq!(texts(Kind::TsJs, "a.vue", &blank), [true]);
 }
