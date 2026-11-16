@@ -283,8 +283,10 @@ impl App {
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = rust_not_local(a);
-        let rust_field =
-            kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
+        let rust_field = kind == Kind::Rust
+            && after.starts_with(':')
+            && !after.starts_with("::")
+            && !a.captured();
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
         let required = match kind {
             Kind::TsJs => search::ts_import_lines1(&a.text, first),
