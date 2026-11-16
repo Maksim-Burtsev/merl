@@ -35,7 +35,7 @@ For each branch:
    names another base, use that. Read the diff from these
    refs. Do not switch, check out, reset or stash anything: the working tree is the user's, and
    merl checks the branch out itself when they open it.
-2. Decide the order (see "The order").
+2. Decide the order and what to skip (see "The order").
 3. Write the order to `$(git rev-parse --git-common-dir)/merl/review/BRANCH`, the branch name
    with its slashes (`.git/merl/review/feat/paging`). Create the directories. The first line is
    `# commit SHA`, the commit of `origin/BRANCH` you read; then the paths, one per line.
@@ -65,7 +65,7 @@ to read from start to finish. The user opens `merl` in the repository.
 # notes are for you; merl skips every line that starts with #
 app/model/page.py
 app/repo/notes.py
-tests/test_paging.py
+skip tests/test_paging.py
 ```
 
 Paths are relative to the repository root, one per line. merl keeps the tree a tree: inside
@@ -80,9 +80,9 @@ ever hidden. A path that is not in the tree or the branch is ignored.
 The user reads the change once, top to bottom of merl's panel, and by the last file should
 have the whole picture: what changed and, between the lines, why. Order the files so the
 change unfolds in sequence, like a story. A story usually starts where the change shows from
-the outside (an endpoint, a command, a screen) and goes inward, toward the data; tests,
-wiring and docs come after it, and what is not part of the story goes last, under a `#`
-note. Look at as much of the change as you need to decide. Often no order is the single
+the outside (an endpoint, a command, a screen) and goes inward, toward the data; wiring
+comes after it, then what is not part of the story under a `#` note, and the skipped paths
+last. Look at as much of the change as you need to decide. Often no order is the single
 right one; pick one that reads well. merl keeps a directory's files together, so a directory
 is a chapter.
 
@@ -91,10 +91,10 @@ how it works.
 
 ### What the user need not read
 
-When the user asks you to leave out what they need not read, write `skip ` before each such
-path, in its place in the order (`skip CHANGELOG.md`; `skip docs/` skips every file under it),
-and put those paths last. merl keeps the file in its panel with a mark, `c` / `C` walk past it,
-and the user can still open it from the panel.
+In every review you prepare, skip what the user need not read, unless they say otherwise:
+write `skip ` before each such path, in its place in the order (`skip CHANGELOG.md`;
+`skip docs/` skips every file under it), and put those paths last. merl keeps the file in its
+panel with a mark, `c` / `C` walk past it, and the user can still open it from the panel.
 
 Read a file's diff before you skip it, and skip only what is not production code:
 

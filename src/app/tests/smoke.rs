@@ -71,6 +71,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         1334,
         "The class in d's list for Racket, Scheme, Common Lisp, Emacs Lisp and Nix: lisp-d plays only Clojure and nix-d's d lands without a list; class_bench measures the class and a_lisp_row_s_class_is_a_form_still_open_on_its_line_whatever_the_indent shows it",
     ),
+    (
+        1306,
+        "a line of the --for-agents guide only, which no screen draws; review-skip plays the skipped files' 🤖 and c, and the_guide_tells_an_agent_to_skip_by_default reads the guide",
+    ),
 ];
 
 fn root() -> PathBuf {
