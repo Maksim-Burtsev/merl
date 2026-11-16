@@ -1,0 +1,26 @@
+# merl notes · agent/unquote ← origin/master · c250c1e
+# The user's review notes, for you. Answer under a note with `agent:`, or delete its block when it is done.
+
+httpx/_utils.py:91
+> def unquote_header(value: str) -> str:
+rename it to strip_quotes: unquote clashes with urllib's unquote in _urls.py
+agent: renamed it unquote_header instead: strip_quotes was the helper in _quoting.py you asked me to delete
+
+httpx/_utils.py:94
+>     return value
+why return it unchanged instead of raising?
+agent: a bare value is valid in a Digest header (algorithm=MD5); raising would fail the login on such servers
+
+httpx/_auth.py:13
+> from ._utils import to_bytes, to_str, unquote_header
+let's delete this file, it duplicates unquote in _utils.py
+agent: deleted _quoting.py; _auth.py imports unquote_header from _utils again
+
+tests/test_utils.py:162
+> def test_unquote_header(value, expected):
+agent: tests/test_auth.py has no Digest login with a single-quoted realm; add one?
+
+CHANGELOG.md:16
+> * Digest auth reads single-quoted header values. (#3801)
+is this worth a changelog line?
+agent: yes: Digest auth failed on servers that single-quote the realm until now
