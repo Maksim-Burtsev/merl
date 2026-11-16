@@ -300,7 +300,7 @@ fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize
                 && !continues(t)
                 && !t.starts_with(['{', '}', '#'])
                 && indent(lines[i]) < depth
-                && !(kind == Kind::C && access_label(t))
+                && (kind != Kind::C || !access_label(t))
         })?;
     }
 }

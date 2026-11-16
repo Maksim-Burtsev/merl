@@ -7,6 +7,7 @@ use super::{
     split_top, swift_mods, uncommented,
 };
 mod top;
+use top::{member_types, swift_local_decls, swift_word_and_param};
 pub use top::{
     swift_bindings_or_top, swift_decl_generics, swift_extended_elsewhere, swift_member_scope_top,
 };
@@ -665,25 +666,6 @@ fn swift_line1_writing(lines: &[&str], start: usize, end: usize, re: &Regex) -> 
         .unwrap_or(start)
         + 1
 }
-fn swift_local_decls(
-    lines: &[&str],
-    literal: &[bool],
-    at: usize,
-    name: &str,
-    open: usize,
-    depth: usize,
-) -> Option<Vec<Binding>> {
-    let found: Vec<usize> = (open + 1..lines.len())
-        .filter(|&j| swift_code(lines, literal, j))
-        .take_while(|&j| indent(lines[j]) >= depth)
-        .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
-        .collect();
-    let bindings = found.iter().map(|&j| Binding {
-        line1: j + 1,
-        value: Value::Unknown,
-    });
-    Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !found.contains(&at))
-}
 fn swift_statement_binds(
     lines: &[&str],
     at: usize,
@@ -723,12 +705,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             value: Value::Unknown,
         }])
     };
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let (word, param) = (
-        rule(format!(r"(?:^|[^\w.]){n}\b")),
-        rule(format!(r"\b{n}\s*:")),
-    );
+    let (word, param) = swift_word_and_param(name);
     let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
     if generic(&code(at)) {
         return found(at + 1);
@@ -770,13 +747,10 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
         if only_type_header_left || (!SWIFT_FUNC.is_match(&head) && SWIFT_TYPE.is_match(&head)) {
-            if local
-                .as_ref()
-                .is_some_and(|l| l.iter().all(|b| !SWIFT_FUNC.is_match(&code(b.line1 - 1))))
-            {
-                return local;
-            }
-            let r = type_header(i, &head, &text, unproven);
+            let r = local
+                .as_deref()
+                .and_then(|l| member_types(lines, l))
+                .or_else(|| type_header(i, &head, &text, unproven));
             if depth == 0
                 || local.is_some()
                 || r.as_ref().is_none_or(|b| !b.is_empty())

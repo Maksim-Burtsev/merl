@@ -124,3 +124,38 @@ pub fn swift_decl_generics(text: &str, line1: usize) -> Vec<String> {
     }
     swift_generics(&header)
 }
+
+pub(super) fn swift_local_decls(
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    name: &str,
+    open: usize,
+    depth: usize,
+) -> Option<Vec<Binding>> {
+    let found: Vec<usize> = (open + 1..lines.len())
+        .filter(|&j| swift_code(lines, literal, j))
+        .take_while(|&j| indent(lines[j]) >= depth)
+        .filter(|&j| indent(lines[j]) == depth && super::swift_local_decl(lines[j], name))
+        .collect();
+    let bindings = found.iter().map(|&j| Binding {
+        line1: j + 1,
+        value: Value::Unknown,
+    });
+    Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !found.contains(&at))
+}
+
+pub(super) fn member_types(lines: &[&str], local: &[Binding]) -> Option<Vec<Binding>> {
+    (local.iter())
+        .all(|b| !super::SWIFT_FUNC.is_match(&swift_text(lines, b.line1 - 1)))
+        .then(|| local.to_vec())
+}
+
+pub(super) fn swift_word_and_param(name: &str) -> (Regex, Regex) {
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    (
+        rule(format!(r"(?:^|[^\w.]){n}\b")),
+        rule(format!(r"\b{n}\s*:")),
+    )
+}
