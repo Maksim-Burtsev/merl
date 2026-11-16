@@ -222,8 +222,13 @@ impl App {
         if kind != Kind::Python || !search::python_path_string(lead, tail) {
             return false;
         }
-        let found = self.imported_definitions(kind, here, word, chain, std::slice::from_ref(top));
-        self.show_definitions(kind, word, here, found.unwrap_or_default(), None);
+        let Some(found) = self
+            .imported_definitions(kind, here, word, chain, std::slice::from_ref(top))
+            .filter(|f| !f.is_empty())
+        else {
+            return false;
+        };
+        self.show_definitions(kind, word, here, found, None);
         true
     }
 

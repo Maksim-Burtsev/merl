@@ -37,13 +37,17 @@ class Gridiron(private val griddle: Griddle) {
         val o = this.run { sear() }
         //                 ^ d: src/main/kotlin/thisbound/Gridiron.kt:4
         val p = griddle.run { flip() }
-        //                    ^ d: src/main/kotlin/thisbound/Gridiron.kt:46
+        //                    ^ d: src/main/kotlin/thisbound/Gridiron.kt:48
         val q = with(label) { sear() }
         //                    ^ d: picker src/main/kotlin/thisbound/Griddle.kt:4, src/main/kotlin/thisbound/Gridiron.kt:4
-        return a + b.sear() + c + d + e + f.sear() + g + h + i.sear() + j + k + l + m.sear() + n + o + p + q
+        val r = with(mystery()) { browning }
+        //                        ^ d: src/main/kotlin/thisbound/Gridiron.kt:50
+        return a + b.sear() + c + d + e + f.sear() + g + h + i.sear() + j + k + l + m.sear() + n + o + p + q + r
     }
 
     private fun flip(): Int = 3
+
+    private val browning = 2
 
     private val label = "rare"
 
