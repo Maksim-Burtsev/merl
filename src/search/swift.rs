@@ -770,6 +770,12 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
         if only_type_header_left || (!SWIFT_FUNC.is_match(&head) && SWIFT_TYPE.is_match(&head)) {
+            if local
+                .as_ref()
+                .is_some_and(|l| l.iter().all(|b| !SWIFT_FUNC.is_match(&code(b.line1 - 1))))
+            {
+                return local;
+            }
             let r = type_header(i, &head, &text, unproven);
             if depth == 0
                 || local.is_some()
