@@ -21,7 +21,7 @@ void goblet_wrapped(Goblet x) {}
 //                  ^ d: src/goblets.cc:19
 
 template <typename T> void goblet_t(T x) { x.quaff(); }
-//                                           ^ d: none
+//                                           ^ d: src/goblets.cc:2
 template <typename Goblet> void goblet_free(Goblet x) { x.quaff(); }
 //                                                        ^ d: none
 template <typename Goblet> void goblet_ptr(Goblet* x) { x->quaff(); }
@@ -44,7 +44,7 @@ template <typename Goblet> struct Rack2 {
 template <typename T> struct Rack3 {
     T held;
     void f() { this->held.quaff(); }
-    //                    ^ d: none
+    //                    ^ d: src/goblets.cc:2
 };
 template <typename Goblet> struct Rack4 {
     Goblet held;
@@ -87,5 +87,13 @@ template <typename T> void goblet_reads_global(T x) { goblet_global.quaff(); }
 template <typename T> struct Rack7 {
     T* held;
     void f() { held->quaff(); }
-    //               ^ d: none
+    //               ^ d: src/goblets.cc:2
 };
+struct Hasher {
+    virtual unsigned Sum() const = 0;
+};
+struct Fast : Hasher {
+    unsigned Sum() const override { return 1; }
+};
+template <class H> int crc_pick(H *h) { return h->Sum() ? 1 : 0; }
+//                                                ^ d: picker src/goblets.cc:93, src/goblets.cc:96

@@ -121,6 +121,7 @@ impl App {
         let [one] = ty.as_slice() else {
             return None;
         };
+        self.names_a_project_type(Kind::C, one).then_some(())?;
         let at = search::type_param_line(Kind::C, text, self.line + 1, one)?;
         let required = (text.lines().skip(at.saturating_sub(1)))
             .take((self.line + 2).saturating_sub(at))
