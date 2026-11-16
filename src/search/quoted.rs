@@ -381,11 +381,12 @@ pub fn python_path_string(lead: &str, tail: &str) -> bool {
     let open = lead.trim_end_matches(part);
     let close = tail.trim_start_matches(part);
     let named = |s: &str| s.starts_with(|c: char| c == '_' || c.is_alphabetic());
-    let after = &tail[..tail.len() - close.len()];
+    let after = tail.strip_suffix(close).unwrap_or(tail);
+    let before = lead.strip_prefix(open).and_then(|b| b.strip_suffix('.'));
     open.chars()
         .last()
         .is_some_and(|q| (q == '"' || q == '\'') && close.starts_with(q))
-        && (lead[open.len()..].strip_suffix('.')).is_some_and(|b| b.split('.').all(named))
+        && before.is_some_and(|b| b.split('.').all(named))
         && (after.is_empty()
             || after
                 .strip_prefix('.')

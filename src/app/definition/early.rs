@@ -182,14 +182,7 @@ impl App {
             .sum::<usize>()
             + range.start;
         let quoted = search::in_string_text(kind, &here, &text, script_at);
-        if quoted
-            && kind == Kind::Python
-            && search::python_path_string(&lead, &tail)
-            && let Some(top) = chain.first()
-        {
-            let found =
-                self.imported_definitions(kind, &here, &word, &chain, std::slice::from_ref(top));
-            self.show_definitions(kind, &word, &here, found.unwrap_or_default(), None);
+        if quoted && self.answered_by_python_path(kind, &here, &word, &chain, (&lead, &tail)) {
             return None;
         }
         let (chain, dotted) = if quoted {
@@ -213,6 +206,25 @@ impl App {
             captured,
             go_keyed: false,
         })
+    }
+
+    fn answered_by_python_path(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        (lead, tail): (&str, &str),
+    ) -> bool {
+        let Some(top) = chain.first() else {
+            return false;
+        };
+        if kind != Kind::Python || !search::python_path_string(lead, tail) {
+            return false;
+        }
+        let found = self.imported_definitions(kind, here, word, chain, std::slice::from_ref(top));
+        self.show_definitions(kind, word, here, found.unwrap_or_default(), None);
+        true
     }
 
     fn needs_no_lookup(&self, kind: Kind, word: &str, lead: &str, start: usize) -> bool {
