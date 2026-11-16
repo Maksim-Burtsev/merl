@@ -193,6 +193,16 @@ impl App {
             .collect()
     }
 
+    pub(super) fn names_a_project_type(&self, kind: Kind, name: &str) -> bool {
+        let keyword = match kind {
+            Kind::Rust => r"(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union|trait|type)",
+            _ => r"(?:struct|class|union|enum)",
+        };
+        let pattern = format!(r"^\s*{keyword}\s+{}\b", regex::escape(name));
+        self.grep(&pattern, false, false, |p| search::kind_of(p) == Some(kind))
+            .is_ok_and(|hits| hits.iter().any(|h| self.in_code(kind, h)))
+    }
+
     pub(super) fn package_files(&self, kind: Kind, file: &Path) -> Vec<PathBuf> {
         if kind == Kind::Go
             && file.is_absolute()
