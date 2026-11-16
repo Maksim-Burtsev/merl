@@ -235,10 +235,15 @@ impl App {
         }
         let unbound = |b: &search::Binding| {
             let (one, bound, ..) = param(b)?;
-            let resolves = bound.is_some_and(|w| {
-                kind != Kind::Go
-                    || w.starts_with("interface")
-                    || self.type_decl(kind, &file, &w).is_some()
+            let resolves = bound.is_some_and(|w| match kind {
+                Kind::Go => w.starts_with("interface") || self.type_decl(kind, &file, &w).is_some(),
+                Kind::Rust if chain.len() == 1 => {
+                    !self.names_a_project_type(kind, &one)
+                        || self
+                            .rust_trait_bound(&a.here, &a.text, &a.word, last)
+                            .is_some()
+                }
+                _ => true,
             });
             (!resolves).then_some(one)
         };

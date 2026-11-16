@@ -482,15 +482,30 @@ impl App {
         text: &str,
         before: &str,
         word: &str,
+        called: bool,
     ) -> Option<Vec<Candidate>> {
         let line = self.line + 1;
-        let receiver = search::kotlin_lambda_receiver(text, line, before)?;
-        let WrittenType {
-            resolved: JvmType::Project(decl),
-            written,
-        } = self.jvm_value(here, text, line, &receiver, true, 1)?
-        else {
-            return None;
+        let scope = if called {
+            Some(search::kotlin_scope_receiver(text, line, before)?)
+        } else {
+            None
+        };
+        let made =
+            (scope.as_ref()).and_then(|s| search::jvm_constructed_receiver(&format!("{s}."), true));
+        let typed = match made {
+            Some(made) => match self.jvm_made(here, text, &made, true) {
+                JvmType::Project(decl) => Some((decl, format!("{made}()"))),
+                _ => None,
+            },
+            None => search::kotlin_lambda_receiver(text, line, before)
+                .and_then(|receiver| self.jvm_value(here, text, line, &receiver, true, 1))
+                .and_then(|w| match w.resolved {
+                    JvmType::Project(decl) => Some((decl, w.written)),
+                    _ => None,
+                }),
+        };
+        let Some((decl, written)) = typed else {
+            return scope.map(|_| Vec::new());
         };
         let reason = Reason::Receiver(format!("this: {written}"));
         let found: Vec<Candidate> =
@@ -512,7 +527,7 @@ impl App {
         };
         if !written.contains('.') && !renamed() {
             let found = self
-                .jvm_members(here, text, "", written)
+                .jvm_members(here, text, "", written, false)
                 .or_else(|| self.jvm_imported_all(text, &[], written, false))
                 .unwrap_or_default();
             let named =

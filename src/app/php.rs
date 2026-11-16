@@ -188,11 +188,11 @@ impl App {
         let word = line.get(range.clone())?.to_owned();
         let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
         let map = search::php_psr4(&self.root, here.parent().unwrap_or_else(|| Path::new("")));
-        if map.is_empty() {
-            return None;
-        }
         let search::PhpResolved { full, imported } =
             search::php_resolve(search::php_block(text, self.line), &written)?;
+        if map.is_empty() {
+            return self.php_unmapped(here, text, &full, &written, !member && imported);
+        }
         let (ns, short) = match full.rsplit_once('\\') {
             Some((ns, short)) => (ns, short),
             None => ("", full.as_str()),
@@ -284,6 +284,21 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    fn php_unmapped(
+        &mut self,
+        here: &Path,
+        text: &str,
+        full: &str,
+        written: &str,
+        named: bool,
+    ) -> Option<Vec<Candidate>> {
+        let block = search::php_block(text, self.line);
+        if !named || !self.php_class(here, block, written).1.is_empty() {
+            return None;
+        }
+        self.php_not_installed(here, text, full, written, true)
     }
 
     fn php_not_installed(
@@ -537,7 +552,7 @@ impl App {
                 let code = search::literal_lines(kind, &t).get(h.line1 - 1) != Some(&true);
                 let fits = full
                     .as_ref()
-                    .is_none_or(|f| namespaced(&t, h.line1 - 1) == *f);
+                    .is_none_or(|f| namespaced(&t, h.line1 - 1).eq_ignore_ascii_case(f));
                 (code && fits).then_some(PhpClass {
                     path: h.path,
                     text: t,

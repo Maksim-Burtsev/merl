@@ -1198,7 +1198,7 @@ impl App {
         })
     }
 
-    fn rust_trait_bound(
+    pub(super) fn rust_trait_bound(
         &self,
         here: &Path,
         text: &str,

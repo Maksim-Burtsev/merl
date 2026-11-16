@@ -182,6 +182,9 @@ impl App {
             .sum::<usize>()
             + range.start;
         let quoted = search::in_string_text(kind, &here, &text, script_at);
+        if quoted && self.answered_by_python_path(kind, &here, &word, &chain, (&lead, &tail)) {
+            return None;
+        }
         let (chain, dotted) = if quoted {
             (Vec::new(), false)
         } else {
@@ -203,6 +206,30 @@ impl App {
             captured,
             go_keyed: false,
         })
+    }
+
+    fn answered_by_python_path(
+        &mut self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        (lead, tail): (&str, &str),
+    ) -> bool {
+        let Some(top) = chain.first() else {
+            return false;
+        };
+        if kind != Kind::Python || !search::python_path_string(lead, tail) {
+            return false;
+        }
+        let Some(found) = self
+            .imported_definitions(kind, here, word, chain, std::slice::from_ref(top))
+            .filter(|f| !f.is_empty())
+        else {
+            return false;
+        };
+        self.show_definitions(kind, word, here, found, None);
+        true
     }
 
     fn needs_no_lookup(&self, kind: Kind, word: &str, lead: &str, start: usize) -> bool {
@@ -488,6 +515,17 @@ impl App {
             && let Some(shown) = self.sql_in_file(a)
         {
             return shown;
+        }
+        if kind == Kind::C
+            && !self.c_source()
+            && !self.objc_file()
+            && let Some(before) = self.line_str().get(..a.range.start).map(str::to_owned)
+            && let Some(via) = self.cpp_param_receiver(&a.here, &a.text, &before, &a.word)
+        {
+            return self.none_found(format!(
+                "no definition for {} in the project (via {via})",
+                a.word
+            ));
         }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())

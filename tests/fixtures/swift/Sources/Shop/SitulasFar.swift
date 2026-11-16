@@ -42,7 +42,7 @@ extension SitulaBrim {
         typealias Brim = Int
         struct Rivet {
             func set(_ b: Brim) {}
-            //            ^ d: picker Sources/Shop/SitulasFar.swift:34, Sources/Shop/SitulasFar.swift:42, Sources/Shop/SitulasNest.swift:63; want Sources/Shop/SitulasFar.swift:42 (#1438)
+            //            ^ d: picker Sources/Shop/SitulasFar.swift:34, Sources/Shop/SitulasFar.swift:42, Sources/Shop/SitulasNest.swift:63; want Sources/Shop/SitulasFar.swift:42 (#1572)
         }
     }
 }
