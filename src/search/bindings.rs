@@ -811,19 +811,27 @@ fn own_line_hides(
     out: &mut Vec<Binding>,
 ) -> bool {
     let own = uncommented(kind, lines[at]);
+    let wrapped = own
+        .trim_start()
+        .starts_with(')')
+        .then(|| header_of(kind, lines, at, own.trim()));
+    let (from, own) = match wrapped {
+        Some((from, header)) if !lines[from..at].iter().any(|l| l.contains("=>")) => (from, header),
+        _ => (at, own),
+    };
     if kind == Kind::CSharp {
         let outer = if own.contains("=>") {
-            lines[..at].join("\n")
+            lines[..from].join("\n")
         } else {
             String::new()
         };
         let opener = cs_opener_in(&outer, own.trim(), name);
         if opener.binds {
-            out.push(unknown(at + 1));
+            out.push(unknown(from + 1));
         }
         return opener.hides_outer_scopes;
     }
-    let _ = opener_bindings(kind, &own, at + 1, name, out);
+    let _ = opener_bindings(kind, &own, from + 1, name, out);
     false
 }
 pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {

@@ -281,6 +281,12 @@ pub(super) fn jvm_bindings(
     let call = col.is_some_and(|c| super::jvm_rebound::called(lines[at], c, name));
     let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
+    if out.is_empty()
+        && let Some(k) = wrapped_header(lines, &literal, at)
+            .and_then(|h| param_lists_line1_binding(lines, h, name))
+    {
+        out.push(binding(k));
+    }
     let mut depth = indent(lines[at]);
     let (mut i, mut own_group) = (at, true);
     while out.is_empty() && depth > 0 && i > 0 {
@@ -366,6 +372,19 @@ pub(super) fn jvm_bindings(
         out = vec![binding(g)];
     }
     out
+}
+
+fn wrapped_header(lines: &[&str], literal: &[bool], at: usize) -> Option<usize> {
+    let ind = indent(lines[at]);
+    let filled = |j: &usize| !lines[*j].trim().is_empty();
+    let closes_string = (0..at).rev().find(filled).is_some_and(|j| literal[j]);
+    (lines[at].trim_start().starts_with(')') || closes_string)
+        .then(|| {
+            (0..at)
+                .rev()
+                .find(|j| filled(j) && !literal[*j] && indent(lines[*j]) <= ind)
+        })
+        .flatten()
 }
 
 fn header_may_bind(lines: &[&str], from: usize, to: usize) -> bool {

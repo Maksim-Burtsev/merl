@@ -17,4 +17,12 @@ object Quoted {
     s.blot()
   //  ^ d: picker src/main/scala/quoted/Quoted.scala:4, src/main/scala/quoted/Quoted.scala:8, …
   """
+  def c(s: Stylus): String = """
+    x
+  """ + s.blot()
+  //      ^ d: src/main/scala/quoted/Quoted.scala:4
+  def ink(
+      s: Stylus,
+  ): String = s.blot()
+  //            ^ d: src/main/scala/quoted/Quoted.scala:4
 }
