@@ -2451,13 +2451,47 @@ fn prelude_names_and_primitives_resolve_in_the_sysroot_before_a_project_namesake
                 "src/glob.rs",
                 "use crate::vendor::*;\n\npub fn held() -> Vec<u8> {\n    todo!()\n}\n",
             ),
+            (
+                "src/error.rs",
+                "pub type Result<T> = std::result::Result<T, String>;\n",
+            ),
+            (
+                "src/a.rs",
+                "use crate::error::Result;\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    fn g() -> Result<()> {\n        Ok(())\n    }\n}\n",
+            ),
+            (
+                "src/b.rs",
+                "mod inner;\nuse self::inner::String;\n\npub fn s() -> String {\n    String\n}\n",
+            ),
+            ("src/b/inner.rs", "pub struct String;\n"),
+            (
+                "src/made.rs",
+                "macro_rules! alias {\n    ($n:ident) => {\n        pub type $n<T> = std::option::Option<T>;\n    };\n}\nalias!(Option);\n",
+            ),
+            ("src/c.rs", "pub fn o() -> Option<u8> {\n    None\n}\n"),
+            (
+                "src/d.rs",
+                "error_chain! {\n    types { Error, Box; }\n}\n\npub fn e() -> Box<u8> {\n    todo!()\n}\n",
+            ),
         ],
     );
     let std = external_root(
         "rust-prelude-std",
         &[
-            ("std/src/lib.rs", "pub mod vec;\n"),
+            (
+                "std/src/lib.rs",
+                "pub mod vec;\npub mod result;\npub mod option;\npub mod boxed;\n",
+            ),
             ("std/src/vec.rs", "pub struct Vec<T> {\n    buf: T,\n}\n"),
+            (
+                "std/src/result.rs",
+                "pub enum Result<T, E> {\n    Ok(T),\n    Err(E),\n}\n",
+            ),
+            (
+                "std/src/option.rs",
+                "pub enum Option<T> {\n    None,\n    Some(T),\n}\n",
+            ),
+            ("std/src/boxed.rs", "pub struct Box<T>(T);\n"),
             (
                 "core/src/primitive_docs.rs",
                 "#[rustc_doc_primitive = \"bool\"]\nmod prim_bool {}\n\n#[rustc_doc_primitive = \"usize\"]\n//\n/// The pointer-sized unsigned integer type.\nconst _: () = ();\n",
@@ -2471,6 +2505,10 @@ fn prelude_names_and_primitives_resolve_in_the_sysroot_before_a_project_namesake
         ("src/lib.rs", "n: |usize"),
         ("src/glob.rs", "-> |Vec"),
         ("vendor/boxcar.rs", "v: |Vec"),
+        ("src/a.rs", "-> |Result"),
+        ("src/b.rs", "-> |String"),
+        ("src/c.rs", "-> |Option"),
+        ("src/d.rs", "-> |Box"),
     ] {
         d_on(&mut a, file, code);
         seen.push(match shown(&mut a) {
@@ -2490,6 +2528,10 @@ fn prelude_names_and_primitives_resolve_in_the_sysroot_before_a_project_namesake
             "usize: via core::primitive @ core/src/primitive_docs.rs:4",
             "Vec: by name, 1 match @ vendor/boxcar.rs:1",
             "Vec: in this file @ vendor/boxcar.rs:1",
+            "Result: by name, 1 match @ src/error.rs:1",
+            "String: by name, 1 match @ src/b/inner.rs:1",
+            "Option: by name, 1 match @ std/src/option.rs:1",
+            "Box: by name, 1 match @ std/src/boxed.rs:1",
         ]
     );
     std::fs::remove_dir_all(&dir).unwrap();

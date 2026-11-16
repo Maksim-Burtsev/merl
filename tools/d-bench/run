@@ -14,13 +14,15 @@ against the recorded one, print a table per language and diff it against the bas
 --heldout DIR      play the held-out set instead (DIR/LANG/ holds cursors.tsv, answers.tsv, the
                    project's clone and, optionally, `env`: KEY=VALUE lines for merl, such as
                    GOMODCACHE). Prints aggregates per language and the bar of #1549 only, never a
-                   cursor; each language's verdicts go to DIR/LANG/gate-score.tsv. No baseline, exit 0.
+                   cursor, path or word, on stdout or stderr; a language that fails prints `LANG: error`.
+                   Each language's verdicts go to DIR/LANG/gate-score.tsv, merl's output and any error
+                   to DIR/LANG/gate-log.txt. No baseline, exit 0.
 
 Exits 1 when any cursor scores worse than in the baseline (ok < pick-hit < miss < WRONG), or a
 cursor that is not scored newly jumps away from its recorded answer (skip-WRONG, on-decl-WRONG) or
 from a row with none recorded (no-answer-jump, skip-jump): a gain elsewhere does not pay for it.
 """
-import argparse, contextlib, datetime, importlib.util, io, os, re, subprocess, sys, tempfile
+import argparse, contextlib, datetime, importlib.util, os, re, subprocess, sys, tempfile, traceback
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -154,7 +156,10 @@ def table(rows, projects):
     return out
 
 
-def play(cursors, roots, bench_in, merl_out, env):
+MERL_TEST = ["cargo", "test", "--release", "--bin", "merl", "app::tests::d_bench::d_bench", "--", "--exact", "--ignored", "--quiet"]
+
+
+def play(cursors, roots, bench_in, merl_out, env, log=None):
     lines = {}
     with open(bench_in, "w") as f:
         for c in cursors:
@@ -165,8 +170,8 @@ def play(cursors, roots, bench_in, merl_out, env):
             f.write("\t".join([c[0], roots[c[1]], c[2], c[3], str(col)]) + "\n")
     load = os.popen("sysctl -n vm.loadavg 2>/dev/null").read().strip()
     print(f"load {load}; {len(cursors)} cursors", file=sys.stderr)
-    subprocess.run(["cargo", "test", "--release", "--bin", "merl", "app::tests::d_bench::d_bench", "--", "--exact", "--ignored", "--quiet"],
-                   cwd=REPO, check=True, stdout=sys.stderr, env={**env, "BENCH_IN": bench_in, "BENCH_OUT": merl_out})
+    subprocess.run(MERL_TEST, cwd=REPO, check=True, stdout=log or sys.stderr, stderr=log,
+                   env={**env, "BENCH_IN": bench_in, "BENCH_OUT": merl_out})
 
 
 def heldout_table(rows):
@@ -183,6 +188,24 @@ def heldout_table(rows):
     return out
 
 
+def heldout_lang(here, log):
+    cursors = tsv(os.path.join(here, "cursors.tsv"))
+    answers = {r[0]: r + [""] * (4 - len(r)) for r in tsv(os.path.join(here, "answers.tsv"))}
+    roots = {c[1]: os.path.realpath(os.path.join(here, c[1])) for c in cursors}
+    env_file = os.path.join(here, "env")
+    extra = [l.strip().split("=", 1) for l in open(env_file) if "=" in l] if os.path.exists(env_file) else []
+    env = {**os.environ, **{k: os.path.expanduser(os.path.expandvars(v)) for k, v in extra}}
+    merl_out = os.path.join(here, "gate-merl.tsv")
+    play(cursors, roots, os.path.join(here, "gate-cursors.tsv"), merl_out, env, log)
+    merl = {r[0]: r + [""] * (5 - len(r)) for r in tsv(merl_out)}
+    played = [c for c in cursors if c[0] in merl]
+    got = [verdict(c, answers.get(c[0]), (merl[c[0]][1], targets(merl[c[0]][4], roots[c[1]])), roots[c[1]])
+           for c in played]
+    with open(os.path.join(here, "gate-score.tsv"), "w") as f:
+        f.writelines(f"{c[0]}\t{v}\n" for c, v in zip(played, got))
+    return got
+
+
 def heldout(top, langs):
     top = os.path.realpath(os.path.expanduser(top))
     rows = []
@@ -190,21 +213,15 @@ def heldout(top, langs):
         here = os.path.join(top, lang)
         if langs and lang not in langs.split(",") or not os.path.exists(os.path.join(here, "answers.tsv")):
             continue
-        cursors = tsv(os.path.join(here, "cursors.tsv"))
-        answers = {r[0]: r + [""] * (4 - len(r)) for r in tsv(os.path.join(here, "answers.tsv"))}
-        roots = {c[1]: os.path.realpath(os.path.join(here, c[1])) for c in cursors}
-        env_file = os.path.join(here, "env")
-        extra = [l.strip().split("=", 1) for l in open(env_file) if "=" in l] if os.path.exists(env_file) else []
-        env = {**os.environ, **{k: os.path.expanduser(os.path.expandvars(v)) for k, v in extra}}
-        merl_out = os.path.join(here, "gate-merl.tsv")
-        play(cursors, roots, os.path.join(here, "gate-cursors.tsv"), merl_out, env)
-        merl = {r[0]: r + [""] * (5 - len(r)) for r in tsv(merl_out)}
-        played = [c for c in cursors if c[0] in merl]
-        got = [verdict(c, answers.get(c[0]), (merl[c[0]][1], targets(merl[c[0]][4], roots[c[1]])), roots[c[1]])
-               for c in played]
-        with open(os.path.join(here, "gate-score.tsv"), "w") as f:
-            f.writelines(f"{c[0]}\t{v}\n" for c, v in zip(played, got))
-        rows += [(lang, v) for v in got]
+        with open(os.path.join(here, "gate-log.txt"), "w") as log, contextlib.redirect_stderr(log):
+            try:
+                rows += [(lang, v) for v in heldout_lang(here, log)]
+                failed = False
+            except Exception:
+                traceback.print_exc(file=log)
+                failed = True
+        if failed:
+            print(f"{lang}: error", file=sys.stderr)
     print("\n".join(heldout_table(rows)))
 
 
@@ -266,24 +283,57 @@ def selftest():
     assert lua('local util = require("a.util") -- c\n--[[ x.y ]] local s = [[ z ]]\n'
                'return util.join(s, M:pick "k")\n') == [("path", "util"), ("call", "require"), ("name", "util"),
                                                        ("member", "join"), ("member", "pick")]
-    global play
-    real = play
+    global MERL_TEST
+    real = MERL_TEST
     with tempfile.TemporaryDirectory() as top:
         os.makedirs(f"{top}/go/proj")
+        os.makedirs(f"{top}/ts/proj")
         open(f"{top}/go/proj/secret_file.go", "w").write("package p\nfunc secretWord() {}\n")
         cur = "\tproj\tsecret_file.go\t1\t8\tname\tsecretWord\n"
         open(f"{top}/go/cursors.tsv", "w").write(f"hgo0001{cur}hgo0002{cur}")
         open(f"{top}/go/answers.tsv", "w").write("hgo0001\tsecret_file.go:2\t\tlsp\nhgo0002\tsecret_file.go:2\t\tlsp\n")
-        play = lambda cursors, roots, _, out, env: open(out, "w").write(
-            f"hgo0001\tjump\t1.0\tsecret_status\t{roots['proj']}/secret_file.go:2\n"
-            f"hgo0002\tjump\t1.0\t\t{roots['proj']}/secret_file.go:9\n")
-        shown = io.StringIO()
-        with contextlib.redirect_stdout(shown):
-            heldout(top, None)
-        play = real
-    assert not re.search(r"hgo0|secret|proj", shown.getvalue()), shown.getvalue()
-    assert "| go | 2 | 1 (50%) | 0 (0%) | 0 (0%) | 1 (50%) | 0 | 0 | not met |" in shown.getvalue(), shown.getvalue()
+        open(f"{top}/ts/cursors.tsv", "w").write("hts0001\tproj\tsecret_gone.ts\t1\t0\tname\tsecretWord\n")
+        open(f"{top}/ts/answers.tsv", "w").write("hts0001\tsecret_gone.ts:2\t\tlsp\n")
+        root = os.path.realpath(f"{top}/go/proj")
+        MERL_TEST = ["sh", "-c", f"printf 'hgo0001\\tjump\\t1.0\\tsecret_status\\t%s/secret_file.go:2\\n"
+                     f"hgo0002\\tjump\\t1.0\\t\\t%s/secret_file.go:9\\n' '{root}' '{root}' > \"$BENCH_OUT\"; "
+                     "echo secretWord proj; echo secret_file.go >&2"]
+        with tempfile.TemporaryFile("w+") as out, tempfile.TemporaryFile("w+") as err:
+            saved = os.dup(1), os.dup(2)
+            sys.stdout.flush()
+            os.dup2(out.fileno(), 1)
+            os.dup2(err.fileno(), 2)
+            try:
+                heldout(top, None)
+            finally:
+                sys.stdout.flush()
+                sys.stderr.flush()
+                os.dup2(saved[0], 1)
+                os.dup2(saved[1], 2)
+            out.seek(0)
+            err.seek(0)
+            shown, said = out.read(), err.read()
+        log = open(f"{top}/ts/gate-log.txt").read() + open(f"{top}/go/gate-log.txt").read()
+        MERL_TEST = real
+    assert not re.search(r"hgo0|hts0|secret|proj", shown + said), shown + said
+    assert said == "ts: error\n", said
+    assert "FileNotFoundError" in log and "secretWord proj" in log and "secret_file.go\n" in log, log
+    assert "| go | 2 | 1 (50%) | 0 (0%) | 0 (0%) | 1 (50%) | 0 | 0 | not met |" in shown, shown
     assert heldout_table([("go", "ok")] * 7 + [("go", "none")] * 3)[2].endswith("| met |")
+    assert heldout_table([("go", "ok")] * 6 + [("go", "none")] * 4)[2].endswith("| not met |")
+    with tempfile.TemporaryDirectory() as top:
+        os.makedirs(f"{top}/lua/proj")
+        open(f"{top}/lua/proj/m.lua", "w").write("".join(f"local v{i} = f{i}(x{i})\n" for i in range(200)))
+        kept = {d: open(os.path.join(HERE, d, "lua.tsv")).read() for d in ("cursors", "answers")}
+        draw = lambda *seed: subprocess.run([sys.executable, os.path.join(HERE, "record.py"), "sample", "lua", "20",
+                                             "--heldout", f"{top}/lua/proj", *seed], check=True, capture_output=True)
+        draws = []
+        for seed in ([], ["--seed", "1114"], ["--seed", "7"]):
+            draw(*seed)
+            draws.append(tsv(f"{top}/lua/cursors.tsv"))
+        assert kept == {d: open(os.path.join(HERE, d, "lua.tsv")).read() for d in ("cursors", "answers")}
+    assert draws[0] and all(r[0].startswith("hlua") and r[1] == "proj" for r in draws[0]), draws[0]
+    assert draws[0] == draws[1] != draws[2], draws
     print("selftest ok")
 
 

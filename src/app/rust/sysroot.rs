@@ -726,12 +726,13 @@ impl App {
             || text
                 .lines()
                 .any(|l| l.contains("::*") && !(l.starts_with(' ') && l.trim() == "use super::*;"))
-            || bound(&search::imports(Kind::Rust, text), word).is_some()
+            || search::rust_uses(text).iter().any(|u| u.name == word)
             || Regex::new(&format!(
-                "(?m){}",
+                "(?m){}|^\\s*[\\w:]+!\\s*[(\\[{{].*\\b{word}\\b|^\\s*[\\w:]+!\\s*\\{{\\s*$",
                 search::def_patterns(Kind::Rust, word).join("|")
             ))
             .is_ok_and(|re| re.is_match(text))
+            || !self.rust_macro_declared(word).is_empty()
         {
             return None;
         }

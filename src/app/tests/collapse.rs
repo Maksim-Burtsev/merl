@@ -673,3 +673,25 @@ fn a_ts_function_with_an_object_type_in_its_return_type_folds_whole() {
         assert_eq!(a.collapsed, vec![(0, 9)], "f in .{ext}");
     }
 }
+
+#[test]
+fn a_ts_function_whose_return_type_is_or_holds_a_bare_object_type_folds_whole() {
+    let mut folded = Vec::new();
+    for (head, tail) in [
+        ("): {", "}"),
+        ("): null | {", "}"),
+        ("): Base & {", "}"),
+        ("): Map<string, {", "}>"),
+    ] {
+        let mut a = app_as(
+            "ts",
+            &format!(
+                "function f(\n  x: number\n{head}\n  a: number;\n{tail} {{\n  return f(x);\n}}\n"
+            ),
+        );
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        folded.push((head, a.collapsed.clone()));
+    }
+    assert!(folded.iter().all(|(_, c)| c == &[(0, 6)]), "{folded:?}");
+}
