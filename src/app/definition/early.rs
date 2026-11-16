@@ -512,6 +512,17 @@ impl App {
             return shown;
         }
         if kind == Kind::C
+            && !self.c_source()
+            && !self.objc_file()
+            && let Some(before) = self.line_str().get(..a.range.start).map(str::to_owned)
+            && let Some(via) = self.cpp_param_receiver(&a.here, &a.text, &before, &a.word)
+        {
+            return self.none_found(format!(
+                "no definition for {} in the project (via {via})",
+                a.word
+            ));
+        }
+        if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
         {
             self.show_definitions(kind, &a.word, &a.here, found, broke.as_deref());

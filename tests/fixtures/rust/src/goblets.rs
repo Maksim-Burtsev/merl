@@ -187,3 +187,28 @@ impl<
         //        ^ d: src/goblets.rs:39
     }
 }
+pub fn probe_cloned<Goblet: Clone>(x: Goblet) {
+    x.quaff();
+    //^ d: none
+}
+pub fn probe_cloned_t<T: Clone>(x: T) {
+    x.quaff();
+    //^ d: none
+}
+pub fn probe_cloned_where<Goblet>(x: Goblet)
+where
+    Goblet: Clone,
+{
+    x.quaff();
+    //^ d: none
+}
+pub fn probe_cloned_toaster<Goblet: Clone + Toaster>(x: Goblet) {
+    x.clink();
+    //^ d: src/goblets.rs:39
+}
+pub fn probe_cloned_std<Goblet: Clone>(x: Goblet) -> Goblet {
+    x.clone()
+    //^ d: none
+}
+pub fn probe_cloned_line<Goblet: Clone>(x: Goblet) { x.quaff(); }
+//                                                     ^ d: none
