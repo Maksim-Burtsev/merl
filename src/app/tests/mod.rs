@@ -20,7 +20,6 @@ mod edit;
 mod edit_fuzz;
 mod find;
 mod fold_bench;
-mod tree_proto;
 mod grow;
 mod haskell;
 mod julia;
@@ -66,6 +65,7 @@ mod starlark;
 mod stats;
 mod symbols;
 mod tree;
+mod tree_proto;
 mod tree_sitter_on;
 mod usages;
 

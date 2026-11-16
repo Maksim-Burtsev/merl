@@ -57,7 +57,9 @@ fn tree_speed() {
             });
             timed(&mut folds, || rules.folds(&tree, &text));
             timed(&mut scope, || {
-                rules.bound_rows(&tree, &text, Point::new(mid, col), &name).len()
+                rules
+                    .bound_rows(&tree, &text, Point::new(mid, col), &name)
+                    .len()
             });
         }
         println!(
@@ -99,7 +101,7 @@ fn tree_breaks() {
         std::fs::write(&broken, lines.join("\n") + "\n").unwrap();
         let shift = |l: usize| if l > m { l + 1 } else { l };
         for (rules, off) in [("tree", false), ("lines", true)] {
-            syntax::FORCE_OFF.set(off);
+            syntax::FORCE_ON.set(!off);
             let buf = Buffer::load(&broken).unwrap();
             let mut a = App::new(PathBuf::from("/"), Tree::default(), Vec::new(), buf, None);
             for fold in folds.split_whitespace() {
@@ -122,7 +124,7 @@ fn tree_breaks() {
                     .or_default() += 1;
             }
         }
-        syntax::FORCE_OFF.set(false);
+        syntax::FORCE_ON.set(false);
     }
     for rules in ["tree", "lines"] {
         for side in ["above", "below", "around"] {

@@ -27,11 +27,11 @@ pub struct Rules {
 }
 
 thread_local! {
-    pub static FORCE_OFF: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    pub static FORCE_ON: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 pub fn off() -> bool {
-    FORCE_OFF.get() || std::env::var_os("MERL_NO_TREE").is_some()
+    !(FORCE_ON.get() || std::env::var_os("MERL_TREE").is_some())
 }
 
 pub fn rules(ext: &str) -> Option<&'static Rules> {
@@ -103,7 +103,13 @@ impl Rules {
         out
     }
 
-    pub fn bound_rows(&self, tree: &Tree, text: &str, at: Point, name: &str) -> Vec<(usize, usize)> {
+    pub fn bound_rows(
+        &self,
+        tree: &Tree,
+        text: &str,
+        at: Point,
+        name: &str,
+    ) -> Vec<(usize, usize)> {
         let bytes = text.as_bytes();
         let mut scopes = HashSet::new();
         let mut defs: Vec<(Node, bool)> = Vec::new();
@@ -131,10 +137,18 @@ impl Rules {
         let mut owned: Vec<(usize, usize, usize)> = Vec::new();
         for (d, parent) in defs {
             let own = scope_or_root(&scopes, root, Some(d));
-            owned.push((own.id(), d.start_position().row + 1, own.start_position().row + 1));
+            owned.push((
+                own.id(),
+                d.start_position().row + 1,
+                own.start_position().row + 1,
+            ));
             if parent && own.id() != root.id() {
                 let up = scope_or_root(&scopes, root, own.parent());
-                owned.push((up.id(), d.start_position().row + 1, up.start_position().row + 1));
+                owned.push((
+                    up.id(),
+                    d.start_position().row + 1,
+                    up.start_position().row + 1,
+                ));
             }
         }
         let Some(mut node) = root.descendant_for_point_range(at, at) else {
@@ -175,4 +189,27 @@ fn locals() -> String {
         q.push_str(include_str!("../../queries/typescript/locals_merl.scm"));
     }
     q
+}
+
+pub fn bound_rows_at(
+    path: &std::path::Path,
+    text: &str,
+    line: &str,
+    at: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Option<Vec<(usize, usize)>> {
+    let rules = (path.extension()?.to_str()).and_then(rules)?;
+    if off() {
+        return None;
+    }
+    let col = col
+        .or_else(|| {
+            line.match_indices(name).map(|(i, _)| i).find(|&i| {
+                crate::search::word_at(line, i, "$").is_some_and(|(r, _)| r == (i..i + name.len()))
+            })
+        })
+        .unwrap_or_else(|| line.len() - line.trim_start().len());
+    let tree = rules.parse(text)?;
+    Some(rules.bound_rows(&tree, text, Point::new(at, col), name))
 }

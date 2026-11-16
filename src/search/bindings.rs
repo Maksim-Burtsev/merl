@@ -201,7 +201,9 @@ pub fn bindings_at(
         Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
-            if let Some(rows) = tree_bound_rows(path, text, lines[at], at, col, name) {
+            if let Some(rows) =
+                crate::treesitter::syntax::bound_rows_at(path, text, lines[at], at, col, name)
+            {
                 let exact = std::env::var_os("MERL_TREE_EXACT_LINES").is_some();
                 let mut kept: Vec<Binding> = (rows.into_iter())
                     .map(|(r, from)| {
@@ -884,29 +886,6 @@ pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {
         });
     (object || names(header, "function")).then_some(Value::Unknown)
 }
-fn tree_bound_rows(
-    path: &Path,
-    text: &str,
-    line: &str,
-    at: usize,
-    col: Option<usize>,
-    name: &str,
-) -> Option<Vec<(usize, usize)>> {
-    let rules = (path.extension()?.to_str()).and_then(crate::treesitter::syntax::rules)?;
-    if crate::treesitter::syntax::off() {
-        return None;
-    }
-    let col = col
-        .or_else(|| {
-            line.match_indices(name)
-                .map(|(i, _)| i)
-                .find(|&i| super::word_at(line, i, "$").is_some_and(|(r, _)| r == (i..i + name.len())))
-        })
-        .unwrap_or(line.len() - line.trim_start().len());
-    let tree = rules.parse(text)?;
-    Some(rules.bound_rows(&tree, text, tree_sitter::Point::new(at, col), name))
-}
-
 fn unknown(line: usize) -> Binding {
     Binding {
         line1: line,
