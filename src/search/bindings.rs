@@ -202,11 +202,18 @@ pub fn bindings_at(
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
             if let Some(rows) = tree_bound_rows(path, text, lines[at], at, col, name) {
-                out = (rows.into_iter())
-                    .map(|r| {
-                        (out.iter().find(|b| b.line1 == r).cloned()).unwrap_or_else(|| unknown(r))
+                let exact = std::env::var_os("MERL_TREE_EXACT_LINES").is_some();
+                let mut kept: Vec<Binding> = (rows.into_iter())
+                    .map(|(r, from)| {
+                        (out.iter())
+                            .filter(|b| b.line1 == r || (!exact && (from..=r).contains(&b.line1)))
+                            .max_by_key(|b| b.line1)
+                            .cloned()
+                            .unwrap_or_else(|| unknown(r))
                     })
                     .collect();
+                kept.dedup();
+                out = kept;
             }
             if let Some(c) = col.filter(|&c| ts_arrow_binds(lines[at], name, c)) {
                 if let Some(value) = ts_arrow_element(text, lines[at], name, c) {
@@ -884,7 +891,7 @@ fn tree_bound_rows(
     at: usize,
     col: Option<usize>,
     name: &str,
-) -> Option<Vec<usize>> {
+) -> Option<Vec<(usize, usize)>> {
     let rules = (path.extension()?.to_str()).and_then(crate::treesitter::syntax::rules)?;
     if crate::treesitter::syntax::off() {
         return None;

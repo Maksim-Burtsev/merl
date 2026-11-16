@@ -57,7 +57,7 @@ fn tree_speed() {
             });
             timed(&mut folds, || rules.folds(&tree, &text));
             timed(&mut scope, || {
-                rules.bound_rows(&tree, &text, Point::new(mid, col), &name)
+                rules.bound_rows(&tree, &text, Point::new(mid, col), &name).len()
             });
         }
         println!(

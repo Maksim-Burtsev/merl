@@ -47,7 +47,7 @@ pub fn rules(ext: &str) -> Option<&'static Rules> {
         Some(Rules {
             name,
             folds: Query::new(&language, folds).ok()?,
-            locals: Query::new(&language, LOCALS).ok()?,
+            locals: Query::new(&language, &locals()).ok()?,
             language,
         })
     })
@@ -103,7 +103,7 @@ impl Rules {
         out
     }
 
-    pub fn bound_rows(&self, tree: &Tree, text: &str, at: Point, name: &str) -> Vec<usize> {
+    pub fn bound_rows(&self, tree: &Tree, text: &str, at: Point, name: &str) -> Vec<(usize, usize)> {
         let bytes = text.as_bytes();
         let mut scopes = HashSet::new();
         let mut defs: Vec<(Node, bool)> = Vec::new();
@@ -128,12 +128,13 @@ impl Rules {
             }
         }
         let root = tree.root_node();
-        let mut owned: Vec<(usize, usize)> = Vec::new();
+        let mut owned: Vec<(usize, usize, usize)> = Vec::new();
         for (d, parent) in defs {
             let own = scope_or_root(&scopes, root, Some(d));
-            owned.push((own.id(), d.start_position().row + 1));
+            owned.push((own.id(), d.start_position().row + 1, own.start_position().row + 1));
             if parent && own.id() != root.id() {
-                owned.push((scope_or_root(&scopes, root, own.parent()).id(), d.start_position().row + 1));
+                let up = scope_or_root(&scopes, root, own.parent());
+                owned.push((up.id(), d.start_position().row + 1, up.start_position().row + 1));
             }
         }
         let Some(mut node) = root.descendant_for_point_range(at, at) else {
@@ -141,9 +142,9 @@ impl Rules {
         };
         loop {
             let scope = scope_or_root(&scopes, root, Some(node));
-            let mut rows: Vec<usize> = (owned.iter())
-                .filter(|(s, _)| *s == scope.id())
-                .map(|&(_, r)| r)
+            let mut rows: Vec<(usize, usize)> = (owned.iter())
+                .filter(|(s, _, _)| *s == scope.id())
+                .map(|&(_, r, from)| (r, from))
                 .collect();
             if !rows.is_empty() {
                 rows.sort_unstable();
@@ -166,4 +167,12 @@ fn scope_or_root<'t>(scopes: &HashSet<usize>, root: Node<'t>, mut n: Option<Node
         n = x.parent();
     }
     root
+}
+
+fn locals() -> String {
+    let mut q = LOCALS.to_owned();
+    if std::env::var_os("MERL_TREE_PLAIN_LOCALS").is_none() {
+        q.push_str(include_str!("../../queries/typescript/locals_merl.scm"));
+    }
+    q
 }
