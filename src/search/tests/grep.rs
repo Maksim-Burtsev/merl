@@ -310,10 +310,7 @@ fn a_binding_check_compiles_its_pattern_once_for_all_lines() {
     let before = compiles();
     for i in 0..40 {
         assert!(cs_statement(&format!("var zq1561 = {i};"), "zq1561"));
-        assert!(super::super::jvm_rebound::declares_local(
-            &format!("val zq1561 = {i}"),
-            "zq1561"
-        ));
+        assert!(declares_local(&format!("val zq1561 = {i}"), "zq1561"));
     }
     let made = compiles() - before;
     assert!((1..=4).contains(&made), "{made} compiles for 80 checks");
