@@ -88,3 +88,18 @@ fn code_after_a_quote_like_token_stays_code() {
     let blank = format!("{}'^a'", "\n".repeat(1 << 20));
     assert_eq!(texts(Kind::TsJs, "a.vue", &blank), [true]);
 }
+
+#[test]
+fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
+    let hole = |src: &str| {
+        let at = src.find('^').expect("a mark");
+        let line = src.replace('^', "");
+        hole_line(Kind::CSharp, &[line.as_str()], 0, at).map(|h| h.trim().to_owned())
+    };
+    assert_eq!(hole(r#"@"""" + $"{^a.b}""#).as_deref(), Some("a.b"));
+    assert_eq!(hole(r#"$$"""{{^a}}""""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"$"{f($"{^a}")}""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"$$"""{^a}""""#), None);
+    assert_eq!(hole(r#"$"{{^a}}""#), None);
+    assert_eq!(hole(r#"$"{^a"#), None);
+}
