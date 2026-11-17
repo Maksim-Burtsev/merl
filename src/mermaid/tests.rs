@@ -378,7 +378,7 @@ fn a_diagram_up_to_8192_pixels_draws() {
 
 #[test]
 fn a_gantt_draws_today_inside_its_chart() {
-    let yesterday = chrono::Local::now().date_naive() - chrono::Days::new(1);
+    let yesterday = jiff::Zoned::now().date().yesterday().unwrap();
     let src = format!("gantt\n  dateFormat YYYY-MM-DD\n  section S\n  A : {yesterday}, 3d\n");
     let request = RenderRequest::svg(&src, OperationControl::new(), SvgRequest::default());
     let Ok(RenderOutput::Svg(Some(out))) = renderer().render(request) else {
