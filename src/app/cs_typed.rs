@@ -545,7 +545,8 @@ impl App {
         if word == ty.name {
             return Vec::new();
         }
-        let Ok(re) = Regex::new(&search::def_patterns(Kind::CSharp, word).join("|")) else {
+        let Some(re) = search::cached_regex(&search::def_patterns(Kind::CSharp, word).join("|"))
+        else {
             return Vec::new();
         };
         let lines: Vec<&str> = text.lines().collect();
@@ -1408,8 +1409,8 @@ impl App {
 
     pub(super) fn cs_args(&self) -> Option<usize> {
         let (range, word) = self.definition_word(Some(Kind::CSharp))?;
-        let declares = Regex::new(&search::def_patterns(Kind::CSharp, &word).join("|"))
-            .is_ok_and(|re| re.is_match(self.line_str()));
+        let declares = search::cached_regex(&search::def_patterns(Kind::CSharp, &word).join("|"))
+            .is_some_and(|re| re.is_match(self.line_str()));
         if declares && self.on_declared_name(Kind::CSharp, &word, true) {
             return None;
         }

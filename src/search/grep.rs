@@ -27,6 +27,21 @@ impl Hit {
         self.deleted.unwrap_or(TextLine::File(self.line1 - 1))
     }
 }
+pub fn cached_regex(pattern: &str) -> Option<regex::Regex> {
+    static BUILT: std::sync::LazyLock<Mutex<HashMap<String, regex::Regex>>> =
+        std::sync::LazyLock::new(Mutex::default);
+    if let Some(re) = BUILT.lock().ok().and_then(|b| b.get(pattern).cloned()) {
+        return Some(re);
+    }
+    let re = regex::Regex::new(pattern).ok()?;
+    if let Ok(mut b) = BUILT.lock() {
+        if b.len() >= 128 {
+            b.clear();
+        }
+        b.insert(pattern.to_owned(), re.clone());
+    }
+    Some(re)
+}
 pub fn grep_project(
     root: &Path,
     files: &[PathBuf],

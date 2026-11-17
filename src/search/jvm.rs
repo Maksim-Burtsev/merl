@@ -230,7 +230,7 @@ pub(super) fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str)
     static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").expect("the regex is a literal")
     });
-    let word = Regex::new(&format!(
+    let word = super::cached_regex(&format!(
         r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
         regex::escape(name)
     ))
@@ -481,7 +481,7 @@ fn lexed_members_of(text: &str, literal: &[bool], decl_line1: usize, name: &str)
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
-    let Ok(re) = Regex::new(&def_patterns(Kind::Jvm, name).join("|")) else {
+    let Some(re) = super::cached_regex(&def_patterns(Kind::Jvm, name).join("|")) else {
         return Vec::new();
     };
     members_of(&lines, literal, k, name, &re)
@@ -1176,11 +1176,10 @@ pub fn kotlin_initializer_parameter(
     {
         return None;
     }
-    let word = Regex::new(&format!(
+    let word = super::cached_regex(&format!(
         r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
         regex::escape(name)
-    ))
-    .ok()?;
+    ))?;
     (k..=close_line)
         .find(|&i| word.is_match(&uncommented(Kind::Jvm, lines[i])))
         .map(|i| i + 1)
