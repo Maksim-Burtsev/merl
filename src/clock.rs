@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn every_field_prints_as_chrono_printed_it() {
-        let all: String = KNOWN.chars().map(|k| format!("[%{k}]")).collect();
+        let all: String = KNOWN.chars().flat_map(|k| ['[', '%', k, ']']).collect();
         let all = format!("{all}a%r%%r%%%r x");
         for (secs, chrono) in [
             (
