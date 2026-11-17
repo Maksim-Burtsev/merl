@@ -71,14 +71,16 @@ impl App {
             .map(|o| regex::escape(o))
             .collect::<Vec<_>>()
             .join("|");
-        let mut reach = format!(
-            r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\.|\bnew\s+(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*\(.*\)\s*\{{|^\s*[:,]?\s*(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*(?:\(.*\))?\s*(?:,|\{{|$)"
-        );
-        if kotlin {
-            reach.push_str(&format!(
+        let receivers = if kotlin {
+            format!(
                 r"|\b(?:fun|val|var)\s+(?:<.*>\s*)?(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\??\s*\.\s*\w|\b(?:{names}|[A-Z]\d?)\s*(?:<.*>)?\??\s*\.\s*\(|<[^>]*:\s*(?:[\w.]+\.)?(?:{names})\b"
-            ));
-        }
+            )
+        } else {
+            String::new()
+        };
+        let reach = format!(
+            r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\.|\bnew\s+(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*\(.*\)\s*\{{|^\s*[:,]?\s*(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*(?:\(.*\))?\s*(?:,|\{{|$){receivers}"
+        );
         self.project_grep(Kind::Jvm, file, &reach).is_empty()
     }
 
