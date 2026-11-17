@@ -527,7 +527,6 @@ impl App {
     }
 
     fn php_class(&self, from: &Path, text: &str, name: &str) -> (Option<String>, Vec<PhpClass>) {
-        let kind = Kind::Php;
         let full = search::php_resolve(text, name).map(|r| r.full);
         let short = full.as_deref().unwrap_or(name);
         let short = short.rsplit('\\').next().unwrap_or(short);
@@ -535,8 +534,20 @@ impl App {
             r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+{}\b",
             regex::escape(short)
         );
+        let matching = self.php_declared(from, full.as_deref(), short, &pattern);
+        (full.clone(), matching)
+    }
+
+    fn php_declared(
+        &self,
+        from: &Path,
+        full: Option<&str>,
+        short: &str,
+        pattern: &str,
+    ) -> Vec<PhpClass> {
+        let kind = Kind::Php;
         let cut = self.truncated.get();
-        let declared = self.project_definitions(kind, from, short, &pattern);
+        let declared = self.project_definitions(kind, from, short, pattern);
         self.truncated.set(cut);
         let namespaced = |t: &str, line: usize| {
             let ns = search::php_namespace(search::php_block(t, line)).unwrap_or_default();
@@ -545,22 +556,19 @@ impl App {
                 _ => format!("{ns}\\{short}"),
             }
         };
-        let matching = declared
+        declared
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
                 let code = search::literal_lines(kind, &t).get(h.line1 - 1) != Some(&true);
-                let fits = full
-                    .as_ref()
-                    .is_none_or(|f| namespaced(&t, h.line1 - 1).eq_ignore_ascii_case(f));
+                let fits = full.is_none_or(|f| namespaced(&t, h.line1 - 1).eq_ignore_ascii_case(f));
                 (code && fits).then_some(PhpClass {
                     path: h.path,
                     text: t,
                     header0: h.line1 - 1,
                 })
             })
-            .collect();
-        (full.clone(), matching)
+            .collect()
     }
 
     pub(super) fn php_typed(
@@ -689,8 +697,11 @@ impl App {
     fn php_maps_outside(&self, path: &Path, full: &str) -> bool {
         let map = search::php_psr4(&self.root, path.parent().unwrap_or_else(|| Path::new("")));
         if map.is_empty() {
+            let pattern = search::php_class_pattern(&regex::escape(full));
             return !full.contains('\\')
-                && self.php_class(path, "", &format!("\\{full}")).1.is_empty();
+                && self
+                    .php_declared(path, Some(full), full, &pattern)
+                    .is_empty();
         }
         search::php_psr4_file(&map, full, |f| self.files.iter().any(|p| p == f))
             == search::Psr4File::OutsideProject

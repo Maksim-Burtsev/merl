@@ -1,6 +1,6 @@
 use super::php::{
-    php_assignment, php_bare_word_cut, php_constants, php_method, php_namespace_line,
-    php_properties, php_tags,
+    php_assignment, php_bare_word_cut, php_class_pattern, php_constants, php_method,
+    php_namespace_line, php_properties, php_tags,
 };
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
@@ -12,10 +12,9 @@ use super::{
     groovy_patterns, haskell_declares, haskell_patterns, indent, julia_declares, julia_narrow,
     julia_patterns, jvm_mods, jvm_return_type, lisp_declares, lisp_patterns, literal_lines,
     ml_declares, ml_patterns, names, nix_declares, nix_patterns, objc_patterns, perl_declares,
-    perl_patterns, php_block, php_mods, php_namespace_patterns, powershell_declares,
-    powershell_patterns, powershell_sigil, r_patterns, scala_patterns, shape_matcher,
-    solidity_declares, solidity_patterns, split_top, sql_create, sql_cte, starlark_patterns,
-    swift_mods, uncommented,
+    perl_patterns, php_block, php_namespace_patterns, powershell_declares, powershell_patterns,
+    powershell_sigil, r_patterns, scala_patterns, shape_matcher, solidity_declares,
+    solidity_patterns, split_top, sql_create, sql_cte, starlark_patterns, swift_mods, uncommented,
 };
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -401,13 +400,12 @@ fn swift_patterns(word: &str) -> Vec<String> {
 
 fn php_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
-    let mods = php_mods!();
     let [property, promoted] = php_properties(&w);
     let [property_tag, method_tag] = php_tags(&w);
     let [constant, case] = php_constants(&w);
     vec![
         php_method(&w),
-        format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
+        php_class_pattern(&w),
         php_namespace_line(&w),
         constant,
         format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
