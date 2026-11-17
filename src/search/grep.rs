@@ -27,6 +27,10 @@ impl Hit {
         self.deleted.unwrap_or(TextLine::File(self.line1 - 1))
     }
 }
+#[cfg(test)]
+thread_local! {
+    pub static REGEX_COMPILES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 pub fn cached_regex(pattern: &str) -> Option<regex::Regex> {
     static BUILT: std::sync::LazyLock<Mutex<HashMap<String, regex::Regex>>> =
         std::sync::LazyLock::new(Mutex::default);
@@ -34,6 +38,8 @@ pub fn cached_regex(pattern: &str) -> Option<regex::Regex> {
         return Some(re);
     }
     let re = regex::Regex::new(pattern).ok()?;
+    #[cfg(test)]
+    REGEX_COMPILES.with(|c| c.set(c.get() + 1));
     if let Ok(mut b) = BUILT.lock() {
         if b.len() >= 128 {
             b.clear();

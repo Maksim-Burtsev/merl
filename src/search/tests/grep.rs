@@ -303,3 +303,18 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_binding_check_compiles_its_pattern_once_for_all_lines() {
+    let compiles = || REGEX_COMPILES.with(std::cell::Cell::get);
+    let before = compiles();
+    for i in 0..40 {
+        assert!(cs_statement(&format!("var zq1561 = {i};"), "zq1561"));
+        assert!(super::super::jvm_rebound::declares_local(
+            &format!("val zq1561 = {i}"),
+            "zq1561"
+        ));
+    }
+    let made = compiles() - before;
+    assert!((1..=4).contains(&made), "{made} compiles for 80 checks");
+}
