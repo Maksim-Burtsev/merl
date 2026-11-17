@@ -51,3 +51,8 @@ export function g(s: Stylus, x: string): string {
   return /'/.test(x) ? s.blot() : "";
   //                     ^ d: shop/quoted.ts:2
 }
+
+export const ink = (
+  s: Stylus,
+): string => s.blot();
+//             ^ d: shop/quoted.ts:2
