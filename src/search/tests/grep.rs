@@ -309,11 +309,13 @@ fn a_binding_check_compiles_its_pattern_once_for_all_lines() {
     let compiles = || REGEX_COMPILES.with(std::cell::Cell::get);
     let before = compiles();
     for i in 0..40 {
-        assert!(cs_statement(&format!("var zq1561 = {i};"), "zq1561"));
-        assert!(declares_local(&format!("val zq1561 = {i}"), "zq1561"));
+        for name in ["zq1561a", "zq1561b"] {
+            assert!(cs_statement(&format!("var {name} = {i};"), name));
+            assert!(declares_local(&format!("val {name} = {i}"), name));
+        }
     }
     let made = compiles() - before;
-    assert!((1..40).contains(&made), "{made} compiles for 80 checks");
+    assert!((1..40).contains(&made), "{made} compiles for 160 checks");
 }
 
 #[test]

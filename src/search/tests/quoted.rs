@@ -85,6 +85,11 @@ fn code_after_a_quote_like_token_stays_code() {
         texts(Kind::C, "a.cc", cpp),
         [true, true, false, false, false]
     );
+    let digits = "0x1F'A0'00 + s.^a + 0b1010'1010 + ^b + 1'0.5'0f + .5'0 + ^c + u8'^d' + 1 + '^e' + 0X0'F'L + ^f";
+    assert_eq!(
+        texts(Kind::C, "a.cc", digits),
+        [false, false, false, true, true, false]
+    );
     let blank = format!("{}'^a'", "\n".repeat(1 << 20));
     assert_eq!(texts(Kind::TsJs, "a.vue", &blank), [true]);
 }
