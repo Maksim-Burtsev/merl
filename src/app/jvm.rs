@@ -46,7 +46,12 @@ impl App {
     }
 
     pub(super) fn jvm_hidden_elsewhere(&self, file: &Path, hit: &Hit) -> bool {
-        if hit.path == file || file.extension().is_none_or(|e| e != "java") {
+        let kotlin = search::kotlin(file);
+        if hit.path == file || !(kotlin || file.extension().is_some_and(|e| e == "java")) {
+            return false;
+        }
+        let scoped = Regex::new(r"\bwith\s*\(|\.\s*(?:apply|run)\b").expect("a fixed pattern");
+        if kotlin && self.text_of(file).is_none_or(|t| scoped.is_match(&t)) {
             return false;
         }
         let Some(text) = self.text_of(&hit.path) else {
@@ -65,9 +70,14 @@ impl App {
             .map(|o| regex::escape(o))
             .collect::<Vec<_>>()
             .join("|");
-        let reach = format!(
+        let mut reach = format!(
             r"\b(?:extends|implements)\b.*\b(?:{names})\b|(?:\b(?:class|object|interface)\b|^\s*\)).*:[^=]*\b(?:{names})\b|\bimport\b.*\b(?:{names})\s*\.|\bnew\s+(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*\(.*\)\s*\{{|^\s*[:,]?\s*(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\s*(?:\(.*\))?\s*(?:,|\{{|$)"
         );
+        if kotlin {
+            reach.push_str(&format!(
+                r"|\b(?:fun|val|var)\s+(?:<.*>\s*)?(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\??\s*\.\s*\w|\b(?:{names}|[A-Z]\d?)\s*(?:<.*>)?\??\s*\.\s*\(|<[^>]*:\s*(?:[\w.]+\.)?(?:{names})\b"
+            ));
+        }
         self.project_grep(Kind::Jvm, file, &reach).is_empty()
     }
 
