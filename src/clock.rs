@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use jiff::{Timestamp, Zoned, tz::TimeZone};
 use serde::{Deserialize, Deserializer, de::Error};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,34 +56,48 @@ fn check(format: &str) -> Result<(), String> {
 impl Clock {
     pub fn now(&self) -> Option<String> {
         let format = self.0.as_deref()?;
-        Some(now().format(format).to_string())
+        show(format, &now())
     }
 }
 
+fn show(format: &str, at: &Zoned) -> Option<String> {
+    let mut chrono_r = String::with_capacity(format.len());
+    let mut chars = format.chars();
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            chrono_r.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('r') => chrono_r.push_str("%I:%M:%S %p"),
+            k => chrono_r.extend(std::iter::once('%').chain(k)),
+        }
+    }
+    jiff::fmt::strtime::format(chrono_r, at).ok()
+}
+
 #[cfg(not(target_family = "wasm"))]
-fn now() -> DateTime<chrono::Local> {
-    use chrono::Local;
+fn now() -> Zoned {
     use std::sync::OnceLock;
-    static FIXED: OnceLock<Option<DateTime<Utc>>> = OnceLock::new();
+    static FIXED: OnceLock<Option<Timestamp>> = OnceLock::new();
     FIXED
         .get_or_init(|| {
             std::env::var("MERL_CLOCK_AT")
                 .ok()
                 .and_then(|s| s.parse().ok())
-                .and_then(|secs| DateTime::from_timestamp(secs, 0))
+                .and_then(|secs| Timestamp::from_second(secs).ok())
         })
-        .map_or_else(Local::now, |at| at.with_timezone(&Local))
+        .map_or_else(Zoned::now, |at| at.to_zoned(TimeZone::system()))
 }
 
 #[cfg(target_family = "wasm")]
-fn now() -> DateTime<chrono::FixedOffset> {
-    use chrono::Offset;
+fn now() -> Zoned {
     let zone = std::env::var("MERL_UTC_OFFSET")
         .ok()
         .and_then(|s| s.parse().ok())
-        .and_then(chrono::FixedOffset::east_opt)
-        .unwrap_or_else(|| Utc.fix());
-    Utc::now().with_timezone(&zone)
+        .and_then(|secs| jiff::tz::Offset::from_seconds(secs).ok())
+        .map_or(TimeZone::UTC, TimeZone::fixed);
+    Timestamp::now().to_zoned(zone)
 }
 
 #[cfg(test)]
@@ -126,9 +140,40 @@ mod tests {
     }
 
     #[test]
+    fn every_field_prints_as_chrono_printed_it() {
+        let all: String = KNOWN.chars().flat_map(|k| ['[', '%', k, ']']).collect();
+        let all = format!("{all}a%r%%r%%%r x");
+        for (secs, chrono) in [
+            (
+                0,
+                "[00][12][ 0][12][00][00][AM][00:00][00:00:00][12:00:00 AM][Thu][Thursday][Jan][January][01][ 1][01][70][1970][%]a12:00:00 AM%r%12:00:00 AM x",
+            ),
+            (
+                52_325,
+                "[14][02][14][ 2][32][05][PM][14:32][14:32:05][02:32:05 PM][Thu][Thursday][Jan][January][01][ 1][01][70][1970][%]a02:32:05 PM%r%02:32:05 PM x",
+            ),
+            (
+                18_429,
+                "[05][05][ 5][ 5][07][09][AM][05:07][05:07:09][05:07:09 AM][Thu][Thursday][Jan][January][01][ 1][01][70][1970][%]a05:07:09 AM%r%05:07:09 AM x",
+            ),
+            (
+                1_700_000_000,
+                "[22][10][22][10][13][20][PM][22:13][22:13:20][10:13:20 PM][Tue][Tuesday][Nov][November][14][14][11][23][2023][%]a10:13:20 PM%r%10:13:20 PM x",
+            ),
+        ] {
+            let at = Timestamp::from_second(secs)
+                .unwrap()
+                .to_zoned(TimeZone::UTC);
+            assert_eq!(show(&all, &at).unwrap(), chrono, "{secs}");
+        }
+    }
+
+    #[test]
     fn every_known_field_formats_as_a_time() {
-        let at = DateTime::from_timestamp(14 * 3600 + 32 * 60 + 5, 0).unwrap();
-        let show = |f: &str| at.format(f).to_string();
+        let at = Timestamp::from_second(14 * 3600 + 32 * 60 + 5)
+            .unwrap()
+            .to_zoned(TimeZone::UTC);
+        let show = |f: &str| show(f, &at).unwrap();
         assert_eq!(show("%H:%M"), "14:32");
         assert_eq!(show("%I:%M %p"), "02:32 PM");
         assert_eq!(show("%H:%M:%S"), "14:32:05");
