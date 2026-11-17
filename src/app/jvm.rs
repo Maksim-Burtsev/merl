@@ -73,7 +73,7 @@ impl App {
             .join("|");
         let receivers = if kotlin {
             format!(
-                r"|\b(?:fun|val|var)\s+(?:<.*>\s*)?(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\??\s*\.\s*\w|\b(?:{names}|[A-Z]\d?)\s*(?:<.*>)?\??\s*\.\s*\(|<[^>]*:\s*(?:[\w.]+\.)?(?:{names})\b"
+                r"|\b(?:fun|val|var)\s+(?:<.*>\s*)?(?:[\w.]+\.)?(?:{names})\s*(?:<.*>)?\??\s*\.\s*\w|\b(?:{names}|[A-Z]\d?)\s*(?:<.*>)?\??\s*\.\s*\(|<[^>]*:\s*(?:[\w.]+\.)?(?:{names})\b|\btypealias\s+\w+\s*(?:<.*>)?\s*=\s*(?:[\w.]+\.)?(?:{names})\b|\bimport\b.*\b(?:{names})\s+as\b"
             )
         } else {
             String::new()
