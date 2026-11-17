@@ -26,3 +26,11 @@ object Quoted {
   ): String = s.blot()
   //            ^ d: src/main/scala/quoted/Quoted.scala:4
 }
+
+class Repo(s: Stylus) {
+  def query(s: Nib): String = """
+    SELECT 1
+  """
+  def run(): String = s.blot()
+  //                    ^ d: src/main/scala/quoted/Quoted.scala:4
+}
