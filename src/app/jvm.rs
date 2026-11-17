@@ -50,7 +50,8 @@ impl App {
         if hit.path == file || !(kotlin || file.extension().is_some_and(|e| e == "java")) {
             return false;
         }
-        let scoped = Regex::new(r"\bwith\s*\(|\.\s*(?:apply|run)\b").expect("a fixed pattern");
+        let scoped =
+            Regex::new(r"\bwith\s*\(|\.\s*(?:apply|run|runCatching)\b").expect("a fixed pattern");
         if kotlin && self.text_of(file).is_none_or(|t| scoped.is_match(&t)) {
             return false;
         }
