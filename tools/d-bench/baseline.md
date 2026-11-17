@@ -151,6 +151,7 @@ The ts, js, vue, svelte and astro rows with #1337 (a callback parameter over an 
 The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and dart rows with #1536 (a method on a local bound to a literal or a standard constructor is no by-name jump; groovy0014 and six pickers on rows not scored say no definition): over `70b6c03e0`, 2026-11-15, release build, `vm.loadavg` { 2.70 3.56 4.04 } before the run. The swift and csharp times rose on the base build too: with the gate switched off they read 50.5 and 44.0 ms p50 against 49.7 and 43.2 with it.
 The groovy row with the review of #1536 (the gate runs in Kotlin only within the JVM kinds): groovy0014, not scored, jumps to `ToolRef.getRef` again, as on master; the other rows unchanged, played over `08bba79a0`, 2026-11-15, release build.
 The swift, csharp, php, dart, ruby and rust rows with #1561 (times only: one combined one-line class body pattern per word, compiled matchers reused, C# and Swift binding checks skip lines without the name; swift 50.6 -> 25.5 ms p50, csharp 43.9 -> 31.5): over `489b994f6`, 2026-11-16, release build, `vm.loadavg` { 2.58 3.10 3.73 } before the run, { 5.39 4.38 4.08 } after.
+The csharp, java, kotlin, groovy and jenkins rows with #1561 (times only: compiled patterns of the C# and JVM binding and declaration checks reused across lines and presses; csharp 31.9 -> 15.6 ms p50, java 90.0 -> 56.3, groovy 104 -> 67.5): over `43c02f95d`, 2026-11-18, release build, `vm.loadavg` { 3.46 4.02 4.27 } before the run, { 4.96 4.45 4.41 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -163,13 +164,13 @@ The swift, csharp, php, dart, ruby and rust rows with #1561 (times only: one com
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 31.5 | 232.7 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
 | swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 25.5 | 55.4 |
-| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 94.4 | 208.6 |
-| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 35.2 | 96.3 |
-| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 31.5 | 46.4 |
+| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 56.3 | 114.8 |
+| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 19.9 | 46.8 |
+| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 15.6 | 28.5 |
 | ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 75.1 | 514.9 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
-| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 107.7 | 241.6 |
-| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 79.3 | 176.4 |
+| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 67.5 | 134.7 |
+| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 23.8 | 40.3 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
