@@ -71,31 +71,44 @@ pub fn in_string_text(kind: Kind, path: &Path, text: &str, at: usize) -> bool {
         Kind::C => Lang::C,
         _ => return false,
     };
-    let b = text.as_bytes();
-    let mut stack: Vec<Frame> = Vec::new();
+    lex(lang, text.as_bytes(), at, &mut Vec::new())
+}
+
+pub(super) fn cs_holes(line: &[u8]) -> Vec<(usize, usize)> {
+    let mut holes = Vec::new();
+    lex(Lang::CSharp, line, line.len(), &mut holes);
+    holes
+}
+
+fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool {
+    let mut stack: Vec<(Frame, usize)> = Vec::new();
     let mut i = 0;
     while i < at.min(b.len()) {
         let (n, change) = match stack.last() {
-            Some(Frame::Text(t)) => in_text(t, &b[i..]),
-            Some(Frame::Path) => in_path(&b[i..]),
-            Some(Frame::Tag) => in_tag(&b[i..]),
-            Some(Frame::Children) => in_children(&b[i..]),
-            Some(Frame::Code) | None => in_code(lang, b, i),
+            Some((Frame::Text(t), _)) => in_text(t, &b[i..]),
+            Some((Frame::Path, _)) => in_path(&b[i..]),
+            Some((Frame::Tag, _)) => in_tag(&b[i..]),
+            Some((Frame::Children, _)) => in_children(&b[i..]),
+            Some((Frame::Code, _)) | None => in_code(lang, b, i),
         };
         match change {
             Change::Keep => {}
             Change::Pop => {
-                stack.pop();
+                if let Some((Frame::Code, from)) = stack.pop()
+                    && matches!(stack.last(), Some((Frame::Text(_), _)))
+                {
+                    holes.push((from, i));
+                }
             }
-            Change::Push(f) => stack.push(f),
+            Change::Push(f) => stack.push((f, i + n)),
             Change::Swap(f) => {
                 stack.pop();
-                stack.push(f);
+                stack.push((f, i + n));
             }
         }
         i += n;
     }
-    matches!(stack.last(), Some(Frame::Text(_)))
+    matches!(stack.last(), Some((Frame::Text(_), _)))
 }
 
 fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {

@@ -136,6 +136,10 @@ in $" + new ScopeView { Checked = Checked };
         //                    ^ d: src/Shop/Basket.cs:110
         var nested = $"{F('}', $"{new ScopeView { Checked = Checked }}")}";
         //                                        ^ d: src/Shop/Warehouse/Courier.cs:25
+        var raw = $$"""{{new ScopeView { Checked = Checked }}}""";
+        //                                ^ d: src/Shop/Warehouse/Courier.cs:25
+        var after = @"""" + $"{new ScopeView { Checked = Checked }}";
+        //                                     ^ d: src/Shop/Warehouse/Courier.cs:25
         return again;
     }
 }

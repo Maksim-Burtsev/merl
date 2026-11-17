@@ -1024,9 +1024,11 @@ pub(super) fn hole_line<S: AsRef<str>>(
         return None;
     }
     let line = lines.get(line0)?.as_ref();
-    let (from, to) = holes(kind, line.as_bytes())
-        .into_iter()
-        .find(|&(s, e)| s <= at && at < e)?;
+    let spans = match kind {
+        Kind::CSharp => super::cs_holes(line.as_bytes()),
+        _ => julia_holes(line.as_bytes()),
+    };
+    let (from, to) = spans.into_iter().find(|&(s, e)| s <= at && at < e)?;
     let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
     if literal_lines(kind, &text.join("\n")).get(line0) != Some(&false) {
         return None;
@@ -1042,38 +1044,21 @@ pub(super) fn hole_line<S: AsRef<str>>(
     Some(out)
 }
 enum Frame {
-    Hole {
-        from: usize,
-        depth: usize,
-    },
-    Text {
-        interp: bool,
-        triple: bool,
-        escapes: bool,
-    },
+    Hole { from: usize, depth: usize },
+    Text { interp: bool, triple: bool },
 }
-fn holes(kind: Kind, b: &[u8]) -> Vec<(usize, usize)> {
+fn julia_holes(b: &[u8]) -> Vec<(usize, usize)> {
     let (mut out, mut stack, mut i) = (Vec::new(), Vec::new(), 0);
     while let Some(&c) = b.get(i) {
         i += 1;
-        if let Some(&Frame::Text {
-            interp,
-            triple,
-            escapes,
-        }) = stack.last()
-        {
+        if let Some(&Frame::Text { interp, triple }) = stack.last() {
             match c {
-                b'\\' if escapes => i += 1,
-                b'"' if !escapes && !triple && b.get(i) == Some(&b'"') => i += 1,
+                b'\\' => i += 1,
                 b'"' if !triple || b.get(i..i + 2) == Some(b"\"\"") => {
                     stack.pop();
                     i += if triple { 2 } else { 0 };
                 }
-                b'{' if interp && kind == Kind::CSharp && b.get(i) == Some(&b'{') => i += 1,
-                b'{' if interp && kind == Kind::CSharp => {
-                    stack.push(Frame::Hole { from: i, depth: 0 });
-                }
-                b'$' if interp && kind == Kind::Julia && b.get(i) == Some(&b'(') => {
+                b'$' if interp && b.get(i) == Some(&b'(') => {
                     i += 1;
                     stack.push(Frame::Hole { from: i, depth: 0 });
                 }
@@ -1081,50 +1066,21 @@ fn holes(kind: Kind, b: &[u8]) -> Vec<(usize, usize)> {
             }
             continue;
         }
-        let close = if kind == Kind::CSharp { b'}' } else { b')' };
         match c {
             b'"' => {
-                let lead = &b[..i - 1];
                 let triple = b.get(i..i + 2) == Some(b"\"\"");
-                let prefix = lead.iter().rev().take_while(|p| b"$@".contains(p));
-                let dollars = prefix.clone().filter(|&&p| p == b'$').count();
-                let verbatim = prefix.clone().any(|&p| p == b'@');
-                let (interp, escapes) = if kind == Kind::CSharp {
-                    (dollars == 1, !verbatim && !triple)
-                } else {
-                    (lead.last().is_none_or(|&p| !ident(p)), true)
-                };
-                stack.push(Frame::Text {
-                    interp,
-                    triple,
-                    escapes,
-                });
+                let interp = b[..i - 1].last().is_none_or(|&p| !ident(p));
+                stack.push(Frame::Text { interp, triple });
                 i += if triple { 2 } else { 0 };
             }
-            b'\'' if kind == Kind::CSharp => {
-                let end = i + 1 + usize::from(b.get(i) == Some(&b'\\'));
-                if b.get(end) == Some(&b'\'') {
-                    i = end + 1;
-                }
-            }
-            b'/' if kind == Kind::CSharp && b.get(i) == Some(&b'/') => break,
-            b'/' if kind == Kind::CSharp && b.get(i) == Some(&b'*') => {
-                match b
-                    .get(i + 1..)
-                    .and_then(|r| r.windows(2).position(|w| w == b"*/"))
-                {
-                    Some(p) => i += p + 3,
-                    None => break,
-                }
-            }
-            b'#' if kind == Kind::Julia => break,
+            b'#' => break,
             b'(' | b'[' | b'{' => {
                 if let Some(Frame::Hole { depth, .. }) = stack.last_mut() {
                     *depth += 1;
                 }
             }
             b')' | b']' | b'}' => match stack.last_mut() {
-                Some(Frame::Hole { from, depth: 0 }) if c == close => {
+                Some(Frame::Hole { from, depth: 0 }) if c == b')' => {
                     out.push((*from, i - 1));
                     stack.pop();
                 }
