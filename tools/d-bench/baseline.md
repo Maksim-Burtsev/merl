@@ -152,6 +152,7 @@ The ts, js, vue, svelte, astro, swift, java, kotlin, groovy, jenkins, csharp and
 The groovy row with the review of #1536 (the gate runs in Kotlin only within the JVM kinds): groovy0014, not scored, jumps to `ToolRef.getRef` again, as on master; the other rows unchanged, played over `08bba79a0`, 2026-11-15, release build.
 The swift, csharp, php, dart, ruby and rust rows with #1561 (times only: one combined one-line class body pattern per word, compiled matchers reused, C# and Swift binding checks skip lines without the name; swift 50.6 -> 25.5 ms p50, csharp 43.9 -> 31.5): over `489b994f6`, 2026-11-16, release build, `vm.loadavg` { 2.58 3.10 3.73 } before the run, { 5.39 4.38 4.08 } after.
 The csharp, java, kotlin, groovy and jenkins rows with #1561 (times only: compiled patterns of the C# and JVM binding and declaration checks reused across lines and presses; csharp 31.9 -> 15.6 ms p50, java 90.0 -> 56.3, groovy 104 -> 67.5): over `43c02f95d`, 2026-11-18, release build, `vm.loadavg` { 3.46 4.02 4.27 } before the run, { 4.96 4.45 4.41 } after.
+The csharp, java, kotlin, groovy, jenkins, swift, php, dart, ruby and rust rows with #1561 (times only: the compiled-pattern cache bounded at 8 entries, peak memory within ~9 % of master; csharp 15.6 -> 18.9 ms p50, java 56.3 -> 59.6 against the unbounded cache; the other five rows moved by load only): over `58d86053d`, 2026-11-18, release build, `vm.loadavg` { 2.80 2.99 3.32 } before the run, { 5.11 4.10 3.71 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -159,18 +160,18 @@ The csharp, java, kotlin, groovy and jenkins rows with #1561 (times only: compil
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 61.1 | 141.4 |
 | js (eslint, uptime-kuma) | 217 | 208 (96%) | 7 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 52.6 | 265.5 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
-| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.3 | 51.1 |
+| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.3 | 52.5 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
-| php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 31.5 | 232.7 |
+| php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 31.1 | 233.1 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 25.5 | 55.4 |
-| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 56.3 | 114.8 |
-| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 19.9 | 46.8 |
-| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 15.6 | 28.5 |
-| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 75.1 | 514.9 |
+| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 25.3 | 54.7 |
+| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.6 | 138.8 |
+| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 21.9 | 46.7 |
+| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 18.9 | 36.8 |
+| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 73.2 | 518.3 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
-| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 67.5 | 134.7 |
-| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 23.8 | 40.3 |
+| groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 70.6 | 134.6 |
+| jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 25.2 | 40.2 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
@@ -186,5 +187,5 @@ The csharp, java, kotlin, groovy and jenkins rows with #1561 (times only: compil
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 71.0 | 168.5 |
+| dart (dio) | 97 | 95 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 17 | 0 | 69.7 | 164.4 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

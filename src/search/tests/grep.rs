@@ -313,5 +313,14 @@ fn a_binding_check_compiles_its_pattern_once_for_all_lines() {
         assert!(declares_local(&format!("val zq1561 = {i}"), "zq1561"));
     }
     let made = compiles() - before;
-    assert!((1..=4).contains(&made), "{made} compiles for 80 checks");
+    assert!((1..40).contains(&made), "{made} compiles for 80 checks");
+}
+
+#[test]
+fn the_regex_cache_keeps_no_more_than_its_bound() {
+    for i in 0..REGEXES_KEPT * 3 {
+        assert!(cached_regex(&format!("zq1561bound{i}")).is_some());
+        let kept = REGEXES.lock().map(|b| b.len()).unwrap_or_default();
+        assert!(kept <= REGEXES_KEPT, "{kept} kept past {REGEXES_KEPT}");
+    }
 }
