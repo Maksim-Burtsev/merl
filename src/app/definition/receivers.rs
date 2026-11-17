@@ -274,7 +274,7 @@ impl App {
         }
         let mut declaring = search::def_patterns(a.kind, &a.word);
         declaring.extend(search::member_or_signature(a.kind, &a.word).unwrap_or_default());
-        Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()))
+        search::cached_regex(&declaring.join("|")).is_some_and(|re| re.is_match(self.line_str()))
     }
 
     pub(super) fn answered_by_go_ts_swift(

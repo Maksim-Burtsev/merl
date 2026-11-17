@@ -27,6 +27,28 @@ impl Hit {
         self.deleted.unwrap_or(TextLine::File(self.line1 - 1))
     }
 }
+#[cfg(test)]
+thread_local! {
+    pub static REGEX_COMPILES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+pub const REGEXES_KEPT: usize = 8;
+pub static REGEXES: std::sync::LazyLock<Mutex<HashMap<String, regex::Regex>>> =
+    std::sync::LazyLock::new(Mutex::default);
+pub fn cached_regex(pattern: &str) -> Option<regex::Regex> {
+    if let Some(re) = REGEXES.lock().ok().and_then(|b| b.get(pattern).cloned()) {
+        return Some(re);
+    }
+    let re = regex::Regex::new(pattern).ok()?;
+    #[cfg(test)]
+    REGEX_COMPILES.with(|c| c.set(c.get() + 1));
+    if let Ok(mut b) = REGEXES.lock() {
+        if b.len() >= REGEXES_KEPT {
+            b.clear();
+        }
+        b.insert(pattern.to_owned(), re.clone());
+    }
+    Some(re)
+}
 pub fn grep_project(
     root: &Path,
     files: &[PathBuf],

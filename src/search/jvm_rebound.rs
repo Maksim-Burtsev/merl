@@ -192,10 +192,10 @@ pub(super) fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     let typ = r"(?:int|long|short|byte|char|boolean|float|double|(?:\w+\.)*[A-Z]\w*)(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?(?:\[\])*";
-    Regex::new(&format!(
+    super::cached_regex(&format!(
         r"^(?:(?:final|lateinit|const|tailrec)\s+|@[\w.]+\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:val|var)\s+[A-Z]\w*\s*\([^()]*\b{n}\b[^()]*\)\s*=|(?:@[\w.]+\s+)*(?:(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:]|(?:var|{typ})\s+{n}\s*$))"
     ))
-    .is_ok_and(|re| re.is_match(t))
+    .is_some_and(|re| re.is_match(t))
         || later_declarator(&blanked(t), name).is_some()
 }
 
@@ -780,7 +780,8 @@ pub(super) fn header_lines1_binding(
     scala: bool,
 ) -> Vec<usize> {
     let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let rule =
+        |p: String| super::cached_regex(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
         r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*[\w(),\s]*?<-[^{{}}]*?;\s*{n}\s*(?::[^<;]*)?(?:<-|=[^=>])|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
