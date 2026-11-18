@@ -377,18 +377,38 @@ fn cursor_line_bindings(
     scala: bool,
 ) -> Vec<usize> {
     let own = header_lines1_binding(lines, at, at, name, col, scala);
-    let ind = indent(lines[at]);
-    let filled = |j: &usize| !lines[*j].trim().is_empty();
-    let closes_string = (0..at).rev().find(filled).is_some_and(|j| literal[j]);
-    if !own.is_empty() || !(lines[at].trim_start().starts_with(')') || closes_string) {
+    if !own.is_empty() {
         return own;
     }
-    (0..at)
-        .rev()
-        .find(|j| filled(j) && !literal[*j] && indent(lines[*j]) <= ind)
+    let ind = indent(lines[at]);
+    let code = |j: &usize| !lines[*j].trim().is_empty() && !literal[*j];
+    let header = if literal[at] {
+        (0..at).rev().find(code)
+    } else if lines[at].trim_start().starts_with(')') {
+        (0..at)
+            .rev()
+            .find(|j| code(j) && indent(lines[*j]) <= ind)
+            .filter(|&h| param_lists_close(lines, h) == Some(at))
+    } else {
+        None
+    };
+    header
         .and_then(|h| param_lists_line1_binding(lines, h, name))
         .into_iter()
         .collect()
+}
+
+fn param_lists_close(lines: &[&str], from: usize) -> Option<usize> {
+    let mut open = params_open_byte(lines[from])?;
+    let mut at = from;
+    loop {
+        let list = group(Kind::Jvm, lines, at, open)?;
+        let next = list.after_close.trim_start();
+        if !next.starts_with('(') {
+            return Some(list.close_line);
+        }
+        (at, open) = (list.close_line, lines[list.close_line].len() - next.len());
+    }
 }
 
 fn header_may_bind(lines: &[&str], from: usize, to: usize) -> bool {

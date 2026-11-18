@@ -34,3 +34,12 @@ object Daos {
     ): String = s.blot()
     //            ^ d: src/main/kotlin/quoted/Quoted.kt:4
 }
+
+class Repo(private val s: Stylus) {
+    fun query(s: Nib): String = """
+        SELECT 1
+    """.trimIndent()
+
+    fun run(): String = s.blot()
+    //                    ^ d: src/main/kotlin/quoted/Quoted.kt:4
+}

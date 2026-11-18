@@ -40,4 +40,9 @@ int After(const Stylus &s) {
   //               ^ d: src/quoted.cc:4
 }
 
+int Mask(const Stylus &s) {
+  return 0x1F'A0'00 + s.blot();
+  //                    ^ d: src/quoted.cc:4
+}
+
 }  // namespace quoted

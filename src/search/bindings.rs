@@ -810,15 +810,32 @@ fn own_line_hides(
     name: &str,
     out: &mut Vec<Binding>,
 ) -> bool {
+    static DECLARATION_TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\)\s*(?::[^=;{}()]*)?(?:=>|\{)").expect("the regex is a literal")
+    });
     let own = uncommented(kind, lines[at]);
-    let wrapped = own
-        .trim_start()
-        .starts_with(')')
-        .then(|| header_of(kind, lines, at, own.trim()));
-    let (from, own) = match wrapped {
-        Some((from, header)) if !lines[from..at].iter().any(|l| l.contains("=>")) => (from, header),
-        _ => (at, own),
-    };
+    let count = out.len();
+    let hides = opener_line_hides(kind, lines, at, &own, name, out);
+    if out.len() > count
+        || !matches!(kind, Kind::TsJs | Kind::CSharp)
+        || !DECLARATION_TAIL.is_match(own.trim_start())
+    {
+        return hides;
+    }
+    let (from, header) = header_of(kind, lines, at, own.trim());
+    if lines[from..at].iter().any(|l| l.contains("=>")) {
+        return hides;
+    }
+    opener_line_hides(kind, lines, from, &header, name, out)
+}
+fn opener_line_hides(
+    kind: Kind,
+    lines: &[&str],
+    from: usize,
+    own: &str,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
     if kind == Kind::CSharp {
         let outer = if own.contains("=>") {
             lines[..from].join("\n")
@@ -831,7 +848,7 @@ fn own_line_hides(
         }
         return opener.hides_outer_scopes;
     }
-    let _ = opener_bindings(kind, &own, from + 1, name, out);
+    let _ = opener_bindings(kind, own, from + 1, name, out);
     false
 }
 pub(super) fn this_opener(header: &str, line: usize) -> Option<Value> {
