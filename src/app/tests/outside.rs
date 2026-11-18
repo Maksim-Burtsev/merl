@@ -861,7 +861,7 @@ fn a_php_global_class_the_project_declares_is_not_outside_without_composer_json(
     };
     assert_eq!(
         d("$b->tally"),
-        jump("tally: by name, 1 match", "Basket.php:5")
+        jump("tally: via $b: Basket", "Basket.php:5")
     );
     assert_eq!(
         d("$j->pour"),
