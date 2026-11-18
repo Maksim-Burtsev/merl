@@ -200,6 +200,29 @@ pub fn php_class_header(line: &str) -> Option<PhpClassHeader<'_>> {
     })
 }
 
+pub fn php_class_interfaces(line: &str) -> Vec<&str> {
+    static IMPLEMENTS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bimplements\s+([\w\\]+(?:\s*,\s*[\w\\]+)*)").expect("the regex is a literal")
+    });
+    IMPLEMENTS
+        .captures(line)
+        .map(|c| {
+            c.get(1)
+                .map_or("", |m| m.as_str())
+                .split(',')
+                .map(str::trim)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn php_constant_line(line: &str) -> bool {
+    static CONSTANT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(&php_constants(r"\w+")[0]).expect("the pattern is built from literals")
+    });
+    CONSTANT.is_match(line)
+}
+
 fn php_outer_line<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     let depth = indent(lines.get(at)?.as_ref());
     (0..at).rev().find(|&i| {
