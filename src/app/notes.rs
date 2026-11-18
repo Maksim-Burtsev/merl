@@ -427,7 +427,95 @@ impl Sums {
     }
 }
 
+fn old_to_new(d: &git::Diff, old: usize, len: usize) -> Option<TextLine> {
+    let mut o = 0;
+    for l in 0..=len {
+        if let Some(g) = d.ghosts.get(&l) {
+            if (o..o + g.len()).contains(&old) {
+                return Some(TextLine::Deleted(l, old - o));
+            }
+            o += g.len();
+        }
+        if l == len {
+            break;
+        }
+        if d.marks.get(&l) == Some(&git::Mark::Added) {
+            continue;
+        }
+        if o == old {
+            return Some(TextLine::File(l));
+        }
+        o += 1;
+    }
+    None
+}
+
+fn new_to_old(d: &git::Diff, l: usize) -> Option<usize> {
+    if d.marks.get(&l) == Some(&git::Mark::Added) {
+        return None;
+    }
+    let del: usize = d.ghosts.range(..=l).map(|(_, g)| g.len()).sum();
+    let add = d.marks.iter().filter(|(k, m)| **k < l && **m == git::Mark::Added).count();
+    (l + del).checked_sub(add)
+}
+
 impl App {
+    fn prop_written_blob(&self, n: &Note) -> Option<String> {
+        let mode = std::env::var("MERL_PROP1594").ok()?;
+        let (store, _) = store(self.notes.dirs.as_ref()?.as_ref()?)?;
+        let path = n.path.to_str()?;
+        match mode.as_str() {
+            "a" => {
+                let text = std::fs::read_to_string(&store).ok()?;
+                let sha = text.lines().next()?.rsplit(" \u{b7} ").next()?.trim().to_owned();
+                git::git(&self.root, &["rev-parse", "--verify", &format!("{sha}:{path}")]).ok()
+            }
+            "b" => {
+                let side = std::fs::read_to_string(store.with_extension("blobs")).ok()?;
+                let key = format!("{path}:{}", n.last);
+                let id = side.lines().find_map(|l| l.strip_prefix(&key)?.strip_prefix(' '))?;
+                git::git(&self.root, &["cat-file", "-e", id]).ok()?;
+                Some(id.to_owned())
+            }
+            _ => None,
+        }
+    }
+
+    fn prop_place(&self, n: &Note) -> Option<Option<(TextLine, bool, Option<usize>)>> {
+        let then = self.prop_written_blob(n)?;
+        let path = n.path.to_str()?.to_owned();
+        let now = git::git(&self.root, &["hash-object", "-w", &path]).ok()?;
+        let line = n.last.checked_sub(1)?;
+        let base = (self.review.as_ref())
+            .and_then(|r| git::git(&self.root, &["rev-parse", &format!("{}:{path}", r.merge_base)]).ok())
+            .and_then(|b| git::diff_objects(&self.root, &b, &then))
+            .and_then(|d| new_to_old(&d, line));
+        let moved = git::diff_objects(&self.root, &then, &now)?;
+        if let Ok(f) = std::env::var("MERL_PROP1594_LOG") {
+            let s = format!(
+                "{} then={then} now={now} base={base:?} map={:?} len={}\n",
+                n.text,
+                old_to_new(&moved, line, self.buf.lines.len()),
+                self.buf.lines.len()
+            );
+            drop(
+                std::fs::OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(f)
+                    .and_then(|mut h| std::io::Write::write_all(&mut h, s.as_bytes())),
+            );
+        }
+        let hunks = hunks_of(&self.diff, self.buf.lines.len());
+        match old_to_new(&moved, line, self.buf.lines.len())? {
+            TextLine::File(l) if reads(self, TextLine::File(l), &n.quote) == Some(true) => {
+                Some(Some((TextLine::File(l), false, base)))
+            }
+            _ if base.is_none() => Some(None),
+            _ => Some(self.note_place(n, &hunks, base).filter(|p| p.2 == base)),
+        }
+    }
+
     fn note_place(
         &self,
         n: &Note,
@@ -583,11 +671,13 @@ impl App {
             }
             let id = note_id(n);
             let old = self.notes.last_seen.get(&id).copied();
+            let proto = if self.dirty { None } else { self.prop_place(n) };
             let place = match old {
                 Some((at, stale, base)) if self.dirty => {
                     let (at, stale) = self.note_kept(n, (at, stale));
                     Some((at, stale, base))
                 }
+                _ if proto.is_some() => proto.flatten(),
                 _ => (self.note_place(n, &hunks, old.and_then(|o| o.2)))
                     .map(|(at, stale, base)| (at, stale, base.filter(|_| !self.dirty))),
             };

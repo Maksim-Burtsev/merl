@@ -96,6 +96,11 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
     }
 }
 
+pub fn diff_objects(root: &Path, a: &str, b: &str) -> Option<Diff> {
+    let out = git(root, &["diff", "-U0", "--no-color", "--no-ext-diff", a, b]).ok()?;
+    Some(parse(&out, true))
+}
+
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
