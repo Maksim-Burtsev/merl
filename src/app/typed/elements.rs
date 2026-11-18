@@ -11,11 +11,12 @@ impl App {
         hops: usize,
     ) -> Option<TypeVia> {
         let at = (file.to_path_buf(), line1);
+        let assumed = (file.to_path_buf(), line1, n.to_owned());
         if let Some((_, ty)) = self
             .elements_assumed
             .borrow()
             .iter()
-            .find(|(a, _)| *a == at)
+            .find(|(a, _)| *a == assumed)
         {
             return Some(TypeVia {
                 ty: ty.clone(),
@@ -33,10 +34,10 @@ impl App {
         if self.reading.borrow().contains(&at) {
             return Some(one);
         }
-        let outer = self.reading.replace(vec![at.clone()]);
+        let outer = self.reading.replace(vec![at]);
         self.elements_assumed
             .borrow_mut()
-            .push((at, one.ty.clone()));
+            .push((assumed, one.ty.clone()));
         let kept = search::ts_array_pushes(text, line1, n).is_some_and(|pushed| {
             pushed.into_iter().all(|(line1, value)| {
                 let b = search::Binding { line1, value };

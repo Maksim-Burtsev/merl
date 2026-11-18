@@ -125,6 +125,14 @@ module.exports = {
       inner.childScopes;
       //    ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
     }
+    const twinA = [sourceCode.getScope(context)], twinB = [new Decoy()];
+    while ((inner = twinB.pop())) {
+      twinA.push(inner);
+    }
+    for (const one of twinA) {
+      one.childScopes;
+      //  ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
     const deepNest = [sourceCode.getScope(context)];
     while ((inner = deepNest.pop())) {
       deepNest.push(...inner.childScopes[0].variables);
