@@ -115,3 +115,13 @@ template <typename Goblet> class Rack10 {
     void f() { held.quaff(); }
     //              ^ d: none
 };
+struct Flagon {
+    void swill();
+};
+template <typename Goblet> class Chalice {
+public:
+    Chalice* next;
+    void swill();
+    void f() { next->swill(); }
+    //               ^ d: src/goblets.cc:124
+};

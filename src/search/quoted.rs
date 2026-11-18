@@ -307,7 +307,7 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
             let close = [b")", &rest[1..open], b"\""].concat();
             Some((open + 1, text(&close, Escape::No, Hole::No, true)))
         }
-        (Lang::C, b'\'') if prefix.first().is_some_and(u8::is_ascii_digit) => None,
+        (Lang::C, b'\'') if in_number(&b[..i]) => None,
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
@@ -336,6 +336,14 @@ fn block_comment(b: &[u8], nests: bool) -> usize {
         }
     }
     i
+}
+
+fn in_number(before: &[u8]) -> bool {
+    let start = before
+        .iter()
+        .rposition(|&c| !ident(c) && c != b'.' && c != b'\'')
+        .map_or(0, |p| p + 1);
+    matches!(before[start..], [b'.', c, ..] | [c, ..] if c.is_ascii_digit())
 }
 
 fn ident(c: u8) -> bool {

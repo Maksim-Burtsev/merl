@@ -50,9 +50,7 @@ impl App {
         if hit.path == file || !(kotlin || file.extension().is_some_and(|e| e == "java")) {
             return false;
         }
-        let scoped =
-            Regex::new(r"\bwith\s*\(|\.\s*(?:apply|run|runCatching)\b").expect("a fixed pattern");
-        if kotlin && self.text_of(file).is_none_or(|t| scoped.is_match(&t)) {
+        if kotlin && self.text_of(file).is_none_or(|t| kotlin_lambda_call(&t)) {
             return false;
         }
         let Some(text) = self.text_of(&hit.path) else {
@@ -742,6 +740,44 @@ impl App {
             })
             .collect()
     }
+}
+
+fn kotlin_lambda_call(text: &str) -> bool {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(\w+)\s*(?:<[^{}()=\n]*>)?\s*(?:\((?:[^(){}\n]|\([^(){}\n]*\))*\))?\s*\{")
+            .expect("a fixed pattern")
+    });
+    const NO_CALL: [&str; 17] = [
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "when",
+        "try",
+        "catch",
+        "finally",
+        "fun",
+        "class",
+        "interface",
+        "object",
+        "init",
+        "constructor",
+        "get",
+        "set",
+    ];
+    let words = |s: &str| {
+        s.split(|c: char| !c.is_alphanumeric() && c != '_')
+            .any(|w| NO_CALL.contains(&w))
+    };
+    text.lines().any(|l| {
+        CALL.captures_iter(l).any(|c| {
+            let head = l
+                .get(..c.get(0).map_or(0, |m| m.start()))
+                .unwrap_or_default();
+            !NO_CALL.contains(&&c[1]) && !words(head.rsplit('=').next().unwrap_or_default())
+        })
+    })
 }
 
 const KOTLIN_KEYWORDS: &[&str] = &[

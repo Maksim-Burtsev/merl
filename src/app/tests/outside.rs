@@ -835,6 +835,51 @@ fn a_php_global_class_is_outside_a_project_without_composer_json() {
 }
 
 #[test]
+fn a_php_global_class_the_project_declares_is_not_outside_without_composer_json() {
+    let basket = "<?php\n\n#[\\AllowDynamicProperties] final class Basket\n{\n    public function tally(): int\n    {\n        return 1;\n    }\n}\n";
+    let main = "<?php\n\nfunction run()\n{\n    $b = new \\Basket();\n    return $b->tally();\n}\n\nfunction fill()\n{\n    $j = new \\Jug();\n    return $j->pour();\n}\n\nfunction shake()\n{\n    $t = new \\Tin();\n    return $t->rattle();\n}\n";
+    let pours = "<?php\n\nclass Ewer\n{\n    public function pour(): int\n    {\n        return 2;\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-global-declared",
+        &[
+            (".gitignore", "vendor/\n"),
+            ("Basket.php", basket),
+            ("main.php", main),
+            ("Jug.php", "<?php\n\nclass Jug extends Pot\n{\n}\n"),
+            ("Pot.php", "<?php\n\nclass Pot\n{\n}\n"),
+            ("Ewer.php", pours),
+            ("vendor/x/Pot.php", &pours.replace("Ewer", "Pot")),
+            (
+                "Tin.php",
+                "<?php\n\nnamespace App;\n\nclass Tin\n{\n    public function rattle(): int\n    {\n        return 3;\n    }\n}\n",
+            ),
+        ],
+    );
+    let mut d = |code: &str| {
+        d_on(&mut a, "main.php", code);
+        shown(&mut a)
+    };
+    assert_eq!(
+        d("$b->tally"),
+        jump("tally: by name, 1 match", "Basket.php:5")
+    );
+    assert_eq!(
+        d("$j->pour"),
+        picker(
+            "pour: by name, 2 declarations",
+            &[("Ewer::pour", "Ewer.php:5"), ("Pot::pour", "x/Pot.php:5")]
+        ),
+        "the project's own Pot is no outside parent"
+    );
+    assert_eq!(
+        d("$t->rattle"),
+        jump("no definition for rattle", "main.php:18"),
+        "App\\Tin does not declare the global Tin"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn a_dart_name_skips_the_packages_the_library_cannot_see() {
     let cache = external_root(
         "outside-dart-unimported",
