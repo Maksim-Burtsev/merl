@@ -216,6 +216,17 @@ pub fn php_class_interfaces(line: &str) -> Vec<&str> {
         .unwrap_or_default()
 }
 
+pub fn php_body_on_own_lines<S: AsRef<str>>(lines: &[S], class: usize) -> bool {
+    lines[class..]
+        .iter()
+        .find_map(|l| {
+            php_code(l.as_ref())
+                .split_once('{')
+                .map(|(_, rest)| rest.trim().is_empty())
+        })
+        .unwrap_or(false)
+}
+
 pub fn php_constant_line(line: &str) -> bool {
     static CONSTANT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(&php_constants(r"\w+")[0]).expect("the pattern is built from literals")

@@ -488,7 +488,9 @@ impl App {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
         };
-        if !matches!(walk, Walk::Nowhere | Walk::NowhereOutside) {
+        if !matches!(walk, Walk::Nowhere | Walk::NowhereOutside)
+            || !search::php_body_on_own_lines(&lines, class)
+        {
             return walk;
         }
         let mut hits = Vec::new();
