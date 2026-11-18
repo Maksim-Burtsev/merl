@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::symbols::php_mods;
+use super::symbols::{php_attrs, php_mods};
 use super::syntax::{close_of, literal_lines};
 use super::words::steps_over;
 use super::{Kind, cut_def_patterns, indent, one_line_body};
@@ -93,10 +93,6 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
         Regex::new(r"^\s*\*\s*@(?:property(?:-read|-write)?|method)\s")
             .expect("the regex is a literal")
     });
-    static CLASS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+\w")
-            .expect("the regex is a literal")
-    });
     let line = |i: usize| lines[i].as_ref().trim_start();
     if !TAG.is_match(lines.get(at)?.as_ref()) {
         return None;
@@ -109,13 +105,13 @@ pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     let mut depth = 0;
     let class = (end + 1..lines.len()).find(|&i| {
         let t = line(i);
-        if depth == 0 && !t.starts_with("#[") {
+        if depth == 0 && (!t.starts_with("#[") || php_class_header(t).is_some()) {
             return true;
         }
         depth += t.matches('[').count().cast_signed() - t.matches(']').count().cast_signed();
         false
     })?;
-    CLASS.is_match(lines[class].as_ref()).then_some(class)
+    php_class_header(lines[class].as_ref()).map(|_| class)
 }
 
 pub fn php_namespace_patterns(
@@ -194,7 +190,7 @@ pub struct PhpClassHeader<'a> {
 
 pub fn php_class_header(line: &str) -> Option<PhpClassHeader<'_>> {
     static HEADER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?").expect("the regex is a literal")
+        Regex::new(concat!(php_attrs!(), r"(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?")).expect("the regex is a literal")
     });
     let c = HEADER.captures(line)?;
     Some(PhpClassHeader {
@@ -208,7 +204,8 @@ fn php_outer_line<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     let depth = indent(lines.get(at)?.as_ref());
     (0..at).rev().find(|&i| {
         let l = lines[i].as_ref();
-        !steps_over(Some(Kind::Php), l.trim_start()) && indent(l) < depth
+        indent(l) < depth
+            && (!steps_over(Some(Kind::Php), l.trim_start()) || php_class_header(l).is_some())
     })
 }
 
