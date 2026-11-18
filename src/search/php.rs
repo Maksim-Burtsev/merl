@@ -13,6 +13,10 @@ pub(super) fn php_method(w: &str) -> String {
     format!(r"{}function\s+&?\s*{w}\s*\(", php_mods!())
 }
 
+pub fn php_class_pattern(w: &str) -> String {
+    format!(r"{}(?:class|interface|trait|enum)\s+{w}\b", php_mods!())
+}
+
 pub(super) fn php_properties(w: &str) -> [String; 2] {
     [
         format!(r"{}(?:\??[\w\\|]+\s+)?\${w}\b", php_mods!("+")),

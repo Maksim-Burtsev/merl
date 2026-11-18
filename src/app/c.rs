@@ -15,6 +15,7 @@ impl App {
         text: &str,
         word: &str,
         range: std::ops::Range<usize>,
+        quoted: bool,
     ) -> Option<(Vec<Candidate>, Option<String>)> {
         static TRAILING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r"(?:\)|\b(?:const|noexcept|mutable|override))\s+->\s*$")
@@ -58,6 +59,9 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && !line.trim_start().starts_with('#')
         {
+            if quoted {
+                return Some((self.c_members(here, word, called, false), None));
+            }
             let before = before.to_owned();
             let with_macros = self.c_with_included_macros(here, text, &before);
             let text = &*with_macros;

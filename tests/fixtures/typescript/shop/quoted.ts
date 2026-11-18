@@ -51,3 +51,30 @@ export function g(s: Stylus, x: string): string {
   return /'/.test(x) ? s.blot() : "";
   //                     ^ d: shop/quoted.ts:2
 }
+
+export const ink = (
+  s: Stylus,
+): string => s.blot();
+//             ^ d: shop/quoted.ts:2
+
+export const pen = (
+  s: Stylus,
+): string[] => [1].map((s: Nib) => s.blot());
+//                                   ^ d: shop/quoted.ts:8
+
+declare function retry(f: unknown, n: number): Promise<string>;
+export function run(s: Stylus) {
+  return retry(
+    function (s: Nib) { return s.blot(); },
+    3,
+  ).then(() => s.blot());
+  //             ^ d: shop/quoted.ts:2
+}
+
+export function wrap(s: Stylus) {
+  const h = (
+    f = (s: Nib) => s,
+  ): string => s.blot();
+  //             ^ d: shop/quoted.ts:2
+  return h;
+}

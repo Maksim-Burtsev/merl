@@ -230,7 +230,7 @@ pub(super) fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str)
     static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bdef\s+[A-Za-z_]\w*\s*\(").expect("the regex is a literal")
     });
-    let word = Regex::new(&format!(
+    let word = super::cached_regex(&format!(
         r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
         regex::escape(name)
     ))
@@ -279,7 +279,7 @@ pub(super) fn jvm_bindings(
     let literal = path_literal_lines(Kind::Jvm, path, &text);
     let scala = super::scala(path);
     let call = col.is_some_and(|c| super::jvm_rebound::called(lines[at], c, name));
-    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col, scala);
+    let bound_on_cursor_line = cursor_line_bindings(lines, &literal, at, name, col, scala);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
     let (mut i, mut own_group) = (at, true);
@@ -366,6 +366,49 @@ pub(super) fn jvm_bindings(
         out = vec![binding(g)];
     }
     out
+}
+
+fn cursor_line_bindings(
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    name: &str,
+    col: Option<usize>,
+    scala: bool,
+) -> Vec<usize> {
+    let own = header_lines1_binding(lines, at, at, name, col, scala);
+    if !own.is_empty() {
+        return own;
+    }
+    let ind = indent(lines[at]);
+    let code = |j: &usize| !lines[*j].trim().is_empty() && !literal[*j];
+    let header = if literal[at] {
+        (0..at).rev().find(code)
+    } else if lines[at].trim_start().starts_with(')') {
+        (0..at)
+            .rev()
+            .find(|j| code(j) && indent(lines[*j]) <= ind)
+            .filter(|&h| param_lists_close(lines, h) == Some(at))
+    } else {
+        None
+    };
+    header
+        .and_then(|h| param_lists_line1_binding(lines, h, name))
+        .into_iter()
+        .collect()
+}
+
+fn param_lists_close(lines: &[&str], from: usize) -> Option<usize> {
+    let mut open = params_open_byte(lines[from])?;
+    let mut at = from;
+    loop {
+        let list = group(Kind::Jvm, lines, at, open)?;
+        let next = list.after_close.trim_start();
+        if !next.starts_with('(') {
+            return Some(list.close_line);
+        }
+        (at, open) = (list.close_line, lines[list.close_line].len() - next.len());
+    }
 }
 
 fn header_may_bind(lines: &[&str], from: usize, to: usize) -> bool {
@@ -458,7 +501,7 @@ fn lexed_members_of(text: &str, literal: &[bool], decl_line1: usize, name: &str)
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
     };
-    let Ok(re) = Regex::new(&def_patterns(Kind::Jvm, name).join("|")) else {
+    let Some(re) = super::cached_regex(&def_patterns(Kind::Jvm, name).join("|")) else {
         return Vec::new();
     };
     members_of(&lines, literal, k, name, &re)
@@ -1153,11 +1196,10 @@ pub fn kotlin_initializer_parameter(
     {
         return None;
     }
-    let word = Regex::new(&format!(
+    let word = super::cached_regex(&format!(
         r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
         regex::escape(name)
-    ))
-    .ok()?;
+    ))?;
     (k..=close_line)
         .find(|&i| word.is_match(&uncommented(Kind::Jvm, lines[i])))
         .map(|i| i + 1)

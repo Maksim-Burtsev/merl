@@ -300,8 +300,15 @@ fn type_param(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(usize
                 && !continues(t)
                 && !t.starts_with(['{', '}', '#'])
                 && indent(lines[i]) < depth
+                && (kind != Kind::C || !access_label(t))
         })?;
     }
+}
+
+fn access_label(t: &str) -> bool {
+    ["public", "protected", "private"]
+        .iter()
+        .any(|w| t.strip_prefix(w).is_some_and(|r| r.trim() == ":"))
 }
 
 fn coded(kind: Kind, s: &str) -> String {
@@ -592,7 +599,12 @@ pub fn own_field(kind: Kind, text: &str, line1: usize, name: &str) -> Option<sup
                 && !t.starts_with(['{', '}', '#'])
                 && indent(lines[i]) < indent(lines[k])
         })?;
-        if HEAD.is_match(&coded(kind, lines[p])) {
+        let head = coded(kind, lines[p]);
+        let head = match kind {
+            Kind::CSharp => super::csharp::cs_after_attributes(&head),
+            _ => &head,
+        };
+        if HEAD.is_match(head) {
             break p;
         }
         k = p;

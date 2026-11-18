@@ -12,6 +12,7 @@ enum Lang {
     CSharp,
     Go,
     Dart,
+    C,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -67,6 +68,7 @@ pub fn in_string_text(kind: Kind, path: &Path, text: &str, at: usize) -> bool {
         Kind::CSharp => Lang::CSharp,
         Kind::Go => Lang::Go,
         Kind::Dart => Lang::Dart,
+        Kind::C => Lang::C,
         _ => return false,
     };
     let b = text.as_bytes();
@@ -287,6 +289,12 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         }
         (Lang::Ts { .. }, b'`') => Some((1, text(b"`", Escape::Backslash, Hole::Dollar, true))),
         (Lang::Go, b'`') => Some((1, text(b"`", Escape::No, Hole::No, true))),
+        (Lang::C, b'"') if matches!(prefix, b"R" | b"LR" | b"uR" | b"UR" | b"u8R") => {
+            let open = rest.iter().take(18).position(|&c| c == b'(')?;
+            let close = [b")", &rest[1..open], b"\""].concat();
+            Some((open + 1, text(&close, Escape::No, Hole::No, true)))
+        }
+        (Lang::C, b'\'') if in_number(&b[..i]) => None,
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
@@ -315,6 +323,14 @@ fn block_comment(b: &[u8], nests: bool) -> usize {
         }
     }
     i
+}
+
+fn in_number(before: &[u8]) -> bool {
+    let start = before
+        .iter()
+        .rposition(|&c| !ident(c) && c != b'.' && c != b'\'')
+        .map_or(0, |p| p + 1);
+    matches!(before[start..], [b'.', c, ..] | [c, ..] if c.is_ascii_digit())
 }
 
 fn ident(c: u8) -> bool {

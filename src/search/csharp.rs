@@ -165,7 +165,7 @@ pub(super) fn cs_opener_in(outer: &str, header: &str, name: &str) -> CsOpener {
     }
     let h = header.replace('\n', " ");
     let n = regex::escape(name);
-    let found = |p: String| Regex::new(&p).is_ok_and(|re| re.is_match(&h));
+    let found = |p: String| super::cached_regex(&p).is_some_and(|re| re.is_match(&h));
     let ty = r"(?:var|[\w.]+(?:<[^()]*?>)?\??(?:\[[,\s]*\])*)";
     let mut own = [
         format!(r"\bforeach\s*\(\s*[^;()]*?\s{n}\s+in\b"),
@@ -180,9 +180,8 @@ pub(super) fn cs_opener_in(outer: &str, header: &str, name: &str) -> CsOpener {
     .any(found)
         || cs_deconstructs(&h, name);
     let mut binds = own;
-    if let Some(c) = Regex::new(&format!(r"(?:^|[^\w.]){n}\s*=>(\s*\{{?\s*$)?"))
-        .ok()
-        .and_then(|re| {
+    if let Some(c) =
+        super::cached_regex(&format!(r"(?:^|[^\w.]){n}\s*=>(\s*\{{?\s*$)?")).and_then(|re| {
             re.captures_iter(&h)
                 .filter(|c| {
                     let at = c.get(0).map_or(0, |m| m.start());
@@ -309,7 +308,7 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
         format!(r"\bis\s+(?:not\s+)?{ty_short}\s+{n}\b"),
     ]
     .iter()
-    .any(|p| Regex::new(p).is_ok_and(|re| re.is_match(t)))
+    .any(|p| super::cached_regex(p).is_some_and(|re| re.is_match(t)))
         || cs_deconstructs(t, name)
 }
 

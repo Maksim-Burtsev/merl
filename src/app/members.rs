@@ -946,9 +946,7 @@ impl App {
         }
         let mut patterns = search::def_patterns(kind, word);
         patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
-        let re = Regex::new(&patterns.join("|"))
-            .ok()
-            .filter(|re| re.is_match(line));
+        let re = search::cached_regex(&patterns.join("|")).filter(|re| re.is_match(line));
         let same_shape_word: String = word
             .chars()
             .map(|c| match c {

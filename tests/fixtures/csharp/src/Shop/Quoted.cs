@@ -31,4 +31,17 @@ public class Quoted
     public string F(Stylus s) => $$"""{s.Blot()} {{s.Blot()}}""";
     //                                   ^ d: none
     //                                                ^ d: src/Shop/Quoted.cs:5
+    public string G(
+        Stylus s
+    ) => s.Blot();
+    //     ^ d: src/Shop/Quoted.cs:5
+    public string H(Stylus s) => """
+        x
+        """ + s.Blot();
+    //            ^ d: src/Shop/Quoted.cs:5
+    public IEnumerable<string> I(
+        Stylus s,
+        Nib[] ns
+    ) => ns.Select((Nib s) => s.Blot());
+    //                          ^ d: src/Shop/Quoted.cs:10
 }

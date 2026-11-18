@@ -1396,7 +1396,7 @@ pub(super) fn cpp_class_path(written: &str) -> Option<Vec<String>> {
 }
 pub fn cpp_template_param(code: &str, name: &str) -> bool {
     Regex::new(&format!(
-        r"\btemplate\s*<[^;{{}}]*\b(?:typename|class)\s+{}\b",
+        r"\btemplate\s*<[^;{{}}]*\b(?:typename|class)\s+{}\s*(?:[,>=]|\.\.\.)",
         regex::escape(name)
     ))
     .is_ok_and(|re| re.is_match(code))

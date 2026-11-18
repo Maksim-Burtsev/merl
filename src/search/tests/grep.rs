@@ -303,3 +303,26 @@ fn a_declaration_outside_is_found_from_the_lines_kept_of_its_file() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_binding_check_compiles_its_pattern_once_for_all_lines() {
+    let compiles = || REGEX_COMPILES.with(std::cell::Cell::get);
+    let before = compiles();
+    for i in 0..40 {
+        for name in ["zq1561a", "zq1561b"] {
+            assert!(cs_statement(&format!("var {name} = {i};"), name));
+            assert!(declares_local(&format!("val {name} = {i}"), name));
+        }
+    }
+    let made = compiles() - before;
+    assert!((1..40).contains(&made), "{made} compiles for 160 checks");
+}
+
+#[test]
+fn the_regex_cache_keeps_no_more_than_its_bound() {
+    for i in 0..REGEXES_KEPT * 3 {
+        assert!(cached_regex(&format!("zq1561bound{i}")).is_some());
+        let kept = REGEXES.lock().map(|b| b.len()).unwrap_or_default();
+        assert!(kept <= REGEXES_KEPT, "{kept} kept past {REGEXES_KEPT}");
+    }
+}
