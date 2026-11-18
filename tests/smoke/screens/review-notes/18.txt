@@ -1,4 +1,4 @@
-wait then a ticket for it, linked here
+wait app/refunds.py  18:1  [code]
 ┌agent/refund ← origin/main──┐  ✎ app/refund_rules.py, file deleted
 │  ▾ app                     │    WINDOW_DAYS = 30
 │✎   A refunds.py      +18 −0│    drop this file, the window is in Settings
@@ -23,7 +23,7 @@ wait then a ticket for it, linked here
 │                            │18▎    return order.total
 │                            │  ✎ why the whole total?
 │                            │  ↳ agent  a partial refund needs the provider API; the whole order until then
-│                            │  ↳ you    then a ticket for it, linked here
+│                            │  ↳ you    then a ticket for it
 │                            │
 │                            │
 │                            │
