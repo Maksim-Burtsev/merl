@@ -344,6 +344,7 @@ fn note_id(n: &Note) -> String {
 }
 
 type Seen = (TextLine, bool, Option<usize>);
+type Fit = ((bool, bool), TextLine, bool, Option<usize>);
 
 struct Hunk {
     at: usize,
@@ -477,7 +478,7 @@ impl App {
             let fits = (sums.exact(from, at), sums.loose(from, at));
             fit.push((fits, t, exact, base));
         }
-        let nearest = |tier: fn(&((bool, bool), TextLine, bool, Option<usize>)) -> bool| {
+        let nearest = |tier: fn(&Fit) -> bool| {
             (fit.iter().filter(|c| tier(c)))
                 .min_by_key(|c| {
                     (
