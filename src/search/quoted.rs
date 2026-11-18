@@ -71,31 +71,57 @@ pub fn in_string_text(kind: Kind, path: &Path, text: &str, at: usize) -> bool {
         Kind::C => Lang::C,
         _ => return false,
     };
-    let b = text.as_bytes();
-    let mut stack: Vec<Frame> = Vec::new();
+    lex(lang, text.as_bytes(), at, &mut Vec::new())
+}
+
+pub(super) fn cs_holes(line: &[u8]) -> Vec<(usize, usize)> {
+    let mut holes = Vec::new();
+    lex(Lang::CSharp, line, line.len(), &mut holes);
+    holes
+}
+
+fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool {
+    let mut stack: Vec<(Frame, usize)> = Vec::new();
     let mut i = 0;
     while i < at.min(b.len()) {
         let (n, change) = match stack.last() {
-            Some(Frame::Text(t)) => in_text(t, &b[i..]),
-            Some(Frame::Path) => in_path(&b[i..]),
-            Some(Frame::Tag) => in_tag(&b[i..]),
-            Some(Frame::Children) => in_children(&b[i..]),
-            Some(Frame::Code) | None => in_code(lang, b, i),
+            Some((Frame::Text(t), _)) => in_text(t, &b[i..]),
+            Some((Frame::Path, _)) => in_path(&b[i..]),
+            Some((Frame::Tag, _)) => in_tag(&b[i..]),
+            Some((Frame::Children, _)) => in_children(&b[i..]),
+            Some((Frame::Code, from))
+                if lang == Lang::CSharp
+                    && stack.len() > 1
+                    && matches!(stack[stack.len() - 2], (Frame::Text(_), _))
+                    && format_clause(b, *from, i) =>
+            {
+                let n = b[i..].iter().position(|&c| matches!(c, b'}' | b'\n'));
+                let n = n.unwrap_or(b.len() - i);
+                if i + n > at {
+                    return true;
+                }
+                (n, Change::Keep)
+            }
+            Some((Frame::Code, _)) | None => in_code(lang, b, i),
         };
         match change {
             Change::Keep => {}
             Change::Pop => {
-                stack.pop();
+                if let Some((Frame::Code, from)) = stack.pop()
+                    && matches!(stack.last(), Some((Frame::Text(_), _)))
+                {
+                    holes.push((from, i));
+                }
             }
-            Change::Push(f) => stack.push(f),
+            Change::Push(f) => stack.push((f, i + n)),
             Change::Swap(f) => {
                 stack.pop();
-                stack.push(f);
+                stack.push((f, i + n));
             }
         }
         i += n;
     }
-    matches!(stack.last(), Some(Frame::Text(_)))
+    matches!(stack.last(), Some((Frame::Text(_), _)))
 }
 
 fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
@@ -299,6 +325,17 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
     }
+}
+
+fn format_clause(b: &[u8], from: usize, i: usize) -> bool {
+    b[i] == b':'
+        && b.get(i + 1) != Some(&b':')
+        && b[i - 1] != b':'
+        && b[from..i].iter().fold(0i32, |d, c| match c {
+            b'(' | b'[' => d + 1,
+            b')' | b']' => d - 1,
+            _ => d,
+        }) == 0
 }
 
 fn line_end(rest: &[u8]) -> usize {

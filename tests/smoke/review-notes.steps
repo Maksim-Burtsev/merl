@@ -58,13 +58,15 @@ key c
 wait app/refunds.py  18:1
 key Enter
 type then a ticket for it
-key Escape
 wait you    then a ticket for it
+key Escape
+wait app/refunds.py  18:1  [code]
 check grep -A1 '^agent: a partial refund' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'user: then a ticket for it'
 key Enter End
 type , linked here
-key Escape
 wait then a ticket for it, linked here
+key Escape
+wait app/refunds.py  18:1  [code]
 check grep -c '^user:' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 1
 key c
 wait line 5, changed

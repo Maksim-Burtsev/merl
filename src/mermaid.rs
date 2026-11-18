@@ -563,11 +563,15 @@ fn draw(src: &str) -> Option<Drawn> {
 }
 
 fn renderer() -> Renderer {
-    let now = chrono::Local::now();
-    let clock = RuntimePolicy::deterministic().with_fixed_unix_millis(now.timestamp_millis());
+    renderer_at(&jiff::Timestamp::now().to_zoned(crate::clock::zone()))
+}
+
+fn renderer_at(now: &jiff::Zoned) -> Renderer {
+    let clock =
+        RuntimePolicy::deterministic().with_fixed_unix_millis(now.timestamp().as_millisecond());
     let policy = clock
         .clone()
-        .try_with_fixed_local_offset_minutes(now.offset().local_minus_utc() / 60)
+        .try_with_fixed_local_offset_minutes(now.offset().seconds() / 60)
         .unwrap_or(clock);
     Renderer::new().with_runtime_policy(policy)
 }

@@ -1,57 +1,57 @@
-wait line 5, changed
-┌agent/refund ← origin/main──┐  ✎ line 5, changed
-│  ▾ app                     │    from app.refunds import refund_amount_v1
-│✎   A refunds.py      +18 −0│    name it refund_amount
-│✓   M repos.py        +0 −28│  ↳ agent  renamed, and nothing else imported it
-│✎   M service.py      +13 −1│ 1▎from decimal import Decimal
-│  ▾ deploy                  │ 2▎
-│    ▾ helm                  │ 3 from app.config import Settings
-│      ▾ orders              │ 4 from app.models import Order, OrderStatus
-│        M values.yaml  +1 −0│ 5▎from app.refunds import refund_amount
-│  ▾ docs                    │ 6 from app.repos import OrderRepo
-│    M architecture.png   bin│ 7 from app.uow import UnitOfWork
-│  ▾ scripts                 │ 8
-│    D refund_by_hand.… +0 −9│ 9
-│  ▾ tests                   │10 class OrderNotFound(Exception):
-│    A test_refunds.py +23 −0│11     pass
-│  ▾ worker                  │12
-│    M main.go          +4 −1│13
-│                            │14 class OrderService:
-│                            │15     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
-│                            │16         self.repo = repo
-│                            │17         self.uow = uow
-│                            │18         self.settings = settings
-│                            │19
-│                            │20     def get(self, order_id: int) -> Order:
-│                            │21         order = self.repo.get(order_id)
-│                            │22         if order is None:
-│                            │23             raise OrderNotFound(order_id)
-│                            │24         return order
-│                            │25
-│                            │26     def mark_paid(self, order_id: int) -> Order:
-│                            │27         order = self.get(order_id)
-│                            │28         order.status = OrderStatus.PAID
-│                            │  ▎        self.repo.save(order)
-│                            │29▎        with self.uow:
-│                            │30▎            self.uow.orders.save(order)
-│                            │31         return order
-│                            │32
-│                            │33     def cancel(self, order_id: int) -> Order:
-│                            │34         order = self.get(order_id)
-│                            │35         if not order.can_cancel():
-│                            │36             raise ValueError(f"order {order_id} is {order.status.value}")
-│                            │37         order.status = OrderStatus.CANCELLED
-│                            │38         with self.uow:
-│                            │39             self.uow.orders.save(order)
-│                            │40         return order
-│                            │41▎
-│                            │42▎    def refund(self, order_id: int) -> Decimal:
-│                            │43▎        order = self.get(order_id)
-│                            │44▎        amount = refund_amount(order, self.settings.refund_window_days)
-│                            │45▎        order.status = OrderStatus.REFUNDED
-│                            │  ✎ agent  set it once the provider confirms, not before?
-│                            │46▎        with self.uow:
-│                            │47▎            self.uow.orders.save(order)
-└────────────────────────────┘48▎        return amount
-app/service.py  1:1  [code]  hunk 1/4  viewed 2/7                                                                                                                                  14:32
-cursor (x,y,shown) 32,0,0
+wait then a ticket for it, linked here
+┌agent/refund ← origin/main──┐  ✎ app/refund_rules.py, file deleted
+│  ▾ app                     │    WINDOW_DAYS = 30
+│✎   A refunds.py      +18 −0│    drop this file, the window is in Settings
+│✓   M repos.py        +0 −28│  ↳ agent  deleted it; refunds.py reads settings.refund_window_days
+│✎   M service.py      +13 −1│ 1▎from datetime import datetime, timedelta, timezone
+│  ▾ deploy                  │ 2▎from decimal import Decimal
+│    ▾ helm                  │ 3▎
+│      ▾ orders              │ 4▎from app.models import Order, OrderStatus
+│        M values.yaml  +1 −0│ 5▎
+│  ▾ docs                    │ 6▎
+│    M architecture.png   bin│ 7▎class RefundNotAllowed(Exception):
+│  ▾ scripts                 │ 8▎    pass
+│    D refund_by_hand.… +0 −9│ 9▎
+│  ▾ tests                   │10▎
+│    A test_refunds.py +23 −0│11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+│  ▾ worker                  │12▎    """What to give back: the whole total inside the window, nothing after it."""
+│    M main.go          +4 −1│13▎    now = now or datetime.now(timezone.utc)
+│                            │14▎    if order.status is not OrderStatus.PAID:
+│                            │15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
+│                            │16▎    if now - order.created_at > timedelta(days=window_days):
+│                            │17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
+│                            │18▎    return order.total
+│                            │  ✎ why the whole total?
+│                            │  ↳ agent  a partial refund needs the provider API; the whole order until then
+│                            │  ↳ you    then a ticket for it, linked here
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/refunds.py  18:1  [edit]  hunk 1/1  viewed 1/7                                                                                                                                 14:32
+cursor (x,y,shown) 74,24,0
