@@ -99,6 +99,9 @@ fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
     assert_eq!(hole(r#"@"""" + $"{^a.b}""#).as_deref(), Some("a.b"));
     assert_eq!(hole(r#"$$"""{{^a}}""""#).as_deref(), Some("a"));
     assert_eq!(hole(r#"$"{f($"{^a}")}""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"$"{a:dd\\'MM} {^b}""#).as_deref(), Some("b"));
+    assert_eq!(hole(r#"$"{(c ? '"' : 'x')} {^b}""#).as_deref(), Some("b"));
+    assert_eq!(hole(r#"$"{^global::A.b}""#).as_deref(), Some("global::A.b"));
     assert_eq!(hole(r#"$$"""{^a}""""#), None);
     assert_eq!(hole(r#"$"{{^a}}""#), None);
     assert_eq!(hole(r#"$"{^a"#), None);

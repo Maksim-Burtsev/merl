@@ -391,3 +391,27 @@ fn a_gantt_draws_today_inside_its_chart() {
     let x: f64 = line.split('"').next().unwrap().parse().unwrap();
     assert!((0.0..2000.0).contains(&x), "{x}");
 }
+
+#[test]
+fn a_gantt_draws_today_at_the_local_time() {
+    let today_x = |zone: jiff::tz::TimeZone| {
+        let at = jiff::Timestamp::from_second(1_700_000_000)
+            .unwrap()
+            .to_zoned(zone);
+        let src = "gantt\n  dateFormat YYYY-MM-DD\n  section S\n  A : 2023-11-14, 2d\n";
+        let request = RenderRequest::svg(src, OperationControl::new(), SvgRequest::default());
+        let Ok(RenderOutput::Svg(Some(out))) = renderer_at(&at).render(request) else {
+            panic!("a gantt renders")
+        };
+        let (_, line) = out
+            .svg()
+            .split_once(r#"<g class="today"><line x1=""#)
+            .unwrap();
+        line.split('"').next().unwrap().parse::<f64>().unwrap()
+    };
+    let utc = today_x(jiff::tz::TimeZone::UTC);
+    let kathmandu = today_x(jiff::tz::TimeZone::fixed(
+        jiff::tz::Offset::from_seconds(5 * 3600 + 45 * 60).unwrap(),
+    ));
+    assert!(kathmandu > utc, "{kathmandu} {utc}");
+}

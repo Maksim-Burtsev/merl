@@ -89,6 +89,15 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
             Some((Frame::Path, _)) => in_path(&b[i..]),
             Some((Frame::Tag, _)) => in_tag(&b[i..]),
             Some((Frame::Children, _)) => in_children(&b[i..]),
+            Some((Frame::Code, from))
+                if lang == Lang::CSharp
+                    && stack.len() > 1
+                    && matches!(stack[stack.len() - 2], (Frame::Text(_), _))
+                    && format_clause(b, *from, i) =>
+            {
+                let n = b[i..].iter().position(|&c| matches!(c, b'}' | b'\n'));
+                (n.unwrap_or(b.len() - i), Change::Keep)
+            }
             Some((Frame::Code, _)) | None => in_code(lang, b, i),
         };
         match change {
@@ -312,6 +321,17 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
     }
+}
+
+fn format_clause(b: &[u8], from: usize, i: usize) -> bool {
+    b[i] == b':'
+        && b.get(i + 1) != Some(&b':')
+        && b[i - 1] != b':'
+        && b[from..i].iter().fold(0i32, |d, c| match c {
+            b'(' | b'[' => d + 1,
+            b')' | b']' => d - 1,
+            _ => d,
+        }) == 0
 }
 
 fn line_end(rest: &[u8]) -> usize {
