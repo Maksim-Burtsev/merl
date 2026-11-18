@@ -488,13 +488,23 @@ impl App {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
         };
-        if !matches!(walk, Walk::Nowhere | Walk::NowhereOutside) {
+        if !matches!(walk, Walk::Nowhere | Walk::NowhereOutside)
+            || !search::php_body_on_own_lines(&lines, class)
+        {
             return walk;
         }
         let mut hits = Vec::new();
         for name in search::php_class_interfaces(lines[class]) {
             match self.php_class(path, block, name).1.as_slice() {
                 [] => {}
+                [one]
+                    if !search::php_body_on_own_lines(
+                        &one.text.lines().collect::<Vec<_>>(),
+                        one.header0,
+                    ) =>
+                {
+                    return walk;
+                }
                 [one] => {
                     if let Walk::Found(found) =
                         self.php_walk(&one.path, &one.text, one.header0, re, depth + 1, seen)
