@@ -87,17 +87,52 @@ fn now() -> Zoned {
                 .and_then(|s| s.parse().ok())
                 .and_then(|secs| Timestamp::from_second(secs).ok())
         })
-        .map_or_else(Zoned::now, |at| at.to_zoned(TimeZone::system()))
+        .unwrap_or_else(Timestamp::now)
+        .to_zoned(zone())
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub fn zone() -> TimeZone {
+    use std::sync::Mutex;
+    static LAST: Mutex<Option<(i64, TimeZone)>> = Mutex::new(None);
+    let second = Timestamp::now().as_second();
+    let Ok(mut last) = LAST.lock() else {
+        return local_zone();
+    };
+    match &*last {
+        Some((at, zone)) if *at == second => zone.clone(),
+        _ => {
+            let zone = local_zone();
+            *last = Some((second, zone.clone()));
+            zone
+        }
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn local_zone() -> TimeZone {
+    jiff::tz::reset_system_time_zone_cache();
+    TimeZone::try_system()
+        .ok()
+        .or_else(|| {
+            let tzif = std::fs::read("/etc/localtime").ok()?;
+            TimeZone::tzif("Local", &tzif).ok()
+        })
+        .unwrap_or(TimeZone::UTC)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn zone() -> TimeZone {
+    std::env::var("MERL_UTC_OFFSET")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .and_then(|secs| jiff::tz::Offset::from_seconds(secs).ok())
+        .map_or(TimeZone::UTC, TimeZone::fixed)
 }
 
 #[cfg(target_family = "wasm")]
 fn now() -> Zoned {
-    let zone = std::env::var("MERL_UTC_OFFSET")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .and_then(|secs| jiff::tz::Offset::from_seconds(secs).ok())
-        .map_or(TimeZone::UTC, TimeZone::fixed);
-    Timestamp::now().to_zoned(zone)
+    Timestamp::now().to_zoned(zone())
 }
 
 #[cfg(test)]
@@ -200,6 +235,35 @@ mod tests {
         assert!(app.tick_clock());
         app.clock_format = Clock(None);
         assert!(app.tick_clock() && app.clock.is_none());
+    }
+
+    #[test]
+    fn the_clock_shows_the_zone_of_tz_and_the_system_s_for_an_unknown_one() {
+        const CHILD: &str = "MERL_TEST_CLOCK_IN_TZ";
+        if std::env::var_os(CHILD).is_some() {
+            println!("clock={}", Clock(Some("%a %d %T".into())).now().unwrap());
+            return;
+        }
+        let clock_in = |tz: Option<&str>| {
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+            child.args([
+                "--exact",
+                "clock::tests::the_clock_shows_the_zone_of_tz_and_the_system_s_for_an_unknown_one",
+                "--nocapture",
+            ]);
+            child.env(CHILD, "1").env("MERL_CLOCK_AT", "1700000000");
+            match tz {
+                Some(tz) => child.env("TZ", tz),
+                None => child.env_remove("TZ"),
+            };
+            let out = String::from_utf8(child.output().unwrap().stdout).unwrap();
+            out.lines()
+                .find_map(|l| l.split_once("clock=").map(|(_, c)| c))
+                .unwrap()
+                .to_owned()
+        };
+        assert_eq!(clock_in(Some("Asia/Kathmandu")), "Wed 15 03:58:20");
+        assert_eq!(clock_in(Some("Bogus/Zone")), clock_in(None));
     }
 
     #[test]
