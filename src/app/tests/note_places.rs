@@ -35,6 +35,14 @@ fn write(dir: &Path, lines: &[String]) {
 }
 
 fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
+    feature_with(tag, notes, |l| l)
+}
+
+fn feature_with(
+    tag: &str,
+    notes: &str,
+    branch: fn(Vec<String>) -> Vec<String>,
+) -> (PathBuf, Vec<String>) {
     let dir = std::env::temp_dir().join(format!("merl-places-{tag}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
@@ -45,6 +53,7 @@ fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
     git(&dir, &["commit", "-qm", "base"]);
     git(&dir, &["switch", "-qc", "feature"]);
     lines[40] = "\tif err := run(50); err != nil {".to_owned();
+    let lines = branch(lines);
     write(&dir, &lines);
     std::fs::write(dir.join("new"), "n\n").unwrap();
     git(&dir, &["add", "."]);
@@ -75,6 +84,23 @@ fn agent(case: &str, mut l: Vec<String>) -> Vec<String> {
     let import = ["", "import (", "\t\"fmt\"", ")"].map(str::to_owned);
     l.splice(1..1, import);
     l
+}
+
+fn imported(mut l: Vec<String>) -> Vec<String> {
+    let import = ["", "import (", "\t\"fmt\"", ")"].map(str::to_owned);
+    l.splice(1..1, import);
+    l
+}
+
+fn started_on_steps(dir: &Path) -> App {
+    let review = git::Review::open(dir, None, None).unwrap();
+    let (tree, files) = crate::tree::build(dir, false);
+    let buf = Buffer::load(&dir.join("steps.go")).unwrap();
+    let mut a = App::new(dir.to_path_buf(), tree, files, buf, None);
+    a.start_review(review);
+    a.show_tree = false;
+    screen(&mut a);
+    a
 }
 
 fn open(dir: &Path) -> App {
@@ -192,6 +218,7 @@ fn row_9_a_note_on_a_unique_line_follows_it_down() {
 
 fn agent_notes(dir: &Path, notes: &str) {
     let path = dir.join(".git/merl/notes/feature");
+    std::fs::create_dir_all(dir.join(".git/merl/notes")).unwrap();
     std::fs::write(&path, format!("# merl notes\n\n{notes}")).unwrap();
     let later = std::time::SystemTime::now() + Duration::from_secs(5);
     (std::fs::File::options().write(true).open(&path))
@@ -241,4 +268,121 @@ fn a_line_typed_above_a_twin_note_keeps_it_live_on_its_line_before_and_after_the
     drop(std::fs::remove_dir_all(dir));
     assert_eq!(typed, [(TextLine::File(14), LIVE, false)]);
     assert_eq!(saved, typed);
+}
+
+fn agent_wrote(dir: &Path, lines: &[String]) {
+    write(dir, lines);
+    git(dir, &["commit", "-qam", "agent"]);
+}
+
+#[test]
+fn a_note_in_a_block_the_branch_added_stays_live_when_the_block_grows_above_it() {
+    let note = "steps.go:5\n> )\nclose it\n";
+    let (dir, mut lines) = feature_with("block-grows", note, imported);
+    let mut a = open(&dir);
+    lines.insert(4, "\t\"os\"".to_owned());
+    agent_wrote(&dir, &lines);
+    a.reload(false);
+    let live = placed(&mut a);
+    let mut b = open(&dir);
+    let reopened = placed(&mut b);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(live, [(TextLine::File(5), LIVE, false)]);
+    assert_eq!(reopened, live);
+}
+
+#[test]
+fn a_note_below_a_branch_block_that_grew_or_shrank_stays_live_on_its_line() {
+    let note = "steps.go:18\n> \t\treturn err\nwrap this\n";
+    for (tag, grow) in [("grew", true), ("shrank", false)] {
+        let (dir, mut lines) = feature_with(tag, note, imported);
+        if grow {
+            lines.insert(4, "\t\"os\"".to_owned());
+        } else {
+            lines.remove(3);
+        }
+        let want = TextLine::File(if grow { 18 } else { 16 });
+        let mut a = open(&dir);
+        agent_wrote(&dir, &lines);
+        a.reload(false);
+        let live = placed(&mut a);
+        let reopened = placed(&mut open(&dir));
+        drop(std::fs::remove_dir_all(dir));
+        assert_eq!(live, [(want, LIVE, false)], "{tag}");
+        assert_eq!(reopened, live, "{tag}");
+    }
+}
+
+#[test]
+fn a_reopen_started_on_the_file_places_a_note_as_one_that_walks_to_it() {
+    let (dir, mut lines) = feature("started", "");
+    lines.splice(0..0, (0..7).map(|i| format!("// {i}")));
+    agent_wrote(&dir, &lines);
+    agent_notes(&dir, ON_STEP1);
+    let mut a = started_on_steps(&dir);
+    let started = placed(&mut a);
+    let walked = placed(&mut open(&dir));
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(started, [(TextLine::File(13), LIVE, false)]);
+    assert_eq!(walked, started);
+}
+
+#[test]
+fn a_deleted_twin_that_fits_as_well_loses_to_the_note_s_own_untouched_line() {
+    let (dir, mut lines) = feature("deleted-twin", ON_STEP1);
+    let mut a = open(&dir);
+    lines[6] = "\t\treturn fmt.Errorf(\"step0: %w\", err)".to_owned();
+    lines.splice(0..0, (0..7).map(|i| format!("// {i}")));
+    agent_wrote(&dir, &lines);
+    a.reload(false);
+    let live = placed(&mut a);
+    let reopened = placed(&mut open(&dir));
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(live, [(TextLine::File(20), LIVE, false)]);
+    assert_eq!(reopened, live);
+}
+
+#[test]
+fn a_reply_or_a_dropped_note_while_the_buffer_is_unsaved_moves_no_other_note() {
+    let first = "steps.go:7\n> \t\treturn err\nfirst\n";
+    let second = "steps.go:21\n> \t\treturn err\nsecond\n";
+    let (dir, _) = feature("unsaved-reply", &format!("{first}\n{second}"));
+    let mut a = open(&dir);
+    a.jump_to(&dir.join("steps.go"), 3);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert!(a.dirty);
+    let typed = placed(&mut a);
+    agent_notes(&dir, &format!("{first}agent: ok\n\n{second}"));
+    let replied = placed(&mut a);
+    agent_notes(&dir, second);
+    let dropped = placed(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    let both = [
+        (TextLine::File(7), LIVE, false),
+        (TextLine::File(21), LIVE, false),
+    ];
+    assert_eq!(typed, both);
+    assert_eq!(replied, both);
+    assert_eq!(dropped, [(TextLine::File(21), LIVE, false)]);
+}
+
+#[test]
+fn editing_a_note_that_followed_its_line_by_a_twin_s_gap_keeps_it_there() {
+    let (dir, mut lines) = feature("edited", ON_STEP1);
+    let mut a = open(&dir);
+    lines.splice(0..0, (0..7).map(|i| format!("// {i}")));
+    write(&dir, &lines);
+    a.reload(false);
+    assert_eq!(placed(&mut a), [(TextLine::File(20), LIVE, false)]);
+    a.notes.focus = Some(0);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    typed(&mut a, " please");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    let got = placed(&mut a);
+    let text = std::fs::read_to_string(dir.join(".git/merl/notes/feature")).unwrap();
+    drop(std::fs::remove_dir_all(dir));
+    assert!(text.contains("wrap this please"), "{text}");
+    assert_eq!(got, [(TextLine::File(20), LIVE, false)]);
 }
