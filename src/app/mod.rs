@@ -375,7 +375,7 @@ pub struct App {
     anonymous_named: std::cell::Cell<Option<Typed>>,
     razor_view: bool,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
-    elements_assumed: std::cell::RefCell<Vec<((PathBuf, usize, String), Typed)>>,
+    elements_assumed: std::cell::RefCell<Vec<(PathBuf, usize, String, Typed)>>,
     ruby_declared: std::cell::RefCell<RubyDeclared>,
     pub focus: Focus,
     pub show_tree: bool,
