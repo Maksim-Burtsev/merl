@@ -10,6 +10,18 @@ impl App {
         n: &str,
         hops: usize,
     ) -> Option<TypeVia> {
+        let at = (file.to_path_buf(), line1);
+        if let Some((_, ty)) = self
+            .elements_assumed
+            .borrow()
+            .iter()
+            .find(|(a, _)| *a == at)
+        {
+            return Some(TypeVia {
+                ty: ty.clone(),
+                call_signature: None,
+            });
+        }
         let value = search::ts_array_literal_element(text.lines().nth(line1 - 1)?, n)?;
         let one = self.binding_type(
             kind,
@@ -18,11 +30,13 @@ impl App {
             &search::Binding { line1, value },
             hops - 1,
         )?;
-        let at = (file.to_path_buf(), line1);
         if self.reading.borrow().contains(&at) {
             return Some(one);
         }
-        let outer = self.reading.replace(vec![at]);
+        let outer = self.reading.replace(vec![at.clone()]);
+        self.elements_assumed
+            .borrow_mut()
+            .push((at, one.ty.clone()));
         let kept = search::ts_array_pushes(text, line1, n).is_some_and(|pushed| {
             pushed.into_iter().all(|(line1, value)| {
                 let b = search::Binding { line1, value };
@@ -30,6 +44,7 @@ impl App {
                     .is_some_and(|t| (&t.ty.path, t.ty.line) == (&one.ty.path, one.ty.line))
             })
         });
+        self.elements_assumed.borrow_mut().pop();
         self.reading.replace(outer);
         kept.then_some(one)
     }

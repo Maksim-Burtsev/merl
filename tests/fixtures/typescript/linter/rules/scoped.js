@@ -105,6 +105,32 @@ module.exports = {
       next.childScopes;
       //   ^ d: linter/types/index.d.ts:47
     }
+    const nested = [sourceCode.getScope(context)];
+    let inner;
+    while ((inner = nested.pop())) {
+      nested.push(...inner.childScopes);
+      //                   ^ d: linter/types/index.d.ts:47
+      inner.variables;
+      //    ^ d: linter/types/index.d.ts:48
+    }
+    const mixedNest = [sourceCode.getScope(context)];
+    while ((inner = mixedNest.pop())) {
+      mixedNest.push(...inner.variables);
+      inner.childScopes;
+      //    ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const decoyNest = [sourceCode.getScope(context)];
+    while ((inner = decoyNest.pop())) {
+      decoyNest.push(...held);
+      inner.childScopes;
+      //    ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
+    const deepNest = [sourceCode.getScope(context)];
+    while ((inner = deepNest.pop())) {
+      deepNest.push(...inner.childScopes[0].variables);
+      inner.childScopes;
+      //    ^ d: picker linter/rules/scoped.js:6, linter/types/index.d.ts:47
+    }
     const listed = [sourceCode.getScope(context)];
     listed.push(new Decoy());
     for (const one of listed) {
