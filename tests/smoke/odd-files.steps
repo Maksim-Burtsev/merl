@@ -93,6 +93,7 @@ key Enter
 wait # Team rules
 key Enter End
 type  for everyone
-key Escape
 wait # Team rules for everyone
+key Escape
+wait AGENTS.md  1:26  [code]
 check python3 -c "import os; d = open('../team-rules/AGENTS.md').read(); assert os.path.islink('AGENTS.md') and d.startswith('# Team rules for everyone\n'), d"

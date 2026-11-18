@@ -53,5 +53,5 @@ wait # Team rules for everyone
 │                            │
 │                            │
 └────────────────────────────┘
-AGENTS.md  1:26  [code]                                                                                                                                                            14:32
+AGENTS.md ●  1:26  [edit]  Spaces: 4                                                                                                                                               14:32
 cursor (x,y,shown) 57,0,0
