@@ -38,7 +38,7 @@ struct Text {
 }
 
 enum Frame {
-    Code,
+    Code(i32),
     Text(Text),
     Path,
     Tag,
@@ -89,11 +89,12 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
             Some((Frame::Path, _)) => in_path(&b[i..]),
             Some((Frame::Tag, _)) => in_tag(&b[i..]),
             Some((Frame::Children, _)) => in_children(&b[i..]),
-            Some((Frame::Code, from))
+            Some((Frame::Code(depth), _))
                 if lang == Lang::CSharp
                     && stack.len() > 1
                     && matches!(stack[stack.len() - 2], (Frame::Text(_), _))
-                    && format_clause(b, *from, i) =>
+                    && *depth == 0
+                    && format_clause(b, i) =>
             {
                 let n = b[i..].iter().position(|&c| matches!(c, b'}' | b'\n'));
                 let n = n.unwrap_or(b.len() - i);
@@ -102,12 +103,19 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
                 }
                 (n, Change::Keep)
             }
-            Some((Frame::Code, _)) | None => in_code(lang, b, i),
+            Some((Frame::Code(_), _)) | None => in_code(lang, b, i),
         };
+        if let (Change::Keep, Some((Frame::Code(depth), _))) = (&change, stack.last_mut()) {
+            match b[i] {
+                b'(' | b'[' => *depth += 1,
+                b')' | b']' => *depth -= 1,
+                _ => {}
+            }
+        }
         match change {
             Change::Keep => {}
             Change::Pop => {
-                if let Some((Frame::Code, from)) = stack.pop()
+                if let Some((Frame::Code(_), from)) = stack.pop()
                     && matches!(stack.last(), Some((Frame::Text(_), _)))
                 {
                     holes.push((from, i));
@@ -155,7 +163,7 @@ fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
         Hole::Dollar | Hole::Path | Hole::No => None,
     };
     if let Some(n) = hole {
-        return (n, Change::Push(Frame::Code));
+        return (n, Change::Push(Frame::Code(0)));
     }
     if rest[0] == b'\n' && !t.multi {
         return (1, Change::Pop);
@@ -182,7 +190,7 @@ fn in_tag(rest: &[u8]) -> (usize, Change) {
                 multi: true,
             })),
         ),
-        b'{' => (1, Change::Push(Frame::Code)),
+        b'{' => (1, Change::Push(Frame::Code(0))),
         b'>' => (1, Change::Swap(Frame::Children)),
         b'/' if rest.get(1) == Some(&b'>') => (2, Change::Pop),
         _ => (1, Change::Keep),
@@ -191,7 +199,7 @@ fn in_tag(rest: &[u8]) -> (usize, Change) {
 
 fn in_children(rest: &[u8]) -> (usize, Change) {
     match rest {
-        [b'{', ..] => (1, Change::Push(Frame::Code)),
+        [b'{', ..] => (1, Change::Push(Frame::Code(0))),
         [b'<', b'/', ..] => (
             rest.iter()
                 .position(|&c| c == b'>')
@@ -234,7 +242,7 @@ fn in_code(lang: Lang, b: &[u8], i: usize) -> (usize, Change) {
         }
     }
     match rest[0] {
-        b'{' => return (1, Change::Push(Frame::Code)),
+        b'{' => return (1, Change::Push(Frame::Code(0))),
         b'}' => return (1, Change::Pop),
         _ => {}
     }
@@ -327,15 +335,8 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
     }
 }
 
-fn format_clause(b: &[u8], from: usize, i: usize) -> bool {
-    b[i] == b':'
-        && b.get(i + 1) != Some(&b':')
-        && b[i - 1] != b':'
-        && b[from..i].iter().fold(0i32, |d, c| match c {
-            b'(' | b'[' => d + 1,
-            b')' | b']' => d - 1,
-            _ => d,
-        }) == 0
+fn format_clause(b: &[u8], i: usize) -> bool {
+    b[i] == b':' && b.get(i + 1) != Some(&b':') && b[i - 1] != b':'
 }
 
 fn line_end(rest: &[u8]) -> usize {
