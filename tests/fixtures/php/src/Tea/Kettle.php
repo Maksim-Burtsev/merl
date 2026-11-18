@@ -39,6 +39,8 @@ class Kettle extends Vessel
             //                                                                         ^ d: src/Tea/Kettle.php:26
             Escaped \$lid stays text.
             //        ^ d: none
+            Escaped \$other->lid stays text.
+            //               ^ d: none
             CARD;
         return $card . <<<'NOTE'
             A note on the lid.
@@ -57,12 +59,15 @@ class Kettle extends Vessel
         //                                        ^ d: none
         $said = "Pour the lid: $lid, {$this->lid}, $other->lid.";
         //                ^ d: none
-        //                      ^ d: src/Tea/Kettle.php:54
+        //                      ^ d: src/Tea/Kettle.php:56
         //                                   ^ d: src/Tea/Kettle.php:9
         //                                                 ^ d: src/Tea/Kettle.php:9
+        $list = [$other];
+        $row = "Row $list[0]->lid.";
+        //                    ^ d: none
         $call = [$other, 'pour'];
         //                ^ d: picker src/Tea/Kettle.php:11, src/Tea/Infuse/Gaiwan.php:7, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12, src/Tea/brew.php:10
-        return $plain . $said . $call(1);
+        return $plain . $said . $row . $call(1);
     }
 
     public function ledger(Kettle $other): string
