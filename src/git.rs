@@ -948,16 +948,25 @@ fn changed_in(root: &Path, raw: &[&str]) -> Result<Vec<ReviewFile>> {
     static COPIES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let n = COPIES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let copy = std::env::temp_dir().join(format!("merl-index-{}-{n}", std::process::id()));
-    let index = git(root, &["rev-parse", "--git-path", "index"])?;
-    let out = if std::fs::copy(root.join(index), &copy).is_ok() {
-        let refresh = [&["-c", "diff.autoRefreshIndex=true"][..], raw].concat();
-        let out = git_with(root, &refresh, Some(&copy));
-        drop(std::fs::remove_file(&copy));
-        out?
-    } else {
-        git(root, raw)?
+    let index = root.join(git(root, &["rev-parse", "--git-path", "index"])?);
+    let copied = std::fs::metadata(&index)
+        .and_then(|m| m.modified())
+        .and_then(|written| {
+            std::fs::copy(&index, &copy)?;
+            std::fs::File::options()
+                .write(true)
+                .open(&copy)?
+                .set_modified(written)
+        });
+    let out = match copied {
+        Ok(()) => {
+            let refresh = [&["-c", "diff.autoRefreshIndex=true"][..], raw].concat();
+            git_with(root, &refresh, Some(&copy))
+        }
+        Err(_) => git(root, raw),
     };
-    Ok(parse_name_status(&out))
+    drop(std::fs::remove_file(&copy));
+    Ok(parse_name_status(&out?))
 }
 
 fn parse_name_status(out: &str) -> Vec<ReviewFile> {
@@ -1358,6 +1367,38 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_file_rewritten_to_its_own_size_in_the_second_of_its_commit_is_in_the_review() {
+        let dir = std::env::temp_dir().join(format!("merl-racy-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = Command::new("git").arg("-C").arg(&dir).args(args).output();
+            assert!(out.unwrap().status.success(), "git {args:?}");
+        };
+        let second = SystemTime::UNIX_EPOCH + Duration::from_secs(1 << 30);
+        let at_second = |p: &Path| {
+            let f = std::fs::File::options().write(true).open(p).unwrap();
+            f.set_modified(second).unwrap();
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["config", "user.email", "t@t"]);
+        git(&["config", "user.name", "t"]);
+        git(&["config", "core.trustctime", "false"]);
+        std::fs::write(dir.join("a.py"), "x\n").unwrap();
+        at_second(&dir.join("a.py"));
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "base"]);
+        git(&["switch", "-q", "-c", "feature"]);
+        std::fs::write(dir.join("a.py"), "y\n").unwrap();
+        at_second(&dir.join("a.py"));
+        at_second(&dir.join(".git/index"));
+        let r = Review::open(&dir, None, Some("main")).unwrap();
+        let paths: Vec<_> = r.files.iter().map(|f| f.path.clone()).collect();
+        assert_eq!(paths, [PathBuf::from("a.py")]);
+        drop(std::fs::remove_dir_all(dir));
+    }
 
     #[test]
     fn untracked_lines_are_counted_in_64_kib_pieces_and_sniffed_for_nul_in_the_first_8000_bytes() {

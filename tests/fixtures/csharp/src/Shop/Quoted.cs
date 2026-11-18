@@ -39,4 +39,9 @@ public class Quoted
         x
         """ + s.Blot();
     //            ^ d: src/Shop/Quoted.cs:5
+    public IEnumerable<string> I(
+        Stylus s,
+        Nib[] ns
+    ) => ns.Select((Nib s) => s.Blot());
+    //                          ^ d: src/Shop/Quoted.cs:10
 }
