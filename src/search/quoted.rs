@@ -13,6 +13,8 @@ enum Lang {
     Go,
     Dart,
     C,
+    Rust,
+    Php,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -27,6 +29,7 @@ enum Hole {
     Brace(usize),
     Dollar,
     Path,
+    Php,
     No,
 }
 
@@ -35,6 +38,7 @@ struct Text {
     escape: Escape,
     hole: Hole,
     multi: bool,
+    label: bool,
 }
 
 enum Frame {
@@ -43,6 +47,7 @@ enum Frame {
     Path,
     Tag,
     Children,
+    Html,
 }
 
 enum Change {
@@ -71,7 +76,47 @@ pub fn in_string_text(kind: Kind, path: &Path, text: &str, at: usize) -> bool {
         Kind::C => Lang::C,
         _ => return false,
     };
-    lex(lang, text.as_bytes(), at, &mut Vec::new())
+    lex(lang, text.as_bytes(), at, &mut Vec::new()).is_some()
+}
+
+pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
+    match kind {
+        Kind::Rust => lex(Lang::Rust, text.as_bytes(), at, &mut Vec::new()).is_some(),
+        Kind::Php => match lex(Lang::Php, text.as_bytes(), at, &mut Vec::new()) {
+            Some((t, from)) if from > at || t.close == b"`" => false,
+            Some((t, _)) if t.label => true,
+            Some((_, from)) => php_prose(text, from - 1) && !php_qualified_name(text, at),
+            None => false,
+        },
+        _ => false,
+    }
+}
+
+fn php_prose(text: &str, from: usize) -> bool {
+    let b = text.as_bytes();
+    let Some(&q) = b.get(from) else {
+        return false;
+    };
+    let mut i = from + 1;
+    while let Some(&c) = b.get(i) {
+        if c == q || c == b'\n' {
+            return false;
+        }
+        if c == b' ' || c == b'\t' {
+            return true;
+        }
+        i += if c == b'\\' { 2 } else { 1 };
+    }
+    false
+}
+
+fn php_qualified_name(text: &str, at: usize) -> bool {
+    let b = text.as_bytes();
+    let name = |c: &u8| ident(*c) || *c == b'\\';
+    let (head, tail) = (b.get(..at).unwrap_or(b), b.get(at..).unwrap_or_default());
+    let head = head.iter().rev().take_while(|c| name(c));
+    let tail = tail.iter().take_while(|c| name(c));
+    head.chain(tail).any(|&c| c == b'\\')
 }
 
 pub(super) fn cs_holes(line: &[u8]) -> Vec<(usize, usize)> {
@@ -80,15 +125,20 @@ pub(super) fn cs_holes(line: &[u8]) -> Vec<(usize, usize)> {
     holes
 }
 
-fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool {
+fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> Option<(Text, usize)> {
     let mut stack: Vec<(Frame, usize)> = Vec::new();
+    if lang == Lang::Php {
+        stack.push((Frame::Html, 0));
+    }
     let mut i = 0;
     while i < at.min(b.len()) {
         let (n, change) = match stack.last() {
             Some((Frame::Text(t), _)) => in_text(t, &b[i..]),
-            Some((Frame::Path, _)) => in_path(&b[i..]),
+            Some((Frame::Path, _)) => in_path(lang, &b[i..]),
             Some((Frame::Tag, _)) => in_tag(&b[i..]),
             Some((Frame::Children, _)) => in_children(&b[i..]),
+            Some((Frame::Html, _)) if b[i..].starts_with(b"<?") => (2, Change::Pop),
+            Some((Frame::Html, _)) => (1, Change::Keep),
             Some((Frame::Code(depth), _))
                 if lang == Lang::CSharp
                     && stack.len() > 1
@@ -99,7 +149,8 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
                 let n = b[i..].iter().position(|&c| matches!(c, b'}' | b'\n'));
                 let n = n.unwrap_or(b.len() - i);
                 if i + n > at {
-                    return true;
+                    stack.pop();
+                    break;
                 }
                 (n, Change::Keep)
             }
@@ -129,17 +180,31 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
         }
         i += n;
     }
-    matches!(stack.last(), Some((Frame::Text(_), _)))
+    match stack.pop() {
+        Some((Frame::Text(t), from)) => Some((t, from)),
+        _ => None,
+    }
 }
 
 fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
     if t.escape == Escape::Backslash
         && rest[0] == b'\\'
         && !(matches!(t.hole, Hole::Brace(_)) && rest.get(1) == Some(&b'{'))
+        && !(t.label && rest.get(1) == Some(&b'\n'))
     {
         return (2, Change::Keep);
     }
-    if rest.starts_with(&t.close) {
+    if t.label {
+        if rest[0] == b'\n' {
+            let indent = rest[1..].iter().take_while(|&&c| c == b' ' || c == b'\t');
+            let n = 1 + indent.count();
+            if rest[n..].starts_with(&t.close)
+                && rest.get(n + t.close.len()).is_none_or(|&c| !ident(c))
+            {
+                return (n + t.close.len(), Change::Pop);
+            }
+        }
+    } else if rest.starts_with(&t.close) {
         let n = t.close.len();
         if t.escape == Escape::Doubled && rest[n..].starts_with(&t.close) {
             return (2 * n, Change::Keep);
@@ -156,11 +221,14 @@ fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
                 _ => Some(k),
             }
         }
-        Hole::Dollar | Hole::Path if rest.starts_with(b"${") => Some(2),
-        Hole::Path if rest[0] == b'$' && rest.get(1).is_some_and(|&c| name_start(c)) => {
+        Hole::Php if rest.starts_with(b"{$") => Some(1),
+        Hole::Dollar | Hole::Path | Hole::Php if rest.starts_with(b"${") => Some(2),
+        Hole::Path | Hole::Php
+            if rest[0] == b'$' && rest.get(1).is_some_and(|&c| name_start(c)) =>
+        {
             return (1, Change::Push(Frame::Path));
         }
-        Hole::Dollar | Hole::Path | Hole::No => None,
+        Hole::Dollar | Hole::Path | Hole::Php | Hole::No => None,
     };
     if let Some(n) = hole {
         return (n, Change::Push(Frame::Code(0)));
@@ -171,9 +239,16 @@ fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
     (1, Change::Keep)
 }
 
-fn in_path(rest: &[u8]) -> (usize, Change) {
-    if ident(rest[0]) || (rest[0] == b'.' && rest.get(1).is_some_and(|&c| name_start(c))) {
+fn in_path(lang: Lang, rest: &[u8]) -> (usize, Change) {
+    let dot: &[u8] = match rest {
+        [b'?', b'-', b'>', ..] if lang == Lang::Php => b"?->",
+        _ if lang == Lang::Php => b"->",
+        _ => b".",
+    };
+    if ident(rest[0]) {
         (1, Change::Keep)
+    } else if rest.starts_with(dot) && rest.get(dot.len()).is_some_and(|&c| name_start(c)) {
+        (dot.len(), Change::Keep)
     } else {
         (0, Change::Pop)
     }
@@ -188,6 +263,7 @@ fn in_tag(rest: &[u8]) -> (usize, Change) {
                 escape: Escape::No,
                 hole: Hole::No,
                 multi: true,
+                label: false,
             })),
         ),
         b'{' => (1, Change::Push(Frame::Code(0))),
@@ -214,13 +290,26 @@ fn in_children(rest: &[u8]) -> (usize, Change) {
 
 fn in_code(lang: Lang, b: &[u8], i: usize) -> (usize, Change) {
     let rest = &b[i..];
-    let hash_comments = lang == Lang::Python;
-    if rest.starts_with(if hash_comments { b"#" } else { b"//" }) {
-        return (line_end(rest), Change::Keep);
+    let line_comment = match lang {
+        Lang::Python => rest[0] == b'#',
+        Lang::Php => rest.starts_with(b"//") || (rest[0] == b'#' && rest.get(1) != Some(&b'[')),
+        _ => rest.starts_with(b"//"),
+    };
+    if line_comment {
+        return (line_end(lang, rest), Change::Keep);
     }
-    if !hash_comments && rest.starts_with(b"/*") {
-        let nests = matches!(lang, Lang::Kotlin | Lang::Scala | Lang::Dart);
+    if lang != Lang::Python && rest.starts_with(b"/*") {
+        let nests = matches!(lang, Lang::Kotlin | Lang::Scala | Lang::Dart | Lang::Rust);
         return (block_comment(rest, nests), Change::Keep);
+    }
+    if lang == Lang::Php && rest.starts_with(b"?>") {
+        return (2, Change::Push(Frame::Html));
+    }
+    if let Some((n, t)) = (lang == Lang::Php).then(|| heredoc(rest)).flatten() {
+        return (n, Change::Push(Frame::Text(t)));
+    }
+    if lang == Lang::Rust && rest[0] == b'\'' {
+        return (rust_char(rest), Change::Keep);
     }
     let slashy = matches!(lang, Lang::Ts { .. } | Lang::Groovy);
     if let Some(n) = slashy.then(|| regex_literal(b, i)).flatten() {
@@ -265,6 +354,7 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         escape,
         hole,
         multi,
+        label: false,
     };
     let quoted = |hole, escape| {
         let n = if triple { 3 } else { 1 };
@@ -329,6 +419,19 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
             Some((open + 1, text(&close, Escape::No, Hole::No, true)))
         }
         (Lang::C, b'\'') if in_number(&b[..i]) => None,
+        (Lang::Rust, b'"') => {
+            let hashes = b[..i].iter().rev().take_while(|&&c| c == b'#').count();
+            let head = &b[..i - hashes];
+            let raw = &head[head.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1)..];
+            if matches!(raw, b"r" | b"br" | b"cr") {
+                let close = [b"\"", &b[i - hashes..i]].concat();
+                Some((1, text(&close, Escape::No, Hole::No, true)))
+            } else {
+                Some((1, text(b"\"", Escape::Backslash, Hole::No, true)))
+            }
+        }
+        (Lang::Php, b'"' | b'`') => Some((1, text(&rest[..1], Escape::Backslash, Hole::Php, true))),
+        (Lang::Php, b'\'') => Some((1, text(b"'", Escape::Backslash, Hole::No, true))),
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
@@ -339,8 +442,45 @@ fn format_clause(b: &[u8], i: usize) -> bool {
     b[i] == b':' && b.get(i + 1) != Some(&b':') && b[i - 1] != b':'
 }
 
-fn line_end(rest: &[u8]) -> usize {
-    rest.iter().position(|&c| c == b'\n').unwrap_or(rest.len())
+fn line_end(lang: Lang, rest: &[u8]) -> usize {
+    (0..rest.len())
+        .find(|&n| rest[n] == b'\n' || (lang == Lang::Php && rest[n..].starts_with(b"?>")))
+        .unwrap_or(rest.len())
+}
+
+fn heredoc(rest: &[u8]) -> Option<(usize, Text)> {
+    let head = rest.strip_prefix(b"<<<")?;
+    let quote = head.first().copied().filter(|&c| c == b'"' || c == b'\'');
+    let from = 3 + usize::from(quote.is_some());
+    let len = rest[from..].iter().take_while(|&&c| ident(c)).count();
+    if !rest.get(from).is_some_and(|&c| name_start(c)) {
+        return None;
+    }
+    let nowdoc = quote == Some(b'\'');
+    let text = Text {
+        close: rest[from..from + len].to_vec(),
+        escape: if nowdoc {
+            Escape::No
+        } else {
+            Escape::Backslash
+        },
+        hole: if nowdoc { Hole::No } else { Hole::Php },
+        multi: true,
+        label: true,
+    };
+    Some((from + len + usize::from(quote.is_some()), text))
+}
+
+fn rust_char(rest: &[u8]) -> usize {
+    let end = match rest.get(1) {
+        Some(b'\\') => (rest.get(3..).unwrap_or_default().iter().take(9))
+            .position(|&c| c == b'\'')
+            .map(|n| 3 + n),
+        Some(&c) => Some(1 + (c.leading_ones() as usize).max(1)),
+        None => None,
+    };
+    end.filter(|&e| rest.get(e) == Some(&b'\''))
+        .map_or(1, |e| e + 1)
 }
 
 fn block_comment(b: &[u8], nests: bool) -> usize {

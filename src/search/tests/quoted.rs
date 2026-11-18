@@ -113,6 +113,41 @@ fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
     assert_eq!(hole(r#"$"{^a"#), None);
 }
 
+fn guarded(kind: Kind, src: &str) -> Vec<bool> {
+    let marks: Vec<usize> = src.match_indices('^').map(|(i, _)| i).collect();
+    let text = src.replace('^', "");
+    (marks.iter().enumerate())
+        .map(|(n, &m)| in_string(kind, &text, m - n))
+        .collect()
+}
+
+#[test]
+fn a_rust_raw_string_runs_to_its_hashes_and_a_lifetime_opens_nothing() {
+    let rs = r###"let s = r##"a "# ^b"##; /* /* */ " */ ^c; let l: &'a str = "^d"; b'"'; ^e"###;
+    assert_eq!(guarded(Kind::Rust, rs), [true, false, true, false]);
+}
+
+#[test]
+fn a_php_string_s_interpolation_is_code_and_its_prose_is_text() {
+    let php = "<?php $a = 'say ^hi'; $b = \"$^c->^d and ^e {$^f->g} ${^h} $^w?->^x\"; \
+               $i = 'App\\^Models'; $j = '^k'; // '^l ?> \"^m\"\n<?php\n\
+               $n = <<<EOT\n  ^o $^p \\\n  EOT;\n^q(); $r = <<<'NOW'\n $^s\nNOW;\n^t\
+               ?> <p>'^u'</p> <?= \"x ^v\" ?> <?php `ls ^y`;";
+    assert_eq!(
+        guarded(Kind::Php, php),
+        [
+            true, false, false, true, false, false, false, false, false, false, false, false, true,
+            false, false, true, false, false, true, false
+        ]
+    );
+    let generated = "<?php return \"<?php echo \\$__env->^make(); if(auth()->^guard{$^g}) ?>\";\n\
+                     ?><h1 class=\"a<?= $m ? ' ^long' : ''; ?>\"><?= $^n ?>";
+    assert_eq!(
+        guarded(Kind::Php, generated),
+        [true, true, false, true, false]
+    );
+}
+
 #[test]
 fn a_csharp_hole_s_format_clause_is_text() {
     let cs = r#"var s = $"{^d:^N2} {d:'^T'HH} {d:dd\\'^MM} ^x {^e}";"#;

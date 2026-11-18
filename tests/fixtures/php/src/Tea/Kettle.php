@@ -39,6 +39,8 @@ class Kettle extends Vessel
             //                                                                         ^ d: src/Tea/Kettle.php:26
             Escaped \$lid stays text.
             //        ^ d: none
+            Escaped \$other->lid stays text.
+            //               ^ d: none
             CARD;
         return $card . <<<'NOTE'
             A note on the lid.
@@ -57,7 +59,7 @@ class Kettle extends Vessel
         //                                        ^ d: none
         $said = "Pour the lid: $lid, {$this->lid}, $other->lid.";
         //                ^ d: none
-        //                      ^ d: src/Tea/Kettle.php:54
+        //                      ^ d: src/Tea/Kettle.php:56
         //                                   ^ d: src/Tea/Kettle.php:9
         //                                                 ^ d: src/Tea/Kettle.php:9
         $call = [$other, 'pour'];
