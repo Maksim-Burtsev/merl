@@ -46,3 +46,12 @@ final class Keg extends Cask implements Graded
         //           ^ d: src/Storage/Cask.php:7
     }
 }
+
+final class Satchel implements Graded
+{
+    public function grade(): int
+    {
+        return self::TIER;
+        //           ^ d: src/Storage/Graded.php:7
+    }
+}
