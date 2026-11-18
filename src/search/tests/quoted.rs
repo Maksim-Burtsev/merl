@@ -111,3 +111,12 @@ fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
     assert_eq!(hole(r#"$"{{^a}}""#), None);
     assert_eq!(hole(r#"$"{^a"#), None);
 }
+
+#[test]
+fn a_csharp_hole_s_format_clause_is_text() {
+    let cs = r#"var s = $"{^d:^N2} {d:'^T'HH} {d:dd\\'^MM} ^x {^e}";"#;
+    assert_eq!(
+        texts(Kind::CSharp, "a.cs", cs),
+        [false, true, true, true, true, false]
+    );
+}

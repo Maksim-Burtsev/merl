@@ -96,7 +96,11 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> bool
                     && format_clause(b, *from, i) =>
             {
                 let n = b[i..].iter().position(|&c| matches!(c, b'}' | b'\n'));
-                (n.unwrap_or(b.len() - i), Change::Keep)
+                let n = n.unwrap_or(b.len() - i);
+                if i + n > at {
+                    return true;
+                }
+                (n, Change::Keep)
             }
             Some((Frame::Code, _)) | None => in_code(lang, b, i),
         };
