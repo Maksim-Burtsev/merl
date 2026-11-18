@@ -117,3 +117,23 @@ final class Pouch extends Command implements Sorted
         //           ^ d: src/Storage/Graded.php:7
     }
 }
+
+interface Banded extends Graded { const TIER = 5;
+}
+
+final class Creel extends Command implements Banded
+{
+    public function grade(): int
+    {
+        return self::TIER;
+        //           ^ d: none
+    }
+}
+
+#[\Attribute] final class Satchel2 implements Graded { const TIER = 2;
+    public function grade(): int
+    {
+        return self::TIER;
+        //           ^ d: !jump
+    }
+}
