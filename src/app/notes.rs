@@ -143,7 +143,7 @@ pub struct Notes {
     dirs: Option<Option<git::GitDirs>>,
     seen: Option<SystemTime>,
     loaded: bool,
-    last_seen: HashMap<String, TextLine>,
+    last_seen: HashMap<String, usize>,
     pub home: Option<PathBuf>,
 }
 
@@ -312,7 +312,182 @@ fn next(app: &App, l: TextLine) -> TextLine {
     }
 }
 
+fn reads(app: &App, at: TextLine, quote: &[String]) -> Option<bool> {
+    let mut t = at;
+    let mut exact = true;
+    for (i, q) in quote.iter().rev().enumerate() {
+        if i > 0 {
+            let p = prev(app, t);
+            if p >= t {
+                return None;
+            }
+            t = p;
+        }
+        let shown = quote_of(app, t);
+        if shown.get(2..) != q.get(2..) {
+            return None;
+        }
+        exact &= shown == *q;
+    }
+    Some(exact)
+}
+
+fn note_id(n: &Note) -> String {
+    format!(
+        "{}:{}-{}\n{}\n{}",
+        n.path.display(),
+        n.first,
+        n.last,
+        n.quote.join("\n"),
+        n.text
+    )
+}
+
+struct Hunk {
+    at: usize,
+    added: usize,
+    deleted: usize,
+}
+
+fn hunks_of(diff: &git::Diff, len: usize) -> Vec<Hunk> {
+    let added = |l: usize| diff.marks.get(&l) == Some(&git::Mark::Added);
+    let mut out = Vec::new();
+    let mut l = 0;
+    while l <= len {
+        let deleted = diff.ghosts.get(&l).map_or(0, Vec::len);
+        let run = (l..len)
+            .take_while(|&k| added(k) && (k == l || !diff.ghosts.contains_key(&k)))
+            .count();
+        if deleted + run > 0 {
+            out.push(Hunk {
+                at: l,
+                added: run,
+                deleted,
+            });
+        }
+        l += run.max(1);
+    }
+    out
+}
+
+struct Sums {
+    reach: Vec<bool>,
+    zero: usize,
+    added: usize,
+    deleted: usize,
+}
+
+impl Sums {
+    fn new(hunks: &[Hunk]) -> Self {
+        let zero = hunks.iter().map(|h| h.deleted).sum::<usize>();
+        let mut reach = vec![false; zero + hunks.iter().map(|h| h.added).sum::<usize>() + 1];
+        reach[zero] = true;
+        Self {
+            reach,
+            zero,
+            added: 0,
+            deleted: 0,
+        }
+    }
+
+    fn add(&mut self, h: &Hunk) {
+        let mut next = self.reach.clone();
+        for (x, _) in self.reach.iter().enumerate().filter(|r| *r.1) {
+            if let Some(y) = (x + h.added).checked_sub(h.deleted)
+                && let Some(r) = next.get_mut(y)
+            {
+                *r = true;
+            }
+        }
+        self.reach = next;
+        self.added += h.added;
+        self.deleted += h.deleted;
+    }
+
+    fn exact(&self, from: usize, to: usize) -> bool {
+        (from + self.added + self.zero)
+            .checked_sub(to + self.deleted)
+            .and_then(|i| self.reach.get(i))
+            .is_some_and(|r| *r)
+    }
+
+    fn loose(&self, from: usize, to: usize) -> bool {
+        to <= from + self.added && from <= to + self.deleted
+    }
+}
+
 impl App {
+    fn note_place(
+        &self,
+        n: &Note,
+        hunks: &[Hunk],
+        seen: Option<usize>,
+    ) -> Option<(TextLine, bool, Option<usize>)> {
+        let last = n.quote.last()?;
+        let text = last.get(2..).unwrap_or("");
+        let on_ghost = last.starts_with("- ");
+        let lines = (0..self.buf.lines.len())
+            .filter(|&l| self.buf.lines[l] == text)
+            .map(TextLine::File);
+        let ghosts = (self.diff.ghosts.iter()).flat_map(|(&k, g)| {
+            (g.iter().enumerate())
+                .filter(|(_, s)| s.as_str() == text)
+                .map(move |(i, _)| TextLine::Deleted(k, i))
+        });
+        let added = |l: usize| self.diff.marks.get(&l) == Some(&git::Mark::Added);
+        let mut cands: Vec<_> = (lines.chain(ghosts))
+            .filter_map(|t| {
+                let exact = reads(self, t, &n.quote)?;
+                let (own, at) = match t {
+                    TextLine::File(l) if added(l) => (
+                        hunks.iter().rev().find(|h| h.at <= l).map_or(l, |h| h.at),
+                        l,
+                    ),
+                    TextLine::File(l) => (l + 1, l),
+                    TextLine::Deleted(k, _) if on_ghost => (k, k),
+                    TextLine::Deleted(k, i) => (k, k + i),
+                };
+                Some((own, at, t, exact))
+            })
+            .collect();
+        cands.sort_by_key(|c| c.0);
+        let from = n.last.saturating_sub(1);
+        let mut sums = Sums::new(hunks);
+        let mut rest = hunks.iter().peekable();
+        let mut fit = Vec::new();
+        for (own, at, t, exact) in cands {
+            while let Some(h) = rest.next_if(|h| h.at < own) {
+                sums.add(h);
+            }
+            let base = match t {
+                TextLine::File(l) if added(l) => None,
+                TextLine::File(l) => (l + sums.deleted).checked_sub(sums.added),
+                TextLine::Deleted(k, i) => self.diff.ghost_from.get(&k).map(|f| f + i),
+            };
+            let fits = (sums.exact(from, at), sums.loose(from, at));
+            fit.push((fits, t, exact, base));
+        }
+        let nearest = |tier: fn(&(bool, bool)) -> bool| {
+            (fit.iter().filter(|c| tier(&c.0)))
+                .min_by_key(|c| (seen.is_none() || c.3 != seen, c.1.key().abs_diff(from)))
+                .map(|c| (c.1, !c.2, c.3))
+        };
+        nearest(|c| c.0).or_else(|| nearest(|c| c.1))
+    }
+
+    fn note_kept(&self, n: &Note, (at, stale): (TextLine, bool)) -> (TextLine, bool) {
+        let last = self.buf.lines.len().saturating_sub(1);
+        let near = (0..=last)
+            .filter(|&c| reads(self, TextLine::File(c), &n.quote) == Some(true))
+            .min_by_key(|c| c.abs_diff(at.key()));
+        match (near, at) {
+            (Some(c), TextLine::File(_)) if !stale => (TextLine::File(c), false),
+            (Some(c), _) if c.abs_diff(at.key()) <= 1 => (TextLine::File(c), false),
+            (_, TextLine::File(l)) => (TextLine::File(l.min(last)), true),
+            (_, TextLine::Deleted(..)) => (at, stale),
+        }
+    }
+
     fn notes_store(&mut self) -> Option<(PathBuf, String)> {
         let root = &self.root;
         let dirs = self.notes.dirs.get_or_insert_with(|| git::dirs(root));
@@ -333,6 +508,7 @@ impl App {
         if self.notes.loaded && list != self.notes.list {
             self.notes.focus = None;
             self.notes.selected = false;
+            self.notes.here.clear();
         }
         self.notes.list = list;
         self.notes.seen = mtime;
@@ -365,7 +541,12 @@ impl App {
         let on_first = rel.is_some() && rel == self.notes.home;
         let mut here = Vec::new();
         let mut tops = Vec::new();
+        let hunks = hunks_of(&self.diff, len);
         let mut seen_now = Vec::new();
+        let was: HashMap<String, (TextLine, bool)> = (self.notes.here.iter())
+            .filter(|h| h.top.is_none())
+            .filter_map(|h| Some((note_id(self.notes.list.get(h.idx)?), (h.at, h.stale))))
+            .collect();
         for (idx, n) in self.notes.list.iter().enumerate() {
             if rel.as_deref() != Some(n.path.as_path()) {
                 if on_first && n.quote.last().is_some() {
@@ -383,34 +564,20 @@ impl App {
                 }
                 continue;
             }
-            let Some(last_q) = n.quote.last() else {
+            if n.quote.is_empty() {
                 continue;
+            }
+            let id = note_id(n);
+            let place = match was.get(&id) {
+                Some(&w) if self.dirty => Some(self.note_kept(n, w)),
+                _ => (self.note_place(n, &hunks, self.notes.last_seen.get(&id).copied())).map(
+                    |(at, stale, base)| {
+                        seen_now.extend(base.filter(|_| !self.dirty).map(|b| (id, b)));
+                        (at, stale)
+                    },
+                ),
             };
-            let id = format!("{}:{}", n.path.display(), n.text);
-            let seen = self.notes.last_seen.get(&id).copied().filter(|t| match *t {
-                TextLine::File(l) => l < len,
-                TextLine::Deleted(key, i) => {
-                    self.diff.ghosts.get(&key).is_some_and(|g| i < g.len())
-                }
-            });
-            let k = seen.map_or_else(|| n.last.saturating_sub(1), TextLine::key);
-            let found = if let Some(text) = last_q.strip_prefix("- ") {
-                (self.diff.ghosts.iter())
-                    .flat_map(|(&key, g)| {
-                        g.iter()
-                            .enumerate()
-                            .filter(|(_, s)| s.as_str() == text)
-                            .map(move |(i, _)| TextLine::Deleted(key, i))
-                    })
-                    .min_by_key(|t| t.key().abs_diff(k))
-            } else {
-                let text = last_q.get(2..).unwrap_or("");
-                (0..len)
-                    .filter(|&l| self.buf.lines[l] == text)
-                    .min_by_key(|l| l.abs_diff(k))
-                    .map(TextLine::File)
-            };
-            if found.is_none() && seen.is_none() {
+            let Some((at, stale)) = place else {
                 tops.push(Here {
                     first: TextLine::File(0),
                     at: TextLine::File(0),
@@ -419,17 +586,7 @@ impl App {
                     top: Some(Self::top_label(n, false)),
                 });
                 continue;
-            }
-            let (at, stale) = match found {
-                Some(at) => (at, false),
-                None => (
-                    seen.unwrap_or_else(|| TextLine::File(k.min(len.saturating_sub(1)))),
-                    true,
-                ),
             };
-            if !stale {
-                seen_now.push((id, at));
-            }
             let mut first = at;
             for _ in 1..n.quote.len() {
                 first = prev(self, first);
@@ -444,6 +601,8 @@ impl App {
         }
         tops.extend(here);
         self.notes.here = tops;
+        let ids: Vec<String> = self.notes.list.iter().map(note_id).collect();
+        self.notes.last_seen.retain(|id, _| ids.contains(id));
         self.notes.last_seen.extend(seen_now);
     }
 

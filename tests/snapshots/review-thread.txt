@@ -1,16 +1,11 @@
 merl snapshot: review-thread
 
-==== 80x24 tokyonight-moon text, cursor 33,10
+==== 80x24 tokyonight-moon text, cursor 33,5
 ┌feature ← main──────────────┐  ✎ old.py, file deleted
 │  D Makefile           +0 −7│    def gone():
 │✎ M store.py           +4 −1│    delete this file
 │  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file
 │                            │           itself now
-│                            │  ✎ line 13, changed
-│                            │            self.config = config or load_config()
-│                            │    why not pass the config in?
-│                            │  ↳ agent  the CLI builds it once; tests pass
-│                            │           their own
 │                            │ 1 """Storage: every note lives in one JSON file,
 │                            │   read and written as a whole."""
 │                            │ 2
@@ -23,7 +18,12 @@ merl snapshot: review-thread
 │                            │ 9 class NoteStore:
 │                            │10     """Reads and writes the notes of a single
 │                            │       JSON file."""
-└ 3 files · +5 −8 · 4 notes ─┘11
+│                            │11
+│                            │12     def __init__(self, config: Config | None =
+│                            │       None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │  ✎ why not pass the config in? (changed)
+└ 3 files · +5 −8 · 4 notes ─┘  ↳ agent  the CLI builds it once; tests pass
 store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 80x24 tokyonight-moon styles
@@ -31,11 +31,6 @@ abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 addddddddddddddddddddddddddddaiiikkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllll
@@ -49,8 +44,13 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccpppppdnnnnnnnnnoddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd
 addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqdddddddddddddddddddddddddddddd
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddddddddddddddddddddddddddddddddddddd
-rrrrrrrrssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddrrrdrrrrrrrrsttttodqqqqqqodnnnnnndodnnnndod
+addddddddddddddddddddddddddddacccddddnnnnsdoodnnnnoddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccuvvvvvvvvwwwwxyyyyyyvxvvvvvvvvxxvzzzzzzzzzzzAAvv
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccdcccccccddddddddddddddddddddddddddddddddddddddd
+BBBBBBBBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #3b4261 bg #222436
@@ -68,19 +68,24 @@ n fg #65bcff bg #222436
 o fg #89ddff bg #222436
 p fg #fca7ea bg #222436 ITALIC
 q fg #ffc777 bg #222436
-r fg #828bb8 bg #1e2030 BOLD
-s fg #828bb8 bg #1e2030
+r fg #c099ff bg #222436
+s fg #828bb8 bg #222436
+t fg #ff757f bg #222436
+u fg red bg #222436
+v fg #c8d3f5 bg #372837
+w fg #ff757f bg #372837
+x fg #89ddff bg #372837
+y fg #4fd6be bg #372837
+z fg #c8d3f5 bg #77363d
+A fg #828bb8 bg #372837
+B fg #828bb8 bg #1e2030 BOLD
+C fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccaddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
 addddddddddddddddddddddddddddadddjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkkkkkkkkk
@@ -94,8 +99,13 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccllllldmmmmmmmmmdddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnd
 addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnndddddddddddddddddddddddddddddd
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddddddddddddddddddddddddddddddddddddd
-oooooooopppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddllldmmmmmmmmdooooddddddddddmmmmmmdodoooodod
+addddddddddddddddddddddddddddacccddddooooddoodoooodddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddaccpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqq
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccdcccccccddddddddddddddddddddddddddddddddddddddd
+uuuuuuuuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -110,18 +120,20 @@ k fg #1f2328 bg #e7eaf0
 l fg #cf222e bg #ffffff
 m fg #953800 bg #ffffff
 n fg #0a3069 bg #ffffff
-o fg #f6f8fa bg #5094e4 BOLD
-p fg #f6f8fa bg #5094e4
+o fg #0550ae bg #ffffff
+p fg red bg #ffffff
+q fg #1f2328 bg #feeae9
+r fg #0550ae bg #feeae9
+s fg #cf222e bg #feeae9
+t fg #1f2328 bg #fdcecc
+u fg #f6f8fa bg #5094e4 BOLD
+v fg #f6f8fa bg #5094e4
 
-==== 120x33 tokyonight-moon text, cursor 33,8
+==== 120x33 tokyonight-moon text, cursor 33,4
 ┌feature ← main──────────────┐  ✎ old.py, file deleted
 │  D Makefile           +0 −7│    def gone():
 │✎ M store.py           +4 −1│    delete this file
 │  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file itself now
-│                            │  ✎ line 13, changed
-│                            │            self.config = config or load_config()
-│                            │    why not pass the config in?
-│                            │  ↳ agent  the CLI builds it once; tests pass their own
 │                            │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
 │                            │ 2
 │                            │ 3 import json
@@ -135,6 +147,8 @@ p fg #f6f8fa bg #5094e4
 │                            │11
 │                            │12     def __init__(self, config: Config | None = None) -> None:
 │                            │  ▎        self.config = config or load_config()
+│                            │  ✎ why not pass the config in? (changed)
+│                            │  ↳ agent  the CLI builds it once; tests pass their own
 │                            │13▎        self.config = config or load_settings()
 │                            │  ✎ rename the call in config.py too
 │                            │  ↳ agent  config.py has no call to it, only cli.py, renamed there
@@ -145,7 +159,9 @@ p fg #f6f8fa bg #5094e4
 │                            │16     def _read(self) -> list[Note]:
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
-└ 3 files · +5 −8 · 4 notes ─┘19             return []
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+└ 3 files · +5 −8 · 4 notes ─┘21         return [Note.from_dict(item) for item in raw]
 store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 120x33 tokyonight-moon styles
@@ -153,10 +169,6 @@ abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklllllllll
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccmmmmmmdmmmmdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -170,6 +182,8 @@ addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddrrrdrrrrrrrrsttttodqqqqqqodnnnnnndodnnnndodnnnnsdoodnnnnodddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccuvvvvvvvvwwwwxyyyyyyvxvvvvvvvvxxvzzzzzzzzzzzAAvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccBCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -180,8 +194,10 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddrrrdaaaaasttttsdoodJJJJsnnnnsoddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqddddddddddddd
 addddddddddddddddddddddddddddacccddddddddrrdooodttttoIIIIIIoIIIIoaaaaaassodddddddddddddddddddddddddddddddddddddddddddddd
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddppppppdssdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-KKKKKKKKLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+addddddddddddddddddddddddddddacccddddddddddddppppppdssdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddodddddoaaaaasttttoIIIIIIoIIIIoaaaaaaaaasqqqqqqqqoKKKKKKKssddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddppppppdsnnnnoaaaaaaaaasddddsdrrrddddddooddddsdddddddddddddddddddddddddddddddddd
+LLLLLLLLMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #3b4261 bg #222436
@@ -218,18 +234,15 @@ G fg #c8d3f5 bg #26553b
 H fg #828bb8 bg #233637
 I fg #4fd6be bg #222436
 J fg #589ed7 bg #222436
-K fg #828bb8 bg #1e2030 BOLD
-L fg #828bb8 bg #1e2030
+K fg #c3e88d bg #222436
+L fg #828bb8 bg #1e2030 BOLD
+M fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkk
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccllllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -243,6 +256,8 @@ addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddllldmmmmmmmmdooooddddddddddmmmmmmdodoooododooooddoodooooddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdcccccccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -253,7 +268,9 @@ addddddddddddddddddddddddddddacccddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddllldaaaaadooooddoodoooodmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnddddddddddddd
 addddddddddddddddddddddddddddacccddddddddlldllldoooodddddddddddddaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddd
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddddddllllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddllllllddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccddddddddddddoddddddaaaaadoooodddddddddddddaaaaaaaaadddddddddonnnnnnnddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddllllllddmmmmdaaaaaaaaadddddddlllddddddllddddddddddddddddddddddddddddddddddddddd
 zzzzzzzzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
@@ -283,15 +300,11 @@ y fg #1f2328 bg #abedbb
 z fg #f6f8fa bg #5094e4 BOLD
 A fg #f6f8fa bg #5094e4
 
-==== 185x55 tokyonight-moon text, cursor 33,8
+==== 185x55 tokyonight-moon text, cursor 33,4
 ┌feature ← main──────────────┐  ✎ old.py, file deleted
 │  D Makefile           +0 −7│    def gone():
 │✎ M store.py           +4 −1│    delete this file
 │  A tags.py            +1 −0│  ↳ agent  deleted it; store.py reads the file itself now
-│                            │  ✎ line 13, changed
-│                            │            self.config = config or load_config()
-│                            │    why not pass the config in?
-│                            │  ↳ agent  the CLI builds it once; tests pass their own
 │                            │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
 │                            │ 2
 │                            │ 3 import json
@@ -305,6 +318,8 @@ A fg #f6f8fa bg #5094e4
 │                            │11
 │                            │12     def __init__(self, config: Config | None = None) -> None:
 │                            │  ▎        self.config = config or load_config()
+│                            │  ✎ why not pass the config in? (changed)
+│                            │  ↳ agent  the CLI builds it once; tests pass their own
 │                            │13▎        self.config = config or load_settings()
 │                            │  ✎ rename the call in config.py too
 │                            │  ↳ agent  config.py has no call to it, only cli.py, renamed there
@@ -337,7 +352,9 @@ A fg #f6f8fa bg #5094e4
 │                            │38
 │                            │39▎    def count(self) -> int:
 │                            │40▎        return len(self.notes)
-└ 3 files · +5 −8 · 4 notes ─┘41▎
+│                            │41▎
+│                            │42     def remove(self, note_id: int) -> bool:
+└ 3 files · +5 −8 · 4 notes ─┘43         """Delete the note with this id and report whether it existed."""
 store.py  1:1  [code]  hunk 0/2  viewed 0/3
 
 ==== 185x55 tokyonight-moon styles
@@ -345,10 +362,6 @@ abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaiiijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccmmmmmmdmmmmddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -362,6 +375,8 @@ addddddddddddddddddddddddddddacccddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddrrrdrrrrrrrrsttttodqqqqqqodnnnnnndodnnnndodnnnnsdoodnnnnoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccuvvvvvvvvwwwwxyyyyyyvxvvvvvvvvxxvzzzzzzzzzzzAAvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccBCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -394,7 +409,9 @@ addddddddddddddddddddddddddddacccddddddddppppppddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccBCCCCMMMCNNNNNHDDDDHCEECOOOECCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 addddddddddddddddddddddddddddaccBCCCCCCCCPPPPPPCQQQHDDDDEFFFFFHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaaccBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+addddddddddddddddddddddddddddaccBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+addddddddddddddddddddddddddddacccddddrrrdaaaaaasttttodqqqqqqqodJJJsdoodJJJJoddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 RRRRRRRRSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -447,10 +464,6 @@ abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccadeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeaccadeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 affggggggggggggggggggggghhhhhaccadaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 aaadddddddddddddddddddddeeeeeacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaadddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddadddijjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccclllllldddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -464,6 +477,8 @@ addddddddddddddddddddddddddddacccddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccddddllldmmmmmmmmdooooddddddddddmmmmmmdodoooododooooddoodoooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+addddddddddddddddddddddddddddaccadeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 addddddddddddddddddddddddddddaccadaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdcccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -496,7 +511,9 @@ addddddddddddddddddddddddddddacccddddddddllllllddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddacccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 addddddddddddddddddddddddddddaccuvvvvxxxvzzzzzvwwwwvvwwvwwwvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 addddddddddddddddddddddddddddaccuvvvvvvvvxxxxxxvzzzvwwwwvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeaaccuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddaccuvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+addddddddddddddddddddddddddddacccddddllldaaaaaadoooodddddddddddoooddoodoooodddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeaacccddddddddnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 AAAAAAAABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD

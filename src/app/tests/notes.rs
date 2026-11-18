@@ -11,7 +11,7 @@ const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
 
 type Keys<'a> = &'a [(KeyCode, KeyModifiers)];
 
-fn screen(a: &mut App) -> String {
+pub(super) fn screen(a: &mut App) -> String {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
     t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
@@ -47,7 +47,7 @@ fn keys(a: &mut App, keys: &[(KeyCode, KeyModifiers)]) {
     }
 }
 
-fn note(a: &mut App, text: &str) {
+pub(super) fn note(a: &mut App, text: &str) {
     keys(a, &[(KeyCode::Char('a'), NONE)]);
     typed(a, text);
     keys(a, &[(KeyCode::Esc, NONE)]);
@@ -717,7 +717,7 @@ fn a_thread_whose_code_is_gone_waits_above_its_file_or_above_the_review() {
     let (dir, mut a) = on_a_rs("notes-gone", 1);
     agent_wrote(
         &dir,
-        "\nsrc/a.rs:2\n> b\nwhy b\nagent: it is B now\n\nold.rs:1\n> x\ndrop it\nagent: deleted\n\ngone:1\n> x\nwhy drop it\nagent: unused\n",
+        "\nsrc/a.rs:2\n> b0\nwhy b\nagent: it is B now\n\nold.rs:1\n> x\ndrop it\nagent: deleted\n\ngone:1\n> x\nwhy drop it\nagent: unused\n",
     );
     let s = screen(&mut a);
     let lines: Vec<&str> = s.lines().collect();
@@ -726,7 +726,7 @@ fn a_thread_whose_code_is_gone_waits_above_its_file_or_above_the_review() {
         .position(|l| l.contains("\u{270e} line 2, changed"))
         .unwrap();
     assert!(
-        lines[top + 1].trim_end().ends_with('b'),
+        lines[top + 1].trim_end().ends_with("b0"),
         "the old line quoted: {s}"
     );
     assert!(
