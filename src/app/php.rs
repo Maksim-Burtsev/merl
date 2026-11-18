@@ -484,9 +484,35 @@ impl App {
         let parent = search::php_class_header(lines[class])
             .or_else(|| search::php_anonymous_class(lines[class]))
             .and_then(|h| h.extends);
-        match parent {
+        let walk = match parent {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
+        };
+        if !matches!(walk, Walk::Nowhere | Walk::NowhereOutside) {
+            return walk;
+        }
+        let mut hits = Vec::new();
+        for name in search::php_class_interfaces(lines[class]) {
+            match self.php_class(path, block, name).1.as_slice() {
+                [] => {}
+                [one] => {
+                    if let Walk::Found(found) =
+                        self.php_walk(&one.path, &one.text, one.header0, re, depth + 1, seen)
+                    {
+                        hits.extend(
+                            found
+                                .into_iter()
+                                .filter(|h| search::php_constant_line(&h.text)),
+                        );
+                    }
+                }
+                _ => return walk,
+            }
+        }
+        if hits.is_empty() {
+            walk
+        } else {
+            Walk::Found(hits)
         }
     }
 
