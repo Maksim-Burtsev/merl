@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::symbols::php_mods;
+use super::symbols::{php_attrs, php_mods};
 use super::syntax::{close_of, literal_lines};
 use super::words::steps_over;
 use super::{Kind, cut_def_patterns, indent, one_line_body};
@@ -190,7 +190,7 @@ pub struct PhpClassHeader<'a> {
 
 pub fn php_class_header(line: &str) -> Option<PhpClassHeader<'_>> {
     static HEADER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?").expect("the regex is a literal")
+        Regex::new(concat!(php_attrs!(), r"(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?")).expect("the regex is a literal")
     });
     let c = HEADER.captures(line)?;
     Some(PhpClassHeader {

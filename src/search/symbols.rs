@@ -197,13 +197,30 @@ const SWIFT_DECL_SYMBOL: &str = concat!(
     r"`?(?P<name>[A-Za-z_]\w*)"
 );
 
+macro_rules! php_attrs {
+    () => {
+        concat!(
+            r"^\s*(?:#\[(?:",
+            php_attrs!(text),
+            r"|\[(?:",
+            php_attrs!(text),
+            r"|\[(?:",
+            php_attrs!(text),
+            r")*\])*\])*\]\s*)*"
+        )
+    };
+    (text) => {
+        r#"[^\[\]"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'"#
+    };
+}
+pub(super) use php_attrs;
 macro_rules! php_mods {
     () => {
         php_mods!("*")
     };
     ($rep:literal) => {
         concat!(
-            r"^\s*(?:#\[[^\]]*\]\s*)*",
+            php_attrs!(),
             r"(?:(?:public|private|protected|static|final|abstract|readonly|var)\s+)",
             $rep
         )
