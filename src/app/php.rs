@@ -530,10 +530,7 @@ impl App {
         let full = search::php_resolve(text, name).map(|r| r.full);
         let short = full.as_deref().unwrap_or(name);
         let short = short.rsplit('\\').next().unwrap_or(short);
-        let pattern = format!(
-            r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+{}\b",
-            regex::escape(short)
-        );
+        let pattern = search::php_class_pattern(&regex::escape(short));
         let matching = self.php_declared(from, full.as_deref(), short, &pattern);
         (full.clone(), matching)
     }
