@@ -142,6 +142,8 @@ in $" + new ScopeView { Checked = Checked };
         //                                     ^ d: src/Shop/Warehouse/Courier.cs:25
         var fmt = $"{Checked:dd\\'MM} {new ScopeView { Checked = Checked }}";
         //                                             ^ d: src/Shop/Warehouse/Courier.cs:25
+        fmt = $"{F(")"):dd\\'MM} {new ScopeView { Checked = Checked }}";
+        //                                        ^ d: src/Shop/Warehouse/Courier.cs:25
         var at = @$"{new ScopeView { Checked = Checked }}";
         //                           ^ d: src/Shop/Warehouse/Courier.cs:25
         fmt = at; // $"{new ScopeView { Checked = Checked }}"

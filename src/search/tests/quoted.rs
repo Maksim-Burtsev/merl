@@ -105,6 +105,7 @@ fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
     assert_eq!(hole(r#"$$"""{{^a}}""""#).as_deref(), Some("a"));
     assert_eq!(hole(r#"$"{f($"{^a}")}""#).as_deref(), Some("a"));
     assert_eq!(hole(r#"$"{a:dd\\'MM} {^b}""#).as_deref(), Some("b"));
+    assert_eq!(hole(r#"$"{F(")"):dd\\'MM} {^b}""#).as_deref(), Some("b"));
     assert_eq!(hole(r#"$"{(c ? '"' : 'x')} {^b}""#).as_deref(), Some("b"));
     assert_eq!(hole(r#"$"{^global::A.b}""#).as_deref(), Some("global::A.b"));
     assert_eq!(hole(r#"$$"""{^a}""""#), None);
@@ -119,4 +120,6 @@ fn a_csharp_hole_s_format_clause_is_text() {
         texts(Kind::CSharp, "a.cs", cs),
         [false, true, true, true, true, false]
     );
+    let cs = r#"var s = $"{F(")", c ? x : ^y)} {F("("):^N2}";"#;
+    assert_eq!(texts(Kind::CSharp, "a.cs", cs), [false, true]);
 }
