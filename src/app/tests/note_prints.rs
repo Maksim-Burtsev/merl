@@ -223,3 +223,21 @@ fn older_a_note_with_no_fingerprint_is_placed_from_its_line_and_quote() {
     let (got, s) = reopened(dir);
     assert_eq!(got, [(TextLine::File(13), LIVE, false)], "{s}");
 }
+
+#[test]
+fn a_second_note_on_the_line_number_a_first_note_moved_away_from_keeps_both_on_their_lines() {
+    let (dir, lines) = noted("p-same-place", same, same, 14);
+    let mut a = open(&dir);
+    agent_commits(&dir, &import7(lines));
+    a.reload(false);
+    a.jump_to(&dir.join("steps.go"), 14);
+    note(&mut a, "second");
+    let live = placed(&mut a);
+    let (got, s) = reopened(dir);
+    let want = [
+        (TextLine::File(20), LIVE, false),
+        (TextLine::File(13), LIVE, false),
+    ];
+    assert_eq!(live, want, "with merl open");
+    assert_eq!(got, want, "{s}");
+}

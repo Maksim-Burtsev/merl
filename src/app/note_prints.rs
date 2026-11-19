@@ -11,10 +11,38 @@ pub fn prints_path(notes: &Path) -> PathBuf {
     p.into()
 }
 
+fn escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('\n', "\\n")
+}
+
+fn unescape(s: &str) -> String {
+    let mut out = String::new();
+    let mut esc = false;
+    for c in s.chars() {
+        match (esc, c) {
+            (false, '\\') => esc = true,
+            (true, 'n') => {
+                out.push('\n');
+                esc = false;
+            }
+            (_, c) => {
+                out.push(c);
+                esc = false;
+            }
+        }
+    }
+    out
+}
+
 pub fn parse_prints(text: &str) -> impl Iterator<Item = (String, String)> {
-    (text.lines())
-        .filter_map(|l| l.rsplit_once(' '))
-        .map(|(k, b)| (k.to_owned(), b.to_owned()))
+    text.lines().filter_map(|l| {
+        let (blob, id) = l.split_once(' ')?;
+        if !blob.is_empty() && blob.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Some((unescape(id), blob.to_owned()));
+        }
+        let (at, blob) = l.rsplit_once(' ')?;
+        Some((at.to_owned(), blob.to_owned()))
+    })
 }
 
 type Diffs = HashMap<(String, String), Option<git::Diff>>;
@@ -60,12 +88,25 @@ fn new_to_old(d: &git::Diff, l: usize) -> Option<usize> {
 }
 
 impl App {
+    pub(super) fn print_of(&self, n: &Note) -> Option<&String> {
+        let at = place_of(n);
+        let alone = || self.notes.list.iter().filter(|m| place_of(m) == at).count() == 1;
+        (self.notes.prints.get(&note_id(n)))
+            .or_else(|| self.notes.prints.get(&at).filter(|_| alone()))
+    }
+
+    pub(super) fn prints_text(&self) -> String {
+        (self.notes.list.iter())
+            .filter_map(|n| Some(format!("{} {}\n", self.print_of(n)?, escape(&note_id(n)))))
+            .collect()
+    }
+
     pub(super) fn print_note(&mut self, n: &Note) {
         if !n.quote.last().is_some_and(|q| q.starts_with("> ")) {
             return;
         }
         if let Some(blob) = git::hash_object(&self.root, &self.buf.to_bytes()) {
-            self.notes.prints.insert(place_of(n), blob);
+            self.notes.prints.insert(note_id(n), blob);
         }
     }
 
@@ -80,7 +121,7 @@ impl App {
             .filter(|n| n.path == rel)
             .filter_map(|n| {
                 let id = note_id(n);
-                let blob = self.notes.prints.get(&place_of(n))?;
+                let blob = self.print_of(n)?;
                 let known = self.notes.printed.get(&id).is_some_and(|p| p.0 == *blob);
                 (!known).then(|| (id, blob.clone(), n.clone()))
             })

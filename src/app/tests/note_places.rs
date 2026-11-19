@@ -141,6 +141,9 @@ fn one_way(case: &str, notes: &str, printed: bool) -> (Vec<Place>, String) {
         std::fs::write(dir.join(".git/merl/notes/feature.blobs"), prints).unwrap();
     }
     let mut a = open(&dir);
+    let answered = a.notes.printed.values().filter(|p| p.1).count();
+    let notes_n = notes.lines().filter(|l| l.starts_with("steps.go:")).count();
+    assert_eq!(answered, if printed { notes_n } else { 0 }, "{case}");
     let after = agent(case, lines);
     write(&dir, &after);
     git(&dir, &["commit", "-qam", "agent"]);

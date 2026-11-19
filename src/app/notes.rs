@@ -1132,6 +1132,11 @@ impl App {
         {
             self.notes.last_seen.insert(note_id(t), seen);
         }
+        if let (Some(f), Some(t)) = (from, to)
+            && let Some(blob) = self.print_of(f).cloned()
+        {
+            self.notes.prints.insert(note_id(t), blob);
+        }
         match (from, pos, to.clone()) {
             (Some(_), None, _) | (None, _, None) => return None,
             (_, Some(p), Some(t)) => self.notes.list[p] = t,
@@ -1337,12 +1342,7 @@ impl App {
         let Some((path, branch)) = self.notes_store() else {
             return;
         };
-        let prints: String = (self.notes.list.iter())
-            .filter_map(|n| {
-                let at = place_of(n);
-                Some(format!("{at} {}\n", self.notes.prints.get(&at)?))
-            })
-            .collect();
+        let prints = self.prints_text();
         if prints.is_empty() {
             drop(std::fs::remove_file(prints_path(&path)));
         }
