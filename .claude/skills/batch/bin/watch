@@ -1,0 +1,13 @@
+#!/bin/zsh
+stop=$1
+[[ $stop == <-> ]] || { echo "usage: watch STOP_PERCENT [TASKS_DIR]" >&2; exit 2; }
+stuck=${0:A:h}/stuck
+for i in {1..5}; do
+  /bin/sleep ${WATCH_SECONDS:-300}
+  u=$(curl -s https://api.anthropic.com/api/oauth/usage -H "Authorization: Bearer $(security find-generic-password -s 'Claude Code-credentials' -w | jq -r .claudeAiOauth.accessToken)" -H 'anthropic-beta: oauth-2025-04-20' | jq -r '.seven_day.utilization' 2>/dev/null)
+  [[ $u == <->(.<->|) ]] && (( ${u%.*} >= stop )) && { print "USAGE $u, stop at $stop"; exit 0; }
+  out=$($stuck $2 2>&1) || { print -r -- "STUCK FAILED ${out//$'\n'/ }"; exit 1; }
+  print -r -- $out | awk -F'|' 'NR>2 && $4+0>20 {print "SILENT" $0}'
+done
+print "TICK usage=$u $(date +%H:%M) $(df -h / | awk 'NR==2{print $4}') free"
+print -r -- $out | grep -E '^\| a' | cut -c1-90

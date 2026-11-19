@@ -86,8 +86,13 @@ sequence.
 - The owner's words from the session (the kind of run, what merges, what waits, anything said
   against the skill's default) go into the run's files before the first agent starts: a
   `COMMON.md` every task file points to, so implementers and a resuming session read them.
-- `ledger.md` there: the weekly percentage at the start, then a row per issue: branch, agent,
-  state, tokens, minutes. A merged `epic` row whose issue keeps work starts its State with
+  It holds the PR footer indented four spaces under a line ending in exactly
+  `PR bodies end with:` and the commit trailers the same way under `Commit trailers:`:
+  `epic-body` reads those two labels and exits naming them when either has nothing under it.
+- `ledger.md` there: the weekly percentage at the start, then a row per task under exactly
+  `| Name | Task | Kind | Branch | Agent | State | Tokens | Min |`, the issues in `Task` as
+  `#N` (`#874 #875`) and `Kind` `epic` for a task of the epic: `epic-body` reads that header
+  and exits naming it when the ledger has another. A merged `epic` row whose issue keeps work starts its State with
   `part:` (`part #874:` when only some of the row's issues do): `epic-body` writes those as
   `Part of`, every other merged issue as `Closes`. Keep it current
   after every agent result: a usage limit can end the run at any moment, and the ledger is what
@@ -148,7 +153,7 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   own PRs merged into master that night broke the epic's build and a fixture only together. Then one PR into master, a section per issue (before, after, the test that
   catches it): `.claude/skills/batch/bin/epic-body [RUN_DIR]` drafts `epic-body.md` and
   `squash-msg.txt` in the run's folder from the ledger's merged `epic` rows, each
-  implementer's report and `COMMON.md`'s trailers; read every section, merge the ones of one
+  implementer's report and `COMMON.md`'s footer and trailers; read every section, merge the ones of one
   issue and check `Closes` against what the reports say is left. One fresh agent runs Punchcard on it once and its findings are fixed in one pass,
   by parallel agents on branches off the epic when there are many. No second review. A finding
   outside the batch becomes an issue. With the fixes pushed, `gh pr merge --squash --auto`, and
@@ -171,10 +176,14 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   invisible epic.
 - **A stuck agent.** A blocked agent sends no notification: on 2026-10-03 two night agents
   waited 4–6 hours on a permission prompt while listed as working. On every wake, and at least
-  every 30 minutes (a Monitor or ScheduleWakeup), read the modification time of each running
+  every 30 minutes, read the modification time of each running
   agent's output file: `.claude/skills/batch/bin/stuck [TASKS_DIR]` prints each running agent
-  of this session with its silent minutes and last call, then the load and the time (`sleep
-  1800; …/stuck` in the background wakes you). An agent silent for more than 20 minutes is named
+  of this session with its silent minutes and last call, then the load and the time. What wakes
+  you is a Monitor (`timeout_ms` 1800000) on `.claude/skills/batch/bin/watch STOP_PERCENT`: every
+  5 minutes it runs `stuck` and reads the usage endpoint, prints `SILENT` for an agent silent over
+  20 minutes and `USAGE` once the week reaches the stop percentage, and after ~25 minutes one
+  `TICK` with the agents, and ends; arm it again on each tick. A `sleep 1800` in the background
+  returned after about 4 minutes on 2026-11-19 and woke nobody. An agent silent for more than 20 minutes is named
   in the chat with its last command; unblock it, or stop it and push its worktree's commits.
   Judge by file times only, never by the machine's load.
 - A bug met on the way is filed with its three labels, not fixed in passing.
