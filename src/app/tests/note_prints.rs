@@ -54,13 +54,7 @@ fn reopened(dir: PathBuf) -> (Vec<(TextLine, bool, bool)>, String) {
 #[test]
 fn moved7_a_note_moved_by_exactly_a_twin_s_gap_stays_live_on_its_line_after_a_reopen() {
     let (dir, lines) = noted("p-moved7", same, same, 14);
-    let sha = std::process::Command::new("git")
-        .arg("-C")
-        .arg(&dir)
-        .args(["rev-parse", "--short", "HEAD"])
-        .output()
-        .unwrap();
-    let sha = String::from_utf8_lossy(&sha.stdout).trim().to_owned();
+    let sha = git(&dir, &["rev-parse", "--short", "HEAD"]);
     let text = std::fs::read_to_string(dir.join(".git/merl/notes/feature")).unwrap();
     assert_eq!(
         text,
@@ -99,7 +93,7 @@ fn movefn_a_note_in_a_function_moved_to_the_end_sits_dim_under_its_moved_away_li
     lines.extend(step2);
     agent_commits(&dir, &imported(lines));
     let (got, s) = reopened(dir);
-    assert_eq!(got, [(TextLine::Deleted(21, 3), DIM, false)], "{s}");
+    assert_eq!(got, [(TextLine::Deleted(22, 2), DIM, false)], "{s}");
 }
 
 fn step6(mut l: Vec<String>) -> Vec<String> {

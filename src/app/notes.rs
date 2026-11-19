@@ -3,6 +3,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
+use super::note_prints::{parse_prints, prints_path};
 use super::{App, Edit, Mode};
 use crate::git::{self, TextLine};
 use crate::key::{KeyCode, KeyEvent, KeyModifiers};
@@ -144,6 +145,8 @@ pub struct Notes {
     seen: Option<SystemTime>,
     loaded: bool,
     last_seen: HashMap<String, Seen>,
+    pub(super) prints: HashMap<String, String>,
+    pub(super) printed: HashMap<String, (String, bool, Option<Seen>)>,
     pub home: Option<PathBuf>,
 }
 
@@ -251,17 +254,21 @@ fn push_msg(s: &mut String, label: Option<&str>, text: &str) {
     }
 }
 
+pub fn place_of(n: &Note) -> String {
+    let range = if n.first == n.last {
+        n.last.to_string()
+    } else {
+        format!("{}-{}", n.first, n.last)
+    };
+    format!("{}:{range}", n.path.display())
+}
+
 pub fn format(notes: &[Note], head: &str) -> String {
     let mut s = format!(
         "# merl notes \u{b7} {head}\n# The user's review notes, for you. Answer under a note with `agent:`, or delete its block when it is done.\n"
     );
     for n in notes {
-        let range = if n.first == n.last {
-            n.last.to_string()
-        } else {
-            format!("{}-{}", n.first, n.last)
-        };
-        _ = write!(s, "\n{}:{range}\n", n.path.display());
+        _ = write!(s, "\n{}\n", place_of(n));
         for q in &n.quote {
             s += q;
             s += "\n";
@@ -312,7 +319,7 @@ fn next(app: &App, l: TextLine) -> TextLine {
     }
 }
 
-fn reads(app: &App, at: TextLine, quote: &[String]) -> Option<bool> {
+pub(super) fn reads(app: &App, at: TextLine, quote: &[String]) -> Option<bool> {
     let mut t = at;
     let mut exact = true;
     for (i, q) in quote.iter().rev().enumerate() {
@@ -332,7 +339,7 @@ fn reads(app: &App, at: TextLine, quote: &[String]) -> Option<bool> {
     Some(exact)
 }
 
-fn note_id(n: &Note) -> String {
+pub(super) fn note_id(n: &Note) -> String {
     format!(
         "{}:{}-{}\n{}\n{}",
         n.path.display(),
@@ -343,7 +350,7 @@ fn note_id(n: &Note) -> String {
     )
 }
 
-type Seen = (TextLine, bool, Option<usize>);
+pub(super) type Seen = (TextLine, bool, Option<usize>);
 type Fit = ((bool, bool), TextLine, bool, Option<usize>);
 
 struct Hunk {
@@ -524,6 +531,9 @@ impl App {
         let list = std::fs::read_to_string(&path)
             .map(|t| parse(&t))
             .unwrap_or_default();
+        if let Ok(t) = std::fs::read_to_string(prints_path(&path)) {
+            self.notes.prints.extend(parse_prints(&t));
+        }
         if self.notes.loaded && list != self.notes.list {
             self.notes.focus = None;
             self.notes.selected = false;
@@ -554,6 +564,7 @@ impl App {
     }
 
     pub fn notes_resolve(&mut self) {
+        self.print_places();
         let rel = self.rel_current();
         let len = self.buf.lines.len();
         let on_first = rel.is_some() && rel == self.notes.home;
@@ -583,11 +594,13 @@ impl App {
             }
             let id = note_id(n);
             let old = self.notes.last_seen.get(&id).copied();
-            let place = match old {
-                Some((at, stale, base)) if self.dirty => {
+            let printed = (self.notes.printed.get(&id)).filter(|p| p.1 && !self.dirty);
+            let place = match (old, printed) {
+                (Some((at, stale, base)), _) if self.dirty => {
                     let (at, stale) = self.note_kept(n, (at, stale));
                     Some((at, stale, base))
                 }
+                (_, Some(p)) => p.2,
                 _ => (self.note_place(n, &hunks, old.and_then(|o| o.2)))
                     .map(|(at, stale, base)| (at, stale, base.filter(|_| !self.dirty))),
             };
@@ -1076,8 +1089,10 @@ impl App {
                 replies: Vec::new(),
             }),
         };
-        if old.is_none() && new.is_none() {
-            return None;
+        match (&old, &new) {
+            (None, None) => return None,
+            (None, Some(n)) => self.print_note(n),
+            _ => {}
         }
         let change = NoteEdit {
             idx: pos.unwrap_or(self.notes.list.len()),
@@ -1322,6 +1337,15 @@ impl App {
         let Some((path, branch)) = self.notes_store() else {
             return;
         };
+        let prints: String = (self.notes.list.iter())
+            .filter_map(|n| {
+                let at = place_of(n);
+                Some(format!("{at} {}\n", self.notes.prints.get(&at)?))
+            })
+            .collect();
+        if prints.is_empty() {
+            drop(std::fs::remove_file(prints_path(&path)));
+        }
         if self.notes.list.is_empty() {
             drop(std::fs::remove_file(&path));
             self.notes.seen = None;
@@ -1334,6 +1358,12 @@ impl App {
         };
         if let Some(dir) = path.parent() {
             drop(std::fs::create_dir_all(dir));
+        }
+        if !prints.is_empty() {
+            drop(crate::real::write_file(
+                &prints_path(&path),
+                prints.as_bytes(),
+            ));
         }
         if let Err(e) = crate::real::write_file(&path, format(&self.notes.list, &head).as_bytes()) {
             self.message = format!("notes not saved: {e}");

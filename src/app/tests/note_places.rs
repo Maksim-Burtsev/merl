@@ -19,7 +19,7 @@ pub(super) fn base() -> Vec<String> {
     v
 }
 
-pub(super) fn git(dir: &Path, args: &[&str]) {
+pub(super) fn git(dir: &Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -28,6 +28,7 @@ pub(super) fn git(dir: &Path, args: &[&str]) {
         .output()
         .unwrap();
     assert!(out.status.success(), "git {args:?}");
+    String::from_utf8_lossy(&out.stdout).trim().to_owned()
 }
 
 pub(super) fn write(dir: &Path, lines: &[String]) {
@@ -123,7 +124,22 @@ pub(super) fn placed(a: &mut App) -> Vec<Place> {
 }
 
 fn both_ways(case: &str, notes: &str) -> (Vec<Place>, String) {
-    let (dir, lines) = feature(case, notes);
+    let (from_quote, _) = one_way(case, notes, false);
+    let (printed, shown) = one_way(case, notes, true);
+    assert_eq!(printed, from_quote, "with a fingerprint: {shown}");
+    (printed, shown)
+}
+
+fn one_way(case: &str, notes: &str, printed: bool) -> (Vec<Place>, String) {
+    let (dir, lines) = feature(&format!("{case}-{printed}"), notes);
+    if printed {
+        let blob = git(&dir, &["hash-object", "-w", "steps.go"]);
+        let prints: String = (notes.lines())
+            .filter(|l| l.starts_with("steps.go:"))
+            .map(|l| format!("{l} {blob}\n"))
+            .collect();
+        std::fs::write(dir.join(".git/merl/notes/feature.blobs"), prints).unwrap();
+    }
     let mut a = open(&dir);
     let after = agent(case, lines);
     write(&dir, &after);

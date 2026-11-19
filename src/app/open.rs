@@ -168,6 +168,7 @@ impl App {
     }
 
     pub(super) fn refresh_diff(&mut self) {
+        self.notes.printed.clear();
         let Some(r) = &self.review else {
             self.want_diff = true;
             return;
