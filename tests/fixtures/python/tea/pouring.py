@@ -87,7 +87,7 @@ def again(brewer: Brewer) -> int:
     #        ^ d: tea/pouring.py:85
     #               ^ d: tea/brewer.py:49
     return brewer.build().sip()
-    #      ^ d: picker tea/pouring.py:85, tea/pouring.py:86
+    #      ^ d: tea/pouring.py:86
 
 
 def walk(cup: Cup) -> int:

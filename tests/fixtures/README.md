@@ -623,6 +623,12 @@ method on a local set from one set from a `str` parameter (builtin, #1151).
 field, its own or an abstract base's, and stays an argument label for a class-body annotation,
 a `self.` attribute, a method's local, a nested `Meta`'s attribute, `filter(...)` and a dotted
 model.
+`reaching.py` (#1339): a local a function assigns twice lands on the plain assignment right above
+its read in the same block, also inside a `with`; it stays a picker past a branch, a loop that
+assigns it after the read, a `try`'s `except`, a `with … as`, an `except … as`, a `del`, a `+=`,
+a walrus, a `nonlocal`, on a wrapped line, inside a comprehension that binds it, and at a
+module's top level. `pouring.py`'s `brewer = brewer.leaves(2)` now lands its next read on that
+line rather than offering the parameter too.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,

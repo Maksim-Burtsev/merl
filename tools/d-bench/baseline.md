@@ -154,10 +154,11 @@ The swift, csharp, php, dart, ruby and rust rows with #1561 (times only: one com
 The csharp, java, kotlin, groovy and jenkins rows with #1561 (times only: compiled patterns of the C# and JVM binding and declaration checks reused across lines and presses; csharp 31.9 -> 15.6 ms p50, java 90.0 -> 56.3, groovy 104 -> 67.5): over `43c02f95d`, 2026-11-18, release build, `vm.loadavg` { 3.46 4.02 4.27 } before the run, { 4.96 4.45 4.41 } after.
 The csharp, java, kotlin, groovy, jenkins, swift, php, dart, ruby and rust rows with #1561 (times only: the compiled-pattern cache bounded at 8 entries, peak memory within ~9 % of master; csharp 15.6 -> 18.9 ms p50, java 56.3 -> 59.6 against the unbounded cache; the other five rows moved by load only): over `58d86053d`, 2026-11-18, release build, `vm.loadavg` { 2.80 2.99 3.32 } before the run, { 5.11 4.10 3.71 } after.
 The ts and js rows with #1337 (js0124: a spread push of the popped element's own array field, `queue.push(...scope.childScopes)`, keeps the one-element array's element type): over `ed5c8b257`, 2026-11-19, release build, `vm.loadavg` { 4.09 4.35 4.58 } before the run.
+The python row with #1339's tenth pass (a local a function assigns more than once lands on the nearest plain assignment above the read in the same block: python0023 `ids` and python0035 `html_clean_file` now direct hits; no other cursor's targets moved): over `3dec828cd`, 2026-11-19, release build, `vm.loadavg` { 8.30 9.13 6.96 } before the run, { 5.33 7.84 6.69 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
+| python (paperless-ngx) | 262 | 259 (99%) | 1 (0%) | 0 (0%) | 2 (1%) | 63 | 8 | 20.5 | 172.1 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 53.3 | 121.8 |
 | js (eslint, uptime-kuma) | 217 | 209 (96%) | 6 (3%) | 0 (0%) | 2 (1%) | 177 | 6 | 42.5 | 213.2 |
 | go (caddy, gitea) | 319 | 314 (98%) | 5 (2%) | 0 (0%) | 0 (0%) | 50 | 0 | 7.7 | 24.2 |
