@@ -15,13 +15,13 @@ reopens its issue.
 - `d` never guesses. A wrong jump is worse than a list, and a list is better than a guess (#305).
 - Search and the lists read the query as typed and ignore case: no regex, no pattern syntax, no
   match-case key, no toggle (#174, #519).
-- A visible behaviour copies the classic terminal editors (Vim, Neovim, Emacs, Helix), one to one
-  or adapted, never an invention of merl's own (#399).
+- A visible change starts from the classic terminal editors (Vim, Neovim, Emacs, Helix): copied
+  one to one, or adapted where that is better (#399).
 - Review does what GitHub and GitLab both do: lines paired in order, files in the forges' tree
   order, a viewed tick per file (#244, #245, #241).
 - The screen carries no help hint: the start screen lists `?`, the status bar never does (#857).
-- A colour that a theme can break carries no meaning: review's `A` / `M` / `D` are plain (#450).
-- Themes stay as their authors made them, a faint selected row included (#747).
+- Review's `A` / `M` / `D` letters are plain: no colour for them held across the themes (#450).
+- No theme is removed for its look: a faint selected row is the theme's own (#747).
 - An unbound Ctrl, Cmd or Alt+Ctrl chord does nothing (#839).
 - Every text, the README included, is plain human language, short, with no filler (#540, #230).
 
@@ -30,8 +30,9 @@ reopens its issue.
 - A review that ties into a forge: queues, comments, publishing, `gh` or `glab` (#552).
 - Reshaping the diff: folding moved code, collapsing renames, hiding indentation changes,
   pairing lines by similarity (#552, #244).
-- An agent-written brief or summary before a branch, and other agent-prepared extras around a
-  review (#552).
+- An agent-written brief or summary before a branch, in any form; tests run against the base,
+  branch stacks, overlap checks between branches, a review summary handed back to the agent
+  (#552).
 - Claims that need a model of the project, such as "who depends on this" (#552).
 - Moving the view on a jump in any other way: it is centred, with no scroll animation (#552).
 - Diff marks inside a review's Markdown preview: prose is read whole (#596, #268).
