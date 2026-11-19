@@ -25,8 +25,13 @@ pub fn python_reaching(text: &str, line1: usize, name: &str, locals: &[usize]) -
         && indent(lines[a]) == block
         && (a + 1..at).all(|k| !starts[k] || indent(lines[k]) >= block);
     let plain = assigned.is_match(uncommented(Kind::Python, lines[a]).trim());
+    let deferred = Regex::new(r"\b(?:def|class|lambda|for)\b").ok()?;
+    let runs_now = !lines[at..end]
+        .iter()
+        .any(|l| deferred.is_match(&uncommented(Kind::Python, l)));
     (same_block
         && plain
+        && runs_now
         && locals.iter().all(|&l| l <= from || l > end)
         && !lines[a + 1..end].iter().any(|l| binds(l, name)))
     .then_some(from)

@@ -131,3 +131,21 @@ kettle = 2
 print(kettle)
 #     ^ d: !jump
 
+
+
+def deferred():
+    lid = 1
+    lid = 2
+    def peek(): return lid
+    #                  ^ d: !jump
+    lid = 3
+    return peek()
+
+
+def lazy(rows):
+    cork = 1
+    cork = 2
+    later = (cork + r for r in rows)
+    #        ^ d: !jump
+    cork = 3
+    return list(later)

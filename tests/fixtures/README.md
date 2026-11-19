@@ -626,7 +626,8 @@ model.
 `reaching.py` (#1339): a local a function assigns twice lands on the plain assignment right above
 its read in the same block, also inside a `with`; it stays a picker past a branch, a loop that
 assigns it after the read, a `try`'s `except`, a `with … as`, an `except … as`, a `del`, a `+=`,
-a walrus, a `nonlocal`, on a wrapped line, inside a comprehension that binds it, and at a
+a walrus, a `nonlocal`, on a wrapped line, inside a comprehension that binds it, in a one-line
+nested `def` or a generator, which read it later, and at a
 module's top level. `pouring.py`'s `brewer = brewer.leaves(2)` now lands its next read on that
 line rather than offering the parameter too.
 
