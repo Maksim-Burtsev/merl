@@ -1,6 +1,6 @@
 use super::*;
 
-fn epic_body(name: &str, ledger: &str) -> (std::process::Output, std::path::PathBuf) {
+fn epic_body(name: &str, ledger: &str) -> (std::process::Output, PathBuf) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let dir = std::env::temp_dir().join(format!("merl-{name}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
