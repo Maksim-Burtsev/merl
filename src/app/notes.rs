@@ -146,7 +146,7 @@ pub struct Notes {
     loaded: bool,
     last_seen: HashMap<String, Seen>,
     pub(super) prints: HashMap<String, String>,
-    pub(super) printed: HashMap<String, (String, Option<Seen>)>,
+    pub(super) printed: HashMap<String, (String, Option<Seen>, bool)>,
     pub home: Option<PathBuf>,
 }
 
@@ -595,13 +595,14 @@ impl App {
             }
             let id = note_id(n);
             let old = self.notes.last_seen.get(&id).copied();
-            let printed = (self.notes.printed.get(&id)).and_then(|p| p.1);
+            let printed = (self.notes.printed.get(&id)).filter(|p| p.2 && !self.dirty);
             let place = match (old, printed) {
                 (Some((at, stale, base)), _) if self.dirty => {
                     let (at, stale) = self.note_kept(n, (at, stale));
                     Some((at, stale, base))
                 }
-                (_, Some(p)) if !self.dirty => Some(p),
+                (_, Some((_, Some(p), _))) => Some(*p),
+                (_, Some(_)) => self.note_place(n, &hunks, None).filter(|p| p.1),
                 _ => (self.note_place(n, &hunks, old.and_then(|o| o.2)))
                     .map(|(at, stale, base)| (at, stale, base.filter(|_| !self.dirty))),
             };

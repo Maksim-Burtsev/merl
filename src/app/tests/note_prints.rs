@@ -293,3 +293,12 @@ fn a_note_id_with_backslashes_and_newlines_reads_back_from_the_side_file() {
     let got: Vec<_> = crate::app::note_prints::parse_prints(&line).collect();
     assert_eq!(got, [(id.to_owned(), "abc123".to_owned())]);
 }
+
+#[test]
+fn a_note_on_a_line_the_branch_added_and_the_agent_deleted_waits_above_the_file() {
+    let (dir, mut lines) = noted("p-gone-twin", step6, same, 52);
+    lines.drain(50..53);
+    agent_commits(&dir, &lines);
+    let (got, s) = reopened(dir);
+    assert_eq!(got, [(TextLine::File(0), DIM, true)], "{s}");
+}

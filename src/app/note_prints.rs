@@ -125,7 +125,7 @@ impl App {
         for (id, then, n) in todo {
             let at = (now.as_deref()).and_then(|now| self.print_line(&n, &then, now, &mut diffs));
             let place = at.and_then(|at| self.print_place(&n, &then, at, &mut diffs));
-            self.notes.printed.insert(id, (then, place));
+            self.notes.printed.insert(id, (then, place, at.is_some()));
         }
     }
 
