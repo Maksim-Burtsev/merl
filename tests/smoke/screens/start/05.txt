@@ -14,9 +14,9 @@ Options:
   -r, --review [<BRANCH>]  Review the checked-out branch (or `--review BRANCH` to fetch it and check out what was pushed): its files in the panel, its diff over the code, c / C between
 hunks
   -b, --base <REF>         The branch the review is against (default: origin/HEAD, then the remote's master, main or develop, then the local master or main)
+      --for-agents         Print the guide that tells your agent how to prepare a review for you (a reading order, the files to skip, answers to your notes), and exit
   -h, --help               Print help
   -V, --version            Print version
-
 
 
 

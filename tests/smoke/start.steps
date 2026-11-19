@@ -12,7 +12,7 @@ wait merl exited: 0
 # only the project and the pane (#285)
 merl
 wait Open a file (fuzzy)
-# --help prints the flags and exits 0 (#310).
+# --help prints the flags and exits 0 (#310), --for-agents among them (#600).
 merl --help
 wait merl exited: 0
 size 80x24

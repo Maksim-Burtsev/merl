@@ -129,7 +129,11 @@ struct Cli {
                 master, main or develop, then the local master or main)"
     )]
     base: Option<String>,
-    #[arg(long, hide = true)]
+    #[arg(
+        long,
+        help = "Print the guide that tells your agent how to prepare a review for you (a reading \
+                order, the files to skip, answers to your notes), and exit"
+    )]
     for_agents: bool,
 }
 
