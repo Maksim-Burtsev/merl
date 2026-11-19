@@ -86,6 +86,9 @@ sequence.
 - The owner's words from the session (the kind of run, what merges, what waits, anything said
   against the skill's default) go into the run's files before the first agent starts: a
   `COMMON.md` every task file points to, so implementers and a resuming session read them.
+  It holds the PR footer indented four spaces under a line ending in exactly
+  `PR bodies end with:` and the commit trailers the same way under `Commit trailers:`:
+  `epic-body` reads those two labels and exits naming them when either has nothing under it.
 - `ledger.md` there: the weekly percentage at the start, then a row per task under exactly
   `| Name | Task | Kind | Branch | Agent | State | Tokens | Min |`, the issues in `Task` as
   `#N` (`#874 #875`) and `Kind` `epic` for a task of the epic: `epic-body` reads that header
@@ -150,7 +153,7 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   own PRs merged into master that night broke the epic's build and a fixture only together. Then one PR into master, a section per issue (before, after, the test that
   catches it): `.claude/skills/batch/bin/epic-body [RUN_DIR]` drafts `epic-body.md` and
   `squash-msg.txt` in the run's folder from the ledger's merged `epic` rows, each
-  implementer's report and `COMMON.md`'s trailers; read every section, merge the ones of one
+  implementer's report and `COMMON.md`'s footer and trailers; read every section, merge the ones of one
   issue and check `Closes` against what the reports say is left. One fresh agent runs Punchcard on it once and its findings are fixed in one pass,
   by parallel agents on branches off the epic when there are many. No second review. A finding
   outside the batch becomes an issue. With the fixes pushed, `gh pr merge --squash --auto`, and
