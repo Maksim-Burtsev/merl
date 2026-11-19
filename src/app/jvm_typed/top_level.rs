@@ -69,6 +69,19 @@ impl App {
         })
     }
 
+    pub(in crate::app) fn kotlin_bare_call(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        before: &str,
+        name: &str,
+    ) -> Option<Hit> {
+        (!before.trim_end().ends_with(['.', ':'])).then_some(())?;
+        let ahead = text.lines().nth(line1.checked_sub(1)?)?;
+        self.kotlin_top_level_fun(file, text, line1, ahead, name)
+    }
+
     fn kotlin_top_level_fun(
         &self,
         file: &Path,

@@ -1272,6 +1272,12 @@ calls methods on receivers `d` cannot type (#1075): one no namesake's parameters
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
 `jvm/src/main/kotlin/named/` has two `Knob` overloads told apart by a named argument.
+`jvm/src/main/kotlin/kwcafe/` calls a top-level `kwbrew` and a `Kwpot.kwbrew` with a named
+argument (#1446); `Kwpot` has a Scala twin in the same package, so `pot.kwbrew` stays a picker,
+while `Kwkettle`, declared once, types its receiver. `Neighbours.kt` holds what must not land on
+the top-level function: a member called bare in its class or an extension, `with` blocks, a
+receiver split over lines, overloads, a local function; `away/` calls it through an import and
+without one.
 
 `jvm/src/main/java/quern/` and `jvm/src/main/kotlin/press/` are the third adversarial corners
 (#1126) for Java and Kotlin, their answers read from the code. `quern/` has a `Quern` extending
