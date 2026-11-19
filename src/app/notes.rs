@@ -146,7 +146,7 @@ pub struct Notes {
     loaded: bool,
     last_seen: HashMap<String, Seen>,
     pub(super) prints: HashMap<String, String>,
-    pub(super) printed: HashMap<String, (String, bool, Option<Seen>)>,
+    pub(super) printed: HashMap<String, (String, Option<Seen>)>,
     pub home: Option<PathBuf>,
 }
 
@@ -254,21 +254,17 @@ fn push_msg(s: &mut String, label: Option<&str>, text: &str) {
     }
 }
 
-pub fn place_of(n: &Note) -> String {
-    let range = if n.first == n.last {
-        n.last.to_string()
-    } else {
-        format!("{}-{}", n.first, n.last)
-    };
-    format!("{}:{range}", n.path.display())
-}
-
 pub fn format(notes: &[Note], head: &str) -> String {
     let mut s = format!(
         "# merl notes \u{b7} {head}\n# The user's review notes, for you. Answer under a note with `agent:`, or delete its block when it is done.\n"
     );
     for n in notes {
-        _ = write!(s, "\n{}\n", place_of(n));
+        let range = if n.first == n.last {
+            n.last.to_string()
+        } else {
+            format!("{}-{}", n.first, n.last)
+        };
+        _ = write!(s, "\n{}:{range}\n", n.path.display());
         for q in &n.quote {
             s += q;
             s += "\n";
@@ -520,6 +516,11 @@ impl App {
         store(dirs.as_ref()?)
     }
 
+    fn prints_store(&mut self) -> Option<PathBuf> {
+        let (_, branch) = self.notes_store()?;
+        Some(prints_path(self.notes.dirs.as_ref()?.as_ref()?, &branch))
+    }
+
     fn notes_reload(&mut self) {
         let Some((path, _)) = self.notes_store() else {
             return;
@@ -531,7 +532,7 @@ impl App {
         let list = std::fs::read_to_string(&path)
             .map(|t| parse(&t))
             .unwrap_or_default();
-        if let Ok(t) = std::fs::read_to_string(prints_path(&path)) {
+        if let Some(Ok(t)) = self.prints_store().map(std::fs::read_to_string) {
             self.notes.prints.extend(parse_prints(&t));
         }
         if self.notes.loaded && list != self.notes.list {
@@ -594,13 +595,13 @@ impl App {
             }
             let id = note_id(n);
             let old = self.notes.last_seen.get(&id).copied();
-            let printed = (self.notes.printed.get(&id)).filter(|p| p.1 && !self.dirty);
+            let printed = (self.notes.printed.get(&id)).and_then(|p| p.1);
             let place = match (old, printed) {
                 (Some((at, stale, base)), _) if self.dirty => {
                     let (at, stale) = self.note_kept(n, (at, stale));
                     Some((at, stale, base))
                 }
-                (_, Some(p)) => p.2,
+                (_, Some(p)) if !self.dirty => Some(p),
                 _ => (self.note_place(n, &hunks, old.and_then(|o| o.2)))
                     .map(|(at, stale, base)| (at, stale, base.filter(|_| !self.dirty))),
             };
@@ -1133,7 +1134,7 @@ impl App {
             self.notes.last_seen.insert(note_id(t), seen);
         }
         if let (Some(f), Some(t)) = (from, to)
-            && let Some(blob) = self.print_of(f).cloned()
+            && let Some(blob) = self.notes.prints.get(&note_id(f)).cloned()
         {
             self.notes.prints.insert(note_id(t), blob);
         }
@@ -1343,8 +1344,9 @@ impl App {
             return;
         };
         let prints = self.prints_text();
-        if prints.is_empty() {
-            drop(std::fs::remove_file(prints_path(&path)));
+        let prints_at = self.prints_store();
+        if let Some(p) = prints_at.as_ref().filter(|_| prints.is_empty()) {
+            drop(std::fs::remove_file(p));
         }
         if self.notes.list.is_empty() {
             drop(std::fs::remove_file(&path));
@@ -1359,11 +1361,11 @@ impl App {
         if let Some(dir) = path.parent() {
             drop(std::fs::create_dir_all(dir));
         }
-        if !prints.is_empty() {
-            drop(crate::real::write_file(
-                &prints_path(&path),
-                prints.as_bytes(),
-            ));
+        if let Some(p) = prints_at.filter(|_| !prints.is_empty()) {
+            if let Some(dir) = p.parent() {
+                drop(std::fs::create_dir_all(dir));
+            }
+            drop(crate::real::write_file(&p, prints.as_bytes()));
         }
         if let Err(e) = crate::real::write_file(&path, format(&self.notes.list, &head).as_bytes()) {
             self.message = format!("notes not saved: {e}");

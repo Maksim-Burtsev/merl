@@ -116,7 +116,15 @@ pub fn hash_object(root: &Path, bytes: &[u8]) -> Option<String> {
 }
 
 pub fn diff_objects(root: &Path, from: &str, to: &str) -> Option<Diff> {
-    let args = ["diff", "-U0", "--no-color", "--no-ext-diff", from, to];
+    let args = [
+        "diff",
+        "-U0",
+        "--no-color",
+        "--no-ext-diff",
+        "--inter-hunk-context=0",
+        from,
+        to,
+    ];
     git(root, &args).ok().map(|out| parse(&out, true))
 }
 

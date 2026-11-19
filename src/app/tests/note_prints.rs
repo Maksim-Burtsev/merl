@@ -241,3 +241,55 @@ fn a_second_note_on_the_line_number_a_first_note_moved_away_from_keeps_both_on_t
     assert_eq!(live, want, "with merl open");
     assert_eq!(got, want, "{s}");
 }
+
+#[test]
+fn an_edited_note_keeps_its_fingerprint() {
+    let (dir, lines) = noted("p-edited", same, same, 14);
+    let mut a = open(&dir);
+    a.notes.focus = Some(0);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    typed(&mut a, " please");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    screen(&mut a);
+    agent_commits(&dir, &import7(lines));
+    let (got, s) = reopened(dir);
+    assert!(s.contains("wrap this please"), "{s}");
+    assert_eq!(got, [(TextLine::File(20), LIVE, false)], "{s}");
+}
+
+#[test]
+fn a_user_s_inter_hunk_context_does_not_move_a_note_onto_a_twin() {
+    let (dir, mut lines) = noted("p-hunk-context", same, same, 14);
+    git(&dir, &["config", "diff.interHunkContext", "9"]);
+    lines[2] += " // a";
+    lines[9] += " // step0";
+    agent_commits(&dir, &lines);
+    let (got, s) = reopened(dir);
+    assert_eq!(got, [(TextLine::File(13), LIVE, false)], "{s}");
+}
+
+#[test]
+fn fingerprints_live_outside_the_notes_folder_where_a_branch_could_own_their_name() {
+    let (dir, _) = noted("p-folder", same, same, 14);
+    let notes: Vec<_> = std::fs::read_dir(dir.join(".git/merl/notes"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    let prints = std::fs::read_to_string(dir.join(".git/merl/prints/feature"));
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(notes, ["feature"]);
+    assert!(
+        prints
+            .unwrap()
+            .ends_with(" steps.go:14-14\\n> \t\treturn err\\nwrap this\n")
+    );
+}
+
+#[test]
+fn a_note_id_with_backslashes_and_newlines_reads_back_from_the_side_file() {
+    let id = "a.go:3-3\n> s := \"\\n\\\\\"\nwhy \\ not";
+    let line = format!("abc123 {}\n", crate::app::note_prints::escape(id));
+    let got: Vec<_> = crate::app::note_prints::parse_prints(&line).collect();
+    assert_eq!(got, [(id.to_owned(), "abc123".to_owned())]);
+}

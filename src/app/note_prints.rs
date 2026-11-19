@@ -2,16 +2,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use super::App;
-use super::notes::{Note, Seen, note_id, place_of, reads};
+use super::notes::{Note, Seen, note_id, reads};
 use crate::git::{self, TextLine};
 
-pub fn prints_path(notes: &Path) -> PathBuf {
-    let mut p = notes.as_os_str().to_owned();
-    p.push(".blobs");
-    p.into()
+pub fn prints_path(dirs: &git::GitDirs, branch: &str) -> PathBuf {
+    dirs.common_refs_dir.join("merl/prints").join(branch)
 }
 
-fn escape(s: &str) -> String {
+pub(super) fn escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('\n', "\\n")
 }
 
@@ -37,11 +35,8 @@ fn unescape(s: &str) -> String {
 pub fn parse_prints(text: &str) -> impl Iterator<Item = (String, String)> {
     text.lines().filter_map(|l| {
         let (blob, id) = l.split_once(' ')?;
-        if !blob.is_empty() && blob.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Some((unescape(id), blob.to_owned()));
-        }
-        let (at, blob) = l.rsplit_once(' ')?;
-        Some((at.to_owned(), blob.to_owned()))
+        let hex = !blob.is_empty() && blob.bytes().all(|b| b.is_ascii_hexdigit());
+        hex.then(|| (unescape(id), blob.to_owned()))
     })
 }
 
@@ -88,16 +83,12 @@ fn new_to_old(d: &git::Diff, l: usize) -> Option<usize> {
 }
 
 impl App {
-    pub(super) fn print_of(&self, n: &Note) -> Option<&String> {
-        let at = place_of(n);
-        let alone = || self.notes.list.iter().filter(|m| place_of(m) == at).count() == 1;
-        (self.notes.prints.get(&note_id(n)))
-            .or_else(|| self.notes.prints.get(&at).filter(|_| alone()))
-    }
-
     pub(super) fn prints_text(&self) -> String {
         (self.notes.list.iter())
-            .filter_map(|n| Some(format!("{} {}\n", self.print_of(n)?, escape(&note_id(n)))))
+            .filter_map(|n| {
+                let id = note_id(n);
+                Some(format!("{} {}\n", self.notes.prints.get(&id)?, escape(&id)))
+            })
             .collect()
     }
 
@@ -121,7 +112,7 @@ impl App {
             .filter(|n| n.path == rel)
             .filter_map(|n| {
                 let id = note_id(n);
-                let blob = self.print_of(n)?;
+                let blob = self.notes.prints.get(&id)?;
                 let known = self.notes.printed.get(&id).is_some_and(|p| p.0 == *blob);
                 (!known).then(|| (id, blob.clone(), n.clone()))
             })
@@ -134,7 +125,7 @@ impl App {
         for (id, then, n) in todo {
             let at = (now.as_deref()).and_then(|now| self.print_line(&n, &then, now, &mut diffs));
             let place = at.and_then(|at| self.print_place(&n, &then, at, &mut diffs));
-            self.notes.printed.insert(id, (then, at.is_some(), place));
+            self.notes.printed.insert(id, (then, place));
         }
     }
 
