@@ -1,7 +1,7 @@
 use super::notes::{note, screen};
 use super::*;
 
-fn base() -> Vec<String> {
+pub(super) fn base() -> Vec<String> {
     let mut v = vec![
         "package steps".to_owned(),
         String::new(),
@@ -19,7 +19,7 @@ fn base() -> Vec<String> {
     v
 }
 
-fn git(dir: &Path, args: &[&str]) {
+pub(super) fn git(dir: &Path, args: &[&str]) {
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -30,15 +30,15 @@ fn git(dir: &Path, args: &[&str]) {
     assert!(out.status.success(), "git {args:?}");
 }
 
-fn write(dir: &Path, lines: &[String]) {
+pub(super) fn write(dir: &Path, lines: &[String]) {
     std::fs::write(dir.join("steps.go"), lines.join("\n") + "\n").unwrap();
 }
 
-fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
+pub(super) fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
     feature_with(tag, notes, |l| l)
 }
 
-fn feature_with(
+pub(super) fn feature_with(
     tag: &str,
     notes: &str,
     branch: fn(Vec<String>) -> Vec<String>,
@@ -86,7 +86,7 @@ fn agent(case: &str, mut l: Vec<String>) -> Vec<String> {
     l
 }
 
-fn imported(mut l: Vec<String>) -> Vec<String> {
+pub(super) fn imported(mut l: Vec<String>) -> Vec<String> {
     let import = ["", "import (", "\t\"fmt\"", ")"].map(str::to_owned);
     l.splice(1..1, import);
     l
@@ -103,7 +103,7 @@ fn started_on_steps(dir: &Path) -> App {
     a
 }
 
-fn open(dir: &Path) -> App {
+pub(super) fn open(dir: &Path) -> App {
     let mut a = review_start(dir, None);
     a.show_tree = false;
     a.jump_to(&dir.join("steps.go"), 16);
@@ -113,7 +113,7 @@ fn open(dir: &Path) -> App {
 
 type Place = (TextLine, bool, bool);
 
-fn placed(a: &mut App) -> Vec<Place> {
+pub(super) fn placed(a: &mut App) -> Vec<Place> {
     screen(a);
     let mut v: Vec<_> = (a.notes.here.iter())
         .map(|h| (h.idx, (h.at, h.stale, h.top.is_some())))
@@ -142,8 +142,8 @@ fn both_ways(case: &str, notes: &str) -> (Vec<Place>, String) {
 }
 
 const ON_STEP1: &str = "steps.go:14\n> \t\treturn err\nwrap this\n";
-const LIVE: bool = false;
-const DIM: bool = true;
+pub(super) const LIVE: bool = false;
+pub(super) const DIM: bool = true;
 
 #[test]
 fn row_1_two_notes_of_one_text_stay_on_their_own_twin_lines() {
