@@ -40,7 +40,9 @@ impl App {
             range.start
         };
         let character = (self.line_str().get(..col)).map_or(0, |s| s.encode_utf16().count());
-        let (text, line0, started) = (self.buf.lines.join("\n"), self.line, Instant::now());
+        let disk = self.buf.to_bytes();
+        let text = String::from_utf8_lossy(&disk).trim_start_matches('\u{feff}').to_owned();
+        let (line0, started) = (self.line, Instant::now());
         let client = (self.lsp.entry(spec.name)).or_insert_with(|| lsp::Client::start(spec, &root));
         let outcome = match client {
             Some(client) => client.ask(here.clone(), text, line0, character),

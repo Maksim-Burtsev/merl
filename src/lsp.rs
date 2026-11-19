@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
-const OPEN_DOCUMENTS: usize = 8;
 
 #[derive(Clone, Copy)]
 pub struct Spec {
@@ -252,6 +251,7 @@ impl Client {
             queued: Vec::new(),
             pending: HashMap::new(),
             open: VecDeque::new(),
+            keep_open: std::env::var("MERL_LSP_OPEN").ok().and_then(|v| v.parse().ok()).unwrap_or(8),
             progress: HashSet::new(),
             answered: false,
             quiescent: false,
@@ -395,6 +395,7 @@ struct Worker {
     queued: Vec<Event>,
     pending: HashMap<u64, (Sender<Answer>, Instant)>,
     open: VecDeque<Document>,
+    keep_open: usize,
     progress: HashSet<String>,
     answered: bool,
     quiescent: bool,
@@ -586,7 +587,7 @@ impl Worker {
                 hash,
                 version: 1,
             });
-            if self.open.len() > OPEN_DOCUMENTS
+            if self.open.len() > self.keep_open
                 && let Some(old) = self.open.pop_front()
             {
                 self.notify(
