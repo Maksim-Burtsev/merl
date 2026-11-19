@@ -130,6 +130,9 @@ impl App {
         (self.line, self.col) = (line0, byte_col);
         let name = self.definition_word(Some(kind)).map(|(_, w)| w);
         let text = self.buf.lines.join("\n");
+        let exact = (kind == Kind::Jvm)
+            .then(|| self.kotlin_bare_call(here, &text, line0))
+            .flatten();
         let owners = if let Some(decl) = name
             .as_deref()
             .and_then(|n| search::own_type(kind, &text, line0, n))
@@ -147,7 +150,7 @@ impl App {
         } else {
             self.probe = Some(Vec::new());
             self.goto_definition();
-            self.probe.take().unwrap_or_default()
+            Self::kotlin_narrowed(exact, self.probe.take().unwrap_or_default())
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
         let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)
