@@ -628,7 +628,10 @@ its read in the same block, also inside a `with`; it stays a picker past a branc
 assigns it after the read, a `try`'s `except`, a `with … as`, an `except … as`, a `del`, a `+=`,
 a walrus, a `nonlocal`, on a wrapped line, inside a comprehension that binds it, in a one-line
 nested `def` or a generator, which read it later, and at a
-module's top level. `pouring.py`'s `brewer = brewer.leaves(2)` now lands its next read on that
+module's top level. It stays a picker too in a `while` condition whose body assigns it, past a
+list target, a tuple, `for`, `import` or `case` target wrapped over several lines, a `; del` on
+the assignment's line, a triple-quoted string between or as the assignment before an `else:`,
+a `nonlocal` writer defined above both assignments, a one-line `import` and a `case` capture. `pouring.py`'s `brewer = brewer.leaves(2)` now lands its next read on that
 line rather than offering the parameter too.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
