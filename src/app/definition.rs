@@ -130,6 +130,9 @@ impl App {
         (self.line, self.col) = (line0, byte_col);
         let name = self.definition_word(Some(kind)).map(|(_, w)| w);
         let text = self.buf.lines.join("\n");
+        let exact = (kind == Kind::Jvm)
+            .then(|| self.kotlin_bare_call(here, &text, line0))
+            .flatten();
         let owners = if let Some(decl) = name
             .as_deref()
             .and_then(|n| search::own_type(kind, &text, line0, n))
@@ -144,18 +147,22 @@ impl App {
                 },
                 reason: Reason::File,
             }]
-        } else if let Some(hit) = (kind == Kind::Jvm)
-            .then(|| self.kotlin_bare_call(here, &text, line0))
-            .flatten()
-        {
-            vec![Candidate {
-                hit,
-                reason: Reason::File,
-            }]
         } else {
             self.probe = Some(Vec::new());
             self.goto_definition();
-            self.probe.take().unwrap_or_default()
+            let found = self.probe.take().unwrap_or_default();
+            match exact.and_then(|h| {
+                found
+                    .iter()
+                    .find(|c| c.hit.path == h.path && c.hit.line1 == h.line1)
+                    .cloned()
+            }) {
+                Some(c) => vec![Candidate {
+                    reason: Reason::File,
+                    ..c
+                }],
+                None => found,
+            }
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
         let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)

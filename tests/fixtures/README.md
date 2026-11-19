@@ -1277,7 +1277,12 @@ argument (#1446); `Kwpot` has a Scala twin in the same package, so `pot.kwbrew` 
 while `Kwkettle`, declared once, types its receiver. `Neighbours.kt` holds what must not land on
 the top-level function: a member called bare in its class or an extension, `with` blocks, a
 receiver split over lines, overloads, a local function; `away/` calls it through an import and
-without one.
+without one, `far/Starred.kt` through `import kwcafe.*`. `Strays.kt` holds what the probe of the
+callee knows and the label must not skip: a private function of another file, a local function
+of another function, a `context(…)` receiver, a receiver ending the line above with a dot.
+`Guards.kt` has an elvis before the call, a parameter named like a top-level function and a
+callee whose parameters sit on lines of their own; `Shadowed.kt` imports a namesake over the
+package's own.
 
 `jvm/src/main/java/quern/` and `jvm/src/main/kotlin/press/` are the third adversarial corners
 (#1126) for Java and Kotlin, their answers read from the code. `quern/` has a `Quern` extending
