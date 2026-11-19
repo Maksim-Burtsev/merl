@@ -10,6 +10,7 @@ TRANSCRIPTS = Path.home() / ".claude/projects"
 FIELD = re.compile(r"^\s*[-*]\s*\*\*(Before|After|Tests?)\b[^*]*\*\*:?\s*(.+)$", re.I | re.M)
 PART = re.compile(r"^part((?:\s*#\d+)*)\s*:", re.I)
 GIF = re.compile(r"https://raw\.githubusercontent\.com/Maksim-Burtsev/merl/media/\S+?\.gif")
+HEADER = "| Name | Task | Kind | Branch | Agent | State | Tokens | Min |"
 
 
 def ledger_rows(run):
@@ -78,7 +79,17 @@ def main():
     run = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else max(BATCH.glob("*/ledger.md")).parent
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else run
     common = (run / "COMMON.md").read_text() if (run / "COMMON.md").exists() else ""
-    merged = [r for r in ledger_rows(run) if r.get("Kind") == "epic" and "merged" in r.get("State", "")]
+    rows = ledger_rows(run)
+    merged = [r for r in rows if r.get("Kind") == "epic" and "merged" in r.get("State", "")]
+    unnamed = [r.get("Branch", "") for r in merged if not re.search(r"#\d+", r.get("Task", ""))]
+    if not rows or not merged or unnamed:
+        why = "no ledger table" if not rows else "no merged epic row" if not merged else f"no #N in Task of {', '.join(unnamed)}"
+        sys.exit(f"epic-body: {why} in {run / 'ledger.md'}; it reads rows under\n{HEADER}\nwith Kind `epic`, State holding `merged` and Task holding the issues as #N")
+    footer = indented_block(common, "PR bodies end with:")
+    trailers = indented_block(common, "Commit trailers:")
+    missing = [label for label, block in [("PR bodies end with:", footer), ("Commit trailers:", trailers)] if not block]
+    if missing:
+        sys.exit(f"epic-body: nothing indented four spaces under {' or '.join(missing)} in {run / 'COMMON.md'}; it reads the PR footer under exactly `PR bodies end with:` and the commit trailers under `Commit trailers:`")
     texts = reports(run)
     closes, part, sections, paragraphs = [], [], [], []
     for row in merged:
@@ -108,10 +119,8 @@ def main():
         paragraphs.append(paragraph)
     lead = [", ".join(f"{'Closes' if n == 0 else 'closes'} #{i}" for n, i in enumerate(closes)) + "."] if closes else []
     lead += [f"Part of {', '.join('#' + i for i in part)}: what is left is on each issue."] if part else []
-    footer = indented_block(common, "PR bodies end with:")
-    (out / "epic-body.md").write_text("\n\n".join([*lead, *sections, "Keys — none", *([footer] if footer else [])]) + "\n")
-    trailers = indented_block(common, "Commit trailers:")
-    (out / "squash-msg.txt").write_text("\n\n".join([*paragraphs, *([trailers] if trailers else [])]) + "\n")
+    (out / "epic-body.md").write_text("\n\n".join([*lead, *sections, "Keys — none", footer]) + "\n")
+    (out / "squash-msg.txt").write_text("\n\n".join([*paragraphs, trailers]) + "\n")
     print(out / "epic-body.md")
     print(out / "squash-msg.txt")
 
