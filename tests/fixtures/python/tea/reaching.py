@@ -252,3 +252,35 @@ def poured():
     from os import beaker
     return beaker
     #      ^ d: picker tea/reaching.py:250, tea/reaching.py:251
+
+
+def noted(v):
+    note = "a"
+    if v:
+        note = """\
+            b
+            """
+    else:
+        return note
+        #      ^ d: picker tea/reaching.py:258, tea/reaching.py:260
+    return note
+
+
+def cased(v):
+    sip = 0
+    sip = 1
+    match v:
+        case Cup(volume=sip):
+            pass
+    return sip
+    #      ^ d: !jump
+
+
+def keyed(v):
+    drip = 0
+    drip = 1
+    match v:
+        case {"k": drip}:
+            pass
+    return drip
+    #      ^ d: !jump
