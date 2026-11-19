@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use super::App;
@@ -14,6 +15,14 @@ pub fn parse_prints(text: &str) -> impl Iterator<Item = (String, String)> {
     (text.lines())
         .filter_map(|l| l.rsplit_once(' '))
         .map(|(k, b)| (k.to_owned(), b.to_owned()))
+}
+
+type Diffs = HashMap<(String, String), Option<git::Diff>>;
+
+fn diff_of<'a>(root: &Path, diffs: &'a mut Diffs, from: &str, to: &str) -> Option<&'a git::Diff> {
+    (diffs.entry((from.to_owned(), to.to_owned())))
+        .or_insert_with(|| git::diff_objects(root, from, to))
+        .as_ref()
 }
 
 fn old_to_new(d: &git::Diff, old: usize, len: usize) -> Option<TextLine> {
@@ -80,28 +89,27 @@ impl App {
             return;
         }
         let now = git::hash_object(&self.root, &self.buf.to_bytes());
+        let mut diffs = Diffs::new();
         for (id, then, n) in todo {
-            let at = now
-                .as_deref()
-                .and_then(|now| self.print_line(&n, &then, now));
-            let place = at.and_then(|at| self.print_place(&n, &then, at));
+            let at = (now.as_deref()).and_then(|now| self.print_line(&n, &then, now, &mut diffs));
+            let place = at.and_then(|at| self.print_place(&n, &then, at, &mut diffs));
             self.notes.printed.insert(id, (then, at.is_some(), place));
         }
     }
 
-    fn print_line(&self, n: &Note, then: &str, now: &str) -> Option<TextLine> {
+    fn print_line(&self, n: &Note, then: &str, now: &str, diffs: &mut Diffs) -> Option<TextLine> {
         let text = n.quote.last()?.strip_prefix("> ")?;
         let line = n.last.checked_sub(1)?;
         let moved = if then == now {
             None
         } else {
-            Some(git::diff_objects(&self.root, then, now)?)
+            Some(diff_of(&self.root, diffs, then, now)?)
         };
-        let at = match &moved {
+        let at = match moved {
             None => TextLine::File(line),
             Some(d) => old_to_new(d, line, self.buf.lines.len())?,
         };
-        let was = match (at, &moved) {
+        let was = match (at, moved) {
             (TextLine::File(l), _) => self.buf.lines.get(l),
             (TextLine::Deleted(k, i), Some(d)) => d.ghosts.get(&k).and_then(|g| g.get(i)),
             (TextLine::Deleted(..), None) => None,
@@ -109,13 +117,13 @@ impl App {
         (was.map(String::as_str) == Some(text)).then_some(at)
     }
 
-    fn print_place(&self, n: &Note, then: &str, at: TextLine) -> Option<Seen> {
+    fn print_place(&self, n: &Note, then: &str, at: TextLine, diffs: &mut Diffs) -> Option<Seen> {
         if let TextLine::File(l) = at
             && reads(self, at, &n.quote) == Some(true)
         {
             return Some((at, false, new_to_old(&self.diff, l)));
         }
-        let base = self.base_line(n, then, n.last.checked_sub(1)?);
+        let base = self.base_line(n, then, n.last.checked_sub(1)?, diffs);
         let ghost = base.and_then(|b| {
             (self.diff.ghost_from.iter()).find_map(|(&k, &from)| {
                 let i = b.checked_sub(from)?;
@@ -126,10 +134,10 @@ impl App {
         ghost.map(|t| (t, true, base))
     }
 
-    fn base_line(&self, n: &Note, then: &str, line: usize) -> Option<usize> {
+    fn base_line(&self, n: &Note, then: &str, line: usize, diffs: &mut Diffs) -> Option<usize> {
         let r = self.review.as_ref()?;
         let from = (r.file(&n.path).and_then(|f| f.old.as_deref())).unwrap_or(&n.path);
         let base = format!("{}:{}", r.merge_base, from.display());
-        new_to_old(&git::diff_objects(&self.root, &base, then)?, line)
+        new_to_old(diff_of(&self.root, diffs, &base, then)?, line)
     }
 }
