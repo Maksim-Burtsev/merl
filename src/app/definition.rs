@@ -128,15 +128,8 @@ impl App {
         let (cursor_line, cursor_col) = (self.line, self.col);
         let message = std::mem::take(&mut self.message);
         (self.line, self.col) = (line0, byte_col);
-        let callee = self.definition_word(Some(kind));
-        let name = callee.as_ref().map(|(_, w)| w.clone());
+        let name = self.definition_word(Some(kind)).map(|(_, w)| w);
         let text = self.buf.lines.join("\n");
-        let bare = || {
-            let (r, n) = callee.as_ref().filter(|_| kind == Kind::Jvm)?;
-            let read = self.written(Some(kind), r.start);
-            let before = read.line.get(..read.word_start)?;
-            self.kotlin_bare_call(here, &text, line0 + 1, before, n)
-        };
         let owners = if let Some(decl) = name
             .as_deref()
             .and_then(|n| search::own_type(kind, &text, line0, n))
@@ -151,7 +144,10 @@ impl App {
                 },
                 reason: Reason::File,
             }]
-        } else if let Some(hit) = bare() {
+        } else if let Some(hit) = (kind == Kind::Jvm)
+            .then(|| self.kotlin_bare_call(here, &text, line0))
+            .flatten()
+        {
             vec![Candidate {
                 hit,
                 reason: Reason::File,

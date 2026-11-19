@@ -73,13 +73,14 @@ impl App {
         &self,
         file: &Path,
         text: &str,
-        line1: usize,
-        before: &str,
-        name: &str,
+        line0: usize,
     ) -> Option<Hit> {
+        let (range, name) = self.definition_word(Some(Kind::Jvm))?;
+        let read = self.written(Some(Kind::Jvm), range.start);
+        let before = read.line.get(..read.word_start)?;
         (!before.trim_end().ends_with(['.', ':'])).then_some(())?;
-        let ahead = text.lines().nth(line1.checked_sub(1)?)?;
-        self.kotlin_top_level_fun(file, text, line1, ahead, name)
+        let ahead = text.lines().nth(line0)?;
+        self.kotlin_top_level_fun(file, text, line0 + 1, ahead, &name)
     }
 
     fn kotlin_top_level_fun(
