@@ -93,12 +93,20 @@ impl App {
             _ => "pick",
         };
         press(&format!("outcome=answer rt={rt:.1} n={all} used={used}"));
+        let knob = |name: &str, value: &str| std::env::var_os(name).is_some_and(|v| v == value);
+        let first_of = (found.len() > 1 && knob("MERL_LSP_MANY", "first")).then_some(found.len());
         match found.as_slice() {
+            [] if all == 0 && knob("MERL_LSP_NONE", "none") => {
+                self.message = format!("no definition for {word} ({})", spec.name);
+            }
             [] => return Err((all == 0).then(|| format!("{} has none", spec.name))),
-            [one] => {
+            [one, ..] if found.len() == 1 || first_of.is_some() => {
                 let target = (self.hit_text(&one.hit))
                     .and_then(|t| search::qualified(kind, &t, one.hit.line1, &word));
-                let status = resolution(&word, target.as_deref(), &found, None, false);
+                let status = match first_of {
+                    Some(n) => format!("{word}: via {}, 1 of {n}", spec.name),
+                    None => resolution(&word, target.as_deref(), &found, None, false),
+                };
                 let to = self.root.join(&one.hit.path);
                 self.jump_to_col(&to, one.hit.line1, one.hit.byte_col.unwrap_or(0));
                 if self.buf.path.as_deref() == Some(to.as_path()) {
