@@ -7,6 +7,7 @@ mod locals;
 mod members;
 mod pathed;
 mod receivers;
+mod served;
 
 use super::python::{enclosing_def_lines1, starts_by_assigning};
 use super::resolution::resolution;

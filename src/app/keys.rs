@@ -271,7 +271,7 @@ impl App {
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
             KeyCode::Char('}') => self.paragraph(1),
-            KeyCode::Char('d') => self.goto_definition(),
+            KeyCode::Char('d') => self.define(),
             KeyCode::Char('u') => self.usages(),
             KeyCode::Char('D') => self.symbols(),
             _ => self.view_key(key),

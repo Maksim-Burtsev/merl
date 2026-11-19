@@ -7,6 +7,7 @@ mod intraline;
 mod key;
 mod line_edit;
 mod live;
+mod lsp;
 mod markdown;
 mod mermaid;
 mod picker;
