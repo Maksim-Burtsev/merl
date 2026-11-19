@@ -91,6 +91,15 @@ fn epic_body_names_the_footer_label_it_reads_and_writes_nothing_without_it() {
     assert!(!run.status.success(), "{stderr}");
     assert!(stderr.contains("under PR bodies end with: in "), "{stderr}");
     assert!(!dir.join("epic-body.md").exists(), "{stderr}");
+    let (run, dir) = epic_body(
+        "epic-body-trailers",
+        ledger,
+        "- PR bodies end with:\n    Footer line\n",
+    );
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(!run.status.success(), "{stderr}");
+    assert!(stderr.contains("under Commit trailers: in "), "{stderr}");
+    assert!(!dir.join("epic-body.md").exists(), "{stderr}");
     let (run, dir) = epic_body("epic-body-footer", ledger, COMMON);
     assert!(
         run.status.success(),

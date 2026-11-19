@@ -149,3 +149,138 @@ def lazy(rows):
     #        ^ d: !jump
     cork = 3
     return list(later)
+
+
+def stirred(node):
+    node = node.child
+    while node is not None:
+    #     ^ d: picker tea/reaching.py:154, tea/reaching.py:155, tea/reaching.py:159
+        print(node)
+        node = node.parent
+    return 0
+
+
+def sifted(f):
+    sieve = 1
+    [sieve, n] = f()
+    print(sieve)
+    #     ^ d: !jump
+    sieve = 2
+    return n
+
+
+def unpacked(pair):
+    spoon = 0
+    spoon = 1
+    (
+        spoon,
+        second,
+    ) = pair
+    return spoon, second
+    #      ^ d: !jump
+
+
+def paired(pairs):
+    ladle = 0
+    ladle = 1
+    for (
+        ladle,
+        val,
+    ) in pairs:
+        pass
+    return ladle
+    #      ^ d: !jump
+
+
+def imported():
+    tray = ","
+    tray = ";"
+    from os.path import (
+        tray,
+    )
+    return tray
+    #      ^ d: !jump
+
+
+def matched(v):
+    whisk = "none"
+    whisk = "empty"
+    match v:
+        case [
+            first,
+            whisk,
+        ]:
+            pass
+    return whisk
+    #      ^ d: !jump
+
+
+def dropped():
+    cosy = 0
+    cosy = 1; del cosy
+    return cosy
+    #      ^ d: !jump
+
+
+def described(verbose):
+    label = "short"
+    if verbose:
+        label = "long"
+        extra = """\
+            details
+            """
+    else:
+        return label
+        #      ^ d: picker tea/reaching.py:226, tea/reaching.py:228
+    return label + extra
+
+
+def guarded():
+    def bump():
+        nonlocal flagon
+        flagon = 3
+    flagon = 1
+    flagon = 2
+    bump()
+    return flagon
+    #      ^ d: picker tea/reaching.py:242, tea/reaching.py:243
+
+
+def poured():
+    beaker = 1
+    beaker = 2
+    from os import beaker
+    return beaker
+    #      ^ d: picker tea/reaching.py:250, tea/reaching.py:251
+
+
+def noted(v):
+    note = "a"
+    if v:
+        note = """\
+            b
+            """
+    else:
+        return note
+        #      ^ d: picker tea/reaching.py:258, tea/reaching.py:260
+    return note
+
+
+def cased(v):
+    sip = 0
+    sip = 1
+    match v:
+        case Cup(volume=sip):
+            pass
+    return sip
+    #      ^ d: !jump
+
+
+def keyed(v):
+    drip = 0
+    drip = 1
+    match v:
+        case {"k": drip}:
+            pass
+    return drip
+    #      ^ d: !jump

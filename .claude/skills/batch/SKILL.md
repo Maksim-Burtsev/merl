@@ -181,7 +181,7 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   of this session with its silent minutes and last call, then the load and the time. What wakes
   you is a Monitor (`timeout_ms` 1800000) on `.claude/skills/batch/bin/watch STOP_PERCENT`: every
   5 minutes it runs `stuck` and reads the usage endpoint, prints `SILENT` for an agent silent over
-  20 minutes and `USAGE` once the week reaches the stop percentage, and after ~25 minutes one
+  20 minutes and `USAGE` once the week reaches the stop percentage, `UNREAD` when the endpoint gives no number in 20 seconds, and after ~25 minutes one
   `TICK` with the agents, and ends; arm it again on each tick. A `sleep 1800` in the background
   returned after about 4 minutes on 2026-11-19 and woke nobody. An agent silent for more than 20 minutes is named
   in the chat with its last command; unblock it, or stop it and push its worktree's commits.
