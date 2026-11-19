@@ -92,9 +92,10 @@ impl App {
     fn print_line(&self, n: &Note, then: &str, now: &str) -> Option<TextLine> {
         let text = n.quote.last()?.strip_prefix("> ")?;
         let line = n.last.checked_sub(1)?;
-        let moved = match then == now {
-            true => None,
-            false => Some(git::diff_objects(&self.root, then, now)?),
+        let moved = if then == now {
+            None
+        } else {
+            Some(git::diff_objects(&self.root, then, now)?)
         };
         let at = match &moved {
             None => TextLine::File(line),
