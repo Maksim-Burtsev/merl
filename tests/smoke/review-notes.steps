@@ -79,4 +79,5 @@ run printf '# merl notes\n\napp/service.py:40\n>         return order\nkeep this
 merl --review=agent/refund app/service.py:40
 wait keep this one
 run d=.git/merl/branches/agent/refund/orders; [ -d $d ] || d=.; f=$d/app/service.py; { printf 'import logging\nimport os\n'; sed '40s/return order/return self.get(order_id)/' $f; } > $f.new && mv $f.new $f
-wait keep this one (changed)
+# the tree's counts after the edit come from a thread, after the note's (changed) (#1036)
+wait 8 files · +62 −40 · 1 note

@@ -1,9 +1,9 @@
-wait keep this one (changed)
+wait 8 files · +62 −40 · 1 note
 ┌agent/refund ← origin/main──┐14
 │  ▾ app                     │15
 │    A refunds.py      +18 −0│16 class OrderService:
 │✓   M repos.py        +0 −28│17     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
-│✎   M service.py      +13 −1│18         self.repo = repo
+│✎   M service.py      +16 −2│18         self.repo = repo
 │  ▾ deploy                  │19         self.uow = uow
 │    ▾ helm                  │20         self.settings = settings
 │      ▾ orders              │21
@@ -52,6 +52,6 @@ wait keep this one (changed)
 │                            │
 │                            │
 │                            │
-└ 8 files · +59 −39 · 1 note ┘
+└ 8 files · +62 −40 · 1 note ┘
 app/service.py  40:1  [code]  hunk 3/4  viewed 1/7  reloaded                                                                                                                       14:32
 cursor (x,y,shown) 33,27,0
