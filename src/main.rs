@@ -636,6 +636,7 @@ fn event_loop(
     app.no_watch = open_file_dir_watcher.is_none();
     let mut watched: Option<(PathBuf, PathBuf)> = None;
     let mut live = Watching::start(app, project, &diff_tx);
+    app.background.waits = Some(app::SEARCHING_AFTER);
 
     let mut dirty = true;
     loop {
@@ -674,7 +675,7 @@ fn event_loop(
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
         let idle = if app.parsing() { Duration::ZERO } else { idle };
-        let idle = if sliding {
+        let idle = if sliding || app.searching() {
             idle.min(Duration::from_millis(15))
         } else {
             idle

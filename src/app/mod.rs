@@ -18,6 +18,8 @@ use crate::wrap;
 
 mod android;
 mod at_base;
+#[cfg(not(target_family = "wasm"))]
+mod background;
 mod c;
 mod collapse;
 mod component;
@@ -75,6 +77,8 @@ mod tree;
 mod typed;
 mod usages;
 
+#[cfg(not(target_family = "wasm"))]
+pub use background::SEARCHING_AFTER;
 use external::Walked;
 pub(crate) use open::error_text;
 pub use preview::Preview;
@@ -359,7 +363,7 @@ pub struct App {
     pub pushed_folder: Option<git::Opened>,
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
-    shaped: search::ShapedFiles,
+    shaped: Arc<search::ShapedFiles>,
     warming: HashMap<Kind, Option<std::thread::JoinHandle<Walked>>>,
     rootless: HashSet<Kind>,
     node_modules_of: Option<PathBuf>,
@@ -370,6 +374,8 @@ pub struct App {
     go_build: search::GoBuild,
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
+    #[cfg(not(target_family = "wasm"))]
+    pub background: background::Background,
     at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     anonymous_named: std::cell::Cell<Option<Typed>>,
@@ -526,7 +532,7 @@ impl App {
             pushed_folder: None,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
-            shaped: search::ShapedFiles::default(),
+            shaped: Arc::default(),
             warming: HashMap::new(),
             rootless: HashSet::new(),
             node_modules_of: None,
@@ -540,6 +546,8 @@ impl App {
             ),
             offer_only: false,
             probe: None,
+            #[cfg(not(target_family = "wasm"))]
+            background: background::Background::default(),
             at_base: None,
             truncated: std::cell::Cell::default(),
             anonymous_named: std::cell::Cell::default(),

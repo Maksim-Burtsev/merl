@@ -147,14 +147,25 @@ fn nearest_code_line_above(lines: &[&str], annotation_at: usize) -> usize {
         .map_or(0, |j| j + 1)
 }
 
-fn play(case: &Case) -> (Got, String) {
+fn play(case: &Case, waits: Option<Duration>) -> (Got, String, String) {
     let mut a = fixture_app(&case.fixture);
+    a.background.waits = waits;
     let path = a.root.join(&case.file);
     a.jump_to(&path, case.probed_line);
     a.col = case.col;
     let before = at(&a);
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     let status = a.message.clone();
+    let styled = (a.message_path.take()).filter(|(of, _)| *of == status);
+    let picker = a.picker.as_mut().map(|p| {
+        p.settle();
+        let rows: Vec<PickItem> = p.window(usize::MAX).0.into_iter().map(|r| r.item).collect();
+        (p.title.clone(), p.selected, rows)
+    });
+    let all = format!(
+        "{:?}",
+        (a.pos(), a.mode, styled, picker, &a.history, a.hist_idx)
+    );
     let got = match a.picker {
         Some(_) => Got::Picker(definition_rows(&mut a).into_iter().map(|r| r.2).collect()),
         None if at(&a) == before && says_nothing_found(&status) => Got::None,
@@ -167,7 +178,7 @@ fn play(case: &Case) -> (Got, String) {
             Got::Jump(format!("{}:{}", place.display(), line + 1))
         }
     };
-    (got, status)
+    (got, status, all)
 }
 
 fn says_nothing_found(status: &str) -> bool {
@@ -231,9 +242,23 @@ fn check(case: &Case) -> Option<String> {
         Ok(want) => want,
         Err(e) => return Some(format!("{here}: {e}")),
     };
-    let Ok((got, status)) = std::panic::catch_unwind(|| play(case)) else {
+    let in_the_background_as_the_terminal_plays_it = Some(Duration::MAX);
+    let Ok((got, status, all)) =
+        std::panic::catch_unwind(|| play(case, in_the_background_as_the_terminal_plays_it))
+    else {
         return Some(format!("{here}: `d` panicked"));
     };
+    if case.annotation_line.is_multiple_of(8) {
+        let Ok(on_the_spot) = std::panic::catch_unwind(|| play(case, None)) else {
+            return Some(format!("{here}: `d` on the spot panicked"));
+        };
+        if (&status, &all) != (&on_the_spot.1, &on_the_spot.2) {
+            return Some(format!(
+                "{here}: `d` in the background differs\n  on the spot: {} {}\n  background:  {status} {all}",
+                on_the_spot.1, on_the_spot.2
+            ));
+        }
+    }
     let status_ok = case
         .status
         .as_ref()

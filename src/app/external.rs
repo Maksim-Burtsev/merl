@@ -1043,6 +1043,7 @@ impl App {
     }
 
     pub(super) fn file_text(&self, path: &Path) -> Option<String> {
+        search::stop_if_dropped();
         if self.rel_current().as_deref() == Some(path) {
             Some(self.buf.lines.join("\n"))
         } else {

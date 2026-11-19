@@ -54,6 +54,10 @@ impl App {
         if key.kind != KeyEventKind::Press {
             return false;
         }
+        #[cfg(not(target_family = "wasm"))]
+        if key.code == KeyCode::Esc {
+            self.drop_search();
+        }
         let key = match self.plain_key(key) {
             ControlFlow::Continue(key) => key,
             ControlFlow::Break(quit) => return quit,
@@ -271,7 +275,7 @@ impl App {
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
             KeyCode::Char('}') => self.paragraph(1),
-            KeyCode::Char('d') => self.goto_definition(),
+            KeyCode::Char('d') => self.define(),
             KeyCode::Char('u') => self.usages(),
             KeyCode::Char('D') => self.symbols(),
             _ => self.view_key(key),

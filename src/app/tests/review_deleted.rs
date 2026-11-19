@@ -35,7 +35,7 @@ def show_all(orders):
     return [fmt(o) for o in orders]
 ";
 
-fn orders_review(tag: &str) -> (PathBuf, App) {
+pub(super) fn orders_review(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-440-{tag}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(dir.join("app/repositories")).unwrap();
@@ -92,7 +92,7 @@ fn orders_review(tag: &str) -> (PathBuf, App) {
     (dir, a)
 }
 
-fn on_deleted(a: &mut App, file: &Path, line: &str, word: &str) {
+pub(super) fn on_deleted(a: &mut App, file: &Path, line: &str, word: &str) {
     a.jump_to(file, 1);
     while !a.line_str().contains(line) || a.deleted.is_none() {
         assert!(a.next_line(a.at()).is_some(), "no deleted `{line}`");

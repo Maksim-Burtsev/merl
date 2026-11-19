@@ -1,0 +1,7 @@
+/
+Arrows
+Esc
+Picker: Esc
+d
+q
+t

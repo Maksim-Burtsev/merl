@@ -1,0 +1,26 @@
+wait find_by_customer: by name, 3 declarations (3/3)
+ 8 def order_json(order) -> str:
+12     )
+13
+14
+15 def get_order(service: OrderService, order_id: int) -> tuple[int, str]:
+16     t┌find_by_customer: by name, 3 declarations (3/3)───────────────┐
+17      │>                                                             │
+18     e│app/repos.py                                                  │
+19      │  14  def find_by_customer(self, customer_id: int)   OrderRepo│})
+20      │      -> list[Order]:                                         │
+21      │  43  def find_by_customer(self,             InMemoryOrderRepo│
+22 def l│      customer_id: int) -> list[Order]:                       │
+23     o│tests/test_service.py                                         │
+24     r│  18  def find_by_customer(self, customer_id):   FakeOrderRepo│
+25      │                                                              │
+26      │                                                              │
+27 def c│                                                              │
+28     s│                                                              │
+29      └──────────────────────────────────────────────────────────────┘
+30     )
+31     return HTTPStatus.OK, order_json(service.cancel(order_id))
+32
+33
+app/api.py  23:19  [code]  find_by_customer: by name, 3 declarations      14:32
+cursor (x,y,shown) 11,6,0

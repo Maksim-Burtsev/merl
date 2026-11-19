@@ -31,6 +31,22 @@ impl Hit {
 thread_local! {
     pub static REGEX_COMPILES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
+thread_local! {
+    static DROPPED: std::cell::RefCell<Option<Arc<AtomicBool>>> =
+        const { std::cell::RefCell::new(None) };
+}
+pub struct Dropped;
+pub fn drop_this_thread_s_search_on(flag: Arc<AtomicBool>) {
+    DROPPED.with(|d| *d.borrow_mut() = Some(flag));
+}
+fn dropped() -> Option<Arc<AtomicBool>> {
+    DROPPED.with(|d| d.borrow().clone())
+}
+pub fn stop_if_dropped() {
+    if dropped().is_some_and(|d| d.load(Ordering::Relaxed)) {
+        std::panic::resume_unwind(Box::new(Dropped));
+    }
+}
 pub const REGEXES_KEPT: usize = 8;
 pub static REGEXES: std::sync::LazyLock<Mutex<HashMap<String, regex::Regex>>> =
     std::sync::LazyLock::new(Mutex::default);
@@ -172,13 +188,15 @@ fn collect(
 ) -> Vec<Hit> {
     let next_file = AtomicUsize::new(0);
     let cap_reached = AtomicBool::new(false);
+    let dropped = dropped();
+    let dropped = || dropped.as_ref().is_some_and(|d| d.load(Ordering::Relaxed));
     let search_until_cap = || {
         let mut searcher = SearcherBuilder::new()
             .line_number(true)
             .binary_detection(BinaryDetection::quit(0))
             .build();
         let mut hits = Vec::new();
-        while !cap_reached.load(Ordering::Relaxed) {
+        while !cap_reached.load(Ordering::Relaxed) && !dropped() {
             let file = next_file.fetch_add(1, Ordering::Relaxed);
             let Some(rel) = files.get(file) else {
                 break;
@@ -218,6 +236,7 @@ fn collect(
         }
         hits
     });
+    stop_if_dropped();
     hits.sort_by_key(|(file, h)| (*file, h.line1));
     hits.truncate(MAX_HITS);
     let mut hits: Vec<Hit> = hits.into_iter().map(|(_, h)| h).collect();

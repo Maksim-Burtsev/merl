@@ -1058,6 +1058,7 @@ pub struct Rank {
     pub tier: Tier,
     pub dirs_from_open_file: usize,
 }
+#[derive(Clone)]
 pub struct GoBuild {
     pub os: &'static str,
     pub arch: &'static str,
