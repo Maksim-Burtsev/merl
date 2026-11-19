@@ -227,7 +227,14 @@ impl App {
         if elsewhere {
             locals.retain(|&n| n != self.line + 1);
         }
-        locals
+        let reaching = (a.kind == Kind::Python
+            && !declared
+            && !a.dotted
+            && a.chain.is_empty()
+            && locals.len() > 1)
+            .then(|| search::python_reaching(&a.text, self.line + 1, word, &locals))
+            .flatten();
+        reaching.map_or(locals, |n| vec![n])
     }
 
     fn python_own(&self, a: &Asked, locals: &mut Vec<usize>, declared: bool) -> bool {
