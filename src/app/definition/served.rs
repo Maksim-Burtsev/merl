@@ -24,6 +24,26 @@ impl App {
         }
     }
 
+    pub(in crate::app) fn show_to_server(&mut self) {
+        if !lsp::on() || std::env::var_os("MERL_LSP_SHOW").is_none_or(|v| v != "1") {
+            return;
+        }
+        let Some(path) = self.buf.path.clone().filter(|p| self.lsp_shown.as_ref() != Some(p)) else {
+            return;
+        };
+        let Some(spec) = lsp::spec_for(&path) else {
+            return;
+        };
+        let real = |p: &Path| crate::real::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let (root, here) = (real(&self.root), real(&self.root.join(&path)));
+        let disk = self.buf.to_bytes();
+        let text = String::from_utf8_lossy(&disk).trim_start_matches('\u{feff}').to_owned();
+        if let Some(client) = (self.lsp.entry(spec.name)).or_insert_with(|| lsp::Client::start(spec, &root)) {
+            client.show(here, text);
+        }
+        self.lsp_shown = Some(path);
+    }
+
     fn served(&mut self) -> Result<(), Option<String>> {
         if !lsp::on() || self.deleted.is_some() || self.probe.is_some() {
             return Err(None);

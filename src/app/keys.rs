@@ -4,7 +4,10 @@ use super::{App, Focus, Instant, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, 
 
 impl App {
     pub fn key(&mut self, key: KeyEvent) -> bool {
-        self.key_at(key, Instant::now())
+        self.show_to_server();
+        let quit = self.key_at(key, Instant::now());
+        self.show_to_server();
+        quit
     }
 
     pub(crate) fn key_at(&mut self, key: KeyEvent, at: Instant) -> bool {

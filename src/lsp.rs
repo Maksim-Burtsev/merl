@@ -205,6 +205,10 @@ enum Event {
         character: usize,
         reply: Sender<Answer>,
     },
+    Show {
+        path: PathBuf,
+        text: String,
+    },
     Stop,
 }
 
@@ -305,6 +309,10 @@ impl Client {
         again
             .recv_timeout(self.wait)
             .map_or(Outcome::Slow, Outcome::Answer)
+    }
+
+    pub fn show(&self, path: PathBuf, text: String) {
+        drop(self.events.send(Event::Show { path, text }));
     }
 
     fn post(&self, path: PathBuf, text: String, line: usize, character: usize) -> Option<Receiver<Answer>> {
@@ -471,6 +479,27 @@ impl Worker {
                     self.send(&json!({ "jsonrpc": "2.0", "id": u64::MAX, "method": "shutdown" }));
                     self.notify("exit", Value::Null);
                     break;
+                }
+                Event::Show { path, text } => {
+                    let (reply, _) = channel();
+                    let ask = Event::Ask {
+                        path,
+                        text,
+                        line: 0,
+                        character: 0,
+                        reply,
+                    };
+                    if !self.initialized {
+                        self.queued.push(ask);
+                    } else if let Event::Ask {
+                        path,
+                        text,
+                        reply,
+                        ..
+                    } = ask
+                    {
+                        self.ask(&path, &text, 0, 0, reply);
+                    }
                 }
                 ask @ Event::Ask { .. } if !self.initialized => self.queued.push(ask),
                 Event::Ask {
