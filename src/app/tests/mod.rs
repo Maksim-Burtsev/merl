@@ -46,6 +46,7 @@ mod navigate_ts_deps;
 mod nix;
 mod no_panic;
 mod note_places;
+mod note_prints;
 mod notes;
 mod open;
 mod outside;

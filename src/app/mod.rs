@@ -45,6 +45,7 @@ mod lisp;
 mod lua;
 mod members;
 mod missed;
+mod note_prints;
 pub(crate) mod notes;
 pub use notes::{Slot, Tone};
 mod ml;

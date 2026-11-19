@@ -1,7 +1,9 @@
 use super::notes::{note, screen};
 use super::*;
+use crate::app::note_prints::escape;
+use crate::app::notes::note_id;
 
-fn base() -> Vec<String> {
+pub(super) fn base() -> Vec<String> {
     let mut v = vec![
         "package steps".to_owned(),
         String::new(),
@@ -19,7 +21,7 @@ fn base() -> Vec<String> {
     v
 }
 
-fn git(dir: &Path, args: &[&str]) {
+pub(super) fn git(dir: &Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -28,17 +30,18 @@ fn git(dir: &Path, args: &[&str]) {
         .output()
         .unwrap();
     assert!(out.status.success(), "git {args:?}");
+    String::from_utf8_lossy(&out.stdout).trim().to_owned()
 }
 
-fn write(dir: &Path, lines: &[String]) {
+pub(super) fn write(dir: &Path, lines: &[String]) {
     std::fs::write(dir.join("steps.go"), lines.join("\n") + "\n").unwrap();
 }
 
-fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
+pub(super) fn feature(tag: &str, notes: &str) -> (PathBuf, Vec<String>) {
     feature_with(tag, notes, |l| l)
 }
 
-fn feature_with(
+pub(super) fn feature_with(
     tag: &str,
     notes: &str,
     branch: fn(Vec<String>) -> Vec<String>,
@@ -79,6 +82,9 @@ fn agent(case: &str, mut l: Vec<String>) -> Vec<String> {
         "fmt-changed" => (l[13], l[34]) = (fix("step1"), fix("step4")),
         "fmt-other" => (l[13], l[34]) = (fix("wrapped"), fix("wrapped")),
         "added" => l[40] = "\tif err := run(500); err != nil {".to_owned(),
+        "delfirst" => {
+            l.remove(13);
+        }
         _ => {}
     }
     let import = ["", "import (", "\t\"fmt\"", ")"].map(str::to_owned);
@@ -86,7 +92,7 @@ fn agent(case: &str, mut l: Vec<String>) -> Vec<String> {
     l
 }
 
-fn imported(mut l: Vec<String>) -> Vec<String> {
+pub(super) fn imported(mut l: Vec<String>) -> Vec<String> {
     let import = ["", "import (", "\t\"fmt\"", ")"].map(str::to_owned);
     l.splice(1..1, import);
     l
@@ -103,7 +109,7 @@ fn started_on_steps(dir: &Path) -> App {
     a
 }
 
-fn open(dir: &Path) -> App {
+pub(super) fn open(dir: &Path) -> App {
     let mut a = review_start(dir, None);
     a.show_tree = false;
     a.jump_to(&dir.join("steps.go"), 16);
@@ -113,7 +119,7 @@ fn open(dir: &Path) -> App {
 
 type Place = (TextLine, bool, bool);
 
-fn placed(a: &mut App) -> Vec<Place> {
+pub(super) fn placed(a: &mut App) -> Vec<Place> {
     screen(a);
     let mut v: Vec<_> = (a.notes.here.iter())
         .map(|h| (h.idx, (h.at, h.stale, h.top.is_some())))
@@ -123,8 +129,26 @@ fn placed(a: &mut App) -> Vec<Place> {
 }
 
 fn both_ways(case: &str, notes: &str) -> (Vec<Place>, String) {
-    let (dir, lines) = feature(case, notes);
+    let (from_quote, _) = one_way(case, notes, false);
+    let (printed, shown) = one_way(case, notes, true);
+    assert_eq!(printed, from_quote, "with a fingerprint: {shown}");
+    (printed, shown)
+}
+
+fn one_way(case: &str, notes: &str, printed: bool) -> (Vec<Place>, String) {
+    let (dir, lines) = feature(&format!("{case}-{printed}"), notes);
+    if printed {
+        let blob = git(&dir, &["hash-object", "-w", "steps.go"]);
+        let prints: String = (crate::app::notes::parse(notes).iter())
+            .map(|n| format!("{blob} {}\n", escape(&note_id(n))))
+            .collect();
+        std::fs::create_dir_all(dir.join(".git/merl/prints")).unwrap();
+        std::fs::write(dir.join(".git/merl/prints/feature"), prints).unwrap();
+    }
     let mut a = open(&dir);
+    let answered = (a.notes.printed.values()).filter(|p| p.1.is_some()).count();
+    let notes_n = notes.lines().filter(|l| l.starts_with("steps.go:")).count();
+    assert_eq!(answered, if printed { notes_n } else { 0 }, "{case}");
     let after = agent(case, lines);
     write(&dir, &after);
     git(&dir, &["commit", "-qam", "agent"]);
@@ -142,8 +166,8 @@ fn both_ways(case: &str, notes: &str) -> (Vec<Place>, String) {
 }
 
 const ON_STEP1: &str = "steps.go:14\n> \t\treturn err\nwrap this\n";
-const LIVE: bool = false;
-const DIM: bool = true;
+pub(super) const LIVE: bool = false;
+pub(super) const DIM: bool = true;
 
 #[test]
 fn row_1_two_notes_of_one_text_stay_on_their_own_twin_lines() {
@@ -214,6 +238,35 @@ fn row_9_a_note_on_a_unique_line_follows_it_down() {
     let plain = "steps.go:3\n> func run(n int) error { return nil }\nmake run real\n";
     let (got, s) = both_ways("plain", plain);
     assert_eq!(got, [(TextLine::File(6), LIVE, false)], "{s}");
+}
+
+#[test]
+fn a_block_note_whose_first_line_was_deleted_stays_dim_in_the_code_with_a_fingerprint() {
+    let block = "steps.go:14-15\n> \t\treturn err\n> \t}\nwrap two\n";
+    let (got, s) = both_ways("delfirst", block);
+    assert!(matches!(got[..], [(_, DIM, false)]), "{got:?} {s}");
+}
+
+#[test]
+fn row_1_after_a_reopen_without_fingerprints_keeps_twins_on_their_own_lines() {
+    let (dir, _) = feature("twins-unprinted", "");
+    let mut a = open(&dir);
+    a.jump_to(&dir.join("steps.go"), 7);
+    note(&mut a, "wrap");
+    a.notes.focus = None;
+    a.jump_to(&dir.join("steps.go"), 21);
+    note(&mut a, "wrap");
+    std::fs::remove_file(dir.join(".git/merl/prints/feature")).unwrap();
+    let mut b = open(&dir);
+    let got = placed(&mut b);
+    let printed = b.notes.printed.len();
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(printed, 0);
+    let want = [
+        (TextLine::File(6), LIVE, false),
+        (TextLine::File(20), LIVE, false),
+    ];
+    assert_eq!(got, want);
 }
 
 fn agent_notes(dir: &Path, notes: &str) {

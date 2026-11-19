@@ -96,6 +96,38 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
     }
 }
 
+pub fn hash_object(root: &Path, bytes: &[u8]) -> Option<String> {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["hash-object", "-w", "--stdin"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    let wrote = child.stdin.take().map(|mut s| s.write_all(bytes));
+    let out = child.wait_with_output().ok()?;
+    wrote?.ok()?;
+    let id = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+    (out.status.success() && !id.is_empty()).then_some(id)
+}
+
+pub fn diff_objects(root: &Path, from: &str, to: &str) -> Option<Diff> {
+    let args = [
+        "diff",
+        "-U0",
+        "--no-color",
+        "--no-ext-diff",
+        "--inter-hunk-context=0",
+        from,
+        to,
+    ];
+    git(root, &args).ok().map(|out| parse(&out, true))
+}
+
 fn parse(diff: &str, review: bool) -> Diff {
     let mut out = Diff::default();
     let mut lines = diff.lines().peekable();
