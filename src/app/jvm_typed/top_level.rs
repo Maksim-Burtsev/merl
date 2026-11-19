@@ -1,5 +1,5 @@
 use super::{JvmType, WrittenType};
-use crate::app::{App, Hit, Kind, Path, search};
+use crate::app::{App, Candidate, Hit, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn kotlin_top_level_returned(
@@ -67,6 +67,25 @@ impl App {
             resolved: self.jvm_type_at(&decl.path, &t, &written),
             written,
         })
+    }
+
+    pub(in crate::app) fn kotlin_narrowed(
+        exact: Option<Hit>,
+        found: Vec<Candidate>,
+    ) -> Vec<Candidate> {
+        let one = exact.and_then(|h| {
+            found
+                .iter()
+                .find(|c| c.hit.path == h.path && c.hit.line1 == h.line1)
+                .cloned()
+        });
+        match one {
+            Some(c) => vec![Candidate {
+                reason: Reason::File,
+                ..c
+            }],
+            None => found,
+        }
     }
 
     pub(in crate::app) fn kotlin_bare_call(

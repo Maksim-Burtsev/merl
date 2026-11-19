@@ -150,19 +150,7 @@ impl App {
         } else {
             self.probe = Some(Vec::new());
             self.goto_definition();
-            let found = self.probe.take().unwrap_or_default();
-            match exact.and_then(|h| {
-                found
-                    .iter()
-                    .find(|c| c.hit.path == h.path && c.hit.line1 == h.line1)
-                    .cloned()
-            }) {
-                Some(c) => vec![Candidate {
-                    reason: Reason::File,
-                    ..c
-                }],
-                None => found,
-            }
+            Self::kotlin_narrowed(exact, self.probe.take().unwrap_or_default())
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
         let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)
