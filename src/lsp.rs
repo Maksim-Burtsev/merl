@@ -217,6 +217,7 @@ pub struct Client {
     asked: bool,
     wait: Duration,
     first: Duration,
+    think: Duration,
 }
 
 impl Client {
@@ -269,6 +270,7 @@ impl Client {
             asked: false,
             wait: millis("MERL_LSP_WAIT_MS", 400),
             first: millis("MERL_LSP_FIRST_MS", 0),
+            think: millis("MERL_LSP_THINK_MS", 0),
         })
     }
 
@@ -285,13 +287,22 @@ impl Client {
         if self.spec.says_when_quiescent && !ready {
             return Outcome::Loading;
         }
-        let Some(answer) = self.post(path, text, line, character) else {
+        let Some(answer) = self.post(path.clone(), text.clone(), line, character) else {
             return Outcome::Gone;
         };
         if !ready {
             return Outcome::Loading;
         }
-        answer
+        if self.think.is_zero() {
+            return answer
+                .recv_timeout(self.wait)
+                .map_or(Outcome::Slow, Outcome::Answer);
+        }
+        std::thread::sleep(self.think);
+        let Some(again) = self.post(path, text, line, character) else {
+            return Outcome::Gone;
+        };
+        again
             .recv_timeout(self.wait)
             .map_or(Outcome::Slow, Outcome::Answer)
     }
