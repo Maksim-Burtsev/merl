@@ -101,6 +101,12 @@ off by default.
 Several `agent-ok` issues at once, an evening queue or a night run, go as a batch:
 `.claude/skills/batch/SKILL.md`.
 
+## Product rules
+
+`docs/product.md` holds the owner's rules for merl as a whole and the ideas already turned down,
+each with its issue. Read it before you propose or file a change; an idea it turns down is not
+proposed again.
+
 ## Explaining to the owner
 
 The owner judges merl by what they press and what they see. An explanation of a bug, a fix or
