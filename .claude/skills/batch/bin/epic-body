@@ -10,6 +10,7 @@ TRANSCRIPTS = Path.home() / ".claude/projects"
 FIELD = re.compile(r"^\s*[-*]\s*\*\*(Before|After|Tests?)\b[^*]*\*\*:?\s*(.+)$", re.I | re.M)
 PART = re.compile(r"^part((?:\s*#\d+)*)\s*:", re.I)
 GIF = re.compile(r"https://raw\.githubusercontent\.com/Maksim-Burtsev/merl/media/\S+?\.gif")
+HEADER = "| Name | Task | Kind | Branch | Agent | State | Tokens | Min |"
 
 
 def ledger_rows(run):
@@ -78,7 +79,12 @@ def main():
     run = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else max(BATCH.glob("*/ledger.md")).parent
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else run
     common = (run / "COMMON.md").read_text() if (run / "COMMON.md").exists() else ""
-    merged = [r for r in ledger_rows(run) if r.get("Kind") == "epic" and "merged" in r.get("State", "")]
+    rows = ledger_rows(run)
+    merged = [r for r in rows if r.get("Kind") == "epic" and "merged" in r.get("State", "")]
+    unnamed = [r.get("Branch", "") for r in merged if not re.search(r"#\d+", r.get("Task", ""))]
+    if not rows or not merged or unnamed:
+        why = "no ledger table" if not rows else "no merged epic row" if not merged else f"no #N in Task of {', '.join(unnamed)}"
+        sys.exit(f"epic-body: {why} in {run / 'ledger.md'}; it reads rows under\n{HEADER}\nwith Kind `epic`, State holding `merged` and Task holding the issues as #N")
     texts = reports(run)
     closes, part, sections, paragraphs = [], [], [], []
     for row in merged:
