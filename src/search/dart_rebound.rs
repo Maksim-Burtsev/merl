@@ -167,16 +167,24 @@ fn dart_narrows(cond: &str, w: &str, not: bool) -> Option<Result<DartType, ()>> 
 
 fn dart_ternary(
     own: &str,
-    start: usize,
-    col: usize,
+    above: &[&str],
+    (start, col): (usize, usize),
     w: &str,
-    fresh: bool,
-) -> Option<Result<DartType, ()>> {
+) -> Result<DartType, ()> {
     static LEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:=>|[^=!<>]=|\breturn|[(\[{,:;])\s*$").expect("the regex is a literal")
     });
-    let lead = own.get(..start)?;
-    (LEAD.is_match(lead) || (fresh && lead.trim().is_empty())).then_some(())?;
+    let lead = own.get(..start).ok_or(())?;
+    let fresh = || {
+        (above.iter())
+            .map(|l| String::from_utf8_lossy(&dart_masked(l)).trim().to_owned())
+            .rfind(|t| !t.is_empty())
+            .is_none_or(|t| t.ends_with([';', '{', '}', ')']))
+    };
+    let led = LEAD.is_match(lead) || (lead.trim().is_empty() && fresh());
+    if !led {
+        return Err(());
+    }
     let b = own.as_bytes();
     let (mut depth, mut q) = (0i32, None);
     for k in start..col.min(b.len()) {
@@ -186,14 +194,15 @@ fn dart_ternary(
             b'?' if depth == 0 && b[k - 1] == b' ' && b.get(k + 1) == Some(&b' ') => {
                 q.get_or_insert(k);
             }
-            b':' if depth == 0 && q.is_some() => return None,
+            b':' if depth == 0 && q.is_some() => return Err(()),
             _ => {}
         }
         if depth < 0 {
-            return None;
+            return Err(());
         }
     }
-    dart_narrows(own.get(start..q?)?.trim(), w, false)
+    let cond = q.and_then(|q| own.get(start..q)).ok_or(())?;
+    dart_narrows(cond.trim(), w, false).ok_or(())?
 }
 
 fn dart_condition(t: &str) -> Option<(&str, &str)> {
@@ -252,14 +261,7 @@ pub fn dart_promoted(
                 let cond = close_of(Kind::Dart, &own, o).and_then(|c| own.get(o + 1..c - 1));
                 (o, dart_narrows(cond?, &w, false)?)
             }
-            None => {
-                let fresh = (lines[..at].iter())
-                    .map(|l| String::from_utf8_lossy(&dart_masked(l)).trim().to_owned())
-                    .rfind(|t| !t.is_empty())
-                    .is_none_or(|t| t.ends_with([';', '{', '}', ')']));
-                let ty = dart_ternary(&own, start, col, &w, fresh);
-                (start, ty.unwrap_or(Err(())))
-            }
+            None => (start, dart_ternary(&own, &lines[..at], (start, col), &w)),
         };
         (binder.is_none_or(|s| s < from) && dart_reaches(&b, from, col, false))
             .then_some((ty, line1, from))
