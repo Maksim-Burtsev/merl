@@ -61,7 +61,7 @@ void promoted(Vase x) {
   x.slosh();
   //^ d: lib/rebound.dart:2
   x is Ewer ? x.slosh() : null;
-  //            ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  //            ^ d: lib/rebound.dart:7
   if (x is Ewer) {} x.slosh();
   //                  ^ d: lib/rebound.dart:2
   if (x is! Ewer) return;
@@ -73,7 +73,7 @@ void typedAt(Vase x, Object o, List<Flagon> fs) {
   if (o case Ewer x) {} for (final x in fs) x.slosh();
   //                                          ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
   if (o case Ewer x) {} switch (o) { case Flagon x: x.slosh(); }
-  //                                                  ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  //                                                  ^ d: lib/rebound.dart:11
   { Ewer x = Ewer(); } for (final x in fs) x.slosh();
   //                                         ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
 }
@@ -203,4 +203,34 @@ void reassigned(Vase x, Vase y) {
   }
   y.slosh();
   //^ d: !jump
+}
+
+// A switch case's pattern types the name in its arm, and a conditional's check types the name in its
+// first branch (#1494).
+void armed(Object o, Vase x, bool ok) {
+  switch (o) { case Ewer c: c.slosh(); case Flagon c: c.slosh(); }
+  //                          ^ d: lib/rebound.dart:7
+  //                                                    ^ d: lib/rebound.dart:11
+  switch (o) {
+    case Ewer c:
+      c.slosh();
+      //^ d: lib/rebound.dart:7
+    case Flagon c:
+      c.slosh();
+      //^ d: lib/rebound.dart:11
+  }
+  final n = x is Ewer ? x.slosh() : null;
+  //                      ^ d: lib/rebound.dart:7
+  ok || x is Ewer ? x.slosh() : null;
+  //                  ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  x is Ewer ? null : x.slosh();
+  //                   ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  !(x is Ewer) ? x.slosh() : null;
+  //               ^ d: lib/rebound.dart:2
+}
+
+void ledOver(Vase x, bool ok) {
+  final w = ok ||
+      x is Ewer ? x.slosh() : null;
+  //                ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
 }

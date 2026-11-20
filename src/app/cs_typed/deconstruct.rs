@@ -1,5 +1,5 @@
-use super::{CsType, CsWrittenType, Up};
-use crate::app::{App, Path, PathBuf, search};
+use super::{CsType, CsWrittenType, Proven, Up};
+use crate::app::{App, Kind, Path, PathBuf, search};
 
 impl App {
     pub(super) fn cs_position(
@@ -28,6 +28,42 @@ impl App {
             written,
             from: (path, line),
         })
+    }
+
+    pub(super) fn cs_tuple_head<'a>(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        fields: &'a [String],
+    ) -> Option<(Proven, &'a [String])> {
+        let (field, rest) = fields.split_first()?;
+        let lines: Vec<&str> = text.lines().collect();
+        let bindings = search::bindings(Kind::CSharp, text, line1, name);
+        let [b] = bindings.as_slice() else {
+            return None;
+        };
+        let at = search::cs_written_line(&lines, b.line1, name);
+        if search::cs_var_chain(&lines, at - 1, name).is_some_and(|(_, more)| more) {
+            return None;
+        }
+        let search::CsValue::Call { callee, awaited } =
+            search::cs_declared(lines.get(at - 1)?, name)
+        else {
+            return None;
+        };
+        let (path, line, tuple) = self.cs_call_written(file, text, at, &callee, awaited, 0)?;
+        let written = search::cs_tuple_named(&tuple, field)?;
+        let ty = self.cs_resolve(&path, &self.text_of(&path)?, line, &written)?;
+        let link = format!("{name}.{field}: {}", search::cs_type_name(&written)?);
+        let p = Proven {
+            ty,
+            link,
+            written,
+            from: (path, line),
+        };
+        Some((p, rest))
     }
 
     fn cs_deconstruct_out(
