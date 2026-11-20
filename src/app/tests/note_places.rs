@@ -226,6 +226,25 @@ fn row_7_a_block_note_whose_block_changed_waits_above_the_file() {
     assert_eq!(got, [(TextLine::File(0), DIM, true)], "{s}");
 }
 
+const TWO_LINES: &str =
+    "steps.go:13-14\n> \tif err := run(1); err != nil {\n> \t\treturn err\nwrap these\n";
+
+#[test]
+fn a_two_line_note_whose_second_line_changed_names_the_lines_it_was_written_on() {
+    let (got, s) = both_ways("changed", TWO_LINES);
+    assert_eq!(got, [(TextLine::Deleted(17, 0), DIM, false)], "{s}");
+    assert!(s.contains("lines 13 to 14  wrap these (changed)"), "{s}");
+    let (dir, lines) = feature("two-lines-answered", TWO_LINES);
+    agent_wrote(&dir, &agent("changed", lines));
+    let mut a = open(&dir);
+    a.notes.focus = Some(0);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    let answering = screen(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(a.mode, Mode::Note);
+    assert!(answering.contains("lines 13 to 14"), "{answering}");
+}
+
 #[test]
 fn row_8_a_note_on_a_line_the_branch_added_and_changed_again_waits_above_the_file() {
     let added = "steps.go:41\n> \tif err := run(50); err != nil {\nwhy 50\n";
@@ -245,6 +264,7 @@ fn a_block_note_whose_first_line_was_deleted_stays_dim_in_the_code_with_a_finger
     let block = "steps.go:14-15\n> \t\treturn err\n> \t}\nwrap two\n";
     let (got, s) = both_ways("delfirst", block);
     assert!(matches!(got[..], [(_, DIM, false)]), "{got:?} {s}");
+    assert!(s.contains("lines 14 to 15  wrap two (changed)"), "{s}");
 }
 
 #[test]

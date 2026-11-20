@@ -640,9 +640,12 @@ impl App {
         self.notes.here.iter().find(|h| h.idx == idx)
     }
 
-    pub fn note_label(&self, first: TextLine, at: TextLine) -> String {
+    fn note_label(&self, first: TextLine, at: TextLine, changed: Option<&Note>) -> String {
         if first == at {
             return String::new();
+        }
+        if let Some(n) = changed.filter(|n| n.first != n.last) {
+            return format!("lines {} to {}", n.first, n.last);
         }
         let num = |t: TextLine| match t {
             TextLine::File(l) => (l + 1).to_string(),
@@ -733,9 +736,10 @@ impl App {
         let (n, label, top, stale, input) = match s {
             Slot::Note(i) => {
                 let h = &self.notes.here[*i];
+                let n = &self.notes.list[h.idx];
                 (
-                    Some(&self.notes.list[h.idx]),
-                    self.note_label(h.first, h.at),
+                    Some(n),
+                    self.note_label(h.first, h.at, Some(n).filter(|_| h.stale)),
                     h.top.clone(),
                     h.stale && h.top.is_none(),
                     false,
@@ -747,11 +751,10 @@ impl App {
                     (e.first, e.last)
                 });
                 let old = e.and_then(|e| e.old.as_ref());
-                let top = self
-                    .editing_idx()
-                    .and_then(|i| self.here_of(i))
-                    .and_then(|h| h.top.clone());
-                (old, self.note_label(first, last), top, false, true)
+                let here = self.editing_idx().and_then(|i| self.here_of(i));
+                let top = here.and_then(|h| h.top.clone());
+                let changed = old.filter(|_| here.is_some_and(|h| h.stale));
+                (old, self.note_label(first, last, changed), top, false, true)
             }
         };
         let Some(n) = n else {
