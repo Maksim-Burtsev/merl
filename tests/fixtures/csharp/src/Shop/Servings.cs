@@ -63,5 +63,9 @@ public static class Serving
 //            ^ d: src/Shop/Servings.cs:12
         t.pot.Stew();
 //            ^ d: src/Shop/Servings.cs:5
+        var u = ServeLabeled()
+            .Swap();
+        u.pan.Stew();
+//            ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12
     }
 }

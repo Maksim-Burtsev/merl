@@ -228,3 +228,9 @@ void armed(Object o, Vase x, bool ok) {
   !(x is Ewer) ? x.slosh() : null;
   //               ^ d: lib/rebound.dart:2
 }
+
+void ledOver(Vase x, bool ok) {
+  final w = ok ||
+      x is Ewer ? x.slosh() : null;
+  //                ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+}

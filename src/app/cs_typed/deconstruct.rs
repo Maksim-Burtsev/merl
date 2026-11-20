@@ -45,6 +45,9 @@ impl App {
             return None;
         };
         let at = search::cs_written_line(&lines, b.line1, name);
+        if search::cs_var_chain(&lines, at - 1, name).is_some_and(|(_, more)| more) {
+            return None;
+        }
         let search::CsValue::Call { callee, awaited } =
             search::cs_declared(lines.get(at - 1)?, name)
         else {
