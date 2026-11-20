@@ -108,10 +108,19 @@ pub fn kotlin_initializer(text: &str, line1: usize, name: &str) -> Option<String
     Some(init.replace("?.", ".").replace("!!.", "."))
 }
 
+pub fn kotlin_elvis_exit(init: &str) -> Option<String> {
+    static ELVIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([a-z]\w*)\s*\?:\s*(?:return|throw|continue|break)\b[^?]*$")
+            .expect("the regex is a literal")
+    });
+    ELVIS.captures(init).map(|c| c[1].to_owned())
+}
+
 pub struct KotlinDestructured {
     pub index: usize,
     pub source: String,
     pub in_loop: bool,
+    pub made: Option<String>,
 }
 
 pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured> {
@@ -119,23 +128,46 @@ pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured>
         Regex::new(r"\b(?:val|var)\s*\(([^()]*)\)\s*=\s*([a-z]\w*(?:\(\))?)\s*$")
             .expect("the regex is a literal")
     });
+    static TO: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:val|var)\s*\(([^()]*)\)\s*=\s*([A-Z]\w*)\([^()]*\)\s+to\s+([A-Z]\w*)\([^()]*\)\s*$")
+            .expect("the regex is a literal")
+    });
     static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfor\s*\(\s*\(([^()]*)\)\s+in\s+([a-z]\w*)\s*\)")
             .expect("the regex is a literal")
     });
+    static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:forEach|onEach)\s*\{\s*\(([^()]*)\)\s*->")
+            .expect("the regex is a literal")
+    });
     let code = uncommented(Kind::Jvm, line);
-    let (c, in_loop) = match VAL.captures(code.trim_end()) {
-        Some(c) => (c, false),
-        None => (FOR.captures(&code)?, true),
+    let code = code.trim_end();
+    if let Some(c) = TO.captures(code) {
+        let index = c[1].split(',').position(|e| e.trim() == name)?;
+        return Some(KotlinDestructured {
+            index,
+            source: String::new(),
+            in_loop: false,
+            made: [&c[2], &c[3]].get(index).map(|m| (*m).to_owned()),
+        });
+    }
+    let (names, source, in_loop) = if let Some(c) = VAL.captures(code) {
+        (c[1].to_owned(), c[2].to_owned(), false)
+    } else if let Some(c) = FOR.captures(code) {
+        (c[1].to_owned(), c[2].to_owned(), true)
+    } else {
+        let c = EACH.captures(code)?;
+        (c[2].to_owned(), c[1].to_owned(), true)
     };
-    if c[1].split(',').any(|e| e.trim() == &c[2]) {
+    if names.split(',').any(|e| e.trim() == source) {
         return None;
     }
-    let index = c[1].split(',').position(|e| e.trim() == name)?;
+    let index = names.split(',').position(|e| e.trim() == name)?;
     Some(KotlinDestructured {
         index,
-        source: c[2].to_owned(),
+        source,
         in_loop,
+        made: None,
     })
 }
 
@@ -501,18 +533,26 @@ pub fn kotlin_top_level_return(line: &str, name: &str) -> Option<String> {
     Some(re.captures(code.trim_end())?[1].to_owned())
 }
 
-pub fn kotlin_top_level_pair(line: &str, name: &str) -> Option<(String, Vec<String>)> {
+pub fn kotlin_top_level_pair(line: &str, name: &str) -> Option<(String, Vec<Option<String>>)> {
     let re = Regex::new(&format!(
-        r"{KOTLIN_TOP_FUN}{}\s*\([^()]*\)\s*:\s*(Pair|Triple)<([^<>()]*)>\s*(?:=|\{{|$)",
+        r"{KOTLIN_TOP_FUN}{}\s*\([^()]*\)\s*:\s*(Pair|Triple)<((?:[^<>()]|<[^<>()]*>)*)>\s*(?:=|\{{|$)",
         regex::escape(name)
     ))
     .ok()?;
     let code = uncommented(Kind::Jvm, line);
     let c = re.captures(code.trim_end())?;
     let bare = Regex::new(r"^[A-Z]\w*$").ok()?;
-    let items: Vec<String> = c[2].split(',').map(|i| i.trim().to_owned()).collect();
-    items
-        .iter()
-        .all(|i| bare.is_match(i))
-        .then(|| (c[1].to_owned(), items))
+    let mut depth = 0i32;
+    let items = c[2]
+        .split(|ch| {
+            match ch {
+                '<' => depth += 1,
+                '>' => depth -= 1,
+                _ => {}
+            }
+            ch == ',' && depth == 0
+        })
+        .map(|i| bare.is_match(i.trim()).then(|| i.trim().to_owned()))
+        .collect();
+    Some((c[1].to_owned(), items))
 }

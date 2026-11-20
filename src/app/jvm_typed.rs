@@ -336,8 +336,8 @@ impl App {
     ) -> Option<WrittenType> {
         let at = text.lines().nth(line1.checked_sub(1)?)?;
         if let Some(d) = search::kotlin_destructured(at, name) {
-            if let Some(call) = d.source.strip_suffix("()") {
-                return self.kotlin_top_level_component(file, text, line1, call, d.index);
+            if d.made.is_some() || d.source.ends_with("()") {
+                return self.kotlin_top_level_component(file, text, line1, &d);
             }
             let source = if d.in_loop {
                 let element = Self::jvm_element(file, text, line1, &d.source)?;
@@ -357,6 +357,9 @@ impl App {
             });
         }
         let init = search::kotlin_initializer(text, line1, name)?;
+        if let Some(source) = search::kotlin_elvis_exit(&init).filter(|s| s != name) {
+            return self.jvm_value(file, text, line1, &source, true, 1);
+        }
         if init.trim() == name
             && search::path_bindings(Kind::Jvm, file, text, line1.checked_sub(1)?, name).is_empty()
         {
@@ -403,7 +406,7 @@ impl App {
                 let ext = kt
                     .then(|| search::kotlin_extension_at(text, line, before))
                     .flatten()
-                    .filter(|e| f == "this" || e.name == f);
+                    .filter(|e| e.name == f || (f == "this" && !e.member));
                 match ext {
                     Some(ext) => {
                         let ty = self.jvm_type_at(here, text, &ext.receiver);

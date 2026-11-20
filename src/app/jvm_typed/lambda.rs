@@ -132,11 +132,18 @@ impl App {
         line1: usize,
         name: &str,
     ) -> Option<WrittenType> {
-        let search::JavaLambdaArgument {
+        let Some(search::JavaLambdaArgument {
             receiver,
             method,
             index,
-        } = search::java_lambda_argument(text, line1, name)?;
+        }) = search::java_lambda_argument(text, line1, name)
+        else {
+            let at = text.lines().nth(line1.checked_sub(1)?)?;
+            let written = search::java_declared_lambda(at, name)?;
+            let resolved = self.jvm_type_at(file, text, &written);
+            return matches!(resolved, JvmType::Project(_))
+                .then_some(WrittenType { resolved, written });
+        };
         let owner = match receiver.as_deref() {
             None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
             Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
