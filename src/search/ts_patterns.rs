@@ -13,7 +13,10 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     for p in split_top(Kind::TsJs, params, b',') {
         let p = MODS.replace(p.trim(), "");
         if p.starts_with(['{', '[']) {
-            if names(&p.replace("...", " "), name) {
+            let pattern = close_of(Kind::TsJs, &p, 0)
+                .and_then(|c| p.get(..c))
+                .unwrap_or(&p);
+            if names(&pattern.replace("...", " "), name) {
                 let value = typed_pattern(&p, name).unwrap_or(Value::Unknown);
                 out.push(Binding { line1: line, value });
             }
