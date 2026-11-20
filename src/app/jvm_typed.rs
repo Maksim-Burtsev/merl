@@ -4,8 +4,10 @@ use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, se
 mod head;
 mod held;
 mod lambda;
+mod receiver;
 mod scala_unpacked;
 mod top_level;
+mod written;
 
 struct WrittenType {
     resolved: JvmType,
@@ -475,7 +477,10 @@ impl App {
                         .then(|| search::kotlin_lambda_subject(text, line, before, f))
                         .flatten();
                     let value = subject.as_deref().unwrap_or(f);
-                    self.jvm_value(here, text, line, value, kotlin, 1)?
+                    match self.jvm_value(here, text, line, value, kotlin, 1) {
+                        Some(w) => w,
+                        None => return self.kotlin_receiver_property(here, text, before, f),
+                    }
                 };
                 (ty, vec![format!("{f}: {written}")])
             }
@@ -860,7 +865,7 @@ impl App {
                     resolved: JvmType::Outside(t.to_owned()),
                     written: t.to_owned(),
                 },
-                (Some(t), _) => match self.jvm_type_on(file, text, &t, Some(l)) {
+                (Some(t), _) => match self.jvm_type_written(file, text, &t, Some(l)) {
                     JvmType::Outside(_) | JvmType::Unknown if groovy => return None,
                     resolved => WrittenType {
                         resolved,
@@ -1110,7 +1115,7 @@ impl App {
     }
 
     fn jvm_type_on(&self, file: &Path, text: &str, written: &str, on: Option<usize>) -> JvmType {
-        self.jvm_type_hop(file, text, written, on, 8)
+        self.jvm_type_hop(file, text, written, on, 8, false)
     }
 
     fn jvm_type_hop(
@@ -1120,12 +1125,13 @@ impl App {
         written: &str,
         on: Option<usize>,
         hops: usize,
+        typed: bool,
     ) -> JvmType {
         if let Some(ty) = self.jvm_written_package(file, text, written, on) {
             return ty;
         }
         if let Some((outer, inner)) = written.rsplit_once('.') {
-            return match self.jvm_type_hop(file, text, outer, on, hops) {
+            return match self.jvm_type_hop(file, text, outer, on, hops, typed) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
                 JvmType::Outside(_) => JvmType::Outside(written.to_owned()),
                 JvmType::Unknown => JvmType::Unknown,
@@ -1197,6 +1203,7 @@ impl App {
             !is_type(h)
                 && !types.iter().any(|t| t.path == h.path)
                 && !self.jvm_hidden_elsewhere(file, h)
+                && !(typed && written::field_elsewhere(file, h, written))
         });
         if others {
             return JvmType::Unknown;
@@ -1275,7 +1282,7 @@ impl App {
         if !file.extension().is_some_and(|e| e == "kt" || e == "kts") || !seen || nested {
             return None;
         }
-        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops, false) {
             JvmType::Project(decl) => Some(JvmType::Project(decl)),
             _ => None,
         }
@@ -1304,7 +1311,7 @@ impl App {
         };
         let (_, target) = search::kotlin_typealias(&hit.text).filter(|(n, _)| n == name)?;
         let text = self.text_of(&hit.path)?;
-        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops) {
+        match self.jvm_type_hop(&hit.path, &text, target, Some(hit.line1), hops, false) {
             JvmType::Project(decl) => Some(JvmType::Project(decl)),
             _ => None,
         }
