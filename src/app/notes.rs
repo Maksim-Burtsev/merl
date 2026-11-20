@@ -739,7 +739,7 @@ impl App {
                 let n = &self.notes.list[h.idx];
                 (
                     Some(n),
-                    self.note_label(h.first, h.at, Some(n).filter(|_| h.stale)),
+                    self.note_label(h.first, h.at, h.stale.then_some(n)),
                     h.top.clone(),
                     h.stale && h.top.is_none(),
                     false,
