@@ -22,7 +22,12 @@ impl App {
             .swift_chain(here, here, text, self.line + 1, &names, 3)?
             .written;
         let element = search::swift_element(&held)
-            .or_else(|| search::swift_dictionary_part(&held, "values"))?;
+            .or_else(|| search::swift_dictionary_part(&held, "values"))
+            .filter(|e| {
+                !self
+                    .swift_scope_generics(here, text, self.line + 1)
+                    .contains(e)
+            })?;
         let ty = self
             .swift_type(here, &element)
             .filter(|t| t.keyword.is_some())?;

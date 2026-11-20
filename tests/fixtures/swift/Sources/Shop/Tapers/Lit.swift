@@ -11,3 +11,8 @@ func lightAll(tapers: [Taper], byName: [String: Taper], byKind: [Int: Sconce]) {
     byKind[1]?.snuff()
     //         ^ d: Sources/Shop/Tapers/Sconce.swift:2
 }
+
+func lightSome<Taper>(byName: [String: Taper]) {
+    byName["a"]?.snuff()
+    //           ^ d: picker Sources/Shop/Tapers/Lit.swift:3, Sources/Shop/Tapers/Sconce.swift:2, Sources/Shop/Tapers/Taper.swift:2
+}
