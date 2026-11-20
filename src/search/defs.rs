@@ -389,7 +389,7 @@ fn swift_patterns(word: &str) -> Vec<String> {
         format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
         format!(r"{mods}(?:let|var)\s+`?{w}\b"),
         format!(
-            r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
+            r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|;|\}}|$)"
         ),
     ];
     if matches!(word, "init" | "subscript" | "deinit") {
