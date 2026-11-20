@@ -398,27 +398,39 @@ impl App {
                 let given = search::SwiftGiven::Value(value);
                 self.swift_given_type(here, file, text, line1, given, hops)
             }
-            [] => {
-                let at = around?;
-                let top = search::swift_member_scope_top(&lines, &literal, line1, at, name)?;
-                let upto = |l: usize| {
-                    let line = lines[l - 1];
-                    match (l == line1 && file == here && line1 == self.line + 1)
-                        .then(|| line.get(..self.col))
-                    {
-                        Some(Some(head)) => head,
-                        _ => line,
-                    }
-                };
-                if top == 0 || (top..=line1).any(|l| search::swift_may_bind(upto(l), name)) {
-                    return None;
-                }
-                let own = search::swift_type_header(lines[at - 1])?.name;
-                let ty = self.swift_type(here, &own)?;
-                self.swift_field(here, &ty, name, hops)
-            }
+            [] => self.swift_own_field_value(here, file, text, line1, name, hops),
             _ => None,
         }
+    }
+
+    fn swift_own_field_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let at = search::swift_enclosing_type(&lines, &literal, line1)?;
+        let top = search::swift_member_scope_top(&lines, &literal, line1, at, name)?;
+        let upto = |l: usize| {
+            let line = lines[l - 1];
+            match (l == line1 && file == here && line1 == self.line + 1)
+                .then(|| line.get(..self.col))
+            {
+                Some(Some(head)) => head,
+                _ => line,
+            }
+        };
+        if top == 0 || (top..=line1).any(|l| search::swift_may_bind(upto(l), name)) {
+            return None;
+        }
+        let own = search::swift_type_header(lines[at - 1])?.name;
+        let ty = self.swift_type(here, &own)?;
+        self.swift_field(here, &ty, name, hops)
     }
 
     fn swift_sequence_value(

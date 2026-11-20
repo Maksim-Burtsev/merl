@@ -351,6 +351,11 @@ impl App {
         if self.answered_by_swift_cast(a) {
             return true;
         }
+        self.answered_by_swift_call(a)
+    }
+
+    fn answered_by_swift_call(&mut self, a: &Asked) -> bool {
+        let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
