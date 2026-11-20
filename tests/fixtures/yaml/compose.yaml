@@ -35,7 +35,7 @@ services:
         condition: service_started
     volumes:
       - parcels:/var/parcels
-      #  ^ d: picker compose.yaml:24, compose.yaml:64; want compose.yaml:64 (#436)
+      #  ^ d: picker compose.yaml:24, compose.yaml:64; want compose.yaml:64 (#1552)
 
   db:
     image: postgres:16

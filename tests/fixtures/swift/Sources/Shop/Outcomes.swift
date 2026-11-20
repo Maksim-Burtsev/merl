@@ -455,7 +455,7 @@ final class Cashbook {
         }
         let sheet = Strongbox(Sheet())
         return sheet.read { $0.pending.isEmpty }
-        //                     ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473; want Sources/Shop/Outcomes.swift:454 (#1068)
+        //                     ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473; want Sources/Shop/Outcomes.swift:454 (#1552)
     }
 
     final class Teller: Basis {
