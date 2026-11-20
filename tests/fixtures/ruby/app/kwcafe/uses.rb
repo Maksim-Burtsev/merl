@@ -17,7 +17,7 @@ end
 
 class KwNeighbours
   def kwshort mugful: 0
-    #         ^ d: !jump
+    #         ^ d: app/kwcafe/uses.rb:19
     mugful
   end
 
@@ -190,5 +190,19 @@ class KwBlockOwn < KwNeighbours
     #             ^ d: app/kwcafe/uses.rb:146
     items.each do (blk).times end
     #              ^ d: app/kwcafe/uses.rb:147
+  end
+end
+
+class KwOwnParams
+  def kwparen(mugful: 0, pot: nil)
+    #         ^ d: app/kwcafe/uses.rb:197
+    #                    ^ d: none
+    mugful
+  end
+
+  def kwplain cups, mugful
+    #         ^ d: none
+    #               ^ d: app/kwcafe/uses.rb:203
+    cups + mugful
   end
 end

@@ -251,6 +251,10 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
     param_names(&list).iter().any(|p| p == name)
 }
 
+pub fn ruby_def_param(line: &str, name: &str) -> bool {
+    def_binds(&[line], 0, name)
+}
+
 fn block_binds(line: &str, name: &str) -> bool {
     static PARAMS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:\bdo|\{)\s*\|([^|]*)\|\s*(?:#.*)?$").expect("the regex is a literal")
