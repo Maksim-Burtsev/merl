@@ -840,7 +840,7 @@ impl App {
         {
             return None;
         }
-        let mut bindings = rust_seen(text, line0, name, above);
+        let mut bindings = self.rust_seen(file, text, line0, name, above);
         if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
             && let (Some(c), Some(line)) = (col, lines.get(line0))
             && chain::arm_hides(line, name, c)
@@ -1358,12 +1358,48 @@ fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) 
     }
 }
 
-fn rust_seen(text: &str, line0: usize, name: &str, above: bool) -> Vec<search::Binding> {
-    let mut seen = search::bindings(Kind::Rust, text, line0 + 1, name);
-    if above {
-        seen.retain(|b| b.line1 <= line0);
+impl App {
+    pub(super) fn rust_seen(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        name: &str,
+        above: bool,
+    ) -> Vec<search::Binding> {
+        let mut seen = search::bindings(Kind::Rust, text, line0 + 1, name);
+        if seen.is_empty() {
+            seen = self.rust_struct_named_variables(file, text, line0 + 1, name);
+        }
+        if above {
+            seen.retain(|b| b.line1 <= line0);
+        }
+        seen
     }
-    seen
+
+    pub(super) fn rust_struct_named_variables(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Vec<search::Binding> {
+        let found = search::rust_type_named_variables(text, line1, name);
+        if found.is_empty() {
+            return found;
+        }
+        let pattern = search::def_patterns(Kind::Rust, name).join("|");
+        let types = self.project_definitions(Kind::Rust, file, name, &pattern);
+        if !types.is_empty()
+            && types
+                .iter()
+                .all(|h| search::rust_named_fields_struct(&h.text, name))
+        {
+            found
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {

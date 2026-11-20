@@ -78,7 +78,10 @@ impl App {
         } else if kind == Kind::Solidity && line == self.line + 1 {
             search::bindings_at(kind, path, text, line, Some(col), name)
         } else if kind == Kind::Rust && line == self.line + 1 {
-            let found = search::path_bindings(kind, path, text, line, name);
+            let mut found = search::path_bindings(kind, path, text, line, name);
+            if found.is_empty() {
+                found = self.rust_struct_named_variables(path, text, line, name);
+            }
             if found.iter().any(|b| b.line1 == line)
                 && search::rust_bound_before(self.line_str(), name, col)
             {
