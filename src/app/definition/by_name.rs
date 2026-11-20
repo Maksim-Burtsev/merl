@@ -254,7 +254,8 @@ impl App {
             !t.contains('|')
                 && (t.ends_with("[]") || t.starts_with("Array<") || t.starts_with("ReadonlyArray<"))
         };
-        if let [receiver] = a.chain.as_slice()
+        if found.len() > 1
+            && let [receiver] = a.chain.as_slice()
             && let [
                 search::Binding {
                     value: search::Value::Type(written),
