@@ -10,7 +10,13 @@ use super::{
 struct Link {
     name: String,
     call: bool,
+    turbofish: Option<String>,
 }
+
+static DYN_ANY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:&\s*(?:mut\s+)?)?dyn\s+(?:(?:std|core)::any::)?Any\b")
+        .expect("the regex is a literal")
+});
 
 struct Walked {
     head: Vec<String>,
@@ -109,15 +115,18 @@ fn walk_back(expr: &str) -> Option<Walked> {
                 Link {
                     name: "?".to_owned(),
                     call: false,
+                    turbofish: None,
                 },
             );
             s = tried.trim_end();
         }
         let call = s.ends_with(')');
+        let mut turbofish = None;
         if call {
             s = s.get(..opening(s, b')', b'(')?)?.trim_end();
             if s.ends_with('>') {
                 let open = opening(s, b'>', b'<')?;
+                turbofish = s.get(open + 1..s.len() - 1).map(str::to_owned);
                 s = s.get(..open)?.strip_suffix("::")?;
             }
         }
@@ -132,6 +141,7 @@ fn walk_back(expr: &str) -> Option<Walked> {
                 Link {
                     name: name.to_owned(),
                     call,
+                    turbofish,
                 },
             );
             s = head.trim_end();
@@ -174,21 +184,37 @@ fn plain_name(part: &str) -> Option<&str> {
 }
 
 fn tuple_names(pattern: &str) -> bool {
-    super::returns::top_level(pattern)
-        .iter()
-        .all(|p| nested(p).map_or_else(|| plain_name(p).is_some(), tuple_names))
+    let parts = super::returns::top_level(pattern);
+    parts.iter().filter(|p| p.trim() == "..").count() <= 1
+        && parts.iter().all(|p| {
+            p.trim() == ".." || nested(p).map_or_else(|| plain_name(p).is_some(), tuple_names)
+        })
 }
 
 fn tuple_path(pattern: &str, name: &str) -> Option<Vec<(usize, usize)>> {
     let parts = super::returns::top_level(pattern);
+    let rest = parts.iter().position(|p| p.trim() == "..");
     parts.iter().enumerate().find_map(|(i, p)| {
         let mut below = match nested(p) {
             Some(inner) => tuple_path(inner, name)?,
             None => (plain_name(p)? == name).then(Vec::new)?,
         };
-        below.insert(0, (i, parts.len()));
+        let at = match rest {
+            None => (i, parts.len()),
+            Some(r) if i < r => (i, usize::MAX),
+            Some(_) => (parts.len() - 1 - i, 0),
+        };
+        below.insert(0, at);
         Some(below)
     })
+}
+
+fn tuple_part<'a>(parts: &[&'a str], (i, n): (usize, usize)) -> Option<&'a str> {
+    match n {
+        0 => parts.iter().rev().nth(i).copied(),
+        usize::MAX => parts.get(i).copied(),
+        _ => parts.get(i).filter(|_| parts.len() == n).copied(),
+    }
 }
 
 fn tuple_initializer(
@@ -205,6 +231,25 @@ fn tuple_initializer(
     Some((path, init))
 }
 
+fn tuple_annotated(line: &str, name: &str) -> Option<String> {
+    let t = line.trim().strip_prefix("let ")?.trim_start();
+    let (pattern, _) = t.split_once('=')?;
+    let (names, annotation) = pattern.match_indices("):").find_map(|(k, _)| {
+        let names = nested(pattern.get(..=k)?).filter(|n| tuple_names(n))?;
+        Some((names, pattern.get(k + 2..)?))
+    })?;
+    tuple_element(annotation, &tuple_path(names, name)?)
+}
+
+fn tuple_element(written: &str, path: &[(usize, usize)]) -> Option<String> {
+    let mut element = written.trim();
+    for &(i, n) in path {
+        let parts = super::returns::top_level(nested(element.trim())?);
+        element = tuple_part(&parts, (i, n))?;
+    }
+    Some(element.trim().to_owned())
+}
+
 fn struct_pattern<'a>(line: &'a str, name: &str) -> Option<(&'a str, String)> {
     static PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
@@ -212,14 +257,32 @@ fn struct_pattern<'a>(line: &'a str, name: &str) -> Option<(&'a str, String)> {
         )
         .expect("the regex is a literal")
     });
+    static PARAM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"[(,]\s*((?:\w+::)*[A-Z]\w*)\s*(?:\{([^{}()\[\]&|]*)\}|\(([^{}()\[\]&|]*)\))\s*:\s*((?:\w+::)*[A-Z]\w*)\s*[,)]",
+        )
+        .expect("the regex is a literal")
+    });
     let t = line.trim();
-    let c = PATTERN.captures(t)?;
+    if t.contains(" else ") || t.ends_with(" else") {
+        return None;
+    }
+    match PATTERN.captures(t) {
+        Some(c) => struct_bound(&c, name),
+        None => PARAM
+            .captures_iter(t)
+            .filter(|c| c[1] == c[4])
+            .find_map(|c| struct_bound(&c, name)),
+    }
+}
+
+fn struct_bound<'a>(c: &regex::Captures<'a>, name: &str) -> Option<(&'a str, String)> {
     let owner = c.get(1)?.as_str();
     let enum_variant = owner
         .rsplit("::")
         .nth(1)
         .is_some_and(|s| s.starts_with(|c: char| c.is_ascii_uppercase()));
-    if owner == "Self" || enum_variant || t.contains(" else ") || t.ends_with(" else") {
+    if owner == "Self" || enum_variant {
         return None;
     }
     let bare = |s: &str| {
@@ -530,6 +593,20 @@ impl App {
                 file,
                 written,
                 line0,
+            } if link.call
+                && matches!(link.name.as_str(), "downcast_ref" | "downcast_mut")
+                && DYN_ANY.is_match(&written) =>
+            {
+                Some(Got::Written {
+                    file,
+                    written: format!("Option<{}>", link.turbofish.as_ref()?),
+                    line0,
+                })
+            }
+            Got::Written {
+                file,
+                written,
+                line0,
             } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
             _ => None,
         }
@@ -548,6 +625,7 @@ impl App {
                 .rust_value_type(file, text, line0, name, own.is_some(), None)
                 .map(|(ty, _)| Got::Ty(ty))
                 .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some()))
+                .or_else(|| self.rust_dyn_any(file, text, line0, name))
                 .or_else(|| {
                     let b = self
                         .rust_param_bound(file, text, line0, name)
@@ -684,6 +762,22 @@ impl App {
         self.rust_resolve(&imp.path, &assoc, imp.line1 - 1)
     }
 
+    fn rust_dyn_any(&self, file: &Path, text: &str, line0: usize, name: &str) -> Option<Got> {
+        let [b] = &search::bindings(Kind::Rust, text, line0 + 1, name)[..] else {
+            return None;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let Some(search::RustHolds::Type(written)) = search::rust_holds(&lines, b.line1 - 1, name)
+        else {
+            return None;
+        };
+        (DYN_ANY.is_match(&written) && self.rust_std_named(text, "Any")).then(|| Got::Written {
+            file: file.to_path_buf(),
+            written,
+            line0: b.line1 - 1,
+        })
+    }
+
     fn rust_fn_closure_input(
         &self,
         file: &Path,
@@ -747,6 +841,9 @@ impl App {
                 let (hit, written) = self.rust_field(&ty, &field)?;
                 return Some(self.rust_got(&ty.path, written, hit.line1 - 1));
             }
+            if let Some(written) = tuple_annotated(lines.get(at)?, name) {
+                return Some(self.rust_got(file, written, at));
+            }
             let (path, init) = tuple_initializer(&lines, at, name)?;
             return self.rust_tuple_got(file, text, at, name, &path, &init);
         };
@@ -779,7 +876,7 @@ impl App {
         for (k, &(i, n)) in path.iter().enumerate() {
             if let Some(inner) = nested(expr) {
                 let parts = super::returns::top_level(inner);
-                expr = parts.get(i).filter(|_| parts.len() == n)?;
+                expr = tuple_part(&parts, (i, n))?;
                 continue;
             }
             let w = walk_back(expr)?;
@@ -794,12 +891,12 @@ impl App {
             else {
                 return None;
             };
-            let mut element = written.trim();
-            for &(i, n) in &path[k..] {
-                let parts = super::returns::top_level(nested(element.trim())?);
-                element = parts.get(i).filter(|_| parts.len() == n)?;
-            }
-            return Some(self.rust_got(&file, element.to_owned(), line0));
+            return Some(self.rust_got(&file, tuple_element(&written, &path[k..])?, line0));
+        }
+        if expr.starts_with(|c: char| c.is_ascii_uppercase())
+            && let Some(ty) = self.rust_unit_struct(file, at, expr)
+        {
+            return Some(Got::Ty(ty));
         }
         self.rust_walked_got(file, text, at, name, true, &walk_back(expr)?)
     }
@@ -1299,13 +1396,14 @@ impl App {
             }
             Got::Written { .. } | Got::Bound(_) => return None,
         };
-        let hits = if call {
+        let mut hits = if call {
             self.rust_members(&ty, word)
         } else {
             self.rust_field(&ty, word)
                 .map(|(hit, _)| vec![hit])
                 .unwrap_or_default()
         };
+        hits.retain(|h| self.rust_exported(here, h));
         let reason = Reason::Receiver(format!("{via}(): {}", ty.name));
         Some(
             hits.into_iter()

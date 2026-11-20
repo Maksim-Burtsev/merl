@@ -395,7 +395,7 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
             ),
             (
                 "src/lib.rs",
-                "mod extra;\n\ntrait Local {\n    fn loc(&self);\n}\n\nimpl Local for u32 {\n    fn loc(&self) {}\n}\n\npub fn calls(x: &near::N, n: u32, v: Vec<u32>) {\n    x.inner();\n    x.kick();\n    n.loc();\n    n.dup();\n    n.wr();\n    n.mac();\n    n.wide();\n    v.unst();\n}\n\npub struct W(Vec<u32>);\n\nimpl W {\n    pub fn is_empty(&self) -> bool { self.0.is_empty() }\n    pub(crate) fn shared(&self) {}\n}\n",
+                "mod extra;\n\ntrait Local {\n    fn loc(&self);\n}\n\nimpl Local for u32 {\n    fn loc(&self) {}\n}\n\npub fn calls(x: &near::N, y: Unknown, n: u32, v: Vec<u32>) {\n    x.inner();\n    x.kick();\n    y.kick();\n    n.loc();\n    n.dup();\n    n.wr();\n    n.mac();\n    n.wide();\n    v.unst();\n}\n\npub struct W(Vec<u32>);\n\nimpl W {\n    pub fn is_empty(&self) -> bool { self.0.is_empty() }\n    pub(crate) fn shared(&self) {}\n}\n",
             ),
             (
                 "src/extra.rs",
@@ -467,9 +467,15 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
             none("inner"),
         ),
         (
-            "the project's own, a package the lock does not list (`vend`) and a transitive dependency (`mid`); not the registry copy of the workspace's `near`, nor `far`",
+            "a `pub` method of a type written with another crate of the workspace (#1469)",
             "src/lib.rs",
             "x.kick",
+            jump("kick \u{2192} N::kick (via x: N)", "near/src/lib.rs:5"),
+        ),
+        (
+            "the project's own, a package the lock does not list (`vend`) and a transitive dependency (`mid`); not the registry copy of the workspace's `near`, nor `far`",
+            "src/lib.rs",
+            "y.kick",
             Shown::Picker(
                 "kick: by name, 3 declarations".into(),
                 vec![
@@ -543,7 +549,7 @@ fn each_reach_rule_keeps_or_drops_its_namesake() {
             "a child module sees its crate's `pub(crate)` items",
             "src/extra/sub.rs",
             "w.shared",
-            jump("shared \u{2192} W::shared (via w: W)", "src/lib.rs:26"),
+            jump("shared \u{2192} W::shared (via w: W)", "src/lib.rs:27"),
         ),
         (
             "a crate root of `tests/` has its directory",

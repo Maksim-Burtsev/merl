@@ -796,13 +796,14 @@ impl App {
             }
             ty = next;
         }
-        let hits = if call {
+        let mut hits = if call {
             self.rust_members(&ty, word)
         } else {
             self.rust_field(&ty, word)
                 .map(|(hit, _)| vec![hit])
                 .unwrap_or_default()
         };
+        hits.retain(|h| self.rust_exported(here, h));
         let label = links.join(" \u{2192} ");
         Ok(Typing::Members(
             hits.into_iter()
