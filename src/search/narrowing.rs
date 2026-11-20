@@ -185,24 +185,34 @@ fn checked_walk(
         if let Some(c) = s.header.captures(&l) {
             return found(c.name("t")?.as_str(), end, crossed, false);
         }
-        if at_else
-            && l.split_whitespace().collect::<String>() == "}else{"
-            && let Some(top) = (0..k)
-                .rev()
-                .filter(filled)
-                .find(|j| indent(&line(*j)) <= ind)
-            && let h = logical(top).1
-            && indent(&h) == ind
-            && !h.trim_start().starts_with('}')
-            && let Some(t) = s.header.captures(&h).and_then(|c| c.name("t"))
-        {
-            return found(t.as_str(), top, crossed, true);
+        if at_else && let Some((t, top)) = else_of_header(&s, &l, k, &line, &filled) {
+            return found(&t, top, crossed, true);
         }
         if s.mention.is_match(&l) && !s.negated_header.is_match(&l) {
             return None;
         }
     }
     None
+}
+
+fn else_of_header(
+    s: &Shapes,
+    l: &str,
+    k: usize,
+    line: &dyn Fn(usize) -> String,
+    filled: &dyn Fn(&usize) -> bool,
+) -> Option<(String, usize)> {
+    if l.split_whitespace().collect::<String>() != "}else{" {
+        return None;
+    }
+    let ind = indent(l);
+    let top = (0..k)
+        .rev()
+        .filter(filled)
+        .find(|j| indent(&line(*j)) <= ind)?;
+    let h = logical(top, line, filled).1;
+    let t = s.header.captures(&h)?.name("t")?.as_str().to_owned();
+    (indent(&h) == ind && !h.trim_start().starts_with('}')).then_some((t, top))
 }
 
 fn logical(
