@@ -925,7 +925,11 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
         ],
     );
     for (code, place, status) in [
-        ("tally::count|()", "src/tally.rs:1", "count: by name"),
+        (
+            "tally::count|()",
+            "src/tally.rs:1",
+            "count: via crate::tally",
+        ),
         (
             "std::fs::Walker::new",
             "library/std/src/fs/walk.rs:4",
@@ -2529,7 +2533,7 @@ fn prelude_names_and_primitives_resolve_in_the_sysroot_before_a_project_namesake
             "Vec: by name, 1 match @ vendor/boxcar.rs:1",
             "Vec: in this file @ vendor/boxcar.rs:1",
             "Result: by name, 1 match @ src/error.rs:1",
-            "String: by name, 1 match @ src/b/inner.rs:1",
+            "String: via import crate::b::inner @ src/b/inner.rs:1",
             "Option: by name, 1 match @ std/src/option.rs:1",
             "Box: by name, 1 match @ std/src/boxed.rs:1",
         ]

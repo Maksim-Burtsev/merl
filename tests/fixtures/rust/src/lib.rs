@@ -57,3 +57,6 @@ pub mod creels;
 pub mod cauldrons;
 pub mod gravy;
 pub mod gravy_far;
+pub mod flasks;
+pub mod rinses;
+pub mod strainers;

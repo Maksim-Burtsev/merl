@@ -453,11 +453,10 @@ impl App {
             full.extend(chain[1..].iter().cloned());
             full.push(word.to_owned());
         }
-        let (root, rest) = full.split_first()?;
-        if rest.is_empty() {
-            return None;
+        if full.len() > 1 && declares_mod(text, &full[0]) {
+            full.insert(0, "self".to_owned());
         }
-        let own_mod = declares_mod(text, root);
+        let (root, rest) = full.split_first().filter(|(_, rest)| !rest.is_empty())?;
         let kind = Kind::Rust;
         let by = |hits: Vec<Hit>, reason: Reason| -> Vec<Candidate> {
             hits.into_iter()
@@ -482,7 +481,6 @@ impl App {
                 let (krate, module) = self.rust_own_crate(here, root, rest)?;
                 (krate, module, "crate".to_owned(), 0)
             }
-            _ if own_mod => return None,
             r if SYSROOT.contains(&r) => (self.sysroot_crate(r)?, Vec::new(), root.clone(), 0),
             r => match self.workspace_crate(r) {
                 Some(krate) => match self.rust_crate_reexported(&krate, rest) {
