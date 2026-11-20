@@ -192,7 +192,7 @@ pub fn bindings_at(
     };
     match kind {
         Kind::Python => {
-            match col.and_then(|c| super::py_lambda::python_lambda_value(text, lines[at], c, name))
+            match col.and_then(|c| super::py_lambda::python_inline_value(text, lines[at], c, name))
             {
                 Some(value) => vec![Binding { line1: line, value }],
                 None => python_bindings_at(&lines, at, name),

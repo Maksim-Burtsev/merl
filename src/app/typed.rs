@@ -628,7 +628,13 @@ impl App {
             });
         }
         if !bindings.is_empty() || kind != Kind::Go {
-            return self.agree(kind, file, text, &bindings, hops);
+            return self.agree(kind, file, text, &bindings, hops).or_else(|| {
+                let lines: Vec<usize> = bindings.iter().map(|b| b.line1).collect();
+                let from = (kind == Kind::Python && lines.len() > 1)
+                    .then(|| search::python_reaching(text, line1, name, &lines))??;
+                bindings.retain(|b| b.line1 == from);
+                self.agree(kind, file, text, &bindings, hops)
+            });
         }
         let imported = search::imports(kind, text).iter().any(|i| i.name == name);
         if imported || search::go_may_declare(text, line1, name) {

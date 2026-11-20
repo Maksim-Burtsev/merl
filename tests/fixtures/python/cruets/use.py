@@ -71,7 +71,7 @@ def rebound(c: Cruet, p: Phial) -> None:
     if isinstance(c, Vial):
         c = p
         c.uncork()
-        # ^ d: !jump
+        # ^ d: cruets/phial.py:5
 
 
 def own(f: Flute) -> None:
