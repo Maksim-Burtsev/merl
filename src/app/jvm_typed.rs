@@ -1203,7 +1203,7 @@ impl App {
             !is_type(h)
                 && !types.iter().any(|t| t.path == h.path)
                 && !self.jvm_hidden_elsewhere(file, h)
-                && !(typed && written::field_elsewhere(file, h, written))
+                && (!typed || !written::field_elsewhere(file, h, written))
         });
         if others {
             return JvmType::Unknown;

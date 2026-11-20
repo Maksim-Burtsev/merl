@@ -17,23 +17,22 @@ impl App {
             && search::jvm_enclosing_members(here, text, line, name).is_none()
             && search::kotlin_constructor_parameter(text, line, name).is_none();
         unbound.then_some(())?;
-        let (owner, written) = match search::kotlin_receiver_scope(text, line, before) {
-            Some(value) => {
+        let (owner, written) =
+            if let Some(value) = search::kotlin_receiver_scope(text, line, before) {
                 let w = self.jvm_value(here, text, line, &value, true, 1)?;
                 (w.resolved, w.written)
-            }
-            None => {
+            } else {
                 let ext = search::kotlin_extension_at(text, line, before)?;
                 let written = bound_of(text, &ext.receiver, &ext.name).unwrap_or(ext.receiver);
                 (self.jvm_type_at(here, text, &written), written)
-            }
-        };
+            };
         let JvmType::Project(decl) = owner else {
             return None;
         };
         let TypedField { hit, written: ty } = self.jvm_field_type(&decl, name, true)?;
         let hidden = ["private", "protected"];
-        (!hit.text.split_whitespace().any(|w| hidden.contains(&w))).then_some(())?;
+        let value = search::jvm_type_name(&hit.text).as_deref() != Some(name);
+        (value && !hit.text.split_whitespace().any(|w| hidden.contains(&w))).then_some(())?;
         let t = self.text_of(&hit.path)?;
         let resolved = self.jvm_type_on(&hit.path, &t, &ty, Some(hit.line1));
         Some((
