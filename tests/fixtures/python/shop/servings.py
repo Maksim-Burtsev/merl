@@ -81,3 +81,5 @@ def listed():
     [lone] = serve_two()
     lone.dollop()
     #    ^ d: !jump
+    far.dollop()
+    # ^ d: shop/servings.py:76
