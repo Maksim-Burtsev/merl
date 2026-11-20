@@ -19,11 +19,11 @@ fun bench() {
     Bucksaw.hoist()
 //          ^ d: src/main/kotlin/sawhorse/Stool.kt:46
     Bucksaw.Companion.hoist().whittle()
-//                            ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4; want src/main/kotlin/sawhorse/Twig.kt:4 (#1522)
+//                            ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4; want src/main/kotlin/sawhorse/Twig.kt:4 (#1552)
     s.grip(Peg()).whittle()
 //                ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4
     (s as Bucksaw).hoist().whittle()
-//                         ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4; want src/main/kotlin/sawhorse/Peg.kt:4 (#1522)
+//                         ^ d: picker src/main/kotlin/sawhorse/Peg.kt:4, src/main/kotlin/sawhorse/Twig.kt:4; want src/main/kotlin/sawhorse/Peg.kt:4 (#1552)
     val t = b.hoist()
     t.whittle()
 //    ^ d: src/main/kotlin/sawhorse/Peg.kt:4
