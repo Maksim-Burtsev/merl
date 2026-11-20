@@ -249,6 +249,32 @@ impl App {
         if !namespace && found.iter().any(|c| TOP_LEVEL.is_match(&c.hit.text)) {
             self.offer_only = true;
         }
+        let array = |t: &str| {
+            let t = t.trim();
+            !t.contains('|')
+                && (t.ends_with("[]") || t.starts_with("Array<") || t.starts_with("ReadonlyArray<"))
+        };
+        if let [receiver] = a.chain.as_slice()
+            && let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    ..
+                },
+            ] = &search::bindings(a.kind, &a.text, self.line + 1, receiver)[..]
+            && array(written)
+        {
+            let on_array: Vec<bool> = found
+                .iter()
+                .map(|c| {
+                    self.text_of(&c.hit.path)
+                        .is_some_and(|t| search::ts_array_extension(&t, c.hit.line1, &a.word))
+                })
+                .collect();
+            if on_array.contains(&true) {
+                let mut kept = on_array.into_iter();
+                found.retain(|_| kept.next().unwrap_or(false));
+            }
+        }
     }
 
     fn found_last(
