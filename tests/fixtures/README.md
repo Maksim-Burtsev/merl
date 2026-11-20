@@ -934,6 +934,11 @@ getter is left as it was, beside its setter in `coffee/cezve.js`.
 and `pick<T>(x: T): T` return a type parameter: `d.lid().scour()` on a `Dish<Tub>`, on a `Mug
 extends Dish<Tub[]>` and `d.pick(j).scour()` keep the picker, where they jumped to `T.scour`.
 
+`typescript/brewery/` (#1494): `Decanter` and `Growler` implement `Vat`, each with a `tap`.
+`pour.ts` casts with `<Decanter>v`, and checks `x: Decanter | Growler` with `instanceof`, whose
+`else` lands on `Growler.tap`; the last `else` of an `else if` chain, a union of three and one
+without the checked type keep the picker. In `label.tsx` `<Decanter>v` is JSX and types nothing.
+
 `kylix/` (TypeScript, Rust, Swift, C#, PHP, Dart and Ruby, each in its own fixture) declares
 classes whose whole body sits on their declaration line (#1486): `Kylix` alone in its file,
 `Skyphos` (two members) and `Rhyton` above a multi-line `Kantharos` in another, each with a

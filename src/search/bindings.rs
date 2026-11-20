@@ -25,6 +25,7 @@ pub enum Value {
         callee: String,
         written_type: String,
     },
+    AngleCast(String),
     Element(String),
     Field {
         chain: Vec<String>,

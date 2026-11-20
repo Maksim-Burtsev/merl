@@ -227,8 +227,13 @@ impl App {
                 fields_to_word: fields,
             }) => {
                 let value = value.clone();
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast { .. })
-                    .then(|| call.clone());
+                let cast = matches!(
+                    value,
+                    search::Value::Type(_)
+                        | search::Value::Cast { .. }
+                        | search::Value::AngleCast(_)
+                )
+                .then(|| call.clone());
                 let TypeVia { ty, call_signature } = self
                     .binding_type(
                         kind,
@@ -728,7 +733,8 @@ impl App {
             });
         }
         match &b.value {
-            search::Value::Type(t) | search::Value::New(t) => {
+            search::Value::AngleCast(_) if !search::reads_angle_casts(file) => None,
+            search::Value::Type(t) | search::Value::New(t) | search::Value::AngleCast(t) => {
                 self.written_type(kind, file, text, b, t).map(|ty| TypeVia {
                     ty,
                     call_signature: None,
