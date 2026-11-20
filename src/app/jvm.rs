@@ -84,11 +84,9 @@ impl App {
 
     pub(super) fn java_field_owner(&self, here: &Path, text: &str, name: &str) -> Option<Hit> {
         let line = self.line + 1;
-        let narrowed = Regex::new(&format!(r"\b{}\s+instanceof\b", regex::escape(name))).ok()?;
         (here.extension().is_some_and(|e| e == "java")
             && search::path_bindings(Kind::Jvm, here, text, line, name).is_empty()
-            && search::jvm_bindings_at(here, text, line, self.col, name).is_empty()
-            && !narrowed.is_match(text))
+            && search::jvm_bindings_at(here, text, line, self.col, name).is_empty())
         .then_some(())?;
         let lines: Vec<&str> = text.lines().collect();
         let enclosing = search::jvm_enclosing_types(text, line);
@@ -105,12 +103,21 @@ impl App {
         };
         enclosing
             .iter()
-            .map(|&d| Hit {
-                deleted: None,
-                path: here.to_path_buf(),
-                line1: d,
-                byte_col: None,
-                text: lines[d - 1].to_owned(),
+            .flat_map(|&d| {
+                let own = Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: d,
+                    byte_col: None,
+                    text: lines[d - 1].to_owned(),
+                };
+                let bases = search::jvm_anonymous_bases(lines[d - 1])
+                    .into_iter()
+                    .filter_map(|b| match self.jvm_type_at(here, text, &b) {
+                        super::jvm_typed::JvmType::Project(h) => Some(h),
+                        _ => None,
+                    });
+                std::iter::once(own).chain(bases)
             })
             .find(|decl| {
                 self.jvm_hierarchy_member(decl, name, 0, &mut Vec::new(), false)
@@ -480,6 +487,7 @@ impl App {
             && kotlin
             && word.starts_with(|c: char| c.is_ascii_lowercase())
             && let Some(ext) = search::kotlin_extension_at(text, self.line + 1, before)
+            && !ext.member
             && let super::jvm_typed::JvmType::Project(decl) =
                 self.jvm_type_at(here, text, &ext.receiver)
         {
@@ -520,7 +528,7 @@ impl App {
         self.jvm_hierarchy_found(&ty, &name, word)
     }
 
-    fn jvm_anonymous_inherited(
+    pub(super) fn jvm_anonymous_inherited(
         &self,
         here: &Path,
         text: &str,

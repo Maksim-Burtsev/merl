@@ -365,6 +365,12 @@ impl App {
         {
             let reason = Reason::Path("this".to_owned());
             let lines = search::jvm_members_of(&a.here, &a.text, anon, &a.word);
+            if lines.is_empty()
+                && a.here.extension().is_some_and(|e| e == "java")
+                && let Some(header) = a.text.lines().nth(anon - 1)
+            {
+                return self.jvm_anonymous_inherited(&a.here, &a.text, header, &a.word);
+            }
             return self.lines_here(a, lines, &reason);
         }
         if applies && let Some(owner) = alias.or_else(|| search::jvm_this_owner(&a.text, line1)) {

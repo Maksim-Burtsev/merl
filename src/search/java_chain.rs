@@ -172,6 +172,16 @@ pub fn java_functional_parameter(parameter: &str) -> Option<String> {
     Some(FUNCTIONAL.captures(parameter.trim())?[1].to_owned())
 }
 
+pub fn java_declared_lambda(line: &str, name: &str) -> Option<String> {
+    let code = uncommented(Kind::Jvm, line);
+    let (declared, lambda) = code.split_once('=')?;
+    let n = regex::escape(name);
+    let head = Regex::new(&format!(r"^\s*(?:\(\s*{n}\s*\)|{n})\s*->")).ok()?;
+    head.is_match(lambda)
+        .then(|| java_functional_parameter(declared))
+        .flatten()
+}
+
 fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
     loop {

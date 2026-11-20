@@ -41,15 +41,22 @@ impl App {
         file: &Path,
         text: &str,
         line1: usize,
-        name: &str,
-        index: usize,
+        d: &search::KotlinDestructured,
     ) -> Option<WrittenType> {
+        if let Some(made) = &d.made {
+            let resolved = self.jvm_type_on(file, text, made, Some(line1));
+            return matches!(resolved, JvmType::Project(_)).then(|| WrittenType {
+                resolved,
+                written: made.clone(),
+            });
+        }
+        let (name, index) = (d.source.strip_suffix("()")?, d.index);
         let ahead = text.lines().nth(line1.checked_sub(1)?)?;
         let hit = self.kotlin_top_level_fun(file, text, line1, ahead, name)?;
         let t = self.text_of(&hit.path)?;
         if let Some((pair, items)) = search::kotlin_top_level_pair(&hit.text, name) {
             matches!(self.jvm_type_at(&hit.path, &t, &pair), JvmType::Outside(_)).then_some(())?;
-            let written = items.get(index)?.clone();
+            let written = items.get(index)?.clone()?;
             return Some(WrittenType {
                 resolved: self.jvm_type_at(&hit.path, &t, &written),
                 written,

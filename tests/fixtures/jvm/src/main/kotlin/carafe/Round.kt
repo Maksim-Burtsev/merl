@@ -52,6 +52,12 @@ class Round(val f: Flagon) {
         //^ d: src/main/kotlin/carafe/Stein.kt:6
     }
 
+    fun elvisBare(x: Flagon?) {
+        val y = x ?: return
+        y.rinse()
+        //^ d: src/main/kotlin/carafe/Flagon.kt:6
+    }
+
     fun elseBelow(x: Flagon) {
         if (x is Stein) {
             x.swirl()

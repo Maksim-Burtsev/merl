@@ -42,5 +42,15 @@ fun unpackMore() {
 //     ^ d: src/main/kotlin/servings/Servings.kt:9
     val (n1) = serveNested()
     n1.stew()
-//     ^ d: picker src/main/kotlin/servings/Servings.kt:4, src/main/kotlin/servings/Servings.kt:9, …; want src/main/kotlin/servings/Servings.kt:4 (#1484)
+//     ^ d: src/main/kotlin/servings/Servings.kt:4
+}
+
+fun unpackMade(kits: List<Kit>) {
+    val (e, f) = Crock() to Wok()
+    f.stew()
+//    ^ d: src/main/kotlin/servings/Servings.kt:9
+    e.stew()
+//    ^ d: src/main/kotlin/servings/Servings.kt:4
+    kits.forEach { (g, h) -> h.stew() }
+//                             ^ d: src/main/kotlin/servings/Servings.kt:9
 }

@@ -1121,6 +1121,7 @@ pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
 pub struct KotlinExtension {
     pub name: String,
     pub receiver: String,
+    pub member: bool,
 }
 
 pub fn kotlin_extension_at(text: &str, line1: usize, before: &str) -> Option<KotlinExtension> {
@@ -1154,12 +1155,16 @@ pub fn kotlin_extension_at(text: &str, line1: usize, before: &str) -> Option<Kot
         }
     };
     let inside = uncommented(Kind::Jvm, &inside);
-    if scope_of(&lines, k).is_some() || inside.matches('{').count() != inside.matches('}').count() {
+    if inside.matches('{').count() != inside.matches('}').count() {
         return None;
     }
     let name = jvm_function(lines[k])?;
     let receiver = jvm_receiver(lines[k], &name)?;
-    Some(KotlinExtension { name, receiver })
+    Some(KotlinExtension {
+        name,
+        receiver,
+        member: scope_of(&lines, k).is_some(),
+    })
 }
 
 pub fn kotlin_initializer_parameter(
