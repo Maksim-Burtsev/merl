@@ -616,7 +616,7 @@ impl App {
             return None;
         }
         let via = format!("{name}[{index}]");
-        let hits = match self.rust_resolve(&file, &element, line0) {
+        let mut hits = match self.rust_resolve(&file, &element, line0) {
             Some(ty) if call => self.rust_members(&ty, word),
             Some(ty) => self
                 .rust_field(&ty, word)
@@ -630,6 +630,7 @@ impl App {
             }
             None => vec![self.rust_std_field(&owner, &element, word)?],
         };
+        hits.retain(|h| self.rust_exported(here, h));
         let reason = Reason::Receiver(format!("{via}: {element}"));
         Some(Typing::Members(
             hits.into_iter()

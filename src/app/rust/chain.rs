@@ -1396,13 +1396,14 @@ impl App {
             }
             Got::Written { .. } | Got::Bound(_) => return None,
         };
-        let hits = if call {
+        let mut hits = if call {
             self.rust_members(&ty, word)
         } else {
             self.rust_field(&ty, word)
                 .map(|(hit, _)| vec![hit])
                 .unwrap_or_default()
         };
+        hits.retain(|h| self.rust_exported(here, h));
         let reason = Reason::Receiver(format!("{via}(): {}", ty.name));
         Some(
             hits.into_iter()
