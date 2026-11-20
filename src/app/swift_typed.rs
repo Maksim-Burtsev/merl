@@ -349,6 +349,14 @@ impl App {
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
+            _ if let Some(found) = lead
+                .filter(|l| search::swift_bare_param_closure(l, name))
+                .and_then(|_| {
+                    self.swift_bare_closure_value(here, file, text, line1, name, hops)
+                }) =>
+            {
+                Some(found)
+            }
             [b] if lead.is_some_and(|l| {
                 search::swift_rebound_in_open_block(l, name, lines.get(b.line1 - 1).copied())
             }) =>
