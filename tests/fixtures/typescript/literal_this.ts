@@ -57,3 +57,16 @@ export const tray = {
 //              ^ d: !jump
   },
 };
+
+export class Pantry {
+  brimful = 0;
+  build() {
+    const box = {
+      grow() {
+        return this.brimful;
+//                  ^ d: !jump
+      },
+    };
+    return box;
+  }
+}

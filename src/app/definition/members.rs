@@ -324,12 +324,15 @@ impl App {
         {
             return;
         }
+        let imported = (kind == Kind::TsJs)
+            .then(|| bound(&search::imports(kind, &text), qualifier)?.pop())
+            .flatten();
         let owned: Option<Vec<bool>> = found
             .iter()
             .map(|c| {
                 let text = self.text_of(&c.hit.path)?;
                 let (stat, name) = static_owner(kind, &text, c.hit.line1, word)?;
-                (name == qualifier).then_some(stat)
+                (name == qualifier || imported.as_ref() == Some(&name)).then_some(stat)
             })
             .collect();
         let Some(owned) = owned else { return };
