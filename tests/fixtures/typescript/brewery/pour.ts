@@ -16,8 +16,38 @@ export function split(x: Decanter | Growler) {
     //^ d: brewery/decanter.ts:4
   } else {
     x.tap();
-    //^ d: picker brewery/decanter.ts:4, brewery/growler.ts:4, brewery/vat.ts:2; want brewery/growler.ts:4 (#1494)
+    //^ d: brewery/growler.ts:4
   }
   x.tap();
   //^ d: !jump
+}
+
+export function chained(x: Decanter | Growler) {
+  if (x instanceof Decanter) {
+    x.tap();
+  } else if (x instanceof Growler) {
+    x.tap();
+    //^ d: brewery/growler.ts:4
+  } else {
+    x.tap();
+    //^ d: !jump
+  }
+}
+
+export function three(x: Decanter | Growler | Vat) {
+  if (x instanceof Decanter) {
+    x.tap();
+  } else {
+    x.tap();
+    //^ d: !jump
+  }
+}
+
+export function outside(x: Vat | Growler) {
+  if (x instanceof Decanter) {
+    x.tap();
+  } else {
+    x.tap();
+    //^ d: !jump
+  }
 }
