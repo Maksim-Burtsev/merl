@@ -64,3 +64,43 @@ pub fn unpack_variant(pot: Pot) {
     wok.stew();
 //      ^ d: src/servings.rs:5
 }
+
+pub fn serve_three() -> (Wok, Wok, Crock) {
+    (Wok, Wok, Crock)
+}
+
+// A tuple pattern typed by its annotation, bound to a tuple of unit structs, or past a `..` (#1484).
+pub fn unpack_written() {
+    let (c, w): (Crock, Wok) = serve_pair();
+    w.stew();
+//    ^ d: src/servings.rs:9
+    c.stew();
+//    ^ d: src/servings.rs:5
+    let (p, q) = (Crock, Wok);
+    q.stew();
+//    ^ d: src/servings.rs:9
+    p.stew();
+//    ^ d: src/servings.rs:5
+    let (.., z) = serve_three();
+    z.stew();
+//    ^ d: src/servings.rs:5
+    let (y, ..) = serve_three();
+    y.stew();
+//    ^ d: src/servings.rs:9
+}
+
+// A struct pattern in a parameter types each name by its field (#1484).
+pub fn unpack_param(Kit { crock, wok }: Kit) {
+    wok.stew();
+//      ^ d: src/servings.rs:9
+    crock.stew();
+//        ^ d: src/servings.rs:5
+}
+
+pub fn unpack_rack(Rack(front, back): Rack) {
+    back.stew();
+//       ^ d: src/servings.rs:9
+}
+
+pub fn unpack_inline(Kit { crock, wok }: Kit) { wok.stew() }
+//                                                  ^ d: src/servings.rs:9

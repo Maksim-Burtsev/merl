@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::servings::Crock;
 
 // A place declared `Option<Crock>` or `Result<Crock, _>`, unwrapped by `if let`, `match` or
@@ -20,4 +22,14 @@ pub fn strain(n: Option<Crock>, r: Result<Crock, String>) {
     let Ok(f) = &r else { return };
     f.stew();
     //^ d: src/servings.rs:5
+}
+
+// `downcast_ref::<Crock>()` on a `&dyn Any` is an `Option<&Crock>` (#1494).
+pub fn sift(v: &dyn Any) {
+    if let Some(c) = v.downcast_ref::<Crock>() {
+        c.stew();
+        //^ d: src/servings.rs:5
+    }
+    v.downcast_ref::<Crock>().unwrap().stew();
+    //                                 ^ d: src/servings.rs:5
 }
