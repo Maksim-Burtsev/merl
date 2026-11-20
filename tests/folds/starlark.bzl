@@ -18,7 +18,7 @@ def _impl(ctx):  # f: 16-41
     first = names[  # f: 16-41
         0  # f: 16-41
     ]  # f: 16-41
-    if first in [  # f: 21-24
+    if first in [  # f: 21-31
         "a",  # f: 16-41
         "b",
     ]:  # f: 16-41
@@ -64,3 +64,27 @@ def shop_suite(  # f: 58-66
         native.sh_test(name = case, size = size)  # f: 61-65
         return case  # f: 61-65
     return shop_case(name)  # f: 58-66
+
+def shop_pick(names, cases):  # f: 68-90
+    for name in [  # f: 69-81
+        n  # f: 68-90
+        for n in names  # f: 68-90
+    ]:  # f: 68-90
+        if (name in cases and  # f: 73-80
+                cases[name]):  # f: 68-90
+            print(name)  # f: 68-90
+        elif (name == "a" or  # f: 76-77
+              name == "b"):  # f: 68-90
+            pass  # f: 68-90
+        else:  # f: 68-90
+            fail(name)  # f: 68-90
+        # the for's last comment f: 68-90
+    if (names and  # f: 82-88
+            cases.get(  # f: 83-85
+                names[0],  # f: 68-90
+            )):  # f: 68-90
+        pass  # f: 68-90
+    elif names:  # f: 68-90
+        pass  # f: 68-90
+    for case in cases: print([  # f: 89-90
+        case])  # f: 68-90

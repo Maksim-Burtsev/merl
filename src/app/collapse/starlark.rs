@@ -4,6 +4,8 @@ const KEYWORDS: &[&str] = &[
     "and", "or", "not", "in", "if", "else", "for", "return", "lambda", "yield", "assert", "del",
 ];
 
+const COMPOUND: &[&str] = &["def", "if", "for", "while", "with"];
+
 struct Stmt {
     first: usize,
     last: usize,
@@ -95,11 +97,12 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
         }
     }
     nodes.retain(|&(h, _)| {
-        !(stmts.binary_search_by_key(&h, |s| s.first)).is_ok_and(|k| stmts[k].word == "def")
+        !(stmts.binary_search_by_key(&h, |s| s.first))
+            .is_ok_and(|k| COMPOUND.contains(&stmts[k].word.as_str()))
     });
     let mut funcs = Vec::new();
     for (k, s) in stmts.iter().enumerate() {
-        if !["def", "if", "for", "while", "with"].contains(&s.word.as_str()) {
+        if !COMPOUND.contains(&s.word.as_str()) {
             continue;
         }
         let end = block_end(s, &stmts[k + 1..]);
