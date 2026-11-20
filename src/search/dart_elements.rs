@@ -156,3 +156,37 @@ pub fn dart_paren_awaited(before: &str) -> Option<&str> {
     let inner = rest.get(open + 1..rest.len() - 1)?.trim();
     dart_await_operand(inner).map(|_| inner)
 }
+
+pub fn dart_index_head(before: &str) -> Option<&str> {
+    let rest = before.strip_suffix('.')?;
+    let rest = rest.strip_suffix(['!', '?']).unwrap_or(rest);
+    let open = super::code(super::Kind::Dart, rest)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| super::close_of(super::Kind::Dart, rest, i) == Some(rest.len()))?;
+    let head = rest.get(..open)?;
+    let start = head
+        .char_indices()
+        .rev()
+        .take_while(|&(_, c)| c.is_alphanumeric() || c == '_' || c == '$')
+        .last()?
+        .0;
+    let name = head.get(start..)?;
+    (name.starts_with(|c: char| c.is_lowercase() || c == '_' || c == '$')
+        && !head.get(..start)?.ends_with(['.', ')', ']']))
+    .then_some(name)
+}
+
+pub fn dart_map_value_typed(line: &str, name: &str) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant)\s+)*Map<\s*[\w$.]+\??\s*,\s*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\??\s*>\??\s+{}\s*(?:[,)=;}}\]]|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}

@@ -946,6 +946,9 @@ impl App {
         if let Some(value) = search::dart_paren_awaited(before) {
             return self.dart_await_value(here, text, value, depth + 1);
         }
+        if let Some(name) = search::dart_index_head(before) {
+            return self.dart_indexed(here, text, name);
+        }
         let (links, called, _) = search::dart_call_links(before)?;
         self.dart_links_type(here, text, &links, called, false, depth)
     }
@@ -1231,6 +1234,46 @@ impl App {
         without_setter(&mut found, field);
         let [c] = found.try_into().ok()?;
         Some(c)
+    }
+
+    fn dart_indexed(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
+        let (line, path, line1) = match bindings.as_slice() {
+            [b] => (
+                text.lines().nth(b.line1 - 1)?.to_owned(),
+                here.to_path_buf(),
+                b.line1,
+            ),
+            [] => {
+                let c = self.dart_field_row(here, text, name)?;
+                (c.hit.text, c.hit.path, c.hit.line1)
+            }
+            _ => return None,
+        };
+        let (ty, container) = match search::dart_element_typed(&line, name) {
+            Some(ty) => (ty, "List"),
+            None => (search::dart_map_value_typed(&line, name)?, "Map"),
+        };
+        let own = self
+            .dart_visible_files(here, container, None)?
+            .iter()
+            .any(|f| !f.is_absolute() && self.dart_declares_class(f, container));
+        let owner = if path == here {
+            text.to_owned()
+        } else {
+            self.text_of(&path)?
+        };
+        let params = search::dart_this_super(&owner, line1 - 1, false)
+            .and_then(|o| search::dart_type_params(&owner, &o.class))
+            .unwrap_or_default();
+        (!own && (ty.prefix.is_some() || !params.contains(&ty.class))).then_some(())?;
+        self.dart_class_file(&path, &ty)?;
+        Some((ty, path))
     }
 
     fn dart_top_level(text: &str, name: &str) -> bool {

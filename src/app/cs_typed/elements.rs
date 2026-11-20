@@ -222,7 +222,12 @@ impl App {
         hops: usize,
     ) -> Option<Proven> {
         let p = self.cs_chain_type(file, text, line1, head, hops)?;
-        let CsWrittenType { ty, written, from } = self.cs_dictionary(&p)?;
+        let listed = matches!(&p.ty, CsType::Outside(o) if matches!(o.as_str(), "List" | "IList" | "IReadOnlyList"));
+        let CsWrittenType { ty, written, from } = if listed {
+            self.cs_element(&p, false)?
+        } else {
+            self.cs_dictionary(&p)?
+        };
         let link = format!("{} \u{2192} [{written}]", p.link);
         Some(Proven {
             ty,
