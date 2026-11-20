@@ -173,15 +173,26 @@ impl App {
             search::Owner::Object(_) | search::Owner::Typed => "field",
         };
         let mut out: Vec<Candidate> = Vec::new();
+        let single = owners.len() == 1;
         for c in owners {
             if (c.hit.path.is_absolute() && !reads_outside)
                 || (c.hit.path == here && c.hit.line1 == cursor_line + 1)
             {
                 continue;
             }
-            let Some(at) = self.owner_label_lines(kind, here, word, owner, &name, &c.hit) else {
+            let Some(mut at) = self.owner_label_lines(kind, here, word, owner, &name, &c.hit)
+            else {
                 continue;
             };
+            if at.is_empty()
+                && single
+                && kind == Kind::Julia
+                && let Some(t) = self.text_of(&c.hit.path)
+                && let Some(line) = search::julia_keyword_line(&t, c.hit.line1, &name, word)
+            {
+                let of = search::qualified(kind, &t, c.hit.line1, &name);
+                at.push((c.hit.path.clone(), line, of.unwrap_or_else(|| name.clone())));
+            }
             let by_name = if c.reason.proven() {
                 ""
             } else {
