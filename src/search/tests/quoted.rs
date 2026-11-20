@@ -113,6 +113,34 @@ fn a_csharp_hole_after_a_verbatim_quote_or_in_a_raw_string_is_code() {
     assert_eq!(hole(r#"$"{^a"#), None);
 }
 
+#[test]
+fn a_julia_hole_is_found_past_char_literals_adjoints_rationals_and_block_comments() {
+    let hole = |src: &str| {
+        let at = src.find('^').expect("a mark");
+        let line = src.replace('^', "");
+        hole_line(Kind::Julia, &[line.as_str()], 0, at).map(|h| h.trim().to_owned())
+    };
+    assert_eq!(hole(r#""$(^a.b)""#).as_deref(), Some("a.b"));
+    assert_eq!(
+        hole(r#""""x $(f(^a; b = 1))""""#).as_deref(),
+        Some("f(a; b = 1)")
+    );
+    assert_eq!(hole(r#"'"' * "$(^a)""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"x = A' * B'' * "$(^a)""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"x = 1 // 2; "$(^a)""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"#= "$( #= =# =# "$(^a)""#).as_deref(), Some("a"));
+    assert_eq!(
+        hole(r#""$x $(Vector{Int}(^a))""#).as_deref(),
+        Some("Vector{Int}(a)")
+    );
+    assert_eq!(hole(r#""$(f(")")) $(^a)""#).as_deref(), Some("a"));
+    assert_eq!(hole(r#"r"$(^a)""#), None);
+    assert_eq!(hole(r#""\$(^a)""#), None);
+    assert_eq!(hole(r#""$(a) ^b""#), None);
+    assert_eq!(hole(r#""$(^a # )""#), None);
+    assert_eq!(hole(r#"f(^a = "$(b)")"#), None);
+}
+
 fn guarded(kind: Kind, src: &str) -> Vec<bool> {
     let marks: Vec<usize> = src.match_indices('^').map(|(i, _)| i).collect();
     let text = src.replace('^', "");
