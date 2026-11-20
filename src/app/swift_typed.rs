@@ -5,6 +5,7 @@ mod defaults;
 mod generic;
 mod generic_base;
 mod key_path;
+mod labelled;
 mod overload;
 mod payload;
 
@@ -143,10 +144,12 @@ impl App {
         here: &Path,
         text: &str,
         word: &str,
-        call: &str,
+        (call, written): (&str, Option<&str>),
         then: &[String],
     ) -> Option<Vec<Candidate>> {
-        let mut via = self.swift_expr(here, here, text, self.line + 1, call, 2)?;
+        let mut via = self
+            .swift_expr(here, here, text, self.line + 1, call, 2)
+            .or_else(|| self.swift_expr(here, here, text, self.line + 1, written?, 2))?;
         for method in then {
             let ty = self.swift_type(here, &via.written)?;
             let rows = self.swift_member_rows(here, &ty, method)?;
@@ -588,11 +591,11 @@ impl App {
         here: &Path,
         text: &str,
         lead: Option<&str>,
-    ) -> Option<Vec<String>> {
+    ) -> Option<(Vec<String>, String)> {
         let lead = lead?;
-        let links = search::swift_call_links(lead)?;
+        let (links, written) = search::swift_written_links(lead)?;
         let Some((name, _)) = links[0].split_once('.') else {
-            return Some(links);
+            return Some((links, written));
         };
         let lines: Vec<&str> = text.lines().collect();
         let line1 = self.line + 1;
@@ -610,7 +613,7 @@ impl App {
                 .any(|l| search::swift_shadows(l, name)),
             _ => false,
         };
-        unshadowed.then_some(links)
+        unshadowed.then_some((links, written))
     }
 
     fn swift_given_type(
@@ -737,6 +740,7 @@ impl App {
         };
         self.swift_overloads_returning(&rows, &ty.name, &callee)
             .or_else(|| self.swift_base_returning(here, &ty.name, &rows, &callee))
+            .or_else(|| self.swift_labelled_returning(e, &rows, &ty.name, &callee))
     }
 
     fn swift_array_call(

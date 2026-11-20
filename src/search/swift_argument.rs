@@ -1,6 +1,25 @@
 use regex::Regex;
 
-use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods, uncommented};
+use super::{
+    Kind, SwiftExpr, close_of, code, group, split_top, swift_expr, swift_mods, uncommented,
+};
+
+fn closing_group(e: &str) -> Option<usize> {
+    code(Kind::Swift, e)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Swift, e, i) == Some(e.len()))
+}
+pub fn swift_written_labels(e: &str) -> Option<SwiftCall> {
+    let e = e.trim_end();
+    let call = swift_call_labels(&[e], 0, closing_group(e)?)?;
+    (!call.labels.is_empty() && !call.trailing_closure).then_some(call)
+}
+pub fn swift_with_arguments(bare: &str, lead: &str) -> Option<String> {
+    let name = bare.strip_suffix("()")?;
+    let before = lead.strip_suffix('.')?;
+    Some(format!("{name}{}", before.get(closing_group(before)?..)?))
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftCall {

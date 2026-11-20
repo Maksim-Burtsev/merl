@@ -357,8 +357,21 @@ impl App {
             && word != "init"
             && let Some(head) = search::call_head(kind, &a.written, a.start)
             && head.fields_to_word.is_empty()
-            && let Some(mut found) =
-                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments, &[])
+            && let Some(mut found) = self.swift_on_call(
+                &a.here,
+                &a.text,
+                word,
+                (
+                    &head.call_without_arguments,
+                    a.written
+                        .get(..a.start)
+                        .and_then(|lead| {
+                            search::swift_with_arguments(&head.call_without_arguments, lead)
+                        })
+                        .as_deref(),
+                ),
+                &[],
+            )
         {
             self.swift_by_labels(word, a.range.end, &mut found);
             if !found.is_empty() {
@@ -369,12 +382,13 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
+            && let Some((links, written)) =
+                self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,
                 word,
-                &format!("{}()", links[0]),
+                (&format!("{}()", links[0]), Some(&written)),
                 &links[1..],
             )
         {

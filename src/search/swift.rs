@@ -376,13 +376,18 @@ pub fn swift_alias(line: &str, name: &str) -> Option<String> {
     (&c[1] == name).then(|| c[2].to_owned())
 }
 pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
+    swift_written_links(before).map(|(links, _)| links)
+}
+pub fn swift_written_links(before: &str) -> Option<(Vec<String>, String)> {
     let mut rest = before.strip_suffix('.')?;
     let mut links = Vec::new();
+    let mut arguments;
     loop {
         let open = code(Kind::Swift, rest)
             .filter(|(_, c)| *c == b'(')
             .map(|(i, _)| i)
             .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+        arguments = rest.get(open..)?;
         let head = rest.get(..open)?;
         let start = head
             .char_indices()
@@ -408,7 +413,8 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
             None => break,
         }
     }
-    (links.len() > 1).then_some(links)
+    let written = format!("{}{arguments}", links[0]);
+    (links.len() > 1).then_some((links, written))
 }
 pub fn swift_literal_call(before: &str) -> Option<(String, String, Vec<String>)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
