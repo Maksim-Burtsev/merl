@@ -117,7 +117,8 @@ impl App {
         }
         self.ruby_unrelated_offered(a, &found);
         self.top_level_only(a, near, &mut found);
-        self.offer_only |= self.template_name_elsewhere(a, near, &found);
+        self.offer_only |= self.template_name_elsewhere(a, near, &found)
+            || self.literal_this(a) == Some(search::LiteralThis::NoKey);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
