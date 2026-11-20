@@ -1081,26 +1081,55 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     None
 }
 
+const ELEMENT_READS: &str = "get|getFirst|getLast|peek|peekFirst|peekLast|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse|getOrDefault";
+
+pub fn java_element_read(call: &str) -> bool {
+    ELEMENT_READS.split('|').any(|r| r == call)
+}
+
 pub fn java_element_access(before: &str) -> Option<String> {
     static ACCESS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(concat!(
-            r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:get|getFirst|getLast|peek|peekFirst|peekLast",
-            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse|getOrDefault)\s*\([^()]*\)\s*\.$"
+        Regex::new(&format!(
+            r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:{ELEMENT_READS})\s*\([^()]*\)\s*\.$"
         ))
         .expect("the regex is a literal")
     });
     Some(ACCESS.captures(before)?[1].to_owned())
 }
 
+pub fn java_index_access(before: &str) -> Option<String> {
+    static INDEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])([a-z]\w*)\s*\[[^\[\]]*\]\s*\.$").expect("the regex is a literal")
+    });
+    Some(INDEX.captures(before)?[1].to_owned())
+}
+
+pub fn java_array_element(line: &str, name: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"(?:^|[\s(,])([A-Z]\w*(?:\.[A-Z]\w*)*)\s*\[\s*\]\s+{}\s*(?:[=;,)]|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+}
+
 pub fn java_element_type(line: &str, name: &str) -> Option<(String, String)> {
+    java_held(line, &format!(r"{}\s*(?:[=;,)]|$)", regex::escape(name)))
+}
+
+pub fn java_returned_held(line: &str, method: &str) -> Option<(String, String)> {
+    java_held(line, &format!(r"{}\s*\(", regex::escape(method)))
+}
+
+fn java_held(line: &str, tail: &str) -> Option<(String, String)> {
     let re = Regex::new(&format!(
         concat!(
             r"(?:^|[\s(,])(?:(List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional",
             r"|PriorityQueue|BlockingQueue)<|(Map|HashMap|LinkedHashMap|TreeMap|SortedMap|NavigableMap",
             r"|ConcurrentMap|ConcurrentHashMap)<\s*[A-Z][\w.]*\s*,)\s*(?:\?\s+extends\s+)?",
-            r"([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)"
+            r"([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}"
         ),
-        regex::escape(name)
+        tail
     ))
     .ok()?;
     let code = uncommented(Kind::Jvm, line);
@@ -1251,6 +1280,21 @@ pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {
     });
     let re = if kotlin { &*KOTLIN } else { &*JAVA };
     re.captures(before.trim_end()).map(|c| c[1].to_owned())
+}
+
+pub fn java_constructed_chain(before: &str) -> Option<(String, Vec<String>)> {
+    static CHAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])new\s+([A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}\s*\([^()]*\)((?:\s*\.\s*[a-z]\w*\s*\([^()]*\))+)\s*\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    static LINK: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\.\s*([a-z]\w*)\s*\(").expect("the regex is a literal")
+    });
+    let c = CHAIN.captures(before.trim_end())?;
+    let links = LINK.captures_iter(&c[2]).map(|l| format!("{}()", &l[1]));
+    Some((c[1].to_owned(), links.collect()))
 }
 
 pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {

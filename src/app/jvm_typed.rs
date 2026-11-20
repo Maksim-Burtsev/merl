@@ -2,6 +2,7 @@ use super::typed::Base;
 use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 mod head;
+mod held;
 mod lambda;
 mod scala_unpacked;
 mod top_level;
@@ -63,21 +64,13 @@ impl App {
                 _ => None,
             };
         }
-        if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
-            let line = Self::jvm_declared_line(here, text, self.line + 1, &source)?;
-            let (container, element) = search::java_element_type(line, &source)?;
-            let label = format!("{source}: element {element}");
-            return self.jvm_held_member(here, text, &container, &element, &label, word);
+        if chain.is_empty()
+            && let std::ops::ControlFlow::Break(found) =
+                self.jvm_held_shape(here, text, before, word)
+        {
+            return found;
         }
         let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
-        if let ([], true, Some(source)) = (chain, kt, search::kotlin_map_read(before))
-            && let Some((container, value)) =
-                Self::jvm_declared_line(here, text, self.line + 1, &source)
-                    .and_then(|line| search::kotlin_map_value(line, &source))
-        {
-            let label = format!("{source}: value {value}");
-            return self.jvm_held_member(here, text, &container, &value, &label, word);
-        }
         let safe: Vec<String>;
         let chain = match chain {
             [] if kotlin => {
@@ -263,15 +256,26 @@ impl App {
         rest: &[String],
         instance: bool,
     ) -> Option<(JvmType, Vec<String>)> {
+        let mut returned: Option<(Hit, &str, bool)> = None;
         for (i, field) in rest.iter().enumerate() {
+            let call = field.strip_suffix("()");
+            if let (JvmType::Outside(_), Some(read), Some((owner, name, on))) =
+                (&ty, call, returned.take())
+                && let Some((element, held)) = self.java_returned_element(&owner, name, on, read)
+            {
+                ty = held;
+                links.push(format!("{field}: {element}"));
+                continue;
+            }
             let JvmType::Project(decl) = ty else {
                 return None;
             };
             let instance = instance || i > 0;
-            let TypedField { hit, written } = match field.strip_suffix("()") {
+            let TypedField { hit, written } = match call {
                 Some(call) => self.jvm_call_type(&decl, call, instance)?,
                 None => self.jvm_field_type(&decl, field, instance)?,
             };
+            returned = call.map(|c| (decl, c, instance));
             let t = self.text_of(&hit.path)?;
             ty = match self.jvm_type_on(&hit.path, &t, &written, Some(hit.line1)) {
                 JvmType::Unknown => self
@@ -884,51 +888,6 @@ impl App {
             found = Some(this);
         }
         found.filter(|f| mentions.is_empty() || matches!(f.resolved, JvmType::Project(_)))
-    }
-
-    fn jvm_held_member(
-        &self,
-        here: &Path,
-        text: &str,
-        container: &str,
-        held: &str,
-        label: &str,
-        word: &str,
-    ) -> Option<Vec<Candidate>> {
-        if let JvmType::Project(hit) = self.jvm_type_at(here, text, container)
-            && self.jvm_sees(here, text, container, &hit)
-        {
-            return None;
-        }
-        let ty = self.jvm_type_at(here, text, held);
-        self.jvm_typed_member(here, ty, label, word, true)
-    }
-
-    fn jvm_element(file: &Path, text: &str, line1: usize, name: &str) -> Option<String> {
-        let line = Self::jvm_declared_line(file, text, line1, name)?;
-        search::kotlin_element_type(line, name)
-    }
-
-    fn jvm_declared_line<'a>(
-        file: &Path,
-        text: &'a str,
-        line1: usize,
-        name: &str,
-    ) -> Option<&'a str> {
-        let mut declared: Vec<usize> = search::path_bindings(Kind::Jvm, file, text, line1, name)
-            .iter()
-            .map(|b| b.line1)
-            .collect();
-        if declared.is_empty() {
-            declared = search::jvm_enclosing_types(text, line1)
-                .into_iter()
-                .map(|d| search::jvm_members_of(file, text, d, name))
-                .find(|m| !m.is_empty())?;
-        }
-        let [l] = declared[..] else {
-            return None;
-        };
-        text.lines().nth(l.checked_sub(1)?)
     }
 
     fn jvm_returned(

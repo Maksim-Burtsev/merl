@@ -342,6 +342,20 @@ pub fn kotlin_map_value(line: &str, name: &str) -> Option<(String, String)> {
     Some((c[1].to_owned(), c[2].to_owned()))
 }
 
+pub fn kotlin_list_element(line: &str, name: &str) -> Option<(String, String)> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"(?:^|[^\w.]){}\s*:\s*(List|MutableList|ArrayList|Array)<",
+            r"\s*(?:out\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\??\s*>\??\s*(?:[=,)]|$)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(&code)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
+
 pub fn kotlin_guarded(lines: &[&str], at: usize, name: &str) -> Option<String> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
