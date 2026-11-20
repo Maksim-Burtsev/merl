@@ -52,6 +52,16 @@ fn declares_mod(text: &str, name: &str) -> bool {
     .is_ok_and(|re| re.is_match(text))
 }
 
+fn file_level_mod(text: &str, name: &str, line0: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    search::rust_inline_mod(&lines, line0).is_none()
+        && Regex::new(&format!(
+            r"(?m)^(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
+            regex::escape(name)
+        ))
+        .is_ok_and(|re| re.is_match(text))
+}
+
 pub(super) fn tuple_field(name: &str) -> bool {
     !name.starts_with(|c: char| c.is_alphabetic() || c == '_')
 }
@@ -454,15 +464,7 @@ impl App {
             full.push(word.to_owned());
         }
         if full.len() > 1 && declares_mod(text, &full[0]) {
-            let lines: Vec<&str> = text.lines().collect();
-            let top = Regex::new(&format!(
-                r"^(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
-                regex::escape(&full[0])
-            ))
-            .is_ok_and(|re| lines.iter().any(|l| re.is_match(l)));
-            if !top || search::rust_inline_mod(&lines, self.line).is_some() {
-                return None;
-            }
+            file_level_mod(text, &full[0], self.line).then_some(())?;
             full.insert(0, "self".to_owned());
         }
         let (root, rest) = full.split_first().filter(|(_, rest)| !rest.is_empty())?;
