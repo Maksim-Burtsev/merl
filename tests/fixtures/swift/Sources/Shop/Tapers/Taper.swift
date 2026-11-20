@@ -1,0 +1,3 @@
+class Taper {
+    func snuff() {}
+}

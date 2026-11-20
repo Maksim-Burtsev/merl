@@ -43,7 +43,7 @@ class TubNamed {
     }
     func h() {
         each { c in _ = c.dunk() }
-        //                ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+        //                ^ d: Sources/Shop/Tubs/Tub.swift:2
     }
     func i() {
         tubs.forEach { c in

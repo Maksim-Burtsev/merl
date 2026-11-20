@@ -157,6 +157,24 @@ pub fn swift_param_closure(lead: &str, name: &str) -> Option<(String, String)> {
     Some((c[1].to_owned(), c[2].to_owned()))
 }
 
+pub fn swift_bare_param_closure(lead: &str, name: &str) -> bool {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])(?:self\.)?[a-z_]\w*\s*$").expect("the regex is a literal")
+    });
+    open_braces(lead, lead.len())
+        .into_iter()
+        .rev()
+        .find_map(|o| {
+            let c = CLOSURE_HEAD.captures(lead.get(o + 1..)?)?;
+            swift_closure_params_bind(&c[2], name).then(|| (o, o + 1 + c.get_match().end()))
+        })
+        .is_some_and(|(o, body)| {
+            lead.get(..o)
+                .is_some_and(|b| CALL.is_match(&uncommented(Kind::Swift, b)))
+                && lead.get(body..).is_some_and(|b| !swift_shadows(b, name))
+        })
+}
+
 pub fn swift_shadows(line: &str, name: &str) -> bool {
     let n = regex::escape(name);
     super::swift_may_bind(line, name)

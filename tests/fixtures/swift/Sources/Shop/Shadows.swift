@@ -48,6 +48,6 @@ func gongHandler(_ gong: Gong) -> () -> Void {
 
 func gongHandlers(_ gongs: [String: Gong]) {
     let h = gongs["a"]?.resound
-    //                  ^ d: picker Sources/Shop/Shadows.swift:36, Sources/Shop/Shadows.swift:40
+    //                  ^ d: Sources/Shop/Shadows.swift:36
     _ = h
 }
