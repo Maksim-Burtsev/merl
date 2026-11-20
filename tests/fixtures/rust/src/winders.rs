@@ -16,3 +16,10 @@ pub fn wind_up(w: &Winder) -> Result<u32, String> {
     //   ^ d: other/src/lib.rs:24
     Ok(n)
 }
+
+// `coil` is `pub(crate)` in `other`: the typed chain refuses it as the by-name lookup does (#1469).
+pub fn coil_up(w: &Winder) -> Result<u32, String> {
+    let n = w.reel()?.coil();
+    //                ^ d: none
+    Ok(n)
+}

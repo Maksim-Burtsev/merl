@@ -49,3 +49,9 @@ impl Bale {
         4
     }
 }
+
+impl Reel {
+    pub(crate) fn coil(&self) -> u32 {
+        2
+    }
+}
