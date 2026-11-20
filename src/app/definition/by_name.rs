@@ -115,6 +115,7 @@ impl App {
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
         }
+        self.ruby_own_parameter(a, near, &mut found);
         self.ruby_unrelated_offered(a, &found);
         self.top_level_only(a, near, &mut found);
         self.offer_only |= self.template_name_elsewhere(a, near, &found);
@@ -199,6 +200,17 @@ impl App {
             "no definition for {} in the project (via {receiver} = {})",
             a.word, first.written
         ))
+    }
+
+    fn ruby_own_parameter(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if a.kind == Kind::Ruby
+            && !found.is_empty()
+            && !a.dotted
+            && near.locals == [self.line + 1]
+            && search::ruby_def_param(self.line_str(), &a.word)
+        {
+            *found = self.lines_here(a, [self.line + 1], &Reason::Local);
+        }
     }
 
     fn ruby_unrelated_offered(&mut self, a: &Asked, found: &[Candidate]) {
