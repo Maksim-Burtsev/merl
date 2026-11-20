@@ -123,7 +123,11 @@ pub struct KotlinDestructured {
     pub made: Option<String>,
 }
 
-pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured> {
+pub fn kotlin_destructured(
+    line: &str,
+    name: &str,
+    col: Option<usize>,
+) -> Option<KotlinDestructured> {
     static VAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:val|var)\s*\(([^()]*)\)\s*=\s*([a-z]\w*(?:\(\))?)\s*$")
             .expect("the regex is a literal")
@@ -137,9 +141,14 @@ pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured>
             .expect("the regex is a literal")
     });
     static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:forEach|onEach)\s*\{\s*\(([^()]*)\)\s*->")
+        Regex::new(r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:forEach|onEach)\s*$")
             .expect("the regex is a literal")
     });
+    static LAMBDA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\{\s*([^{}]*?)\s*->").expect("the regex is a literal")
+    });
+    static LIST: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\(([^()]*)\)$").expect("the regex is a literal"));
     let code = uncommented(Kind::Jvm, line);
     let code = code.trim_end();
     if let Some(c) = TO.captures(code) {
@@ -156,8 +165,27 @@ pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured>
     } else if let Some(c) = FOR.captures(code) {
         (c[1].to_owned(), c[2].to_owned(), true)
     } else {
-        let c = EACH.captures(code)?;
-        (c[2].to_owned(), c[1].to_owned(), true)
+        let end = col.map_or(code.len(), |c| c.min(code.len()));
+        let declares = |c: &regex::Captures| {
+            c[1].split([',', '(', ')'])
+                .any(|p| p.split(':').next().is_some_and(|p| p.trim() == name))
+        };
+        let open = |start: usize| {
+            let mut depth = 0i32;
+            code.get(start..end).is_some_and(|s| {
+                s.chars().all(|ch| {
+                    depth += i32::from(ch == '{') - i32::from(ch == '}');
+                    depth > 0
+                })
+            })
+        };
+        let lambda = LAMBDA
+            .captures_iter(code)
+            .filter(|c| c.get(0).is_some_and(|m| m.end() <= end && open(m.start())) && declares(c))
+            .last()?;
+        let names = LIST.captures(&lambda[1])?[1].to_owned();
+        let source = EACH.captures(code.get(..lambda.get(0)?.start())?)?[1].to_owned();
+        (names, source, true)
     };
     if names.split(',').any(|e| e.trim() == source) {
         return None;

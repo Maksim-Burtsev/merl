@@ -335,7 +335,8 @@ impl App {
         name: &str,
     ) -> Option<WrittenType> {
         let at = text.lines().nth(line1.checked_sub(1)?)?;
-        if let Some(d) = search::kotlin_destructured(at, name) {
+        let col = (line1 == self.line + 1 && at == self.line_str()).then_some(self.col);
+        if let Some(d) = search::kotlin_destructured(at, name, col) {
             if d.made.is_some() || d.source.ends_with("()") {
                 return self.kotlin_top_level_component(file, text, line1, &d);
             }
@@ -527,30 +528,37 @@ impl App {
     }
 
     fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
-        let renamed = || {
-            search::jvm_imports_at(here, text, self.line + 1)
-                .iter()
-                .any(|i| i.bound_name == written && i.path.last().is_some_and(|l| l != written))
-        };
-        if !written.contains('.') && !renamed() {
-            let found = self
-                .jvm_members(here, text, "", written, false)
-                .or_else(|| self.jvm_imported_all(text, &[], written, false))
-                .unwrap_or_default();
-            let named =
-                |c: &Candidate| search::jvm_type_name(&c.hit.text).as_deref() == Some(written);
-            let alias = |c: &Candidate| {
-                search::kotlin_typealias(&c.hit.text).is_some_and(|(name, _)| name == written)
-            };
-            if kotlin && !found.iter().all(named) && !found.iter().all(alias) {
+        if let Some(found) = self.jvm_made_found(here, text, written) {
+            if kotlin && called_not_made(&found, written) {
                 return JvmType::Unknown;
             }
-            let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
+            let types: Vec<Hit> = (found.into_iter())
+                .filter(|c| type_named(c, written))
+                .map(|c| c.hit)
+                .collect();
             if !types.is_empty() {
                 return one_type(types);
             }
         }
         self.jvm_type_at(here, text, written)
+    }
+
+    fn kotlin_called_not_made(&self, here: &Path, text: &str, written: &str) -> bool {
+        self.jvm_made_found(here, text, written)
+            .is_some_and(|found| called_not_made(&found, written))
+    }
+
+    fn jvm_made_found(&self, here: &Path, text: &str, written: &str) -> Option<Vec<Candidate>> {
+        let renamed = || {
+            search::jvm_imports_at(here, text, self.line + 1)
+                .iter()
+                .any(|i| i.bound_name == written && i.path.last().is_some_and(|l| l != written))
+        };
+        (!written.contains('.') && !renamed()).then(|| {
+            self.jvm_members(here, text, "", written, false)
+                .or_else(|| self.jvm_imported_all(text, &[], written, false))
+                .unwrap_or_default()
+        })
     }
 
     fn jvm_super(
@@ -1438,6 +1446,16 @@ fn companion_held(text: &str, line1: usize, decl: usize) -> bool {
     });
     matches!(search::jvm_enclosing_types(text, line1)[..], [c, d, ..]
         if d == decl && text.lines().nth(c - 1).is_some_and(|l| COMPANION.is_match(l)))
+}
+
+fn type_named(c: &Candidate, written: &str) -> bool {
+    search::jvm_type_name(&c.hit.text).as_deref() == Some(written)
+}
+
+fn called_not_made(found: &[Candidate], written: &str) -> bool {
+    !found.iter().all(|c| type_named(c, written))
+        && !(found.iter())
+            .all(|c| search::kotlin_typealias(&c.hit.text).is_some_and(|(name, _)| name == written))
 }
 
 fn one_type(mut hits: Vec<Hit>) -> JvmType {

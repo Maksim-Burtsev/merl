@@ -21,3 +21,17 @@ pub fn pour() -> u32 {
     //       ^ d: src/flasks/cuvette.rs:4
     //                    ^ d: src/flasks/phial.rs:4
 }
+
+// A path that starts at a module nested in an inline `mod` of this file is that module's, never
+// the file-level `mod cuvette;` of the same name: a picker, as on master (#1610).
+pub mod stand {
+    mod cuvette {
+        pub fn swirl() -> u32 {
+            2
+        }
+    }
+    pub fn run() -> u32 {
+        cuvette::swirl()
+        //       ^ d: picker src/flasks.rs:29, src/flasks/cuvette.rs:10
+    }
+}

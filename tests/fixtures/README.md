@@ -148,6 +148,14 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `Route` from an uninstalled package answers the `use` line, never `Other/Route.php`.
   `basket/kt/…/Tap.kt` (#1514) declares a generic receiver lambda (`T.() -> Unit`), which keeps
   every class-named Kotlin property in play, so it lives outside `jvm/`.
+- namesakes the night epic of 2026-11-21 must not reach (#1610): `rust/src/flasks.rs`'s `stand`
+  nests a `mod cuvette` beside the file-level `mod cuvette;`, `jvm/…/servings/Servings.kt` ends
+  with two destructuring `forEach` lambdas on one line, and `jvm/…/tankards/Tankards.kt` declares
+  `fun Tankard(size: Int)` beside `class Tankard`, so `Tankard(1) to Stein()` types nothing.
+  `own-list/` is a C# project of its own, since its `List<T>` would turn every `List` row of
+  `csharp/` and `basket/` into a picker; `jvm/…/plumes/`, `dart/lib/plumes/` and
+  `swift/Sources/Shop/Plumes/` hold a project `List<T>`, a field read behind `other.` and a
+  closure parameter that hides a function's.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
