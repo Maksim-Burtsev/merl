@@ -1007,7 +1007,12 @@ pub(super) fn ts_angle_cast(e: &str) -> Option<Value> {
         Regex::new(r"^<([A-Z][\w$]*(?:\.[A-Z][\w$]*)*)>\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$")
             .expect("the regex is a literal")
     });
-    Some(Value::Type(ANGLE.captures(e)?[1].to_owned()))
+    Some(Value::AngleCast(ANGLE.captures(e)?[1].to_owned()))
+}
+
+pub fn reads_angle_casts(path: &std::path::Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("ts" | "mts" | "cts")))
 }
 
 pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
