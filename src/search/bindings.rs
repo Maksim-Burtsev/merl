@@ -7,8 +7,8 @@ use super::{
     gdscript_bindings, go_declares_then_uses, go_statement_value, haskell_bindings, indent,
     julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, lua_bindings, names,
     nix_bindings, powershell_params, python_bindings_at, ruby_bindings, rust_bindings,
-    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_arrow_binds, ts_arrow_element,
-    ts_callback_element, ts_declarators, ts_declares_then_uses, ts_destructured,
+    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_angle_cast, ts_arrow_binds,
+    ts_arrow_element, ts_callback_element, ts_declarators, ts_declares_then_uses, ts_destructured,
     ts_hoisted_function, ts_hoisted_vars, ts_params, ts_tuple_destructured, type_list, uncommented,
 };
 
@@ -73,7 +73,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
         close_of(kind, e, open).is_none_or(|end| e.get(end..).is_some_and(|r| r.trim().is_empty()))
     };
     if kind == Kind::TsJs
-        && let Some(value) = ts_cast(e)
+        && let Some(value) = ts_cast(e).or_else(|| ts_angle_cast(e))
     {
         return value;
     }

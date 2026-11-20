@@ -1002,6 +1002,14 @@ pub fn ts_awaited(
     (awaited && ended && !continued).then(|| inner.to_owned())
 }
 
+pub(super) fn ts_angle_cast(e: &str) -> Option<Value> {
+    static ANGLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^<([A-Z][\w$]*(?:\.[A-Z][\w$]*)*)>\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
+    });
+    Some(Value::Type(ANGLE.captures(e)?[1].to_owned()))
+}
+
 pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {
     let rule = Regex::new(&format!(
         r"^(?:(?:const|let|var)\s+)?{}\s*=\s*(\[.*\])\s*;?$",
