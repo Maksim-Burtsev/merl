@@ -375,9 +375,6 @@ pub fn swift_alias(line: &str, name: &str) -> Option<String> {
     let c = ALIAS.captures(&t)?;
     (&c[1] == name).then(|| c[2].to_owned())
 }
-pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
-    swift_written_links(before).map(|(links, _)| links)
-}
 pub fn swift_written_links(before: &str) -> Option<(Vec<String>, String)> {
     let mut rest = before.strip_suffix('.')?;
     let mut links = Vec::new();
