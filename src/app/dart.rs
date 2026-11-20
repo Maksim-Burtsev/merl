@@ -482,7 +482,6 @@ impl App {
             .then(|| search::dart_cast(before))
             .flatten();
         let p = self.dart_checked(text, chain);
-        let indexed = search::dart_index_head(before);
         let ty = match chain {
             [] if cast.is_some() => cast?,
             [] if compared.is_some() => {
@@ -508,12 +507,6 @@ impl App {
                 class: "List".to_owned(),
                 constructor: None,
             },
-            [] if indexed.is_some() => {
-                let (ty, s) = self.dart_indexed(here, text, indexed?)?;
-                self.dart_class_file(&s, &ty)?;
-                scope = s;
-                ty
-            }
             [] => {
                 let (ty, s) = self.dart_chain_type(here, text, before, 0)?;
                 scope = s;
@@ -953,6 +946,9 @@ impl App {
         if let Some(value) = search::dart_paren_awaited(before) {
             return self.dart_await_value(here, text, value, depth + 1);
         }
+        if let Some(name) = search::dart_index_head(before) {
+            return self.dart_indexed(here, text, name);
+        }
         let (links, called, _) = search::dart_call_links(before)?;
         self.dart_links_type(here, text, &links, called, false, depth)
     }
@@ -1275,7 +1271,9 @@ impl App {
         let params = search::dart_this_super(&owner, line1 - 1, false)
             .and_then(|o| search::dart_type_params(&owner, &o.class))
             .unwrap_or_default();
-        (!own && (ty.prefix.is_some() || !params.contains(&ty.class))).then_some((ty, path))
+        (!own && (ty.prefix.is_some() || !params.contains(&ty.class))).then_some(())?;
+        self.dart_class_file(&path, &ty)?;
+        Some((ty, path))
     }
 
     fn dart_top_level(text: &str, name: &str) -> bool {
