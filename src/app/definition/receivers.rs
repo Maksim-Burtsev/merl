@@ -397,6 +397,15 @@ impl App {
                 return self.show_found(a, found);
             }
         }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_subscript_rows(&a.here, &a.text, lead, word)
+            && !found.is_empty()
+        {
+            return self.show_found(a, found);
+        }
         self.answered_by_swift_outside_call(a)
     }
 

@@ -8,6 +8,7 @@ mod key_path;
 mod labelled;
 mod overload;
 mod payload;
+mod subscript;
 
 struct SwiftChain {
     written: String,
