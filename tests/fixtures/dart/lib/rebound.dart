@@ -73,7 +73,7 @@ void typedAt(Vase x, Object o, List<Flagon> fs) {
   if (o case Ewer x) {} for (final x in fs) x.slosh();
   //                                          ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
   if (o case Ewer x) {} switch (o) { case Flagon x: x.slosh(); }
-  //                                                  ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  //                                                  ^ d: lib/rebound.dart:11
   { Ewer x = Ewer(); } for (final x in fs) x.slosh();
   //                                         ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
 }

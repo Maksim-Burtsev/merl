@@ -747,6 +747,9 @@ impl App {
         } else {
             line
         };
+        if let Some(ty) = search::dart_case_typed(line, seen.len(), name) {
+            return Some((ty, here.to_path_buf()));
+        }
         if search::dart_binders(seen, name) > 1 {
             return None;
         }
