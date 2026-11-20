@@ -19,4 +19,16 @@ class Pantry {
             }
         };
     }
+
+    Object own() {
+        return new Cupboard() {
+            void wipe() {
+            }
+
+            void tidy() {
+                this.wipe();
+                //   ^ d: src/main/java/jug/Pantry.java:25
+            }
+        };
+    }
 }

@@ -54,3 +54,8 @@ fun unpackMade(kits: List<Kit>) {
     kits.forEach { (g, h) -> h.stew() }
 //                             ^ d: src/main/kotlin/servings/Servings.kt:9
 }
+
+fun unpackMap(trays: Map<Wok, Kit>) {
+    trays.forEach { (wok, kit) -> wok.stew() }
+//                                    ^ d: picker src/main/kotlin/servings/Servings.kt:4, src/main/kotlin/servings/Servings.kt:9, …
+}
