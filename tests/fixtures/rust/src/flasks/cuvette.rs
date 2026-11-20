@@ -6,3 +6,7 @@ impl Cuvette {
         Cuvette
     }
 }
+
+pub fn swirl() -> u32 {
+    1
+}

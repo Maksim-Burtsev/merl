@@ -454,6 +454,15 @@ impl App {
             full.push(word.to_owned());
         }
         if full.len() > 1 && declares_mod(text, &full[0]) {
+            let lines: Vec<&str> = text.lines().collect();
+            let top = Regex::new(&format!(
+                r"^(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\b",
+                regex::escape(&full[0])
+            ))
+            .is_ok_and(|re| lines.iter().any(|l| re.is_match(l)));
+            if !top || search::rust_inline_mod(&lines, self.line).is_some() {
+                return None;
+            }
             full.insert(0, "self".to_owned());
         }
         let (root, rest) = full.split_first().filter(|(_, rest)| !rest.is_empty())?;
