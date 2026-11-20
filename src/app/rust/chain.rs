@@ -33,7 +33,7 @@ const SAME_ITEM: [&str; 11] = [
     "take_while",
 ];
 
-const ITEM_CLOSURES: [&str; 14] = [
+const ITEM_CLOSURES: [&str; 15] = [
     "all",
     "any",
     "filter",
@@ -44,6 +44,7 @@ const ITEM_CLOSURES: [&str; 14] = [
     "for_each",
     "inspect",
     "map",
+    "max_by_key",
     "position",
     "skip_while",
     "take_while",
@@ -633,6 +634,9 @@ impl App {
         let open = opening(&format!("{expr})"), b')', b'(')?;
         let arg = search::top_split(expr.get(open + 1..)?).len() - 1;
         let mut w = walk_back(expr.get(..open)?)?;
+        if w.links.is_empty() {
+            return self.rust_fn_closure_input(file, text, at, &w, (arg, input));
+        }
         let method = w.links.pop().filter(|l| !l.call)?.name;
         if (arg, input) == (0, 0)
             && ITEM_CLOSURES.contains(&method.as_str())
@@ -678,6 +682,33 @@ impl App {
         let il: Vec<&str> = it.lines().collect();
         let assoc = search::rust_assoc_type(&il, imp.line1 - 1, assoc)?;
         self.rust_resolve(&imp.path, &assoc, imp.line1 - 1)
+    }
+
+    fn rust_fn_closure_input(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        w: &Walked,
+        (arg, input): (usize, usize),
+    ) -> Option<Typed> {
+        let [name] = w.head.as_slice() else {
+            return None;
+        };
+        if w.head_call || !search::bindings(Kind::Rust, text, at + 1, name).is_empty() {
+            return None;
+        }
+        let decl = self
+            .declaration(Kind::Rust, file, &w.head)
+            .or_else(|| self.rust_used_fn(file, text, name))
+            .filter(|d| d.text.contains("fn "))?;
+        let t = self.text_of(&decl.path)?;
+        let l: Vec<&str> = t.lines().collect();
+        let sig = search::rust_signature(&l, decl.line1 - 1)?;
+        let written = search::rust_closure_input(&sig, arg, input)?;
+        let written = written.trim_start_matches(['&', ' ']);
+        let written = written.strip_prefix("mut ").unwrap_or(written).trim();
+        self.rust_resolve(&decl.path, written, decl.line1 - 1)
     }
 
     fn rust_closure_returns(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
@@ -951,17 +982,35 @@ impl App {
             (Some(_), None) => if_let_scrutinee(&lines, at, rest.strip_prefix('=')?)?,
             _ => return None,
         };
-        let w = walk_back(expr.trim())?;
-        if w.links.is_empty() && !w.head_call {
-            return None;
-        }
-        let Got::Written {
-            file,
-            written,
-            line0,
-        } = self.rust_walked_got(file, text, at, name, false, &w)?
-        else {
-            return None;
+        let expr = expr.trim();
+        let w = walk_back(expr)?;
+        let (file, written, line0) = if w.links.is_empty() && !w.head_call {
+            let place = expr.strip_prefix('&').unwrap_or(expr).trim_start();
+            if place == name || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return None;
+            }
+            let [b] = &search::bindings(Kind::Rust, text, at + 1, place)[..] else {
+                return None;
+            };
+            let Some(search::RustHolds::Type(written)) =
+                search::rust_holds(&lines, b.line1 - 1, place)
+            else {
+                return None;
+            };
+            if !self.rust_std_named(text, wrapper) {
+                return None;
+            }
+            (file.to_path_buf(), written, b.line1 - 1)
+        } else {
+            let Got::Written {
+                file,
+                written,
+                line0,
+            } = self.rust_walked_got(file, text, at, name, false, &w)?
+            else {
+                return None;
+            };
+            (file, written, line0)
         };
         if rust_bare_type(&written).as_deref() != Some(wrapper) {
             return None;

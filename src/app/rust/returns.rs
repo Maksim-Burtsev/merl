@@ -4,8 +4,7 @@ use std::sync::LazyLock;
 use super::chain::Got;
 use super::sysroot::{CONSTRUCTORS, DEREF, rust_element, std_rooted};
 use super::{
-    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, rust_seen,
-    search,
+    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, search,
 };
 
 static MARKED: LazyLock<Regex> = LazyLock::new(|| {
@@ -193,7 +192,7 @@ impl App {
         above: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let bindings = rust_seen(text, line0, name, above);
+        let bindings = self.rust_seen(file, text, line0, name, above);
         let (path, written, at) = match bindings.as_slice() {
             [b] => match search::rust_holds(&lines, b.line1 - 1, name)? {
                 search::RustHolds::Type(w) => (file.to_path_buf(), w, b.line1 - 1),
