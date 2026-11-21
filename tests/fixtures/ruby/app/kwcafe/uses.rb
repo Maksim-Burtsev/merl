@@ -206,3 +206,20 @@ class KwOwnParams
     cups + mugful
   end
 end
+
+class KwLaterParam
+  def tipple
+    1
+  end
+
+  def pour(amount = tipple, tipple: 3)
+    #               ^ d: app/kwcafe/uses.rb:211
+    #                       ^ d: app/kwcafe/uses.rb:215
+    amount + tipple
+  end
+
+  def fill(tipple: 2, cup: tipple)
+    #                      ^ d: app/kwcafe/uses.rb:221
+    cup
+  end
+end

@@ -23,3 +23,9 @@ pub fn coil_up(w: &Winder) -> Result<u32, String> {
     //                ^ d: none
     Ok(n)
 }
+
+// An element of a `Vec<other::Reel>` refuses the `pub(crate)` `coil` too (#1469 review).
+pub fn coil_first(v: Vec<other::Reel>) -> u32 {
+    v[0].coil()
+    //   ^ d: none
+}

@@ -51,3 +51,16 @@ export function outside(x: Vat | Growler) {
     //^ d: !jump
   }
 }
+
+declare function choose(): Decanter | Growler;
+
+// A name declared again inside the `else` is not the checked one (#1494 review).
+export function redeclared(x: Decanter | Growler) {
+  if (x instanceof Decanter) {
+    x.tap();
+  } else {
+    const x: Decanter | Growler = choose();
+    x.tap();
+    //^ d: !jump
+  }
+}
