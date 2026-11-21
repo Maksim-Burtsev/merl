@@ -20,3 +20,7 @@ extension Shop.SousedQualified: CustomStringConvertible {
 @available(*, deprecated, message: "use f()") extension SousedMarked: CustomStringConvertible {
     var description: String { "" }
 }
+
+let sousedQuotedNote = """
+class SousedQuoted: NSObject {
+"""

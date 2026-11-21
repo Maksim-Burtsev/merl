@@ -92,3 +92,27 @@ class SousedMarked {
     func r() { souse { x in _ = x.dunk() } }
     //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
 }
+
+class SouseHull {
+    static func souse(_ f: (Tun) -> Void) {}
+    struct SouseKeel {}
+}
+
+extension SouseHull.SouseKeel {
+    func s() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedQuoted {
+    func t() { souse { x in _ = x.dunk() } }
+    //                            ^ d: Sources/Shop/Tubs/Tub.swift:2
+}
+
+typealias SouseHandler = (Tub) -> Void
+func souseAliased(_ f: SouseHandler) {}
+
+class SouseAliasShadow {
+    typealias SouseHandler = (Tun) -> Void
+    func u() { souseAliased { x in _ = x.dunk() } }
+    //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
