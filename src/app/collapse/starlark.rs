@@ -96,13 +96,17 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
             word = "";
         }
     }
-    nodes.retain(|&(h, _)| {
-        !(stmts.binary_search_by_key(&h, |s| s.first))
-            .is_ok_and(|k| COMPOUND.contains(&stmts[k].word.as_str()))
-    });
+    let opens = |h: usize, words: &[&str]| {
+        (stmts.binary_search_by_key(&h, |s| s.first))
+            .is_ok_and(|k| words.contains(&stmts[k].word.as_str()))
+    };
+    let elifs: Vec<usize> = (nodes.iter().map(|n| n.0))
+        .filter(|&h| opens(h, &["elif"]))
+        .collect();
+    nodes.retain(|&(h, _)| !opens(h, COMPOUND) && !elifs.contains(&h));
     let mut funcs = Vec::new();
     for (k, s) in stmts.iter().enumerate() {
-        if !COMPOUND.contains(&s.word.as_str()) {
+        if !COMPOUND.contains(&s.word.as_str()) && !elifs.contains(&s.first) {
             continue;
         }
         let end = block_end(s, &stmts[k + 1..]);

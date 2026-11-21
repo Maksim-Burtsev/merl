@@ -73,7 +73,7 @@ def shop_pick(names, cases):  # f: 68-90
         if (name in cases and  # f: 73-80
                 cases[name]):  # f: 68-90
             print(name)  # f: 68-90
-        elif (name == "a" or  # f: 76-77
+        elif (name == "a" or  # f: 76-78
               name == "b"):  # f: 68-90
             pass  # f: 68-90
         else:  # f: 68-90
