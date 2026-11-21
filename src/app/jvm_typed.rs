@@ -1212,6 +1212,7 @@ impl App {
                 && !types.iter().any(|t| t.path == h.path)
                 && !self.jvm_hidden_elsewhere(file, h)
                 && (!typed || !written::field_elsewhere(file, h, written))
+                && (on.is_some() || !self.kotlin_unseen_here(file, text, h))
         });
         if others {
             return JvmType::Unknown;
