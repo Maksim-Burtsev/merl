@@ -1733,7 +1733,6 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
         ("f.php", php, PHP, 5),
         ("f.php", php, PHP, 1085),
         ("f.php", php, PHP, 1807),
-        ("f.php", php, PHP, 18966),
         ("f.xml", xml, MARKUP, 385),
         ("f.xml", xml, MARKUP, 1085),
         ("f.xml", xml, MARKUP, 1269),
@@ -1744,6 +1743,16 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
     for &(name, start, snippets, seed) in cases {
         replay_tree_sitter(name, start, snippets, seed..=seed);
     }
+}
+
+#[test]
+fn a_combined_piece_the_first_of_two_edits_cut_into_is_parsed_again() {
+    replay_tree_sitter(
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php"),
+        PHP,
+        18966..=18966,
+    );
 }
 
 #[test]

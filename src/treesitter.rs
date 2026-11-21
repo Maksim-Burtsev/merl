@@ -1176,14 +1176,9 @@ impl Parsed {
             None => from,
         };
         let dirty = self.tree.as_ref().map(|_| {
-            let text = self.before.as_ref().map(|(_, t)| {
-                let (prefix, suffix) = common_ends(t.as_bytes(), bytes);
-                prefix..bytes.len() - suffix
-            });
             changed
                 .iter()
                 .map(|r| r.start_byte..r.end_byte)
-                .chain(text)
                 .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
         });
         let from = match self.before.take() {
@@ -1200,8 +1195,9 @@ impl Parsed {
         }
         (self.tree, self.halted) = (Some(tree), false);
         if self.lang.combined.is_some() {
+            let pending = self.pending.take();
             let span = match dirty {
-                Some(d) => combined::union(d, self.pending.take()),
+                Some(d) => combined::union(d, pending),
                 None => Some(0..self.text.len()),
             };
             if let Some(span) = span {
