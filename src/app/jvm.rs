@@ -433,17 +433,11 @@ impl App {
         {
             return (!found.is_empty()).then_some(found);
         }
-        if search::groovy(here) && word.starts_with(|c: char| c.is_ascii_lowercase()) {
-            let delegate = search::groovy_closure_delegate(text, self.line + 1, before)
-                .filter(|_| !before.trim_end().ends_with('.'));
-            if let Some((d, first)) = delegate {
-                let found = self.groovy_delegate_member(here, text, &d, word);
-                if !(first && found.as_ref().is_some_and(Vec::is_empty)) {
-                    return found.filter(|f| !f.is_empty());
-                }
-            } else if search::jvm_receiver_lambda(text, self.line + 1, before) {
-                return None;
-            }
+        if search::groovy(here)
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && let Some(found) = self.groovy_closure_member(here, text, before, word)
+        {
+            return (!found.is_empty()).then_some(found);
         }
         if let Some(header) = search::jvm_anonymous_header(before) {
             let found = self.jvm_anonymous_inherited(here, text, &header, word);

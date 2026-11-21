@@ -2,7 +2,24 @@ use super::{JvmType, TypedField};
 use crate::app::{App, Candidate, Hit, Kind, Path, Reason, Regex, search};
 
 impl App {
-    pub(in crate::app) fn groovy_delegate_member(
+    pub(in crate::app) fn groovy_closure_member(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line + 1;
+        let Some((delegate, first)) = search::groovy_closure_delegate(text, line, before)
+            .filter(|_| !before.trim_end().ends_with('.'))
+        else {
+            return search::jvm_receiver_lambda(text, line, before).then(Vec::new);
+        };
+        let found = self.groovy_delegate_member(here, text, &delegate, word);
+        (!first || found.as_ref().is_none_or(|f| !f.is_empty())).then(|| found.unwrap_or_default())
+    }
+
+    fn groovy_delegate_member(
         &self,
         here: &Path,
         text: &str,
