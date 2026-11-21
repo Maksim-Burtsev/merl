@@ -1,5 +1,5 @@
 use super::note_places::{
-    DIM, LIVE, base, feature, feature_with, git, imported, open, placed, write,
+    DIM, LIVE, Place, base, feature, feature_with, git, imported, open, placed, write,
 };
 use super::notes::{note, screen};
 use super::*;
@@ -61,7 +61,7 @@ fn on_each_worktree(
     tag: &str,
     at: usize,
     agent: fn(Vec<String>) -> Vec<String>,
-) -> (Vec<Vec<(TextLine, bool, bool)>>, String) {
+) -> (Vec<Vec<Place>>, String) {
     let mut shown = String::new();
     let got = WORKTREES.map(|how| {
         let (dir, lines) = feature_with(&format!("{tag}-{how}"), "", same);
@@ -70,7 +70,8 @@ fn on_each_worktree(
         agent_commits(&dir, &agent(lines));
         checked_out(&dir, how);
         let (got, s) = reopened(dir);
-        shown += &format!("{how}:\n{s}\n");
+        shown.push_str(how);
+        shown.push_str(&s);
         got
     });
     (got.to_vec(), shown)
