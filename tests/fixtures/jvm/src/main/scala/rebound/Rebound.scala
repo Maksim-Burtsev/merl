@@ -46,7 +46,7 @@ class Rebound(val x: Cup):
   def extract(b: Tray): Unit =
     val Tray(x) = b
     x.sip()
-    //^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+    //^ d: src/main/scala/rebound/Mug.scala:4
   def given1(): Unit =
     given x: Mug = Mug()
     x.sip()
