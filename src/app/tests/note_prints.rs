@@ -27,11 +27,53 @@ fn noted(
     let (dir, lines) = feature_with(tag, "", branch);
     let lines = unsaved(lines);
     write(&dir, &lines);
-    let mut a = open(&dir);
+    note_at(&dir, at);
+    (dir, lines)
+}
+
+fn note_at(dir: &Path, at: usize) {
+    let mut a = open(dir);
     a.jump_to(&dir.join("steps.go"), at);
     note(&mut a, "wrap this");
     screen(&mut a);
-    (dir, lines)
+}
+
+const WORKTREES: [&str; 3] = ["lf", "eol=crlf", "autocrlf"];
+
+fn checked_out(dir: &Path, how: &str) {
+    match how {
+        "eol=crlf" => {
+            std::fs::create_dir_all(dir.join(".git/info")).unwrap();
+            std::fs::write(dir.join(".git/info/attributes"), "steps.go text eol=crlf\n").unwrap();
+        }
+        "autocrlf" => {
+            git(dir, &["config", "core.autocrlf", "true"]);
+        }
+        _ => {}
+    }
+    std::fs::remove_file(dir.join("steps.go")).unwrap();
+    git(dir, &["checkout", "--", "steps.go"]);
+    let text = std::fs::read_to_string(dir.join("steps.go")).unwrap();
+    assert_eq!(text.contains("\r\n"), how != "lf", "{how}");
+}
+
+fn on_each_worktree(
+    tag: &str,
+    at: usize,
+    agent: fn(Vec<String>) -> Vec<String>,
+) -> (Vec<Vec<(TextLine, bool, bool)>>, String) {
+    let mut shown = String::new();
+    let got = WORKTREES.map(|how| {
+        let (dir, lines) = feature_with(&format!("{tag}-{how}"), "", same);
+        checked_out(&dir, how);
+        note_at(&dir, at);
+        agent_commits(&dir, &agent(lines));
+        checked_out(&dir, how);
+        let (got, s) = reopened(dir);
+        shown += &format!("{how}:\n{s}\n");
+        got
+    });
+    (got.to_vec(), shown)
 }
 
 fn same(l: Vec<String>) -> Vec<String> {
@@ -65,35 +107,57 @@ fn moved7_a_note_moved_by_exactly_a_twin_s_gap_stays_live_on_its_line_after_a_re
     agent_commits(&dir, &import7(lines));
     let (got, s) = reopened(dir);
     assert_eq!(got, [(TextLine::File(20), LIVE, false)], "{s}");
+    let (got, s) = on_each_worktree("p-moved7", 14, import7);
+    assert_eq!(got, [[(TextLine::File(20), LIVE, false)]; 3], "{s}");
+}
+
+fn del7(mut l: Vec<String>) -> Vec<String> {
+    l.splice(12..16, ["\treturn run(1)".to_owned()]);
+    import7(l)
+}
+
+fn delgrow(mut l: Vec<String>) -> Vec<String> {
+    l.splice(26..30, ["\treturn run(3)".to_owned()]);
+    l.splice(12..12, (1..=3).map(|i| format!("\tlog({i})")));
+    imported(l)
+}
+
+fn movefn(mut l: Vec<String>) -> Vec<String> {
+    let step2: Vec<String> = l.drain(17..24).collect();
+    l.extend(step2);
+    imported(l)
 }
 
 #[test]
 fn del7_a_note_whose_line_was_deleted_sits_dim_under_its_own_deleted_copy() {
-    let (dir, mut lines) = noted("p-del7", same, same, 14);
-    lines.splice(12..16, ["\treturn run(1)".to_owned()]);
-    agent_commits(&dir, &import7(lines));
-    let (got, s) = reopened(dir);
-    assert_eq!(got, [(TextLine::Deleted(19, 1), DIM, false)], "{s}");
+    let (got, s) = on_each_worktree("p-del7", 14, del7);
+    assert_eq!(got, [[(TextLine::Deleted(19, 1), DIM, false)]; 3], "{s}");
 }
 
 #[test]
 fn delgrow_a_note_on_a_deleted_line_below_a_grown_block_sits_dim_under_its_copy() {
-    let (dir, mut lines) = noted("p-delgrow", same, same, 28);
-    lines.splice(26..30, ["\treturn run(3)".to_owned()]);
-    lines.splice(12..12, (1..=3).map(|i| format!("\tlog({i})")));
-    agent_commits(&dir, &imported(lines));
-    let (got, s) = reopened(dir);
-    assert_eq!(got, [(TextLine::Deleted(33, 1), DIM, false)], "{s}");
+    let (got, s) = on_each_worktree("p-delgrow", 28, delgrow);
+    assert_eq!(got, [[(TextLine::Deleted(33, 1), DIM, false)]; 3], "{s}");
 }
 
 #[test]
 fn movefn_a_note_in_a_function_moved_to_the_end_sits_dim_under_its_moved_away_line() {
-    let (dir, mut lines) = noted("p-movefn", same, same, 21);
-    let step2: Vec<String> = lines.drain(17..24).collect();
-    lines.extend(step2);
-    agent_commits(&dir, &imported(lines));
-    let (got, s) = reopened(dir);
-    assert_eq!(got, [(TextLine::Deleted(22, 2), DIM, false)], "{s}");
+    let (got, s) = on_each_worktree("p-movefn", 21, movefn);
+    assert_eq!(got, [[(TextLine::Deleted(22, 2), DIM, false)]; 3], "{s}");
+}
+
+#[test]
+fn the_kept_version_of_a_noted_file_is_git_s_own_copy_on_every_worktree() {
+    let got = WORKTREES.map(|how| {
+        let (dir, _) = feature_with(&format!("p-kept-{how}"), "", same);
+        checked_out(&dir, how);
+        note_at(&dir, 14);
+        let kept = std::fs::read_to_string(dir.join(".git/merl/prints/feature")).unwrap();
+        let git_s = git(&dir, &["rev-parse", "HEAD:steps.go"]);
+        drop(std::fs::remove_dir_all(dir));
+        (how, kept.starts_with(&format!("{git_s} ")))
+    });
+    assert_eq!(got, WORKTREES.map(|how| (how, true)));
 }
 
 fn step6(mut l: Vec<String>) -> Vec<String> {

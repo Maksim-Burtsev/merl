@@ -96,7 +96,7 @@ impl App {
         if !n.quote.last().is_some_and(|q| q.starts_with("> ")) {
             return;
         }
-        if let Some(blob) = git::hash_object(&self.root, &self.buf.to_bytes()) {
+        if let Some(blob) = git::hash_object(&self.root, &n.path, &self.buf.to_bytes()) {
             self.notes.prints.insert(note_id(n), blob);
         }
     }
@@ -120,7 +120,7 @@ impl App {
         if todo.is_empty() {
             return;
         }
-        let now = git::hash_object(&self.root, &self.buf.to_bytes());
+        let now = git::hash_object(&self.root, &rel, &self.buf.to_bytes());
         let mut diffs = Diffs::new();
         for (id, then, n) in todo {
             let at = (now.as_deref()).and_then(|now| self.print_line(&n, &then, now, &mut diffs));
