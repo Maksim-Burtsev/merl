@@ -155,7 +155,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `own-list/` is a C# project of its own, since its `List<T>` would turn every `List` row of
   `csharp/` and `basket/` into a picker; `jvm/…/plumes/`, `dart/lib/plumes/` and
   `swift/Sources/Shop/Plumes/` hold a project `List<T>`, a field read behind `other.` and a
-  closure parameter that hides a function's.
+  closure parameter that hides a function's. `own-any/` is a Rust crate of its own for the same
+  reason: its `trait Any` would make every `dyn Any` of `rust/` the project's.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.

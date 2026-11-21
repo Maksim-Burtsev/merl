@@ -595,7 +595,9 @@ impl App {
                 line0,
             } if link.call
                 && matches!(link.name.as_str(), "downcast_ref" | "downcast_mut")
-                && DYN_ANY.is_match(&written) =>
+                && self
+                    .text_of(&file)
+                    .is_some_and(|t| self.rust_std_dyn_any(&t, &written)) =>
             {
                 Some(Got::Written {
                     file,
@@ -762,6 +764,20 @@ impl App {
         self.rust_resolve(&imp.path, &assoc, imp.line1 - 1)
     }
 
+    fn rust_std_dyn_any(&self, text: &str, written: &str) -> bool {
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        DYN_ANY.is_match(written)
+            && self.rust_std_named(text, "Any")
+            && self
+                .grep(
+                    r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?(?:trait|type)\s+Any\b",
+                    false,
+                    false,
+                    rs,
+                )
+                .is_ok_and(|own| own.is_empty())
+    }
+
     fn rust_dyn_any(&self, file: &Path, text: &str, line0: usize, name: &str) -> Option<Got> {
         let [b] = &search::bindings(Kind::Rust, text, line0 + 1, name)[..] else {
             return None;
@@ -771,7 +787,7 @@ impl App {
         else {
             return None;
         };
-        (DYN_ANY.is_match(&written) && self.rust_std_named(text, "Any")).then(|| Got::Written {
+        self.rust_std_dyn_any(text, &written).then(|| Got::Written {
             file: file.to_path_buf(),
             written,
             line0: b.line1 - 1,
