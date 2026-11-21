@@ -351,14 +351,32 @@ impl App {
         if self.answered_by_swift_cast(a) {
             return true;
         }
+        self.answered_by_swift_call(a)
+    }
+
+    fn answered_by_swift_call(&mut self, a: &Asked) -> bool {
+        let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
             && word != "init"
             && let Some(head) = search::call_head(kind, &a.written, a.start)
             && head.fields_to_word.is_empty()
-            && let Some(mut found) =
-                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments, &[])
+            && let Some(mut found) = self.swift_on_call(
+                &a.here,
+                &a.text,
+                word,
+                (
+                    &head.call_without_arguments,
+                    a.written
+                        .get(..a.start)
+                        .and_then(|lead| {
+                            search::swift_with_arguments(&head.call_without_arguments, lead)
+                        })
+                        .as_deref(),
+                ),
+                &[],
+            )
         {
             self.swift_by_labels(word, a.range.end, &mut found);
             if !found.is_empty() {
@@ -369,12 +387,13 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
+            && let Some((links, written)) =
+                self.swift_chain_links(&a.here, &a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,
                 word,
-                &format!("{}()", links[0]),
+                (&format!("{}()", links[0]), Some(&written)),
                 &links[1..],
             )
         {
@@ -382,6 +401,15 @@ impl App {
             if !found.is_empty() {
                 return self.show_found(a, found);
             }
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_subscript_rows(&a.here, &a.text, lead, word)
+            && !found.is_empty()
+        {
+            return self.show_found(a, found);
         }
         self.answered_by_swift_outside_call(a)
     }

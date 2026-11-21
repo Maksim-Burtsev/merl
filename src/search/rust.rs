@@ -821,15 +821,34 @@ fn named_fields_struct(lines: &[&str], name: &str) -> bool {
         .iter()
         .any(|l| re.is_match(&uncommented(Kind::Rust, l)))
 }
+pub fn rust_named_fields_struct(line: &str, name: &str) -> bool {
+    named_fields_struct(&[line], name)
+}
+pub fn rust_type_named_variables(text: &str, line1: usize, name: &str) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    match line1.checked_sub(1).filter(|&at| at < lines.len()) {
+        Some(at) if type_named(name) => type_named_variables(&lines, at, name),
+        _ => Vec::new(),
+    }
+}
+fn type_named(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_uppercase()) && name != "Self"
+}
+fn type_named_variables(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let found = scoped_bindings(lines, at, name);
+    if found
+        .iter()
+        .all(|b| plain_variable(lines[b.line1 - 1], name))
+    {
+        found
+    } else {
+        Vec::new()
+    }
+}
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    if name.starts_with(|c: char| c.is_ascii_uppercase()) && name != "Self" {
-        let found = scoped_bindings(lines, at, name);
-        return if named_fields_struct(lines, name)
-            && found
-                .iter()
-                .all(|b| plain_variable(lines[b.line1 - 1], name))
-        {
-            found
+    if type_named(name) {
+        return if named_fields_struct(lines, name) {
+            type_named_variables(lines, at, name)
         } else {
             Vec::new()
         };

@@ -1,0 +1,3 @@
+class Sconce {
+    func snuff() {}
+}

@@ -28,6 +28,11 @@ fun stocked() {
     //^ d: src/main/kotlin/urnchain/Crock.kt:14
 }
 
+fun stockShapes(kettles: List<Crock>) {
+    kettles[0].boil()
+    //         ^ d: src/main/kotlin/urnchain/Crock.kt:4
+}
+
 fun mixed(flag: Boolean) {
     val either = if (flag) Wok() else Crock.builder()
     either.size(2)

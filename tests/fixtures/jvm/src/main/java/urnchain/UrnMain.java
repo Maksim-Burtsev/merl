@@ -42,4 +42,21 @@ public class UrnMain {
         s.boil();
         //^ d: !jump
     }
+
+    void stockShapes(Urn[] arr, UrnShop shop) {
+        new Urn().size(2).boil();
+        //                ^ d: src/main/java/urnchain/Urn.java:4
+        arr[0].boil();
+        //     ^ d: src/main/java/urnchain/Urn.java:4
+        shop.maybe().orElseThrow().boil();
+        //                         ^ d: src/main/java/urnchain/Urn.java:4
+        new Mystery().size(2).boil();
+        //                    ^ d: !jump
+        shop.byName().get("a").boil();
+        //                     ^ d: !jump
+        shop.all().get(0).boil();
+        //                ^ d: src/main/java/urnchain/Urn.java:4
+        shop.pick(1).orElseThrow().boil();
+        //                         ^ d: !jump
+    }
 }

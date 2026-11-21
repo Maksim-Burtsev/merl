@@ -63,6 +63,10 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         return Some(format!("{owner}{sep}{name}"));
     }
     if let Some(owner) = one_line_owner(kind, target, name) {
+        let owner = match kind {
+            Kind::Swift => qualified(kind, text, line1, &owner).unwrap_or(owner),
+            _ => owner,
+        };
         return Some(format!("{owner}{sep}{name}"));
     }
     qualified_by_owner(kind, text, &lines, line1, name)

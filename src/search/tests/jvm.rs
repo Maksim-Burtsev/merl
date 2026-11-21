@@ -282,16 +282,39 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         kotlin_initializer(text, 1, "built").as_deref(),
         Some("Recipe.Builder().grounds(2).water(3)")
     );
-    let d = kotlin_destructured("    for ((stroke, mesh) in plungers) total += 1", "mesh")
-        .map(|d| (d.index, d.source, d.in_loop));
+    let d = kotlin_destructured(
+        "    for ((stroke, mesh) in plungers) total += 1",
+        "mesh",
+        None,
+    )
+    .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((1, "plungers".into(), true)));
-    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke")
+    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke", None)
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((0, "plunger".into(), false)));
-    assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
-    let d = kotlin_destructured("    val (a, b) = pair()", "b").map(|d| (d.index, d.source));
+    assert!(kotlin_destructured("    val (a, b) = a", "b", None).is_none());
+    let d = kotlin_destructured("    val (a, b) = pair()", "b", None).map(|d| (d.index, d.source));
     assert_eq!(d, Some((1, "pair()".into())));
-    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b").is_none());
+    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b", None).is_none());
+    let made = |l: &str, n: &str| kotlin_destructured(l, n, None).and_then(|d| d.made);
+    assert_eq!(
+        made("    val (e, f) = Cup() to Mug()", "f").as_deref(),
+        Some("Mug")
+    );
+    assert_eq!(
+        made("    val (e, f) = Cup() to Mug()", "e").as_deref(),
+        Some("Cup")
+    );
+    let d = kotlin_destructured("    kits.forEach { (g, h) -> h.fill() }", "h", Some(29))
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((1, "kits".into(), true)));
+    let d = kotlin_destructured("    kits.forEach { (g, h) ->", "h", None)
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((1, "kits".into(), true)), "a body below the line");
+    assert!(
+        kotlin_destructured("    kits.forEach { (g, h) -> h.fill() }", "h", None).is_none(),
+        "closed on its own line"
+    );
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");
@@ -420,9 +443,15 @@ fn a_kotlin_property_initializer_reads_the_primary_constructor_parameter() {
 fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
     let text = "fun Glass.dip(): Int = dose(1) + with(x) { dose() }\nfun Glass.pour(): Int {\n    return dose(1)\n}\nclass A {\n    fun Glass.tip() = dose()\n}\n";
     let at = |line1: usize, before: &str| {
-        kotlin_extension_at(text, line1, before).map(|e| (e.name, e.receiver))
+        kotlin_extension_at(text, line1, before)
+            .filter(|e| !e.member)
+            .map(|e| (e.name, e.receiver))
     };
     let glass = |name: &str| Some((name.to_owned(), "Glass".to_owned()));
+    assert!(
+        kotlin_extension_at(text, 6, "    fun Glass.tip() = ").is_some_and(|e| e.member),
+        "a member extension, for this@tip"
+    );
     assert_eq!(at(1, "fun Glass.dip(): Int = "), glass("dip"));
     assert_eq!(
         at(1, "fun Glass.dip(): Int = dose(1) + with(x) { "),
@@ -575,7 +604,11 @@ fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
     let pair = |l: &str| kotlin_top_level_pair(l, "pot");
     assert_eq!(
         pair("fun pot(): Pair<Cup, Mug> = x"),
-        Some(("Pair".into(), vec!["Cup".into(), "Mug".into()]))
+        Some(("Pair".into(), vec![Some("Cup".into()), Some("Mug".into())]))
     );
-    assert_eq!(pair("fun pot(): Pair<Cup, List<Mug>> = x"), None);
+    assert_eq!(
+        pair("fun pot(): Pair<Cup, Map<Int, Mug>> = x"),
+        Some(("Pair".into(), vec![Some("Cup".into()), None])),
+        "a generic position is not typed, nor does its comma split the pair"
+    );
 }

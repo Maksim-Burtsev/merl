@@ -1424,6 +1424,11 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     );
     assert_eq!(swift_closure_sequence("    leaves.map { $1."), None);
     assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $1."), None);
+    let swift_call_links = |b| swift_written_links(b).map(|(links, _)| links);
+    assert_eq!(
+        swift_written_links("x = self.w.sift(1).finish().").map(|(_, written)| written),
+        Some("self.w.sift(1)".into())
+    );
     assert_eq!(
         swift_call_links("Whisk().sift(1).finish()."),
         Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
