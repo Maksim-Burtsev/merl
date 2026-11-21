@@ -184,14 +184,8 @@ impl App {
             else {
                 continue;
             };
-            if at.is_empty()
-                && single
-                && kind == Kind::Julia
-                && let Some(t) = self.text_of(&c.hit.path)
-                && let Some(line) = search::julia_keyword_line(&t, c.hit.line1, &name, word)
-            {
-                let of = search::qualified(kind, &t, c.hit.line1, &name);
-                at.push((c.hit.path.clone(), line, of.unwrap_or_else(|| name.clone())));
+            if at.is_empty() && single && kind == Kind::Julia {
+                at.extend(self.julia_keyword(&c.hit, &name, word));
             }
             let by_name = if c.reason.proven() {
                 ""
@@ -228,6 +222,13 @@ impl App {
         }
         self.offer_only = offer && !out.is_empty();
         out
+    }
+
+    fn julia_keyword(&self, c: &Hit, name: &str, word: &str) -> Option<(PathBuf, usize, String)> {
+        let t = self.text_of(&c.path)?;
+        let line = search::julia_keyword_line(&t, c.line1, name, word)?;
+        let of = search::qualified(Kind::Julia, &t, c.line1, name);
+        Some((c.path.clone(), line, of.unwrap_or_else(|| name.to_owned())))
     }
 
     fn owner_label_lines(

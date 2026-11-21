@@ -385,7 +385,10 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
     };
     let quoted = |hole, escape| {
         let n = if triple { 3 } else { 1 };
-        Some((n, text(&rest[..n], escape, hole, triple)))
+        Some((
+            n,
+            text(&rest[..n], escape, hole, triple || lang == Lang::Julia),
+        ))
     };
     match (lang, q) {
         (Lang::Python, b'"' | b'\'') => {
@@ -459,15 +462,8 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         }
         (Lang::Php, b'"' | b'`') => Some((1, text(&rest[..1], Escape::Backslash, Hole::Php, true))),
         (Lang::Php, b'\'') => Some((1, text(b"'", Escape::Backslash, Hole::No, true))),
-        (Lang::Julia, b'"') => {
-            let n = if triple { 3 } else { 1 };
-            let hole = if prefix.is_empty() {
-                Hole::Paren
-            } else {
-                Hole::No
-            };
-            Some((n, text(&rest[..n], Escape::Backslash, hole, true)))
-        }
+        (Lang::Julia, b'"') if prefix.is_empty() => quoted(Hole::Paren, Escape::Backslash),
+        (Lang::Julia, b'"') => quoted(Hole::No, Escape::Backslash),
         (Lang::Julia, _) => None,
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
