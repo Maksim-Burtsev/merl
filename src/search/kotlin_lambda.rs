@@ -196,6 +196,37 @@ pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str) -> bool {
         .is_some_and(|(head, bound)| bound == "it" && GROOVY.is_match(&head))
 }
 
+pub fn groovy_closure_delegate(text: &str, line1: usize, before: &str) -> Option<String> {
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])([a-z_]\w*)\s*=\s*\{$").expect("the regex is a literal")
+    });
+    let (head, _) = kotlin_lambda_head(text, line1, before)?;
+    let name = regex::escape(CLOSURE.captures(&head)?.get(1)?.as_str());
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let start = if before.contains('{') {
+        at
+    } else {
+        scope_of(&lines, at)?
+    };
+    let depth = super::indent(lines[start]);
+    let block: Vec<&str> = (lines.get(start + 1..)?.iter())
+        .take_while(|l| l.trim().is_empty() || super::indent(l) >= depth)
+        .copied()
+        .collect();
+    let delegate = Regex::new(&format!(r"^\s*{name}\s*\.\s*delegate\s*=\s*(.+?)\s*;?\s*$")).ok()?;
+    let strategy = Regex::new(&format!(
+        r"^\s*{name}\s*\.\s*resolveStrategy\s*=\s*(?:Closure\s*\.\s*)?DELEGATE_(?:FIRST|ONLY)\s*;?\s*$"
+    ))
+    .ok()?;
+    let first = block.iter().any(|l| strategy.is_match(l));
+    let mut to = (block.iter()).filter_map(|l| Some(delegate.captures(l)?[1].to_owned()));
+    match (to.next(), first) {
+        (Some(d), true) if to.all(|o| o == d) => Some(d),
+        _ => None,
+    }
+}
+
 pub fn kotlin_scope_returned(before: &str) -> Option<String> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\.\s*(?:apply|also)\s*$").expect("the regex is a literal")

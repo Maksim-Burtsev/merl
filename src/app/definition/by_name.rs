@@ -43,8 +43,23 @@ impl App {
         match delegated {
             _ if own => Some(vec![self.own_hit(a)]),
             Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
+            None if self.cpp_outside_base(a) => Some(Vec::new()),
             None => self.c_hits(a, near, hits, fallbacks, aside),
         }
+    }
+
+    fn cpp_outside_base(&self, a: &Asked) -> bool {
+        let Some(qualifier) = a.chain.first() else {
+            return false;
+        };
+        if !search::cpp_base_initializer(&a.text, self.line + 1, a.range.start, &a.word) {
+            return false;
+        }
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(Kind::C, qualifier).join("|");
+        let declared = self.project_definitions(Kind::C, &a.here, qualifier, &pattern);
+        self.truncated.set(cut);
+        declared.is_empty()
     }
 
     pub(super) fn define_by_name(
@@ -1326,10 +1341,10 @@ impl App {
         let mine = search::cpp_defined_signature(&a.text, self.line + 1, &a.word)?;
         let same: Vec<Candidate> = (found.iter())
             .filter(|c| {
-                self.text_of(&c.hit.path)
-                    .and_then(|t| search::cpp_declared_signature(&t, c.hit.line1, &a.word))
-                    .as_ref()
-                    == Some(&mine)
+                self.text_of(&c.hit.path).is_some_and(|t| {
+                    search::cpp_declared_signature(&t, c.hit.line1, &a.word)
+                        .is_some_and(|s| search::cpp_signatures_alike(&s, &mine, [&t, &a.text]))
+                })
             })
             .cloned()
             .collect();
