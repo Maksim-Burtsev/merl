@@ -48,4 +48,24 @@ public static class Serving
         mw.Stew();
 //         ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12
     }
+
+    public static (Crock pot, Wok pan) ServeLabeled() => (new Crock(), new Wok());
+
+    public static void Repack()
+    {
+        (var pc, var pw) = ServePair();
+        pw.Stew();
+//         ^ d: src/Shop/Servings.cs:12
+        pc.Stew();
+//         ^ d: src/Shop/Servings.cs:5
+        var t = ServeLabeled();
+        t.pan.Stew();
+//            ^ d: src/Shop/Servings.cs:12
+        t.pot.Stew();
+//            ^ d: src/Shop/Servings.cs:5
+        var u = ServeLabeled()
+            .Swap();
+        u.pan.Stew();
+//            ^ d: picker src/Shop/Servings.cs:5, src/Shop/Servings.cs:12
+    }
 }

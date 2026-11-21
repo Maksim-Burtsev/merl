@@ -28,11 +28,32 @@ class Pour {
     // A companion object and a nested class do not see the property Saucer of Pour (#1515).
     companion object {
         fun made(): Int = Saucer.make().splash()
-        //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4; want src/main/kotlin/sauce/Saucer.kt:4 (#1515)
+        //                              ^ d: src/main/kotlin/sauce/Saucer.kt:4
     }
 
     class Nested {
         fun made(): Int = Saucer.make().splash()
-        //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4; want src/main/kotlin/sauce/Saucer.kt:4 (#1515)
+        //                              ^ d: src/main/kotlin/sauce/Saucer.kt:4
+    }
+
+    // A library lambda may take a Pour as its receiver, and an inner class sees the property
+    // Saucer: both keep the picker (#1515).
+    class Lidded {
+        fun made(): Int = configure { Saucer.make().splash() }
+        //                                          ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4
+    }
+
+    inner class Inner {
+        fun made(): Int = Saucer.make().splash()
+        //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4
+    }
+
+    // A local class sees the property Saucer too (#1515).
+    fun stowed(): Int {
+        class Crate {
+            fun made(): Int = Saucer.make().splash()
+            //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4
+        }
+        return Crate().made()
     }
 }

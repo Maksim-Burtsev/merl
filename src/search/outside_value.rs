@@ -112,6 +112,28 @@ pub fn declares_extension(text: &str, line1: usize, word: &str) -> bool {
     OWNER.is_match(owner) || (INTERFACE.is_match(owner) && global)
 }
 
+pub fn ts_array_extension(text: &str, line1: usize, word: &str) -> bool {
+    static ARRAY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?interface\s+(?:Readonly)?Array\s*<")
+            .expect("the pattern is valid")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let Some(own) = line1
+        .checked_sub(1)
+        .and_then(|i| lines.get(i))
+        .map(|l| indent(l))
+    else {
+        return false;
+    };
+    declares_extension(text, line1, word)
+        && lines[..line1 - 1]
+            .iter()
+            .rev()
+            .find(|l| !l.trim().is_empty() && indent(l) < own)
+            .is_some_and(|l| ARRAY.is_match(l.trim_start()))
+}
+
 pub fn reassigned(text: &str, from1: usize, name: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(from) = lines.get(from1.saturating_sub(1)) else {

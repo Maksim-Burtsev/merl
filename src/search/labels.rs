@@ -1128,6 +1128,20 @@ fn dart_optional(kind: Kind, part: &str) -> Vec<&str> {
     }
 }
 
+pub fn julia_keyword_line(text: &str, decl_line1: usize, name: &str, word: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl_line1.checked_sub(1).filter(|&k| k < lines.len())?;
+    let mut keywords = false;
+    params(Kind::Julia, &lines, k, name, |p| {
+        let pieces = split_top(Kind::Julia, p, b';');
+        let positional = usize::from(!keywords);
+        keywords |= pieces.len() > 1;
+        pieces.into_iter().skip(positional).find_map(|k| {
+            Some(param_named(Kind::Julia, k, word)? + (k.as_ptr() as usize - p.as_ptr() as usize))
+        })
+    })
+}
+
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     static ATTR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:@[\w.]+(?:\([^)]*\))?|#\[[^\]]*\])\s*").expect("the regex is a literal")

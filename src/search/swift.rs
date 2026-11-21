@@ -7,10 +7,12 @@ use super::{
     split_top, swift_mods, uncommented,
 };
 mod top;
+mod tuple;
 use top::{member_types, swift_local_decls, swift_word_and_param};
 pub use top::{
     swift_bindings_or_top, swift_decl_generics, swift_extended_elsewhere, swift_member_scope_top,
 };
+pub use tuple::{swift_tuple_field, swift_tuple_item};
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
@@ -1071,12 +1073,28 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     if let Some(c) = mapped.captures(t) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
-    let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*(.+)$".to_owned());
-    if let Some(c) = tuple.captures(t) {
+    let tuple = rule(
+        r"^(?:case\s+(?:let|var)|let|var)\s+\(([\w\s,`]+)\)\s*(?::\s*(\([^()=]*\))\s*=\s*(.+)|=\s*(.+)|as\s+(\([^()=]*\))\s*(?:where\s.*)?:)$"
+            .to_owned(),
+    );
+    if let Some(c) = tuple.captures(t)
+        && t.starts_with("case") == c.get(5).is_some()
+    {
         let at = c[1]
             .split(',')
             .position(|p| p.trim().trim_matches('`') == name)?;
-        return Some(SwiftGiven::Item(c[2].to_owned(), at));
+        if let Some(written) = c.get(2).or_else(|| c.get(5)) {
+            return swift_tuple_item(written.as_str(), at).map(SwiftGiven::Type);
+        }
+        let value = c.get(3).or_else(|| c.get(4))?.as_str().trim();
+        let literal =
+            value.starts_with('(') && close_of(Kind::Swift, value, 0) == Some(value.len());
+        return Some(
+            match literal.then(|| swift_tuple_item(value, at)).flatten() {
+                Some(item) => SwiftGiven::Value(item),
+                None => SwiftGiven::Item(value.to_owned(), at),
+            },
+        );
     }
     let arm = rule(format!(
         r"^case\s+(?:let|var)\s+`?{n}`?\s+as\s+([A-Z][\w.]*\??)\s*(?:where\s.*)?:$"
@@ -1244,23 +1262,6 @@ pub fn swift_cast_receiver(lead: &str) -> Option<String> {
             .expect("the regex is a literal")
     });
     Some(CAST.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
-}
-pub fn swift_tuple_item(written: &str, at: usize) -> Option<String> {
-    let inner = written.trim().strip_prefix('(')?.strip_suffix(')')?;
-    let items = split_top(Kind::Swift, inner, b',');
-    let item = items.get(at).filter(|_| items.len() > 1)?.trim();
-    let item = match item.split_once(':') {
-        Some((label, t))
-            if label
-                .trim()
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_') =>
-        {
-            t
-        }
-        _ => item,
-    };
-    Some(item.trim().to_owned())
 }
 pub fn swift_element(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);

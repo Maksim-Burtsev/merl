@@ -161,7 +161,9 @@ impl App {
         if bound(&search::imports(Kind::Rust, text), root).is_some() || declares_mod(text, root) {
             return None;
         }
-        let krate = self.locked_registry_crate(root)?;
+        let krate = self
+            .workspace_crate(root)
+            .or_else(|| self.locked_registry_crate(root))?;
         let mut rest = rest.to_vec();
         rest.push(name.to_owned());
         self.rust_type_in(&krate, &[], &rest)

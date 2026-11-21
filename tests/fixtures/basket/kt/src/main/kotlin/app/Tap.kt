@@ -8,4 +8,4 @@ fun <T> T.tap(block: T.() -> Unit): T {
 }
 
 fun tapped(c: Cellar): Cellar = c.tap { Gourd.make().drip() }
-//                                                   ^ d: picker kt/src/main/kotlin/app/Gourd.kt:4, kt/src/main/kotlin/app/Gourd.kt:12; want kt/src/main/kotlin/app/Gourd.kt:12 (#1515)
+//                                                   ^ d: kt/src/main/kotlin/app/Gourd.kt:12

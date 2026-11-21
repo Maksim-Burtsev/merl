@@ -155,7 +155,8 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   `own-list/` is a C# project of its own, since its `List<T>` would turn every `List` row of
   `csharp/` and `basket/` into a picker; `jvm/…/plumes/`, `dart/lib/plumes/` and
   `swift/Sources/Shop/Plumes/` hold a project `List<T>`, a field read behind `other.` and a
-  closure parameter that hides a function's.
+  closure parameter that hides a function's. `own-any/` is a Rust crate of its own for the same
+  reason: its `trait Any` would make every `dyn Any` of `rust/` the project's.
 
 Each step of #68 adds the cases it resolves to the tests over these files. A later step can
 change what `d` shows on a line here, but the files stay the same shape in all three languages.
@@ -428,9 +429,8 @@ a construction with `new` inside a method and in a function still leads to the c
 `Steeper() : Steeper(500)` and `Ladle(ml, 1)` delegate to the one constructor taking that many
 arguments; `Ladle(250)` has two, `Ladle(ml[0])` and `Tray(t)` pass one argument that may be the
 implicit copy, so those keep master's answer. `Key::Key` defined out of class lands on the
-declaration of its own overload (#1248). `Taper(Gills n)` is declared in another spelling than
-`Taper::Taper(int n)` defines it, so that keeps master's answer, not a picker of every
-declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
+declaration of its own overload (#1248). `Taper(Gills n)` is declared through `typedef int Gills;`, so
+`Taper::Taper(int n)` lands on it, not on the definition of the other overload (#1552). `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
 lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
 arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
 Out of the class, `Spout::Spout() : Spout(500)` and `Cruet(1)` delegate the same way, and
@@ -445,7 +445,7 @@ to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(
 `c/src/tea/gaiwan.cc` calls `ext::Gaiwan(a, 0)`, a base class outside the project, from
 `Gaiwan::Gaiwan(int a)` and `ext::Kyusu(a, 0)` from a constructor inside `Kyusu`: a qualified call
 names another class, so neither is a delegation and neither lands on the derived class's own
-two-argument constructor; they keep the lookup by name (#1248). `Tureen(1)` in a template class
+two-argument constructor; the project declares no `ext`, so both say "no definition" (#1552). `Tureen(1)` in a template class
 lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::Chawan::Chawan`
 as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
 `sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
@@ -942,6 +942,11 @@ getter is left as it was, beside its setter in `coffee/cezve.js`.
 and `pick<T>(x: T): T` return a type parameter: `d.lid().scour()` on a `Dish<Tub>`, on a `Mug
 extends Dish<Tub[]>` and `d.pick(j).scour()` keep the picker, where they jumped to `T.scour`.
 
+`typescript/brewery/` (#1494): `Decanter` and `Growler` implement `Vat`, each with a `tap`.
+`pour.ts` casts with `<Decanter>v`, and checks `x: Decanter | Growler` with `instanceof`, whose
+`else` lands on `Growler.tap`; the last `else` of an `else if` chain, a union of three and one
+without the checked type keep the picker. In `label.tsx` `<Decanter>v` is JSX and types nothing.
+
 `kylix/` (TypeScript, Rust, Swift, C#, PHP, Dart and Ruby, each in its own fixture) declares
 classes whose whole body sits on their declaration line (#1486): `Kylix` alone in its file,
 `Skyphos` (two members) and `Rhyton` above a multi-line `Kantharos` in another, each with a
@@ -1326,13 +1331,26 @@ declaration, a declaration on a later line, in a comment or a string, the right 
 
 `jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
 cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
-`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
+`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`,
 `given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
 of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
 on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
-generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` after a `;` in
+generator on a later line keep `Cup.sip`. `val Tray(x) =` reads `case class Tray(m: Mug)` from
+its own file and lands on `Mug.sip` (#1484). `Rebound.caseBody` presses `d` on `x` after a `;` in
 the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
 ends it and `x` is the field again (#1398).
+
+`jvm/src/main/scala/larder/` (#1484, #1494, #1502) has a `Hod` with `stow`, a `Creel` and a
+`Coffer` extending it, each in its own file, and a `case class Bale(creel: Creel, coffer: Coffer)`
+alone in `Bale.scala`. `Stowing` takes names out of a `val Bale(c, d) =` and a `case Bale(g, h) =>`,
+a tuple of `new` values, a `pair() match { case (c, w) => }` over a written tuple return and a
+`case Some(e) =>` over a subject written `Option[Creel]` or `Option[Hod]`, over lines and on one
+line; each lands on its position's type. A tuple item that is no `new`, a tuple arm of the wrong
+arity, a `Some(e)` over a subject that is no `Option`, an inner `v match` inside an arm of
+`n match`, an inner one-line match after an outer arm and a name bound again in a later arm of the
+same line keep a picker. `Bothy` reads a self type: `me.thaw()` in `trait Annex { me: Bothy =>`
+lands on `Bothy.thaw`, while `me.warm()` and a `Lean` that declares `thaw` itself keep the
+trait's own.
 
 `jvm/src/main/scala/tureens/` (#1415) declares a `Tureen` with a `ladle` in two packages, `north`
 and `south`, and imports one of them inside a block or an object body: `d` follows the import of

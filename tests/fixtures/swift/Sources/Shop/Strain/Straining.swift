@@ -20,7 +20,10 @@ func straining(_ s: Strainer, _ c: Colander, _ any: Any) -> Int {
     switch any {
     case let (e, f) as (Tamis, Colander):
         total += e.strain() + f.strain()
-        //         ^ d: picker Sources/Shop/Strain/Colander.swift:2, Sources/Shop/Strain/Strainer.swift:2, Sources/Shop/Strain/Tamis.swift:2, Sources/Shop/Tea/Kettle.swift:14; want Sources/Shop/Strain/Tamis.swift:2 (#1494)
+        //         ^ d: Sources/Shop/Strain/Tamis.swift:2
+        //                      ^ d: Sources/Shop/Strain/Colander.swift:2
+        total += f.meshCount()
+        //         ^ d: Sources/Shop/Strain/Colander.swift:3
     case let e as Tamis?:
         total += e?.strain() ?? 0
         //          ^ d: Sources/Shop/Strain/Tamis.swift:2

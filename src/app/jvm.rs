@@ -435,9 +435,9 @@ impl App {
         }
         if search::groovy(here)
             && word.starts_with(|c: char| c.is_ascii_lowercase())
-            && search::jvm_receiver_lambda(text, self.line + 1, before)
+            && let Some(found) = self.groovy_closure_member(here, text, before, word)
         {
-            return None;
+            return (!found.is_empty()).then_some(found);
         }
         if let Some(header) = search::jvm_anonymous_header(before) {
             let found = self.jvm_anonymous_inherited(here, text, &header, word);

@@ -172,14 +172,20 @@ pub fn java_functional_parameter(parameter: &str) -> Option<String> {
     Some(FUNCTIONAL.captures(parameter.trim())?[1].to_owned())
 }
 
-pub fn java_declared_lambda(line: &str, name: &str) -> Option<String> {
+pub fn java_declared_lambda(line: &str, name: &str, col: Option<usize>) -> Option<String> {
     let code = uncommented(Kind::Jvm, line);
-    let (declared, lambda) = code.split_once('=')?;
     let n = regex::escape(name);
-    let head = Regex::new(&format!(r"^\s*(?:\(\s*{n}\s*\)|{n})\s*->")).ok()?;
-    head.is_match(lambda)
-        .then(|| java_functional_parameter(declared))
-        .flatten()
+    let head = Regex::new(&format!(r"(=\s*)?(?:\(\s*{n}\s*\)|\b{n})\s*->")).ok()?;
+    let heads: Vec<regex::Captures> = head.captures_iter(&code).collect();
+    let held = match (col, heads.as_slice()) {
+        (Some(c), _) => heads
+            .iter()
+            .rfind(|h| h.get(0).is_some_and(|m| m.start() < c))?,
+        (None, [one]) => one,
+        _ => return None,
+    };
+    let declared = code.get(..held.get(1)?.start())?.rsplit(';').next()?;
+    java_functional_parameter(declared)
 }
 
 fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {

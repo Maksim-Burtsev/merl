@@ -13,7 +13,10 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
     for p in split_top(Kind::TsJs, params, b',') {
         let p = MODS.replace(p.trim(), "");
         if p.starts_with(['{', '[']) {
-            if names(&p.replace("...", " "), name) {
+            let pattern = close_of(Kind::TsJs, &p, 0)
+                .and_then(|c| p.get(..c))
+                .unwrap_or(&p);
+            if names(&pattern.replace("...", " "), name) {
                 let value = typed_pattern(&p, name).unwrap_or(Value::Unknown);
                 out.push(Binding { line1: line, value });
             }
@@ -997,6 +1000,19 @@ pub fn ts_awaited(
             });
     let continued = line.trim_start().starts_with('.') || closes_above.is_none();
     (awaited && ended && !continued).then(|| inner.to_owned())
+}
+
+pub(super) fn ts_angle_cast(e: &str) -> Option<Value> {
+    static ANGLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^<([A-Z][\w$]*(?:\.[A-Z][\w$]*)*)>\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
+    });
+    Some(Value::AngleCast(ANGLE.captures(e)?[1].to_owned()))
+}
+
+pub fn reads_angle_casts(path: &std::path::Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("ts" | "mts" | "cts")))
 }
 
 pub fn ts_array_literal_element(line: &str, name: &str) -> Option<Value> {

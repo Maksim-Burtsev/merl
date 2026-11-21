@@ -7,7 +7,7 @@ function kwserve()
     kwbrew(mugful = 4)
     #      ^ d: src/kwcafe/brewer.jl:3
     kwpour(pot; mugful = 4)
-    #           ^ d: none
+    #           ^ d: src/kwcafe/brewer.jl:9
     kwbrew(mugful=mugful)
     #      ^ d: src/kwcafe/brewer.jl:3
     return pot
@@ -57,4 +57,17 @@ function kwsaid(mugful)
     #                   ^ d: src/kwcafe/uses.jl:48
     #                                      ^ d: src/kwcafe/uses.jl:48
     return said * told * bare
+end
+
+function kwmore(pot)
+    mugful = 6
+    kwpour(pot, mugful = 4)
+    #           ^ d: src/kwcafe/brewer.jl:9
+    kwtwin(pot; mugful = 4)
+    #           ^ d: none
+    kwfill(pot; mugful = 4)
+    #           ^ d: src/kwcafe/brewer.jl:15
+    kwfill(pot; cups = 4)
+    #           ^ d: src/kwcafe/brewer.jl:14
+    return mugful
 end

@@ -6,10 +6,17 @@ fn var_pattern(code: &str, name: &str) -> Option<(usize, usize, usize)> {
     static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*").expect("the regex is a literal")
     });
-    let c = VAR.captures(code)?;
+    static VARS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w@.])\(((?:\s*var\s+@?\w+\s*,)+\s*var\s+@?\w+\s*)\)\s*=\s*")
+            .expect("the regex is a literal")
+    });
+    let c = VAR.captures(code).or_else(|| VARS.captures(code))?;
     let names: Vec<&str> = c[1].split(',').collect();
-    let at = (names.iter())
-        .position(|n| n.trim().trim_start_matches('@') == name.trim_start_matches('@'))?;
+    let at = names.iter().position(|n| {
+        n.split_whitespace()
+            .last()
+            .is_some_and(|n| n.trim_start_matches('@') == name.trim_start_matches('@'))
+    })?;
     Some((c.get_match().end(), at, names.len()))
 }
 
@@ -44,6 +51,19 @@ pub fn cs_tuple_item(written: &str, at: usize, count: usize) -> Option<String> {
     let items = split_top(Kind::CSharp, inner, b',');
     (items.len() == count).then_some(())?;
     Some(ITEM.captures(items.get(at)?.trim())?[1].to_owned())
+}
+
+pub fn cs_tuple_named(written: &str, field: &str) -> Option<String> {
+    static ITEM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^({CS_TYPE})\s+@?(\w+)$")).expect("the regex is a literal")
+    });
+    let inner = written.trim().strip_prefix('(')?.strip_suffix(')')?;
+    let items = split_top(Kind::CSharp, inner, b',');
+    let mut named = (items.iter())
+        .filter_map(|i| ITEM.captures(i.trim()))
+        .filter(|c| &c[2] == field.trim_start_matches('@'));
+    let item = named.next()?;
+    named.next().is_none().then(|| item[1].to_owned())
 }
 
 pub fn cs_out_params(line: &str) -> Vec<String> {

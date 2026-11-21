@@ -76,17 +76,17 @@ object Servings {
 //     ^ d: !jump
     val (sc, sw) = serveSplit()
     sw.stew()
-//     ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:9 (#1484)
+//     ^ d: src/main/scala/servings/Servings.scala:9
     val (uc, uw) = Servings.servePair()
     uw.stew()
-//     ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:9 (#1484)
+//     ^ d: src/main/scala/servings/Servings.scala:9
   }
 
   def local(): Unit = {
     def servePair() = (new Wok, new Crock)
     val (c, w) = servePair()
     w.stew()
-//    ^ d: picker src/main/scala/servings/Servings.scala:4, src/main/scala/servings/Servings.scala:9, …; want src/main/scala/servings/Servings.scala:4 (#1484)
+//    ^ d: src/main/scala/servings/Servings.scala:4
   }
 }
 

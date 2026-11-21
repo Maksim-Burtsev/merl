@@ -71,7 +71,7 @@ pub fn sift() {
     //                                                                   ^ d: !jump
     let (_, sieve) = (matcher.loose(&mut caps, |sieve: &Grain| sieve.get(9)), Caps);
     sieve.get(10);
-    //    ^ d: !jump
+    //    ^ d: tests/meshes.rs:5
     let _ = matcher.each(b"q", &mut caps, |caps| caps.get(11).is_some()) && matcher.loose(&mut caps, |caps: &Grain| caps.get(12)).is_some();
     //                                                ^ d: picker tests/meshes.rs:5, …
     //                                                                                                                   ^ d: tests/meshes.rs:11

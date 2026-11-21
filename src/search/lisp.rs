@@ -162,7 +162,7 @@ struct Lexed {
     literal: Vec<bool>,
 }
 
-fn delimiter(c: u8) -> bool {
+pub(super) fn delimiter(c: u8) -> bool {
     c.is_ascii_whitespace() || b"()[]{}\";,".contains(&c)
 }
 
@@ -426,7 +426,7 @@ fn in_at_text(code: &[u8], at: usize) -> bool {
     i > 0 && code[i - 1] == b'@'
 }
 
-fn open_before(code: &[u8], at: usize) -> Option<usize> {
+pub(super) fn open_before(code: &[u8], at: usize) -> Option<usize> {
     let mut depth = 0usize;
     code.get(..at)?.iter().rposition(|&c| match c {
         b')' | b']' | b'}' => {
@@ -442,13 +442,13 @@ fn open_before(code: &[u8], at: usize) -> Option<usize> {
     })
 }
 
-enum Tok<'a> {
+pub(super) enum Tok<'a> {
     Open(u8),
     Close,
     Atom(&'a str),
 }
 
-fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
+pub(super) fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
     let b = code.as_bytes();
     let mut out = Vec::new();
     let mut i = 0;

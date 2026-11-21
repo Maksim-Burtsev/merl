@@ -35,7 +35,7 @@ def last_text(path):
     text = ""
     for line in path.read_text().splitlines():
         entry = json.loads(line)
-        if entry.get("type") != "assistant":
+        if entry.get("type") != "assistant" or entry["message"].get("stop_reason") != "end_turn":
             continue
         parts = [c.get("text", "") for c in entry["message"].get("content", []) if c.get("type") == "text"]
         if any(parts):
@@ -51,6 +51,7 @@ def reports(run):
             text = last_text(path)
             if text:
                 found[task.group(1)] = text
+                found[path.stem.removeprefix("agent-")[:8]] = text
     return found
 
 
@@ -106,7 +107,8 @@ def main():
                 closes.append(issue)
         name = ", ".join(f"#{i}" for i in issues)
         head = f"{name}: {title(issues[0])}" if issues else row.get("Task", "")
-        report = texts.get(row["Branch"].rsplit("/", 1)[-1], "")
+        keys = [row.get("Name", ""), row["Branch"].rsplit("/", 1)[-1], row.get("Agent", "").rsplit(" ", 1)[-1][:8]]
+        report = next((texts[k] for k in keys if k in texts), "")
         fields = {k.lower().rstrip("s"): v[:1].upper() + v[1:].strip() for k, v in reversed(FIELD.findall(report))}
         gifs = " ".join(f"![{Path(u).stem}]({u})" for u in dict.fromkeys(GIF.findall(report)))
         if "before" in fields or "after" in fields:

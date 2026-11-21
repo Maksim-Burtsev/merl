@@ -909,10 +909,7 @@ pub(super) fn hole_line<S: AsRef<str>>(
         return None;
     }
     let line = lines.get(line0)?.as_ref();
-    let spans = match kind {
-        Kind::CSharp => super::cs_holes(line.as_bytes()),
-        _ => julia_holes(line.as_bytes()),
-    };
+    let spans = super::holes(kind, line.as_bytes());
     let (from, to) = spans.into_iter().find(|&(s, e)| s <= at && at < e)?;
     let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
     if literal_lines(kind, &text.join("\n")).get(line0) != Some(&false) {
@@ -927,53 +924,4 @@ pub(super) fn hole_line<S: AsRef<str>>(
         }
     }
     Some(out)
-}
-enum Frame {
-    Hole { from: usize, depth: usize },
-    Text { interp: bool, triple: bool },
-}
-fn julia_holes(b: &[u8]) -> Vec<(usize, usize)> {
-    let (mut out, mut stack, mut i) = (Vec::new(), Vec::new(), 0);
-    while let Some(&c) = b.get(i) {
-        i += 1;
-        if let Some(&Frame::Text { interp, triple }) = stack.last() {
-            match c {
-                b'\\' => i += 1,
-                b'"' if !triple || b.get(i..i + 2) == Some(b"\"\"") => {
-                    stack.pop();
-                    i += if triple { 2 } else { 0 };
-                }
-                b'$' if interp && b.get(i) == Some(&b'(') => {
-                    i += 1;
-                    stack.push(Frame::Hole { from: i, depth: 0 });
-                }
-                _ => {}
-            }
-            continue;
-        }
-        match c {
-            b'"' => {
-                let triple = b.get(i..i + 2) == Some(b"\"\"");
-                let interp = b[..i - 1].last().is_none_or(|&p| !ident(p));
-                stack.push(Frame::Text { interp, triple });
-                i += if triple { 2 } else { 0 };
-            }
-            b'#' => break,
-            b'(' | b'[' | b'{' => {
-                if let Some(Frame::Hole { depth, .. }) = stack.last_mut() {
-                    *depth += 1;
-                }
-            }
-            b')' | b']' | b'}' => match stack.last_mut() {
-                Some(Frame::Hole { from, depth: 0 }) if c == b')' => {
-                    out.push((*from, i - 1));
-                    stack.pop();
-                }
-                Some(Frame::Hole { depth, .. }) => *depth = depth.saturating_sub(1),
-                _ => {}
-            },
-            _ => {}
-        }
-    }
-    out
 }

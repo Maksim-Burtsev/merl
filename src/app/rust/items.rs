@@ -5,6 +5,19 @@ impl App {
         self.rust_items(ty, &search::rust_method_pattern(word))
     }
 
+    pub(super) fn rust_exported(&self, here: &Path, h: &Hit) -> bool {
+        if h.path.is_absolute() || self.rust_crate_of(&h.path) == self.rust_crate_of(here) {
+            return true;
+        }
+        let Some(t) = self.text_of(&h.path) else {
+            return true;
+        };
+        let lines: Vec<&str> = t.lines().collect();
+        search::rust_method_at(&lines, h.line1).is_none_or(|m| {
+            !matches!(m.owner, search::RustOwner::Inherent) || matches!(m.vis, search::RustVis::Pub)
+        })
+    }
+
     pub(super) fn rust_items(&self, ty: &Typed, pattern: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
