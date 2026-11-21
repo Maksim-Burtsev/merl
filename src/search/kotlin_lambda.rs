@@ -250,7 +250,7 @@ pub fn groovy_closure_delegate(text: &str, line1: usize, before: &str) -> Option
         scope_of(&lines, at)?
     };
     let depth = super::indent(lines[start]);
-    let assigned = Regex::new(&format!(r"^\s*{name}\s*=(?:[^=]|$)")).ok()?;
+    let assigned = Regex::new(&format!(r"(?:^|[^\w.]){name}\s*=(?:[^=]|$)")).ok()?;
     let block: Vec<&str> = (lines.get(start + 1..)?.iter())
         .take_while(|l| l.trim().is_empty() || super::indent(l) >= depth)
         .take_while(|l| !assigned.is_match(l))

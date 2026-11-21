@@ -60,4 +60,13 @@ class Hearth {
         r.resolveStrategy = Closure.DELEGATE_FIRST
         return c() + k() + r()
     }
+
+    int branched(boolean x) {
+        def c = { scorch() }
+        //        ^ d: src/main/groovy/hearthside/Hearth.groovy:6
+        if (x) c = { sear() }
+        c.delegate = skillet
+        c.resolveStrategy = Closure.DELEGATE_FIRST
+        return c()
+    }
 }
