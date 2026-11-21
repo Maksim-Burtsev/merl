@@ -22,7 +22,22 @@ impl App {
                     reason: reason.clone(),
                 })
                 .collect();
-        (!found.is_empty()).then_some(found)
+        (!found.is_empty() || self.jvm_hierarchy_known(&decl, 0)).then_some(found)
+    }
+
+    fn jvm_hierarchy_known(&self, decl: &Hit, depth: usize) -> bool {
+        let Some(text) = self.text_of(&decl.path) else {
+            return false;
+        };
+        let mut bases = search::jvm_bases(&text, decl.line1, search::scala(&decl.path));
+        bases.extend(search::java_implements(&text, decl.line1));
+        depth < 8
+            && bases.iter().all(|b| {
+                match self.jvm_type_on(&decl.path, &text, b, Some(decl.line1)) {
+                    JvmType::Project(b) => self.jvm_hierarchy_known(&b, depth + 1),
+                    _ => false,
+                }
+            })
     }
 
     pub(super) fn kotlin_receiver_property(

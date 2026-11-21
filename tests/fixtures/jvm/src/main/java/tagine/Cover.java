@@ -22,6 +22,12 @@ public class Cover extends Fireside {
         //                                     ^ d: src/main/java/tagine/Cassole.java:4
         Consumer<Cassole> h = (c) -> c.simmer();
         //                             ^ d: src/main/java/tagine/Cassole.java:4
+        Consumer<Tagine> k = Tagine -> Tagine.simmer(); Consumer<Cassole> m = Tagine -> Tagine.simmer();
+        //                                    ^ d: src/main/java/tagine/Tagine.java:8
+        //                                                                                     ^ d: src/main/java/tagine/Cassole.java:4
+        Consumer<Cassole> p = Tagine -> Tagine.simmer(); Consumer<Tagine> q = Tagine -> Tagine.simmer();
+        //                                     ^ d: src/main/java/tagine/Cassole.java:4
+        //                                                                                     ^ d: src/main/java/tagine/Tagine.java:8
     }
 
     class Inner {
