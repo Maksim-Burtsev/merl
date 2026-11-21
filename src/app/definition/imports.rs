@@ -75,6 +75,7 @@ impl App {
             && self
                 .python_roots()
                 .is_some_and(|roots| !roots.iter().any(|r| search::python_installed(r, top)))
+            && !crate::typeshed::stdlib().is_some_and(|t| search::python_installed(t, top))
             && let Some(line) = search::import_line1(a.kind, &a.text, a.first())
         {
             let hit = self.line_hit(&a.here, line);
@@ -109,7 +110,6 @@ impl App {
         Some(
             (roots.iter().cloned())
                 .chain(search::python_local_envs(&self.root))
-                .chain(crate::typeshed::stdlib().map(Path::to_path_buf))
                 .collect(),
         )
     }
