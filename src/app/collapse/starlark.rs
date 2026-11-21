@@ -104,7 +104,7 @@ fn with_statements(mut nodes: Vec<(usize, usize)>, stmts: &[Stmt], len: usize) -
         (stmts.binary_search_by_key(&h, |s| s.first))
             .is_ok_and(|k| words.contains(&stmts[k].word.as_str()))
     };
-    let elifs: Vec<usize> = (nodes.iter().map(|n| n.0))
+    let elifs: Vec<usize> = (nodes.iter().filter(|n| n.1 > n.0).map(|n| n.0))
         .filter(|&h| opens(h, &["elif"]))
         .collect();
     nodes.retain(|&(h, _)| !opens(h, COMPOUND) && !elifs.contains(&h));

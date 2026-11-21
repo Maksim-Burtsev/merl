@@ -88,3 +88,17 @@ def shop_pick(names, cases):  # f: 68-90
         pass  # f: 68-90
     for case in cases: print([  # f: 89-90
         case])  # f: 68-90
+
+def shop_mode(go, x):  # f: 92-104
+    if not go.cgo:
+        return []
+    elif go.mode in (SHARED, PLUGIN):  # f: 92-104
+        return [x]
+    if x == """  # f: 97-100
+a
+""":
+        pass
+    if x: print(  # f: 101-104
+        x)
+    else:
+        pass
