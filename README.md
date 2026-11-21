@@ -326,7 +326,8 @@ I use merl every working day. 1.0 is next, and what is left for it is in the
 
 Something broken, or a feature you miss: open an issue. Want to take one of the open issues: go
 ahead, no need to ask, just open a PR. The ones labelled `agent-ok` are settled and ready to
-build. If something in a PR is off, we'll fix it together.
+build. If something in a PR is off, we'll fix it together. What merl will not grow, and why:
+[docs/product.md](docs/product.md).
 
 ## License
 

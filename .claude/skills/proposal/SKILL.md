@@ -18,7 +18,9 @@ under `needs-owner`.
 
 ## 1. Read
 
-The issue with its comments: the owner's latest answer overrides the body. Then find out what
+First `docs/product.md`: an option that breaks its rules or brings back an idea it turns down is
+not proposed. Next the issue with its comments: the owner's latest answer overrides the body.
+Then find out what
 the classic terminal editors do in the same situation: Vim (netrw, NERDTree), Neovim (nvim-tree,
 neo-tree, LazyVim's explorer), Emacs (dired, treemacs), Helix, and terminal tools such as lazygit
 where they fit; GitHub and GitLab for anything review mode shows. Read their docs or source, run
