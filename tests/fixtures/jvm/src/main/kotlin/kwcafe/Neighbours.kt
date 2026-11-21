@@ -46,3 +46,8 @@ fun kwsips(): Long {
     return kwsip(mugful = 7L)
 //               ^ d: src/main/kotlin/kwcafe/Neighbours.kt:45
 }
+
+fun kwpoured() {
+    listOf(1).forEach { kwbrew(mugful = 2) }
+//                             ^ d: src/main/kotlin/kwcafe/Brewer.kt:5
+}

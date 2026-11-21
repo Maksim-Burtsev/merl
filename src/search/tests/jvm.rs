@@ -583,15 +583,18 @@ fn a_getter_chain_is_read_up_to_the_name_it_starts_from() {
 #[test]
 fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
     let body = "fun f() {\n    g()\n    run {\n        g()\n    }\n}\nclass C {\n    fun h() {\n        g()\n    }\n}\nfun Cup.e() {\n    g()\n}\n";
-    assert!(kotlin_top_level_body(body, 2, "    "));
-    assert!(!kotlin_top_level_body(body, 4, "        "));
-    assert!(!kotlin_top_level_body(body, 9, "        "));
-    assert!(!kotlin_top_level_body(body, 13, "    "));
-    assert!(!kotlin_top_level_body(body, 2, "    xs.map { "));
-    let lambda = "fun f() = with(x) {\n    g()\n}\nfun h(\n    n: Int = 1,\n): Cup = tx {\n    g()\n}\nfun e(): Cup =\n    g()\n";
-    assert!(!kotlin_top_level_body(lambda, 2, "    "));
-    assert!(!kotlin_top_level_body(lambda, 7, "    "));
-    assert!(kotlin_top_level_body(lambda, 10, "    "));
+    let top = |text: &str, line1: usize, ahead: &str| {
+        kotlin_top_level_body(text, line1, ahead).map(|l| l.join(","))
+    };
+    assert_eq!(top(body, 2, "    ").as_deref(), Some(""));
+    assert_eq!(top(body, 4, "        "), None);
+    assert_eq!(top(body, 9, "        "), None);
+    assert_eq!(top(body, 13, "    "), None);
+    let lambda = "fun f() = with(x) {\n    g()\n}\nfun h(\n    n: Int = 1,\n): Cup = tx {\n    g()\n}\nfun e(): Cup =\n    g()\nfun k() = xs.forEach {\n    g()\n}\n";
+    assert_eq!(top(lambda, 2, "    "), None);
+    assert_eq!(top(lambda, 7, "    "), None);
+    assert_eq!(top(lambda, 10, "    ").as_deref(), Some(""));
+    assert_eq!(top(lambda, 12, "    "), None);
     let ret = |l: &str| kotlin_top_level_return(l, "pot");
     assert_eq!(ret("fun pot(): a.Cup = Cup()").as_deref(), Some("a.Cup"));
     assert_eq!(
@@ -611,4 +614,114 @@ fn a_kotlin_top_level_call_is_read_only_in_a_top_level_body() {
         Some(("Pair".into(), vec![Some("Cup".into()), None])),
         "a generic position is not typed, nor does its comma split the pair"
     );
+}
+
+#[test]
+fn a_kotlin_top_level_call_is_read_in_a_standard_library_lambda_with_no_receiver() {
+    let body = "fun f() {\n    g()\n}\n";
+    let top = |text: &str, line1: usize, ahead: &str| {
+        kotlin_top_level_body(text, line1, ahead).map(|l| l.join(","))
+    };
+    assert_eq!(top(body, 2, "    xs.map { ").as_deref(), Some("map"));
+    assert_eq!(top(body, 2, "    xs?.let { n -> ").as_deref(), Some("let"));
+    assert_eq!(
+        top(body, 2, "    repeat(n + 1) { ").as_deref(),
+        Some("repeat")
+    );
+    assert_eq!(
+        top(body, 2, "    xs.map { it }.forEach { g() }").as_deref(),
+        Some("map,forEach")
+    );
+    for receiver in [
+        "    x.apply { ",
+        "    x.run { ",
+        "    with(x) { ",
+        "    buildList { ",
+        "    xs.all { ",
+        "    x.repeat(3) { ",
+        "    x.apply { xs.forEach { ",
+        "    xs.forEach { x.apply { ",
+        "    run { g() }.let { ",
+    ] {
+        assert_eq!(top(body, 2, receiver), None, "{receiver}");
+    }
+    let nested = "fun f() {\n    xs.forEach { x ->\n        g()\n        repeat(2) {\n            g()\n        }\n    }\n    x.apply {\n        xs.forEach {\n            g()\n        }\n    }\n    xs.forEach {\n        x.apply {\n            g()\n        }\n    }\n}\n";
+    assert_eq!(top(nested, 3, "        ").as_deref(), Some("forEach"));
+    assert_eq!(
+        top(nested, 5, "            ").as_deref(),
+        Some("repeat,forEach")
+    );
+    assert_eq!(top(nested, 10, "            "), None);
+    assert_eq!(top(nested, 15, "            "), None);
+    let shadow = |text: &str, line1: usize| {
+        !path_bindings(Kind::Jvm, Path::new("A.kt"), text, line1, "pot").is_empty()
+    };
+    assert!(shadow(
+        "fun f() {\n    xs.forEach { pot -> pot().x() }\n}\n",
+        2
+    ));
+    assert!(shadow(
+        "fun f() {\n    xs.forEach { pot ->\n        pot().x()\n    }\n}\n",
+        3
+    ));
+}
+
+#[test]
+fn a_kotlin_lambda_walk_passes_only_lines_that_end_opening_a_listed_lambda() {
+    let top = |text: &str, line1: usize, ahead: &str| {
+        kotlin_top_level_body(text, line1, ahead).map(|l| l.join(","))
+    };
+    let body = "fun f() {\n    g()\n}\n";
+    for name in [
+        "forEach",
+        "forEachIndexed",
+        "map",
+        "mapNotNull",
+        "filter",
+        "filterNot",
+        "any",
+        "none",
+        "first",
+        "firstOrNull",
+        "sortedBy",
+        "groupBy",
+        "associateBy",
+        "let",
+        "also",
+        "takeIf",
+        "takeUnless",
+    ] {
+        let ahead = format!("    xs.{name} {{ ");
+        assert_eq!(top(body, 2, &ahead).as_deref(), Some(name), "{ahead}");
+    }
+    assert_eq!(top(body, 2, "    fun Rack.one() = xs.forEach { "), None);
+    assert_eq!(top(body, 2, "    fun Rack.flat() = "), None);
+    let local = "fun f() {\n    fun Rack.inner() = xs.forEach {\n        g()\n    }\n    val h = fun Rack.() = xs.forEach {\n        g()\n    }\n}\n";
+    assert_eq!(top(local, 3, "        "), None);
+    assert_eq!(top(local, 6, "        "), None);
+    let braced = "fun f() {\n    with(xs.first { true })\n    {\n        g()\n    }\n    with(\n        x,\n    ) {\n        g()\n    }\n    with(xs.first { true },\n    ) {\n        g()\n    }\n}\n";
+    assert_eq!(top(braced, 4, "        "), None);
+    assert_eq!(top(braced, 9, "        "), None);
+    assert_eq!(top(braced, 13, "        "), None);
+    let named =
+        |line: &str, name: &str| Regex::new(&kotlin_fun_named(name)).unwrap().is_match(line);
+    assert!(named(
+        "fun <R : Comparable<R>> Shelf.sortedBy(block: Shelf.() -> R): Shelf = this",
+        "sortedBy"
+    ));
+    assert!(named(
+        "context(Scope) fun Rack.map(f: Rack.() -> Unit) {}",
+        "map"
+    ));
+    assert!(named(
+        "fun <T> Rack<T>.forEach(block: Rack<T>.() -> Unit) = block()",
+        "forEach"
+    ));
+    assert!(named(
+        "    override fun forEach(action: Consumer<T>) {}",
+        "forEach"
+    ));
+    assert!(!named("    val map = HashMap<Int, Int>()", "map"));
+    assert!(!named("fun f() = xs.map { it }", "map"));
+    assert!(!named("fun mapper(x: Int) {}", "map"));
 }
