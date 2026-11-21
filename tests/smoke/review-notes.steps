@@ -102,7 +102,7 @@ merl --review=agent/refund app/service.py:44
 wait callers read its status
 # A changed two-line note names the lines it was written on (#1604). A note on cancel's `if` and
 # its `raise`, lines 44 to 45; with merl closed, the agent changes the `raise` and commits: the
-# reopened note sits dim under the deleted `raise`, labelled lines 44 to 45, not 44 to -45
+# reopened note sits dim under the deleted `raise`, labelled lines 44 to 45, not 44 to -32
 key S-Down S-End a
 type a 409, not a ValueError
 key Escape
