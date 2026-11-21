@@ -92,9 +92,10 @@ sequence.
 - `ledger.md` there: the weekly percentage at the start, then a row per task under exactly
   `| Name | Task | Kind | Branch | Agent | State | Tokens | Min |`, the issues in `Task` as
   `#N` (`#874 #875`) and `Kind` `epic` for a task of the epic: `epic-body` reads that header
-  and exits naming it when the ledger has another. It finds a row's report by `Name` (the task
-  file `task-NAME.md`), then the branch's last segment, then the last agent id in `Agent`
-  (`a57225e6 -> a998829b` for a restart); a stopped agent's transcript gives none. A merged `epic` row whose issue keeps work starts its State with
+  and exits naming it when the ledger has another. A report is the last text an agent ended its
+  turn with (`end_turn`); `epic-body` finds a row's by `Name` (the task file `task-NAME.md`),
+  then the branch's last segment, then the last agent id in `Agent` (`a57225e6 -> a998829b`
+  for a restart). A merged `epic` row whose issue keeps work starts its State with
   `part:` (`part #874:` when only some of the row's issues do): `epic-body` writes those as
   `Part of`, every other merged issue as `Closes`. Keep it current
   after every agent result: a usage limit can end the run at any moment, and the ledger is what

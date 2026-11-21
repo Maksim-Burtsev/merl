@@ -135,11 +135,12 @@ fn epic_body_names_the_footer_label_it_reads_and_writes_nothing_without_it() {
 #[test]
 fn epic_body_finds_a_report_by_name_by_branch_and_by_the_agent_after_a_restart() {
     let prompt = |task: &str| json!({"type": "user", "message": {"role": "user", "content": format!("Read {{run}}/task-{task}.md")}});
-    let said = |text: &str| json!({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}});
+    let said = |stop: &str, text: &str| json!({"type": "assistant", "message": {"stop_reason": stop, "content": [{"type": "text", "text": text}]}});
     let report = |what: &str| {
-        said(&format!(
-            "- **Before:** {what} before\n- **After:** {what} after"
-        ))
+        said(
+            "end_turn",
+            &format!("- **Before:** {what} before\n- **After:** {what} after"),
+        )
     };
     let stopped = json!({"type": "user", "message": {"role": "user", "content": [
         {"type": "text", "text": "[Request interrupted by user for tool use]"}
@@ -147,9 +148,10 @@ fn epic_body_finds_a_report_by_name_by_branch_and_by_the_agent_after_a_restart()
     let (run, dir) = epic_body(
         "epic-body-reports",
         "| Name | Task | Kind | Branch | Agent | State | Tokens | Min |\n|---|---|---|---|---|---|---|---|\n\
-        | dartcs | #1 | epic | b/dartcs-family | a9129306 | merged | 1 | 1 |\n\
-        | str | #2 | epic | b/str1530 | a1000000 | merged | 1 | 1 |\n\
-        | swift | #3 | epic | b/swift-family | a57225e6 -> a998829b | merged | 1 | 1 |\n",
+        | dartcs | #1 | epic | b/dartcs-family | x | merged | 1 | 1 |\n\
+        | str | #2 | epic | b/str1530 | x | merged | 1 | 1 |\n\
+        | swift | #3 | epic | b/swift-family | a57225e6 -> a998829b | merged | 1 | 1 |\n\
+        | kettle | #4 | epic | b/kettle-family | x | merged | 1 | 1 |\n",
         COMMON,
         &[
             ("a9129306686dd2957", vec![prompt("dartcs"), report("Dart")]),
@@ -159,11 +161,23 @@ fn epic_body_finds_a_report_by_name_by_branch_and_by_the_agent_after_a_restart()
             ),
             (
                 "a57225e691544acc7",
-                vec![prompt("swift"), said("Pressing the real row."), stopped],
+                vec![
+                    prompt("swift"),
+                    said("stop_sequence", "You've hit your limit"),
+                ],
             ),
             (
                 "a998829be22189ef1",
                 vec![prompt("swift-restart"), report("Swift")],
+            ),
+            (
+                "a6e81cd4b36efb4c3",
+                vec![
+                    prompt("kettle"),
+                    report("Kettle"),
+                    said("tool_use", "Checking the notice."),
+                    stopped,
+                ],
             ),
         ],
     );
@@ -173,10 +187,13 @@ fn epic_body_finds_a_report_by_name_by_branch_and_by_the_agent_after_a_restart()
         String::from_utf8_lossy(&run.stderr)
     );
     let body = std::fs::read_to_string(dir.join("epic-body.md")).unwrap();
-    for what in ["Dart", "String", "Swift"] {
+    for what in ["Dart", "String", "Swift", "Kettle"] {
         assert!(body.contains(&format!("**Today** {what} before")), "{body}");
     }
-    assert!(!body.contains("Pressing"), "{body}");
+    assert!(
+        !body.contains("limit") && !body.contains("Checking"),
+        "{body}"
+    );
 }
 
 #[cfg(target_os = "macos")]
@@ -205,6 +222,18 @@ fn stuck_counts_an_agent_stopped_with_task_stop_as_finished() {
                 {"type": "tool_use", "name": "Bash", "input": {"command": "cargo test"}}
             ]}}),
         ),
+        (
+            "a4000000",
+            json!({"type": "user", "message": {"role": "user", "content": [
+                {"type": "text", "text": "[Request interrupted by user]"}
+            ]}}),
+        ),
+        (
+            "a5000000",
+            json!({"type": "user", "message": {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "t", "content": "ok"}
+            ]}}),
+        ),
     ] {
         std::fs::write(dir.join(format!("{agent}.output")), format!("{last}\n")).unwrap();
     }
@@ -215,6 +244,10 @@ fn stuck_counts_an_agent_stopped_with_task_stop_as_finished() {
         .unwrap();
     let out = String::from_utf8_lossy(&run.stdout);
     assert!(out.contains("| a3000000 |  | 0 | `cargo test"), "{out}");
-    assert!(!out.contains("a2000000"), "{out}");
-    assert!(out.contains("\n2 finished."), "{out}");
+    assert!(out.contains("| a5000000 |"), "{out}");
+    assert!(
+        !out.contains("a2000000") && !out.contains("a4000000"),
+        "{out}"
+    );
+    assert!(out.contains("\n3 finished."), "{out}");
 }

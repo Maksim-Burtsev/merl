@@ -35,12 +35,11 @@ def last_text(path):
     text = ""
     for line in path.read_text().splitlines():
         entry = json.loads(line)
-        content = entry.get("message", {}).get("content", [])
-        parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
-        if entry.get("type") == "assistant" and any(parts):
+        if entry.get("type") != "assistant" or entry["message"].get("stop_reason") != "end_turn":
+            continue
+        parts = [c.get("text", "") for c in entry["message"].get("content", []) if c.get("type") == "text"]
+        if any(parts):
             text = "\n".join(parts)
-        elif entry.get("type") == "user" and any(p.startswith("[Request interrupted by user") for p in parts):
-            text = ""
     return text
 
 
