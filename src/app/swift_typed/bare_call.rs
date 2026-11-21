@@ -1,4 +1,4 @@
-use super::{App, Hit, Kind, Path, WrittenVia, search};
+use super::{App, Hit, Kind, Path, SwiftType, WrittenVia, search};
 
 impl App {
     pub(super) fn swift_bare_call(
@@ -56,6 +56,51 @@ impl App {
             .collect()
     }
 
+    fn swift_closed(
+        &self,
+        ty: &SwiftType,
+        text: &str,
+        (around, line1): (usize, usize),
+        method: &str,
+    ) -> bool {
+        let name = &ty.name;
+        let spelled = |l: &str| {
+            l.split(|c: char| !c.is_alphanumeric() && c != '_')
+                .any(|w| w == "extension" || w == "typealias")
+                || search::swift_type_header(l).is_some_and(|t| t.name == *name)
+        };
+        let plain = |l: &str| {
+            ["class", "struct", "extension"]
+                .iter()
+                .any(|k| l.trim_end().ends_with(&format!("{k} {name} {{")))
+        };
+        let parameter = |l: &str| {
+            l.match_indices(method).any(|(i, _)| {
+                l.get(i + method.len()..)
+                    .is_some_and(|r| r.trim_start().starts_with(':'))
+            })
+        };
+        let Ok(hits) = self.grep(name, true, false, |p| {
+            p.extension().is_some_and(|e| e == "swift")
+        }) else {
+            return false;
+        };
+        matches!(ty.keyword.as_deref(), Some("class" | "struct"))
+            && ty.owner == *name
+            && !name.contains('.')
+            && search::swift_at_top(text, around)
+            && !text
+                .lines()
+                .skip(around - 1)
+                .take(line1 + 1 - around)
+                .any(parameter)
+            && hits.len() < search::MAX_HITS
+            && hits
+                .iter()
+                .filter(|h| self.in_code(Kind::Swift, h))
+                .all(|h| !spelled(&h.text) || plain(&h.text))
+    }
+
     pub(super) fn swift_bare_closure_value(
         &self,
         here: &Path,
@@ -76,7 +121,13 @@ impl App {
                 let ty =
                     self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
                 ty.keyword.as_ref()?;
-                (self.swift_member_rows(here, &ty, &method)?, Some(ty))
+                match self.swift_member_rows(here, &ty, &method) {
+                    Some(rows) => (rows, Some(ty)),
+                    None if self.swift_closed(&ty, text, (around, line1), &method) => {
+                        (self.swift_top_funcs(here, &method), None)
+                    }
+                    None => return None,
+                }
             }
             None => (self.swift_top_funcs(here, &method), None),
         };
