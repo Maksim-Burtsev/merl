@@ -96,6 +96,10 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
             word = "";
         }
     }
+    with_statements(nodes, &stmts, lines.len())
+}
+
+fn with_statements(mut nodes: Vec<(usize, usize)>, stmts: &[Stmt], len: usize) -> Blocks {
     let opens = |h: usize, words: &[&str]| {
         (stmts.binary_search_by_key(&h, |s| s.first))
             .is_ok_and(|k| words.contains(&stmts[k].word.as_str()))
@@ -115,7 +119,7 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
             funcs.push((s.first, end));
         }
     }
-    Blocks::from_nodes(nodes, funcs, lines.len())
+    Blocks::from_nodes(nodes, funcs, len)
 }
 
 fn block_end(s: &Stmt, rest: &[Stmt]) -> usize {
