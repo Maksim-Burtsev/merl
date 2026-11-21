@@ -8,6 +8,7 @@ use super::*;
 
 mod android;
 mod annotated;
+mod background;
 mod batch_tools;
 mod budgets;
 mod class_bench;

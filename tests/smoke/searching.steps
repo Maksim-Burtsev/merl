@@ -1,0 +1,27 @@
+# searching: a `d` that takes longer than 250 ms says `searching…` on the status line, at 80x24
+# beside the file name and position, and its answer opens when it comes; merl keeps taking
+# keys meanwhile, and a key that moves the cursor drops the search (#1553). app/slow.py is a
+# link the walk lists; before each `d` it starts leading to a pipe held open for 5 s, so the
+# search by name waits on reading it, as it waits on a big tree, on a machine of any speed.
+# One search per pipe: of two readers that wait on one pipe macOS wakes only one at times.
+# The last release stands still for those 5 s and never says `searching…`.
+size 80x24
+merl app/api.py
+wait def order_json(order) -> str:
+run ln -s ../../slow app/slow.py
+wait A slow.py
+key t /
+type find_by
+key Enter
+run mkfifo ../slow
+run (exec 3<>../slow; sleep 5; rm ../slow; : >../slow; exec 3>&-) >/dev/null 2>&1 &
+key d
+wait searching…
+wait find_by_customer: by name, 3 declarations (3/3)
+key Escape
+run rm ../slow && mkfifo ../slow
+run (exec 3<>../slow; sleep 5; rm ../slow; : >../slow; exec 3>&-) >/dev/null 2>&1 &
+key d
+wait [code]  searching…
+key Down
+wait app/api.py  24:19

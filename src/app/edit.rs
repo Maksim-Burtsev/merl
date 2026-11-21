@@ -458,6 +458,8 @@ impl App {
 
     pub fn tick(&mut self) -> bool {
         let parsed = self.parse_tick();
+        #[cfg(not(target_family = "wasm"))]
+        let parsed = parsed | self.definition_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
         if !due || !self.dirty || self.conflict {
             return parsed;

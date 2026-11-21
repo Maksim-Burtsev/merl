@@ -48,6 +48,11 @@ impl App {
         Some((range, word))
     }
 
+    #[cfg(target_family = "wasm")]
+    pub(super) fn define(&mut self) {
+        self.goto_definition();
+    }
+
     pub(super) fn goto_definition(&mut self) {
         if self.answered_in_razor() {
             return;

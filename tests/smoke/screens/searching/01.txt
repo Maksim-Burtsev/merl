@@ -1,0 +1,26 @@
+wait def order_json(order) -> str:
+┌orders──────────────────────┐ 1 import json
+│▸ .github                   │ 2 from http import HTTPStatus
+│▸ .venv                     │ 3 from typing import cast
+│▾ app                       │ 4
+│    __init__.py             │ 5 from app.service import OrderNotFound,
+│    api.py                  │   OrderService
+│    config.py               │ 6
+│    models.py               │ 7
+│    repos.py                │ 8 def order_json(order) -> str:
+│    service.py              │ 9     return json.dumps(
+│    uow.py                  │10         {"id": order.id, "status":
+│▸ data                      │           order.status.value, "total":
+│▸ deploy                    │           str(order.total)},
+│▸ docs                      │11         sort_keys=True,
+│▸ scripts                   │12     )
+│▸ tests                     │13
+│▸ web                       │14
+│▸ worker                    │15 def get_order(service: OrderService, order_id:
+│  .env                      │   int) -> tuple[int, str]:
+│  .gitignore                │16     try:
+│  docker-compose.yml        │17         return HTTPStatus.OK,
+│  Dockerfile                │           order_json(service.get(order_id))
+└────────────────────────────┘18     except OrderNotFound:
+app/api.py  1:1  [code]                                                   14:32
+cursor (x,y,shown) 33,0,0
