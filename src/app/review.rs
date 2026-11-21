@@ -15,8 +15,8 @@ impl App {
             self.buf = link;
         }
         self.notes.on = true;
-        self.notes_sync();
         self.refresh_diff();
+        self.notes_sync();
         self.load_viewed();
         let marks_failed =
             (self.message.starts_with("viewed marks not read")).then(|| self.message.clone());

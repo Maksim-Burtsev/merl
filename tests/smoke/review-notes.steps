@@ -72,3 +72,12 @@ key c
 wait line 5, changed
 key c c c c
 wait agent  set it once the provider confirms
+# A note stays on its own line (#1543). A note on cancel's `return order`, one of three alike
+# lines; the agent then changes that line and adds two imports above it, while merl is open: the
+# note goes dim with (changed) under the deleted copy of its line, not live under an alike one
+run printf '# merl notes\n\napp/service.py:40\n>         return order\nkeep this one\n' > "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+merl --review=agent/refund app/service.py:40
+wait keep this one
+run d=.git/merl/branches/agent/refund/orders; [ -d $d ] || d=.; f=$d/app/service.py; { printf 'import logging\nimport os\n'; sed '40s/return order/return self.get(order_id)/' $f; } > $f.new && mv $f.new $f
+# the tree's counts after the edit come from a thread, after the note's (changed) (#1036)
+wait 8 files · +62 −40 · 1 note

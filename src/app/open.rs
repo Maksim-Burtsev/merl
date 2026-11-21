@@ -46,9 +46,7 @@ impl App {
                     self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
-                    if self.notes.on {
-                        self.notes_resolve();
-                    }
+                    self.notes.here.clear();
                     let rel = path.strip_prefix(&self.root).ok();
                     if rel.is_some_and(|rel| {
                         self.review.as_ref().is_some_and(|r| r.file(rel).is_some())
@@ -66,6 +64,9 @@ impl App {
                     (self.top_line, self.top_row) = (0, 0);
                     self.diff = git::Diff::default();
                     self.refresh_diff();
+                    if self.notes.on {
+                        self.notes_resolve();
+                    }
                     self.note_recent();
                 }
                 Err(e) => {
