@@ -524,13 +524,14 @@ impl App {
         false
     }
 
+    pub(super) fn literal_this(&self, a: &Asked) -> Option<search::LiteralThis> {
+        (a.kind == Kind::TsJs && a.dotted && matches!(a.chain.as_slice(), [t] if t == "this"))
+            .then(|| search::ts_literal_this_key(&a.text, self.line + 1, a.range.start, &a.word))
+            .flatten()
+    }
+
     pub(super) fn answered_by_literal_this(&mut self, a: &Asked) -> bool {
-        if a.kind == Kind::TsJs
-            && a.dotted
-            && matches!(a.chain.as_slice(), [t] if t == "this")
-            && let Some(key) =
-                search::ts_literal_this_key(&a.text, self.line + 1, a.range.start, &a.word)
-        {
+        if let Some(search::LiteralThis::Key(key)) = self.literal_this(a) {
             let reason = super::Reason::Receiver("this: object literal".to_owned());
             let found = self.lines_here(a, [key], &reason);
             return self.show_found(a, found);

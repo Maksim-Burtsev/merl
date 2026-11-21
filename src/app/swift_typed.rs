@@ -217,7 +217,9 @@ impl App {
                 Some(ty) => self
                     .swift_field(here, &ty, field, hops)
                     .or_else(|| self.swift_base_field(here, &ty, field)),
-                None => self.swift_requirement(here, &written, field, hops),
+                None => search::swift_tuple_field(&written, field)
+                    .map(WrittenVia::plain)
+                    .or_else(|| self.swift_requirement(here, &written, field, hops)),
             }
             .filter(|v| (i == 0 && names[0] == "self") || !generic::bound(&v.written))?;
             let link = link.unwrap_or_else(|| {

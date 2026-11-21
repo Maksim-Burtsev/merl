@@ -346,7 +346,7 @@ impl App {
                     .iter()
                     .map(|b| b.line1)
                     .collect();
-                search::scala_alias_owner(&a.text, line1, s, &bound)
+                search::scala_alias_owner(&a.text, line1, s, &bound, &a.word)
             }
             [t, s] if s == "this" && !search::kotlin(&a.here) => {
                 search::jvm_named_this_owner(&a.text, line1, t)

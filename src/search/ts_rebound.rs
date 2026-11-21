@@ -51,7 +51,18 @@ pub(super) fn ts_this_on_line(code: &str, col: usize, line1: usize) -> Option<Bi
     None
 }
 
-pub fn ts_literal_this_key(text: &str, line1: usize, col: usize, name: &str) -> Option<usize> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum LiteralThis {
+    Key(usize),
+    NoKey,
+}
+
+pub fn ts_literal_this_key(
+    text: &str,
+    line1: usize,
+    col: usize,
+    name: &str,
+) -> Option<LiteralThis> {
     static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(concat!(
             r"^(?:(?:async|get|set)\s+)?\*?\s*([\w$]+)\s*\([^()]*\)\s*(?::[^{}()]*)?\{$",
@@ -63,8 +74,10 @@ pub fn ts_literal_this_key(text: &str, line1: usize, col: usize, name: &str) -> 
         Regex::new(r"\(\s*this\s*[:,)]").expect("the regex is a literal")
     });
     static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:export\s+)?(?:const|let|var)\s+[\w$]+(?:\s*:[^=]*)?|[\w$.]+)\s*=\s*\{$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^(?:(?:export\s+)?(?:const|let|var)\s+[\w$]+(?:\s*(:)[^=]*)?|[\w$.]+)\s*=\s*\{$",
+        )
+        .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let code = |i: usize| super::uncommented(super::Kind::TsJs, lines[i]);
@@ -107,7 +120,7 @@ pub fn ts_literal_this_key(text: &str, line1: usize, col: usize, name: &str) -> 
         at = scope(at)?;
     }
     let literal = scope(at)?;
-    LITERAL.is_match(code(literal).trim()).then_some(())?;
+    let annotated = LITERAL.captures(code(literal).trim())?.get(1).is_some();
     let key = Regex::new(&format!(
         r"^(?:(?:async|get|set)\s+)?\*?\s*(?:{n}|'{n}'|\x22{n}\x22)\s*(?:[:(,]|$)",
         n = regex::escape(name)
@@ -117,5 +130,6 @@ pub fn ts_literal_this_key(text: &str, line1: usize, col: usize, name: &str) -> 
     (literal + 1..lines.len())
         .take_while(|&i| code(i).trim().is_empty() || super::indent(lines[i]) >= body)
         .find(|&i| super::indent(lines[i]) == body && key.is_match(code(i).trim()))
-        .map(|i| i + 1)
+        .map(|i| LiteralThis::Key(i + 1))
+        .or_else(|| (!annotated).then_some(LiteralThis::NoKey))
 }

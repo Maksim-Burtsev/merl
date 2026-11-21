@@ -457,6 +457,8 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
                 Some(Value::Element(looped(&c)))
+            } else if let Some(class) = python_case_class(t, name) {
+                Some(Value::Type(class))
             } else if r.unknown.is_match(t)
                 || (i <= at
                     && python_inline(t, name)
@@ -527,7 +529,10 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else if let Some(c) = r.annotated.captures(s) {
         Some(Value::Type(c[1].to_owned()))
     } else if let Some(c) = r.assigned.captures(s) {
-        Some(value_of(Kind::Python, &c[1]))
+        Some(match c[1].trim() {
+            "self" => Value::Name("self".to_owned()),
+            value => value_of(Kind::Python, value),
+        })
     } else {
         let c = TUPLE_TARGET
             .captures(s)
@@ -706,6 +711,10 @@ fn python_case_around(lines: &[&str], at: usize, name: &str) -> Option<(usize, u
     }
     let literal = literal_lines(Kind::Python, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Python, lines[i]).trim().to_owned();
+    let own = code(at);
+    if !own.ends_with(':') && python_case_class(&own, name).is_some() {
+        return Some((at, at + 1));
+    }
     let mut depth = indent(lines[at]);
     let case = (0..at).rev().find_map(|i| {
         let t = code(i);
@@ -745,6 +754,18 @@ fn python_case_binds(t: &str, name: &str) -> bool {
                 .get(end..)
                 .is_some_and(|s| s.trim_start().starts_with(['(', '.', '=']))
     })
+}
+fn python_case_class(t: &str, name: &str) -> Option<String> {
+    if !t.starts_with("case") {
+        return None;
+    }
+    Regex::new(&format!(
+        r"^case\s+([A-Za-z_][\w.]*)\s*\([^()]*\)\s+as\s+{}\s*(?:if\b.*)?:",
+        regex::escape(name)
+    ))
+    .ok()?
+    .captures(t)
+    .map(|c| c[1].to_owned())
 }
 pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

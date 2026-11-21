@@ -139,8 +139,9 @@ impl App {
         }) = search::java_lambda_argument(text, line1, name)
         else {
             let at = text.lines().nth(line1.checked_sub(1)?)?;
-            let written = search::java_declared_lambda(at, name)?;
-            let resolved = self.jvm_type_at(file, text, &written);
+            let col = (line1 == self.line + 1 && at == self.line_str()).then_some(self.col);
+            let written = search::java_declared_lambda(at, name, col)?;
+            let resolved = self.jvm_type_written(file, text, &written, None);
             return matches!(resolved, JvmType::Project(_))
                 .then_some(WrittenType { resolved, written });
         };

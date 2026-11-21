@@ -179,27 +179,27 @@ pub fn if_let_else_if(held: Caps) {
 
 pub fn if_let_else_rebinds(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else { let held = Grain; held.get() };
-    //                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    //                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1552)
 }
 
 pub fn if_let_else_for(held: Caps, v: Vec<Grain>) {
     let n = if let Some(held) = grain() { 0 } else { for held in v.iter() { held.get(); } 0 };
-    //                                                                           ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    //                                                                           ^ d: !jump; want tests/rebinds.rs:14 (#1552)
 }
 
 pub fn if_let_else_while_let(held: Caps) {
     let n = if let Some(held) = grain() { 0 } else { while let Some(held) = grain() { held.get(); } 0 };
-    //                                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    //                                                                                      ^ d: !jump; want tests/rebinds.rs:14 (#1552)
 }
 
 pub fn if_let_after_for(held: Caps, v: Vec<Grain>) {
     let n = if let Some(held) = grain() { 0 } else { 1 } + { for held in v.iter() { held.get(); } 0 };
-    //                                                                                    ^ d: !jump; want tests/rebinds.rs:14 (#1302)
+    //                                                                                    ^ d: !jump; want tests/rebinds.rs:14 (#1552)
 }
 
 pub fn if_let_then_for(held: Caps, w: Vec<Caps>) {
     if let Some(held) = grain() { for held in w.iter() { held.get(); } }
-    //                                                        ^ d: !jump; want tests/rebinds.rs:5 (#1302)
+    //                                                        ^ d: !jump; want tests/rebinds.rs:5 (#1552)
 }
 
 pub fn if_let_then_twice(held: Caps) {

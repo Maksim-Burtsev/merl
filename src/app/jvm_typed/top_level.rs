@@ -142,21 +142,33 @@ impl App {
             && search::kotlin_top_level_body(text, line1, ahead)
             && search::path_bindings(Kind::Jvm, file, text, line1, name).is_empty())
         .then_some(())?;
+        self.kotlin_seen_fun(file, text, line1, name, false)
+    }
+
+    pub(super) fn kotlin_seen_fun(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        alone: bool,
+    ) -> Option<Hit> {
         let pattern = search::def_patterns(Kind::Jvm, name).join("|");
         let cut = self.truncated.get();
         let mut hits = self.project_definitions(Kind::Jvm, file, name, &pattern);
         let full = self.truncated.get() && !cut;
         self.truncated.set(cut);
+        let top = |h: &Hit| {
+            self.text_of(&h.path)
+                .is_some_and(|t| search::jvm_enclosing_types(&t, h.line1).is_empty())
+        };
         hits.retain(|h| {
-            h.path.extension().is_some_and(|e| e == "kt")
-                && self.jvm_code(h)
-                && self
-                    .text_of(&h.path)
-                    .is_some_and(|t| search::jvm_enclosing_types(&t, h.line1).is_empty())
+            h.path.extension().is_some_and(|e| e == "kt") && self.jvm_code(h) && (alone || top(h))
         });
         let ([hit], false) = (&hits[..], full) else {
             return None;
         };
+        top(hit).then_some(())?;
         let t = self.text_of(&hit.path)?;
         let package = search::jvm_package(&t);
         let base = |p: &[String]| p.split_last().map(|(_, b)| b.join("."));

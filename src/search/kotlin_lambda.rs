@@ -153,9 +153,63 @@ pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<
         )
         .expect("the regex is a literal")
     });
+    receiver_of(&CALL, text, line1, before)
+}
+
+pub fn kotlin_receiver_scope(text: &str, line1: usize, before: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:run|apply|runCatching)|(?:^|[^\w.])with\s*\(\s*([a-z]\w*)\s*\))\s*\{$",
+        )
+        .expect("the regex is a literal")
+    });
+    receiver_of(&CALL, text, line1, before)
+}
+
+pub fn kotlin_block_call(
+    text: &str,
+    line1: usize,
+    before: &str,
+) -> Option<(Option<String>, String)> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])(?:([a-z]\w*)\s*\.\s*)?([a-z]\w*)\s*\{$")
+            .expect("the regex is a literal")
+    });
     let (head, bound) = kotlin_lambda_head(text, line1, before)?;
     (bound == "it").then_some(())?;
     let c = CALL.captures(&head)?;
+    (&c[2] != "init").then_some(())?;
+    Some((c.get(1).map(|r| r.as_str().to_owned()), c[2].to_owned()))
+}
+
+pub struct KotlinBlockFun {
+    pub type_parameter: Option<String>,
+    pub extension: Option<String>,
+    pub block: String,
+}
+
+pub fn kotlin_block_fun(line: &str, name: &str) -> Option<KotlinBlockFun> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"\bfun\s+(?:<\s*(\w+)\s*>\s*)?(?:(\w+)\??\s*\.\s*)?{}\s*\((?:[^()]*,)?\s*",
+            r"(?:(?:noinline|crossinline)\s+)?\w+\s*:\s*([A-Z][\w.]*)\s*\.\s*\(\s*\)\s*->\s*[\w.?]+\s*\)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    let own = |i: usize| c.get(i).map(|m| m.as_str().to_owned());
+    Some(KotlinBlockFun {
+        type_parameter: own(1),
+        extension: own(2),
+        block: own(3)?,
+    })
+}
+
+fn receiver_of(call: &Regex, text: &str, line1: usize, before: &str) -> Option<String> {
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == "it").then_some(())?;
+    let c = call.captures(&head)?;
     Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 
@@ -180,6 +234,41 @@ pub fn jvm_receiver_lambda(text: &str, line1: usize, before: &str) -> bool {
     });
     kotlin_lambda_head(text, line1, before)
         .is_some_and(|(head, bound)| bound == "it" && GROOVY.is_match(&head))
+}
+
+pub fn groovy_closure_delegate(text: &str, line1: usize, before: &str) -> Option<(String, bool)> {
+    static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])([a-z_]\w*)\s*=\s*\{$").expect("the regex is a literal")
+    });
+    let (head, _) = kotlin_lambda_head(text, line1, before)?;
+    let name = regex::escape(CLOSURE.captures(&head)?.get(1)?.as_str());
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let start = if before.contains('{') {
+        at
+    } else {
+        scope_of(&lines, at)?
+    };
+    let depth = super::indent(lines[start]);
+    let assigned = Regex::new(&format!(r"(?:^|[^\w.]){name}\s*=(?:[^=]|$)")).ok()?;
+    let block: Vec<&str> = (lines.get(start + 1..)?.iter())
+        .take_while(|l| l.trim().is_empty() || super::indent(l) >= depth)
+        .take_while(|l| !assigned.is_match(l))
+        .copied()
+        .collect();
+    let delegate = Regex::new(&format!(r"^\s*{name}\s*\.\s*delegate\s*=\s*(.+?)\s*;?\s*$")).ok()?;
+    let strategy = Regex::new(&format!(
+        r"^\s*{name}\s*\.\s*resolveStrategy\s*=\s*(?:Closure\s*\.\s*)?DELEGATE_(FIRST|ONLY)\s*;?\s*$"
+    ))
+    .ok()?;
+    let first: Vec<bool> = (block.iter())
+        .filter_map(|l| Some(&strategy.captures(l)?[1] == "FIRST"))
+        .collect();
+    let mut to = (block.iter()).filter_map(|l| Some(delegate.captures(l)?[1].to_owned()));
+    match (to.next(), first.is_empty()) {
+        (Some(d), false) if to.all(|o| o == d) => Some((d, first.iter().all(|&f| f))),
+        _ => None,
+    }
 }
 
 pub fn kotlin_scope_returned(before: &str) -> Option<String> {

@@ -12,18 +12,7 @@ impl App {
         if !search::bindings(Kind::Swift, text, line1, method).is_empty() {
             return None;
         }
-        let pattern = search::def_patterns(Kind::Swift, method).join("|");
-        let funcs: Vec<Hit> = self
-            .project_definitions(Kind::Swift, here, method, &pattern)
-            .into_iter()
-            .filter(|h| {
-                h.text.contains("func ")
-                    && self.text_of(&h.path).is_some_and(|t| {
-                        search::qualified(Kind::Swift, &t, h.line1, method)
-                            .is_none_or(|q| q == *method)
-                    })
-            })
-            .collect();
+        let funcs = self.swift_top_funcs(here, method);
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Swift, text);
         let mut at = line1;
@@ -53,6 +42,20 @@ impl App {
             })
     }
 
+    fn swift_top_funcs(&self, here: &Path, method: &str) -> Vec<Hit> {
+        let pattern = search::def_patterns(Kind::Swift, method).join("|");
+        self.project_definitions(Kind::Swift, here, method, &pattern)
+            .into_iter()
+            .filter(|h| {
+                h.text.contains("func ")
+                    && self.text_of(&h.path).is_some_and(|t| {
+                        search::qualified(Kind::Swift, &t, h.line1, method)
+                            .is_none_or(|q| q == *method)
+                    })
+            })
+            .collect()
+    }
+
     pub(super) fn swift_bare_closure_value(
         &self,
         here: &Path,
@@ -68,12 +71,18 @@ impl App {
             return None;
         }
         let literal = search::literal_lines(Kind::Swift, text);
-        let around = search::swift_enclosing_type(&lines, &literal, line1)?;
-        let ty = self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
-        ty.keyword.as_ref()?;
+        let (rows, ty) = match search::swift_enclosing_type(&lines, &literal, line1) {
+            Some(around) => {
+                let ty =
+                    self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
+                ty.keyword.as_ref()?;
+                (self.swift_member_rows(here, &ty, &method)?, Some(ty))
+            }
+            None => (self.swift_top_funcs(here, &method), None),
+        };
         let mut inputs = None;
         let mut generics = self.swift_scope_generics(here, text, line1);
-        for row in self.swift_member_rows(here, &ty, &method)? {
+        for row in rows {
             if !row.text.contains("func ") {
                 return None;
             }
@@ -102,7 +111,8 @@ impl App {
                 takes
             } else {
                 let [alias] =
-                    <[Hit; 1]>::try_from(self.swift_member_rows(here, &ty, &bare)?).ok()?;
+                    <[Hit; 1]>::try_from(self.swift_member_rows(here, ty.as_ref()?, &bare)?)
+                        .ok()?;
                 search::swift_function_inputs(&search::swift_alias(&alias.text, &bare)?)?
             };
             if inputs.as_ref().is_some_and(|i| *i != takes) {

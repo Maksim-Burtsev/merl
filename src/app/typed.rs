@@ -227,8 +227,13 @@ impl App {
                 fields_to_word: fields,
             }) => {
                 let value = value.clone();
-                let cast = matches!(value, search::Value::Type(_) | search::Value::Cast { .. })
-                    .then(|| call.clone());
+                let cast = matches!(
+                    value,
+                    search::Value::Type(_)
+                        | search::Value::Cast { .. }
+                        | search::Value::AngleCast(_)
+                )
+                .then(|| call.clone());
                 let TypeVia { ty, call_signature } = self
                     .binding_type(
                         kind,
@@ -628,7 +633,13 @@ impl App {
             });
         }
         if !bindings.is_empty() || kind != Kind::Go {
-            return self.agree(kind, file, text, &bindings, hops);
+            return self.agree(kind, file, text, &bindings, hops).or_else(|| {
+                let lines: Vec<usize> = bindings.iter().map(|b| b.line1).collect();
+                let from = (kind == Kind::Python && lines.len() > 1)
+                    .then(|| search::python_reaching(text, line1, name, &lines))??;
+                bindings.retain(|b| b.line1 == from);
+                self.agree(kind, file, text, &bindings, hops)
+            });
         }
         let imported = search::imports(kind, text).iter().any(|i| i.name == name);
         if imported || search::go_may_declare(text, line1, name) {
@@ -728,7 +739,8 @@ impl App {
             });
         }
         match &b.value {
-            search::Value::Type(t) | search::Value::New(t) => {
+            search::Value::AngleCast(_) if !search::reads_angle_casts(file) => None,
+            search::Value::Type(t) | search::Value::New(t) | search::Value::AngleCast(t) => {
                 self.written_type(kind, file, text, b, t).map(|ty| TypeVia {
                     ty,
                     call_signature: None,

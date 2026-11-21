@@ -56,10 +56,12 @@ impl App {
         if search::cs_rebound(&text, self.line + 1, before, first) {
             return Err(first.clone());
         }
-        let Proven { mut ty, link, .. } = self
+        let (Proven { mut ty, link, .. }, fields) = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
             .or_else(|| self.cs_static_field_head(here, &text, self.line + 1, first, fields))
             .or_else(|| self.cs_alias_head(here, &text, self.line + 1, first))
+            .map(|p| (p, fields))
+            .or_else(|| self.cs_tuple_head(here, &text, self.line + 1, first, fields))
             .ok_or_else(|| first.clone())?;
         if !fields.is_empty() && self.cs_outside_alias(here, &text, first, &ty) {
             if !self.cs_extensions(here, word).is_empty() {

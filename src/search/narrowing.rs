@@ -79,6 +79,22 @@ fn shapes(kind: Kind, name: &str) -> Shapes {
 }
 
 pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
+    checked_walk(kind, text, line1, name, false).map(|(t, guard, _)| (t, guard))
+}
+
+pub fn ts_else_of_check(text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
+    checked_walk(Kind::TsJs, text, line1, name, true)
+        .filter(|(.., excluded)| *excluded)
+        .map(|(t, guard, _)| (t, guard))
+}
+
+fn checked_walk(
+    kind: Kind,
+    text: &str,
+    line1: usize,
+    name: &str,
+    at_else: bool,
+) -> Option<(String, usize, bool)> {
     let word = match kind {
         Kind::Python => "isinstance",
         Kind::TsJs => "instanceof",
@@ -101,10 +117,10 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
         return None;
     }
     let mut crossed = s.function.is_match(&here);
-    let found = |t: &str, k: usize, crossed: bool| {
+    let found = |t: &str, k: usize, crossed: bool, excluded: bool| {
         let rebound = (k + 1..at).any(|j| s.assigned.is_match(&line(j)));
         let again = assigned_next_round(&s, k, at, raw.len(), &line, &filled);
-        (!crossed && !rebound && !again).then(|| (t.to_owned(), k + 1))
+        (!crossed && !rebound && !again).then(|| (t.to_owned(), k + 1, excluded))
     };
     let mut within = indent(&here);
     let logical = |end: usize| logical(end, &line, &filled);
@@ -120,7 +136,7 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
             if let Some(c) = s.guard.captures(&l) {
                 let t = c.name("t").or_else(|| c.name("a"))?.as_str();
                 if c.name("open").is_none() || closed_by_exit(kind, &raw, end, &s, &filled) {
-                    return found(t, end, crossed);
+                    return found(t, end, crossed, false);
                 }
                 return None;
             }
@@ -141,7 +157,7 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
                     && !chained
                     && indent(&h) == ind
                 {
-                    return found(t.as_str(), top, crossed);
+                    return found(t.as_str(), top, crossed, false);
                 }
                 let exits = (end + 1..raw.len())
                     .filter(filled)
@@ -167,13 +183,36 @@ pub fn checked_type(kind: Kind, text: &str, line1: usize, name: &str) -> Option<
             crossed = true;
         }
         if let Some(c) = s.header.captures(&l) {
-            return found(c.name("t")?.as_str(), end, crossed);
+            return found(c.name("t")?.as_str(), end, crossed, false);
+        }
+        if at_else && let Some((t, top)) = else_of_header(&s, &l, k, &line, &filled) {
+            return found(&t, top, crossed, true);
         }
         if s.mention.is_match(&l) && !s.negated_header.is_match(&l) {
             return None;
         }
     }
     None
+}
+
+fn else_of_header(
+    s: &Shapes,
+    l: &str,
+    k: usize,
+    line: &dyn Fn(usize) -> String,
+    filled: &dyn Fn(&usize) -> bool,
+) -> Option<(String, usize)> {
+    if l.split_whitespace().collect::<String>() != "}else{" {
+        return None;
+    }
+    let ind = indent(l);
+    let top = (0..k)
+        .rev()
+        .filter(filled)
+        .find(|j| indent(&line(*j)) <= ind)?;
+    let h = logical(top, line, filled).1;
+    let t = s.header.captures(&h)?.name("t")?.as_str().to_owned();
+    (indent(&h) == ind && !h.trim_start().starts_with('}')).then_some((t, top))
 }
 
 fn logical(

@@ -15,6 +15,53 @@ impl App {
         }
     }
 
+    fn c_by_name(
+        &mut self,
+        a: &Asked,
+        near: &Near,
+        hits: Vec<Hit>,
+        fallbacks: &mut Vec<Hit>,
+        aside: &mut Option<String>,
+    ) -> Option<Vec<Hit>> {
+        let own = search::cpp_constructor_defined_in_class(
+            &a.text,
+            self.line + 1,
+            a.range.start,
+            &a.word,
+        );
+        let delegated = (!own && a.tail.trim_start().starts_with('('))
+            .then(|| {
+                search::cpp_delegated_constructor(
+                    &a.text,
+                    self.line + 1,
+                    a.range.start,
+                    &a.word,
+                    || self.c_included_texts(&a.here),
+                )
+            })
+            .flatten();
+        match delegated {
+            _ if own => Some(vec![self.own_hit(a)]),
+            Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
+            None if self.cpp_outside_base(a) => Some(Vec::new()),
+            None => self.c_hits(a, near, hits, fallbacks, aside),
+        }
+    }
+
+    fn cpp_outside_base(&self, a: &Asked) -> bool {
+        let Some(qualifier) = a.chain.first() else {
+            return false;
+        };
+        if !search::cpp_base_initializer(&a.text, self.line + 1, a.range.start, &a.word) {
+            return false;
+        }
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(Kind::C, qualifier).join("|");
+        let declared = self.project_definitions(Kind::C, &a.here, qualifier, &pattern);
+        self.truncated.set(cut);
+        declared.is_empty()
+    }
+
     pub(super) fn define_by_name(
         &mut self,
         a: &Asked,
@@ -28,28 +75,7 @@ impl App {
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !a.dotted && !a.before.ends_with("->") {
-            let own = search::cpp_constructor_defined_in_class(
-                &a.text,
-                self.line + 1,
-                a.range.start,
-                &a.word,
-            );
-            let delegated = (!own && a.tail.trim_start().starts_with('('))
-                .then(|| {
-                    search::cpp_delegated_constructor(
-                        &a.text,
-                        self.line + 1,
-                        a.range.start,
-                        &a.word,
-                        || self.c_included_texts(&a.here),
-                    )
-                })
-                .flatten();
-            let Some(hits) = (match delegated {
-                _ if own => Some(vec![self.own_hit(a)]),
-                Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
-                None => self.c_hits(a, near, hits, &mut fallbacks, &mut aside),
-            }) else {
+            let Some(hits) = self.c_by_name(a, near, hits, &mut fallbacks, &mut aside) else {
                 return;
             };
             hits
@@ -115,9 +141,11 @@ impl App {
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
         }
+        self.ruby_own_parameter(a, near, &mut found);
         self.ruby_unrelated_offered(a, &found);
         self.top_level_only(a, near, &mut found);
-        self.offer_only |= self.template_name_elsewhere(a, near, &found);
+        self.offer_only |= self.template_name_elsewhere(a, near, &found)
+            || self.literal_this(a) == Some(search::LiteralThis::NoKey);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
@@ -201,6 +229,17 @@ impl App {
         ))
     }
 
+    fn ruby_own_parameter(&self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        if a.kind == Kind::Ruby
+            && !found.is_empty()
+            && !a.dotted
+            && near.locals == [self.line + 1]
+            && search::ruby_def_param(self.line_str(), &a.word, a.range.end)
+        {
+            *found = self.lines_here(a, [self.line + 1], &Reason::Local);
+        }
+    }
+
     fn ruby_unrelated_offered(&mut self, a: &Asked, found: &[Candidate]) {
         if a.kind == Kind::Ruby
             && !a.dotted
@@ -247,6 +286,33 @@ impl App {
         });
         if !namespace && found.iter().any(|c| TOP_LEVEL.is_match(&c.hit.text)) {
             self.offer_only = true;
+        }
+        let array = |t: &str| {
+            let t = t.trim();
+            !t.contains('|')
+                && (t.ends_with("[]") || t.starts_with("Array<") || t.starts_with("ReadonlyArray<"))
+        };
+        if found.len() > 1
+            && let [receiver] = a.chain.as_slice()
+            && let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    ..
+                },
+            ] = &search::bindings(a.kind, &a.text, self.line + 1, receiver)[..]
+            && array(written)
+        {
+            let on_array: Vec<bool> = found
+                .iter()
+                .map(|c| {
+                    self.text_of(&c.hit.path)
+                        .is_some_and(|t| search::ts_array_extension(&t, c.hit.line1, &a.word))
+                })
+                .collect();
+            if on_array.contains(&true) {
+                let mut kept = on_array.into_iter();
+                found.retain(|_| kept.next().unwrap_or(false));
+            }
         }
     }
 
@@ -1275,10 +1341,10 @@ impl App {
         let mine = search::cpp_defined_signature(&a.text, self.line + 1, &a.word)?;
         let same: Vec<Candidate> = (found.iter())
             .filter(|c| {
-                self.text_of(&c.hit.path)
-                    .and_then(|t| search::cpp_declared_signature(&t, c.hit.line1, &a.word))
-                    .as_ref()
-                    == Some(&mine)
+                self.text_of(&c.hit.path).is_some_and(|t| {
+                    search::cpp_declared_signature(&t, c.hit.line1, &a.word)
+                        .is_some_and(|s| search::cpp_signatures_alike(&s, &mine, [&t, &a.text]))
+                })
             })
             .cloned()
             .collect();

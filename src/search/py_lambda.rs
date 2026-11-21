@@ -1,8 +1,30 @@
 use regex::Regex;
 
-use super::{Kind, Value, code, imports, split_top, uncommented};
+use super::{
+    Kind, Value, code, imports, python_binds_around, python_comprehension_over, split_top,
+    uncommented,
+};
 
-pub(super) fn python_lambda_value(text: &str, line: &str, col: usize, name: &str) -> Option<Value> {
+pub(super) fn python_inline_value(text: &str, line: &str, col: usize, name: &str) -> Option<Value> {
+    python_lambda_value(text, line, col, name).or_else(|| comprehension_value(line, col, name))
+}
+
+fn comprehension_value(line: &str, col: usize, name: &str) -> Option<Value> {
+    static HEADS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:for|lambda)\b").expect("the regex is a literal")
+    });
+    let only_for = HEADS
+        .find_iter(&uncommented(Kind::Python, line))
+        .map(|m| m.as_str() == "for")
+        .collect::<Vec<_>>()
+        == [true];
+    (only_for && python_binds_around(line, name, col))
+        .then(|| python_comprehension_over(line, name))
+        .flatten()
+        .map(Value::Element)
+}
+
+fn python_lambda_value(text: &str, line: &str, col: usize, name: &str) -> Option<Value> {
     static LAMBDA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\blambda\b([^:]*):").expect("the regex is a literal")
     });

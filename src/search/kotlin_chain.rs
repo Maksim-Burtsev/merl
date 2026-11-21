@@ -524,6 +524,35 @@ pub fn kotlin_member_body(text: &str, line1: usize, ahead: &str, type_line1: usi
         .is_some_and(|k| scope_of(&lines, k).is_some_and(|s| s + 1 == type_line1))
 }
 
+pub fn kotlin_member_scope(text: &str, line1: usize, before: &str) -> Option<usize> {
+    static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:private|internal|public|protected|override|open|final|suspend|inline|operator)\s+)*fun\s+[a-z]\w*\s*\(",
+        )
+        .expect("the regex is a literal")
+    });
+    static PROPERTY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:private|internal|public|protected|override|open|final|lateinit)\s+)*(?:val|var)\s+[a-z]\w*\b",
+        )
+        .expect("the regex is a literal")
+    });
+    let ty = *super::jvm::jvm_enclosing_types(text, line1).first()?;
+    let lines: Vec<&str> = text.lines().collect();
+    (!uncommented(Kind::Jvm, before).contains('{')).then_some(())?;
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    for _ in 0..8 {
+        let s = scope_of(&lines, at)?;
+        if s + 1 == ty {
+            let member = FUN.is_match(lines[at]) || PROPERTY.is_match(lines[at]);
+            return member.then_some(ty);
+        }
+        (FUN.is_match(lines[s]) && opens_its_own_body(&lines[s..])).then_some(())?;
+        at = s;
+    }
+    None
+}
+
 fn fun_body(lines: &[&str], line1: usize, ahead: &str, fun: &Regex) -> Option<usize> {
     line1
         .checked_sub(1)
