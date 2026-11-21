@@ -23,9 +23,9 @@ class TubUse {
     func h() { each { x in _ = x.dunk() } }
     //                           ^ d: Sources/Shop/Tubs/Tub.swift:2
     func i() { each { _ = $0.dunk() } }
-    //                       ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                       ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1552)
     func j(list: [Tub]) { list.forEach { x in _ = x.dunk() } }
-    //                                              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                                              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1552)
     func k() { _ = more.map { $0.dunk() } }
     //                           ^ d: Sources/Shop/Tubs/Tub.swift:2
     func l() { _ = c.dunk() }
@@ -35,7 +35,7 @@ class TubUse {
     func n() { _ = tubs.first { x in x.dunk() } }
     //                                 ^ d: Sources/Shop/Tubs/Tub.swift:2
     func o() { tubs.forEach { x in let x = Tun(); _ = x.dunk() } }
-    //                                                  ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
+    //                                                  ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1552)
     func p() { each { x in let x = Tun(); _ = x.dunk() } }
-    //                                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
+    //                                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1552)
 }
