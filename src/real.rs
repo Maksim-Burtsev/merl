@@ -24,7 +24,14 @@ pub fn canonicalize(p: &Path) -> io::Result<PathBuf> {
     Ok(out)
 }
 
+#[cfg(test)]
+thread_local! {
+    pub static LINK_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub fn link_inside(root: &Path, rel: &Path) -> Option<PathBuf> {
+    #[cfg(test)]
+    LINK_CHECKS.with(|c| c.set(c.get() + 1));
     let path = root.join(rel);
     if !path.is_symlink() {
         return None;

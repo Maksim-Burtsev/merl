@@ -129,6 +129,16 @@ fn the_filter_runs_before_the_cap() {
 }
 
 #[test]
+fn the_file_filter_runs_before_the_cap() {
+    let many = "x = 1\n".repeat(MAX_HITS);
+    let (dir, files) = scratch("file-cap", &[("a.py", &many), ("b.py", "x = 2\n")]);
+    let matcher = project_matcher("x", false, false).unwrap();
+    let hits = grep_project_where(&dir, &files, &matcher, None, None, |p| p != "a.py");
+    assert_eq!(lines(&hits), [("b.py".into(), 1)]);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn a_panic_on_any_file_reaches_the_caller() {
     let names: Vec<String> = (0..400).map(|i| format!("f{i:03}.py")).collect();
     let texts: Vec<(&str, &str)> = (names.iter())

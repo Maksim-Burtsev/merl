@@ -30,31 +30,40 @@ impl SearchJob {
         )
     }
 
-    pub(super) fn under_one_name(self) -> Self {
-        let listed: HashSet<&PathBuf> = self.files.iter().collect();
-        let real =
-            |p: &Path| crate::real::link_inside(&self.root, p).filter(|r| listed.contains(r));
+    pub(super) fn run_under_one_name(
+        &self,
+        whole_word: bool,
+        ignore_case: bool,
+    ) -> anyhow::Result<Vec<Hit>> {
+        let listed: std::sync::OnceLock<HashSet<&PathBuf>> = std::sync::OnceLock::new();
+        let real = |p: &Path| {
+            crate::real::link_inside(&self.root, p).filter(|r| {
+                listed
+                    .get_or_init(|| self.files.iter().collect())
+                    .contains(r)
+            })
+        };
         let current = self.current.as_deref();
         let open_link_leads_to = current.and_then(real);
-        let files = (self.files.iter())
-            .filter(|p| {
-                Some(p.as_path()) == current
-                    || real(p).is_none() && Some(*p) != open_link_leads_to.as_ref()
-            })
-            .cloned()
-            .collect();
-        Self { files, ..self }
+        Ok(search::grep_project_where(
+            &self.root,
+            &self.files,
+            &search::project_matcher(&self.pattern, whole_word, ignore_case)?,
+            current,
+            self.unsaved.as_deref(),
+            |p| Some(p) == current || real(p).is_none() && Some(p) != open_link_leads_to.as_deref(),
+        ))
     }
 
     pub fn items(self) -> Vec<PickItem> {
         if self.symbols {
             return App::symbol_items(self.symbol_hits().named);
         }
-        self.under_one_name().grep_items()
+        self.grep_items()
     }
 
     fn grep_items(&self) -> Vec<PickItem> {
-        let mut hits = self.run(false, true).unwrap_or_default();
+        let mut hits = self.run_under_one_name(false, true).unwrap_or_default();
         if let (false, Ok(re)) = (
             self.deleted.is_empty(),
             RegexBuilder::new(&self.pattern)

@@ -58,35 +58,54 @@ pub fn grep_project(
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
 ) -> Result<Vec<Hit>> {
-    type Built = HashMap<(String, bool, bool), RegexMatcher>;
-    static BUILT: std::sync::LazyLock<Mutex<Built>> = std::sync::LazyLock::new(Mutex::default);
-    let key = (pattern.to_owned(), whole_word, ignore_case);
-    let cached = BUILT.lock().ok().and_then(|b| b.get(&key).cloned());
-    let matcher = if let Some(m) = cached {
-        m
-    } else {
-        let m = RegexMatcherBuilder::new()
-            .case_insensitive(ignore_case)
-            .word(whole_word)
-            .build(pattern)
-            .with_context(|| format!("bad pattern `{pattern}`"))?;
-        if let Ok(mut b) = BUILT.lock() {
-            if b.len() >= 64 {
-                b.clear();
-            }
-            b.insert(key, m.clone());
-        }
-        m
-    };
-    Ok(collect(
+    let matcher = project_matcher(pattern, whole_word, ignore_case)?;
+    Ok(grep_project_where(
         root,
         files,
         &matcher,
         current,
         unsaved,
-        None,
         |_| true,
     ))
+}
+pub fn grep_project_where(
+    root: &Path,
+    files: &[PathBuf],
+    matcher: &RegexMatcher,
+    current: Option<&Path>,
+    unsaved: Option<&[u8]>,
+    kept_file: impl Fn(&Path) -> bool + Sync,
+) -> Vec<Hit> {
+    collect(
+        root,
+        files,
+        matcher,
+        current,
+        unsaved,
+        None,
+        (|_: &str| true, kept_file),
+    )
+}
+pub fn project_matcher(pattern: &str, whole_word: bool, ignore_case: bool) -> Result<RegexMatcher> {
+    type Built = HashMap<(String, bool, bool), RegexMatcher>;
+    static BUILT: std::sync::LazyLock<Mutex<Built>> = std::sync::LazyLock::new(Mutex::default);
+    let key = (pattern.to_owned(), whole_word, ignore_case);
+    let cached = BUILT.lock().ok().and_then(|b| b.get(&key).cloned());
+    if let Some(m) = cached {
+        return Ok(m);
+    }
+    let m = RegexMatcherBuilder::new()
+        .case_insensitive(ignore_case)
+        .word(whole_word)
+        .build(pattern)
+        .with_context(|| format!("bad pattern `{pattern}`"))?;
+    if let Ok(mut b) = BUILT.lock() {
+        if b.len() >= 64 {
+            b.clear();
+        }
+        b.insert(key, m.clone());
+    }
+    Ok(m)
 }
 pub type ShapedFiles = Mutex<HashMap<PathBuf, Option<Arc<Shaped>>>>;
 pub struct Shaped {
@@ -111,7 +130,7 @@ pub fn grep_shaped(
         None,
         None,
         Some((shape, shaped)),
-        |_| true,
+        (|_: &str| true, |_: &Path| true),
     ))
 }
 pub fn shape_matcher(pattern: &str) -> RegexMatcher {
@@ -159,7 +178,15 @@ pub fn grep_filtered(
     let matcher = RegexMatcherBuilder::new()
         .build(pattern)
         .with_context(|| format!("bad pattern `{pattern}`"))?;
-    Ok(collect(root, files, &matcher, current, unsaved, None, keep))
+    Ok(collect(
+        root,
+        files,
+        &matcher,
+        current,
+        unsaved,
+        None,
+        (keep, |_: &Path| true),
+    ))
 }
 fn collect(
     root: &Path,
@@ -168,7 +195,7 @@ fn collect(
     current: Option<&Path>,
     unsaved: Option<&[u8]>,
     shape: Option<(&RegexMatcher, &ShapedFiles)>,
-    keep: impl Fn(&str) -> bool + Sync,
+    (keep, kept_file): (impl Fn(&str) -> bool + Sync, impl Fn(&Path) -> bool + Sync),
 ) -> Vec<Hit> {
     let next_file = AtomicUsize::new(0);
     let cap_reached = AtomicBool::new(false);
@@ -185,6 +212,7 @@ fn collect(
             };
             let shaped =
                 shape.and_then(|(m, known)| shaped_lines(&mut searcher, m, known, &root.join(rel)));
+            let before = hits.len();
             let sink = Collect {
                 file,
                 path: rel,
@@ -200,6 +228,9 @@ fn collect(
                     (None, None) => searcher.search_path(matcher, root.join(rel), sink),
                 },
             );
+            if hits.len() > before && !kept_file(rel) {
+                hits.truncate(before);
+            }
             if hits.len() >= MAX_HITS {
                 cap_reached.store(true, Ordering::Relaxed);
             }
