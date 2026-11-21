@@ -74,8 +74,10 @@ pub fn ts_literal_this_key(
         Regex::new(r"\(\s*this\s*[:,)]").expect("the regex is a literal")
     });
     static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:export\s+)?(?:const|let|var)\s+[\w$]+(?:\s*:[^=]*)?|[\w$.]+)\s*=\s*\{$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^(?:(?:export\s+)?(?:const|let|var)\s+[\w$]+(?:\s*(:)[^=]*)?|[\w$.]+)\s*=\s*\{$",
+        )
+        .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let code = |i: usize| super::uncommented(super::Kind::TsJs, lines[i]);
@@ -118,17 +120,16 @@ pub fn ts_literal_this_key(
         at = scope(at)?;
     }
     let literal = scope(at)?;
-    LITERAL.is_match(code(literal).trim()).then_some(())?;
+    let annotated = LITERAL.captures(code(literal).trim())?.get(1).is_some();
     let key = Regex::new(&format!(
         r"^(?:(?:async|get|set)\s+)?\*?\s*(?:{n}|'{n}'|\x22{n}\x22)\s*(?:[:(,]|$)",
         n = regex::escape(name)
     ))
     .ok()?;
     let body = super::indent(lines[at]);
-    Some(
-        (literal + 1..lines.len())
-            .take_while(|&i| code(i).trim().is_empty() || super::indent(lines[i]) >= body)
-            .find(|&i| super::indent(lines[i]) == body && key.is_match(code(i).trim()))
-            .map_or(LiteralThis::NoKey, |i| LiteralThis::Key(i + 1)),
-    )
+    (literal + 1..lines.len())
+        .take_while(|&i| code(i).trim().is_empty() || super::indent(lines[i]) >= body)
+        .find(|&i| super::indent(lines[i]) == body && key.is_match(code(i).trim()))
+        .map(|i| LiteralThis::Key(i + 1))
+        .or_else(|| (!annotated).then_some(LiteralThis::NoKey))
 }

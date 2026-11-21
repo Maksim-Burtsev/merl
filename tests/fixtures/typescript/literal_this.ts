@@ -70,3 +70,17 @@ export class Pantry {
     return box;
   }
 }
+
+// A literal typed by an annotation: `this` is a `Brazier`, so `chimney`, which only the interface
+// declares, is `Brazier.chimney` (#1501 review).
+interface Brazier {
+  chimney?: number;
+  smoulder(): number;
+}
+
+export const brazier: Brazier = {
+  smoulder() {
+    return this.chimney ?? 0;
+//              ^ d: literal_this.ts:77
+  },
+};
