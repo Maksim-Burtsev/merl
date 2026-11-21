@@ -516,10 +516,17 @@ pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> Option<Ve
         if FUN.is_match(lines[k]) && opens_its_own_body(&lines[k..]) {
             return Some(through);
         }
-        through.extend(plain_lambdas(lines[k]).filter(|o| !o.is_empty())?);
+        let code = uncommented(Kind::Jvm, lines[k]);
+        let tail = code.get(code.rfind('{')? + 1..)?.trim();
+        (tail.is_empty() || tail.ends_with("->")).then_some(())?;
+        through.extend(plain_lambdas(lines[k])?);
         at = k;
     }
     None
+}
+
+pub fn kotlin_fun_named(name: &str) -> String {
+    format!(r"\bfun\b[^=]*[\s.>]{}\s*\(", regex::escape(name))
 }
 
 fn plain_lambdas(line: &str) -> Option<Vec<String>> {
@@ -530,7 +537,10 @@ fn plain_lambdas(line: &str) -> Option<Vec<String>> {
         ))
         .expect("the regex is a literal")
     });
+    static FUN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfun\b").expect("the regex is a literal"));
     let code = uncommented(Kind::Jvm, line);
+    (!FUN.is_match(&code)).then_some(())?;
     code.match_indices('{')
         .map(|(i, _)| {
             let c = OPEN.captures(code.get(..i)?)?;

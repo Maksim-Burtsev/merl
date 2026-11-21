@@ -665,3 +665,63 @@ fn a_kotlin_top_level_call_is_read_in_a_standard_library_lambda_with_no_receiver
         3
     ));
 }
+
+#[test]
+fn a_kotlin_lambda_walk_passes_only_lines_that_end_opening_a_listed_lambda() {
+    let top = |text: &str, line1: usize, ahead: &str| {
+        kotlin_top_level_body(text, line1, ahead).map(|l| l.join(","))
+    };
+    let body = "fun f() {\n    g()\n}\n";
+    for name in [
+        "forEach",
+        "forEachIndexed",
+        "map",
+        "mapNotNull",
+        "filter",
+        "filterNot",
+        "any",
+        "none",
+        "first",
+        "firstOrNull",
+        "sortedBy",
+        "groupBy",
+        "associateBy",
+        "let",
+        "also",
+        "takeIf",
+        "takeUnless",
+    ] {
+        let ahead = format!("    xs.{name} {{ ");
+        assert_eq!(top(body, 2, &ahead).as_deref(), Some(name), "{ahead}");
+    }
+    assert_eq!(top(body, 2, "    fun Rack.one() = xs.forEach { "), None);
+    assert_eq!(top(body, 2, "    fun Rack.flat() = "), None);
+    let local = "fun f() {\n    fun Rack.inner() = xs.forEach {\n        g()\n    }\n    val h = fun Rack.() = xs.forEach {\n        g()\n    }\n}\n";
+    assert_eq!(top(local, 3, "        "), None);
+    assert_eq!(top(local, 6, "        "), None);
+    let braced = "fun f() {\n    with(xs.first { true })\n    {\n        g()\n    }\n    with(\n        x,\n    ) {\n        g()\n    }\n    with(xs.first { true },\n    ) {\n        g()\n    }\n}\n";
+    assert_eq!(top(braced, 4, "        "), None);
+    assert_eq!(top(braced, 9, "        "), None);
+    assert_eq!(top(braced, 13, "        "), None);
+    let named =
+        |line: &str, name: &str| Regex::new(&kotlin_fun_named(name)).unwrap().is_match(line);
+    assert!(named(
+        "fun <R : Comparable<R>> Shelf.sortedBy(block: Shelf.() -> R): Shelf = this",
+        "sortedBy"
+    ));
+    assert!(named(
+        "context(Scope) fun Rack.map(f: Rack.() -> Unit) {}",
+        "map"
+    ));
+    assert!(named(
+        "fun <T> Rack<T>.forEach(block: Rack<T>.() -> Unit) = block()",
+        "forEach"
+    ));
+    assert!(named(
+        "    override fun forEach(action: Consumer<T>) {}",
+        "forEach"
+    ));
+    assert!(!named("    val map = HashMap<Int, Int>()", "map"));
+    assert!(!named("fun f() = xs.map { it }", "map"));
+    assert!(!named("fun mapper(x: Int) {}", "map"));
+}

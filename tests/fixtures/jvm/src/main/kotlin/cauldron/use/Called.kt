@@ -52,3 +52,28 @@ fun receiverPots() {
     buildList<Int> { pot3().burnish() }
     //                      ^ d: picker src/main/kotlin/cauldron/use/Called.kt:18, src/main/kotlin/cauldron/lustre/Burnish.kt:5, src/main/kotlin/cauldron/matte/Burnish.kt:5
 }
+
+fun pots(): Pair<Cauldron, Kettle> = Pair(Cauldron(), Kettle())
+
+fun keptPots() {
+    listOf(1).forEach {
+        val k = pot3()
+        k.burnish()
+        //^ d: src/main/kotlin/cauldron/lustre/Burnish.kt:5
+        val (c, t) = pots()
+        c.burnish()
+        //^ d: src/main/kotlin/cauldron/lustre/Burnish.kt:5
+    }
+}
+
+fun localPots() {
+    fun Firedog.inner() = listOf(1).forEach {
+        pot3().burnish()
+        //     ^ d: picker src/main/kotlin/cauldron/use/Called.kt:18, src/main/kotlin/cauldron/lustre/Burnish.kt:5, src/main/kotlin/cauldron/matte/Burnish.kt:5
+    }
+    with(Firedog().also { })
+    {
+        pot3().burnish()
+        //     ^ d: picker src/main/kotlin/cauldron/use/Called.kt:18, src/main/kotlin/cauldron/lustre/Burnish.kt:5, src/main/kotlin/cauldron/matte/Burnish.kt:5
+    }
+}

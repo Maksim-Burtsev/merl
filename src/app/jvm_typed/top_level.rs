@@ -142,16 +142,15 @@ impl App {
         .then_some(())?;
         let lambdas = search::kotlin_top_level_body(text, line1, ahead)?;
         (search::path_bindings(Kind::Jvm, file, text, line1, name).is_empty()
-            && !lambdas.iter().any(|l| self.jvm_project_declares(file, l)))
+            && !lambdas.iter().any(|l| self.kotlin_project_fun(file, l)))
         .then_some(())?;
         self.kotlin_seen_fun(file, text, line1, name, false)
     }
 
-    fn jvm_project_declares(&self, file: &Path, name: &str) -> bool {
-        let pattern = search::def_patterns(Kind::Jvm, name).join("|");
+    fn kotlin_project_fun(&self, file: &Path, name: &str) -> bool {
         let cut = self.truncated.replace(false);
         let found = !self
-            .project_definitions(Kind::Jvm, file, name, &pattern)
+            .project_grep(Kind::Jvm, file, &search::kotlin_fun_named(name))
             .is_empty()
             || self.truncated.get();
         self.truncated.set(cut);
