@@ -1733,6 +1733,7 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
         ("f.php", php, PHP, 5),
         ("f.php", php, PHP, 1085),
         ("f.php", php, PHP, 1807),
+        ("f.php", php, PHP, 18966),
         ("f.xml", xml, MARKUP, 385),
         ("f.xml", xml, MARKUP, 1085),
         ("f.xml", xml, MARKUP, 1269),

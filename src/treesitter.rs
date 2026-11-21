@@ -1080,7 +1080,8 @@ impl Parsed {
             g.edit(&edit);
         }
         let shift = |s: std::ops::Range<usize>| combined::shift_span(&s, &edit);
-        self.pending = combined::union(self.pending.take().map(shift), dropped.map(shift));
+        let pending = combined::union(self.pending.take().map(shift), dropped.map(shift));
+        self.pending = combined::union(pending, Some(edit.start_byte..edit.new_end_byte));
         if std::mem::take(&mut self.halted) {
             self.parser.reset();
         }
