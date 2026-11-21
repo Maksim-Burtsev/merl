@@ -64,24 +64,9 @@ impl App {
         method: &str,
     ) -> bool {
         let name = &ty.name;
-        let names = |l: &str, word: &str| {
-            l.match_indices(word).any(|(i, _)| {
-                let at = |s: Option<&str>, last: bool| {
-                    s.and_then(|s| {
-                        if last {
-                            s.chars().next_back()
-                        } else {
-                            s.chars().next()
-                        }
-                    })
-                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
-                };
-                !at(l.get(..i), true) && !at(l.get(i + word.len()..), false)
-            })
-        };
         let spelled = |l: &str| {
-            names(l, "extension")
-                || names(l, "typealias")
+            l.split(|c: char| !c.is_alphanumeric() && c != '_')
+                .any(|w| w == "extension" || w == "typealias")
                 || search::swift_type_header(l).is_some_and(|t| t.name == *name)
         };
         let plain = |l: &str| {
