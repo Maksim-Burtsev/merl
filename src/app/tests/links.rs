@@ -71,9 +71,35 @@ fn s_and_u_ask_only_the_files_they_hit_whether_they_are_links() {
     let u = a.usage_hits("public", None).ranked;
     let u_checks = checks() - before;
     assert_eq!((s.len(), u.len()), (1, 1), "the line once (#767)");
+    assert_eq!(
+        (s_checks, u_checks),
+        (2, 2),
+        "42 files, 2 hit: the open file and the link are asked whether they are links (#1626)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_s_dropped_hits_never_fill_the_cap_of_s_and_u() {
+    let dir = linked("cap");
+    let half = search::MAX_HITS / 2 + 1;
+    let many: String = (0..half)
+        .map(|i| format!("The public API, part {i}.\n"))
+        .collect();
+    std::fs::write(dir.join("AGENTS.md"), many).unwrap();
+    std::fs::write(dir.join("zz.md"), "The public API, last.\n").unwrap();
+    let (_, files) = crate::tree::build(&dir, false);
+    let buf = Buffer::load(&dir.join("AGENTS.md")).unwrap();
+    let a = App::new(dir.clone(), Tree::default(), files, buf, None);
+    let last = Path::new("zz.md");
+    let s = a.grep_job(0, "public API", |_| true).items();
+    assert_eq!(s.len(), half + 1, "AGENTS.md's lines and zz.md's (#1626)");
+    assert!(s.iter().any(|i| i.path == last), "s reaches zz.md (#1626)");
+    let u = a.usage_hits("public", None);
     assert!(
-        s_checks <= 2 && u_checks <= 2,
-        "42 files, 2 hit: s asked {s_checks} whether they are links, u {u_checks} (#1626)"
+        u.ranked.iter().any(|(_, h)| h.path == last) && !u.grep_cut,
+        "u reaches zz.md and is not cut (#1626)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
