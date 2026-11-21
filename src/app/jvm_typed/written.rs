@@ -39,7 +39,9 @@ impl App {
         k > 0
             && search::kotlin_member_scope(text, line1, self.line_str()) == around.first().copied()
             && CLASS.is_match(header(around[k]))
-            && around[..k].iter().all(|&t| NESTED.is_match(header(t)))
+            && around[..k]
+                .iter()
+                .all(|&t| NESTED.is_match(header(t)) && search::jvm_local_block(text, t).is_none())
     }
 }
 

@@ -47,4 +47,13 @@ class Pour {
         fun made(): Int = Saucer.make().splash()
         //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4
     }
+
+    // A local class sees the property Saucer too (#1515).
+    fun stowed(): Int {
+        class Crate {
+            fun made(): Int = Saucer.make().splash()
+            //                              ^ d: picker src/main/kotlin/sauce/Ramekin.kt:4, src/main/kotlin/sauce/Saucer.kt:4
+        }
+        return Crate().made()
+    }
 }

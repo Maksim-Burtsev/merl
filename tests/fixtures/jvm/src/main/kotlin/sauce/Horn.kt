@@ -17,3 +17,9 @@ class Beaker : Horn() {
         //                              ^ d: picker src/main/kotlin/sauce/Rhyton.kt:4, src/main/kotlin/sauce/Rhyton.kt:12
     }
 }
+
+// Without the alias, Flagon inherits Bombard's property Rhyton the same way (#1515).
+class Flagon : Bombard() {
+    fun dregs(): Int = Rhyton.make().gurgle()
+    //                               ^ d: src/main/kotlin/sauce/Rhyton.kt:12
+}
