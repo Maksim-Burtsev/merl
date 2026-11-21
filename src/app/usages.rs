@@ -107,8 +107,7 @@ impl App {
         let text = bare_name(word);
         let mut hits = self
             .grep_job(0, &regex::escape(text), |_| true)
-            .under_one_name()
-            .run(true, false)
+            .run_under_one_name(true, false)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
         let deleted = self.deleted_lines();

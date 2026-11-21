@@ -53,6 +53,31 @@ fn s_and_u_list_a_linked_file_once_under_the_name_it_is_open_by_else_its_own() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn s_and_u_ask_only_the_files_they_hit_whether_they_are_links() {
+    let dir = linked("checks");
+    for i in 0..40 {
+        std::fs::write(dir.join(format!("other{i}.md")), "Nothing to see.\n").unwrap();
+    }
+    let (_, files) = crate::tree::build(&dir, false);
+    let buf = Buffer::load(&dir.join("AGENTS.md")).unwrap();
+    let a = App::new(dir.clone(), Tree::default(), files, buf, None);
+    let checks = || crate::real::LINK_CHECKS.with(std::cell::Cell::get);
+    let before = checks();
+    let s = a.grep_job(0, "public API", |_| true).items();
+    let s_checks = checks() - before;
+    let before = checks();
+    let u = a.usage_hits("public", None).ranked;
+    let u_checks = checks() - before;
+    assert_eq!((s.len(), u.len()), (1, 1), "the line once (#767)");
+    assert!(
+        s_checks <= 2 && u_checks <= 2,
+        "42 files, 2 hit: s asked {s_checks} whether they are links, u {u_checks} (#1626)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 fn git_in(dir: &Path, args: &[&str]) {
     let out = std::process::Command::new("git")
         .arg("-C")
