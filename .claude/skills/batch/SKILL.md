@@ -124,7 +124,12 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   line): its median and its peak with the time, and how long agents waited for a slot.
 - **Epic issues.** The agent pushes its branch: no PR, no review. Read its diff, merge the
   branch into the epic (`--no-ff`), and check each conflict hunk by hand: fixes for different
-  languages add helpers at the same spot, and a careless union drops a closing brace. A
+  languages add helpers at the same spot, and a careless union drops a closing brace.
+  `changes/N.md` conflicts on almost every merge, both sides appending a line: read its base
+  (the `|||||||` section) first. An empty base keeps both sides; a non-empty one is resolved by
+  hand: on 2026-11-21 keeping both sides kept a line a branch had reworded. Two branches
+  that each add to one function can push it past clippy's 100 lines only together: run
+  `tools/heavy tools/ci-local clippy tests` on the epic after each merge, not only at its close. A
   conflict on `EXPECTS` or `LONG_FILES` in `src/main.rs` is measured again, never unioned:
   `.claude/skills/batch/bin/recount` in the worktree mid-merge, once its other conflicts are
   resolved, runs the two tests that own them and writes and stages the measured values. When

@@ -20,6 +20,10 @@ points your task to.
 - Never `rm` a glob (`rm -rf *`, `rm -f $S/*`): it asks for permission even in bypass mode,
   and on 10-13..10-16 eight agents waited on that prompt for 24 minutes to 10 hours; zsh also
   fails on an empty one. Remove the folder itself (`rm -rf "$S/e2"`) or write into a new one.
+- Keep shell commands plain. On 2026-11-21 two agents stopped for good on a permission prompt
+  nobody answered: one on a `for` loop that `cat`-ed files in another agent's scratch, one on
+  nested zsh expansions (`${#${l%%x*}}`). Read files with the Read tool, never another agent's
+  folders. macOS has no `timeout`: bound a command with `perl -e 'alarm N; exec @ARGV' …`.
 - Commit work in progress; `git stash` is shared by every worktree of the repository, and
   another agent's `pop` takes yours.
 - `tools/d-bench/run` gets `--cache` pointing at a private folder of symlinks to
