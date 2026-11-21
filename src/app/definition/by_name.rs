@@ -15,6 +15,38 @@ impl App {
         }
     }
 
+    fn c_by_name(
+        &mut self,
+        a: &Asked,
+        near: &Near,
+        hits: Vec<Hit>,
+        fallbacks: &mut Vec<Hit>,
+        aside: &mut Option<String>,
+    ) -> Option<Vec<Hit>> {
+        let own = search::cpp_constructor_defined_in_class(
+            &a.text,
+            self.line + 1,
+            a.range.start,
+            &a.word,
+        );
+        let delegated = (!own && a.tail.trim_start().starts_with('('))
+            .then(|| {
+                search::cpp_delegated_constructor(
+                    &a.text,
+                    self.line + 1,
+                    a.range.start,
+                    &a.word,
+                    || self.c_included_texts(&a.here),
+                )
+            })
+            .flatten();
+        match delegated {
+            _ if own => Some(vec![self.own_hit(a)]),
+            Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
+            None => self.c_hits(a, near, hits, fallbacks, aside),
+        }
+    }
+
     pub(super) fn define_by_name(
         &mut self,
         a: &Asked,
@@ -28,28 +60,7 @@ impl App {
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !a.dotted && !a.before.ends_with("->") {
-            let own = search::cpp_constructor_defined_in_class(
-                &a.text,
-                self.line + 1,
-                a.range.start,
-                &a.word,
-            );
-            let delegated = (!own && a.tail.trim_start().starts_with('('))
-                .then(|| {
-                    search::cpp_delegated_constructor(
-                        &a.text,
-                        self.line + 1,
-                        a.range.start,
-                        &a.word,
-                        || self.c_included_texts(&a.here),
-                    )
-                })
-                .flatten();
-            let Some(hits) = (match delegated {
-                _ if own => Some(vec![self.own_hit(a)]),
-                Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
-                None => self.c_hits(a, near, hits, &mut fallbacks, &mut aside),
-            }) else {
+            let Some(hits) = self.c_by_name(a, near, hits, &mut fallbacks, &mut aside) else {
                 return;
             };
             hits
