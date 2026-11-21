@@ -10,5 +10,9 @@ class Solo {
         //                                                                 ^ d: src/main/java/tagine/Cassole.java:4
         Consumer<Tagine> h = t -> t.simmer(); Stream.of(new Cassole()).forEach(t -> t.simmer());
         //                                                                            ^ d: !jump
+        Consumer<Tagine> a = t -> t.simmer(); Consumer<Cassole> b = t -> {
+            t.simmer();
+            //^ d: !jump
+        };
     }
 }
