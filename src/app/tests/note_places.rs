@@ -117,7 +117,7 @@ pub(super) fn open(dir: &Path) -> App {
     a
 }
 
-type Place = (TextLine, bool, bool);
+pub(super) type Place = (TextLine, bool, bool);
 
 pub(super) fn placed(a: &mut App) -> Vec<Place> {
     screen(a);

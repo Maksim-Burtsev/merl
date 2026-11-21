@@ -122,6 +122,7 @@ pub fn diff_objects(root: &Path, from: &str, to: &str) -> Option<Diff> {
         "--no-color",
         "--no-ext-diff",
         "--inter-hunk-context=0",
+        "--ignore-cr-at-eol",
         from,
         to,
     ];
