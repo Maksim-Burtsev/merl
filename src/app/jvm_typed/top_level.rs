@@ -138,11 +138,24 @@ impl App {
         name: &str,
     ) -> Option<Hit> {
         (file.extension().is_some_and(|e| e == "kt")
-            && search::jvm_enclosing_types(text, line1).is_empty()
-            && search::kotlin_top_level_body(text, line1, ahead)
-            && search::path_bindings(Kind::Jvm, file, text, line1, name).is_empty())
+            && search::jvm_enclosing_types(text, line1).is_empty())
+        .then_some(())?;
+        let lambdas = search::kotlin_top_level_body(text, line1, ahead)?;
+        (search::path_bindings(Kind::Jvm, file, text, line1, name).is_empty()
+            && !lambdas.iter().any(|l| self.jvm_project_declares(file, l)))
         .then_some(())?;
         self.kotlin_seen_fun(file, text, line1, name, false)
+    }
+
+    fn jvm_project_declares(&self, file: &Path, name: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Jvm, name).join("|");
+        let cut = self.truncated.replace(false);
+        let found = !self
+            .project_definitions(Kind::Jvm, file, name, &pattern)
+            .is_empty()
+            || self.truncated.get();
+        self.truncated.set(cut);
+        found
     }
 
     pub(super) fn kotlin_seen_fun(

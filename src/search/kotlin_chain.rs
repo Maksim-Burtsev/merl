@@ -504,12 +504,39 @@ pub fn jvm_function_start(lines: &[&str], line1: usize) -> Option<usize> {
 
 const KOTLIN_TOP_FUN: &str = r"^(?:(?:private|internal|public|suspend|inline)\s+)*fun\s+";
 
-pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> bool {
+pub fn kotlin_top_level_body(text: &str, line1: usize, ahead: &str) -> Option<Vec<String>> {
     static FUN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"{KOTLIN_TOP_FUN}[a-z]\w*\s*\(")).expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
-    fun_body(&lines, line1, ahead, &FUN).is_some()
+    let mut through = plain_lambdas(ahead)?;
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    for _ in 0..8 {
+        let k = scope_of(&lines, at)?;
+        if FUN.is_match(lines[k]) && opens_its_own_body(&lines[k..]) {
+            return Some(through);
+        }
+        through.extend(plain_lambdas(lines[k]).filter(|o| !o.is_empty())?);
+        at = k;
+    }
+    None
+}
+
+fn plain_lambdas(line: &str) -> Option<Vec<String>> {
+    static OPEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:\.\s*(forEach|forEachIndexed|map|mapNotNull|filter|filterNot|any|none|first|firstOrNull",
+            r"|sortedBy|groupBy|associateBy|let|also|takeIf|takeUnless)|(?:^|[^\w.])(repeat)\s*\([^(){}]*\))\s*$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::Jvm, line);
+    code.match_indices('{')
+        .map(|(i, _)| {
+            let c = OPEN.captures(code.get(..i)?)?;
+            Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
+        })
+        .collect()
 }
 
 pub fn kotlin_member_body(text: &str, line1: usize, ahead: &str, type_line1: usize) -> bool {
