@@ -166,6 +166,46 @@ pub fn kotlin_receiver_scope(text: &str, line1: usize, before: &str) -> Option<S
     receiver_of(&CALL, text, line1, before)
 }
 
+pub fn kotlin_block_call(
+    text: &str,
+    line1: usize,
+    before: &str,
+) -> Option<(Option<String>, String)> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])(?:([a-z]\w*)\s*\.\s*)?([a-z]\w*)\s*\{$")
+            .expect("the regex is a literal")
+    });
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == "it").then_some(())?;
+    let c = CALL.captures(&head)?;
+    (&c[2] != "init").then_some(())?;
+    Some((c.get(1).map(|r| r.as_str().to_owned()), c[2].to_owned()))
+}
+
+pub struct KotlinBlockFun {
+    pub type_parameter: Option<String>,
+    pub extension: Option<String>,
+    pub block: String,
+}
+
+pub fn kotlin_block_fun(line: &str, name: &str) -> Option<KotlinBlockFun> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"\bfun\s+(?:<\s*(\w+)\s*>\s*)?(?:(\w+)\??\s*\.\s*)?{}\s*\((?:[^()]*,)?\s*",
+            r"(?:(?:noinline|crossinline)\s+)?\w+\s*:\s*([A-Z][\w.]*)\s*\.\s*\(\s*\)\s*->\s*[\w.?]+\s*\)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    let own = |i: usize| c.get(i).map(|m| m.as_str().to_owned());
+    Some(KotlinBlockFun {
+        type_parameter: own(1),
+        extension: own(2),
+        block: own(3)?,
+    })
+}
+
 fn receiver_of(call: &Regex, text: &str, line1: usize, before: &str) -> Option<String> {
     let (head, bound) = kotlin_lambda_head(text, line1, before)?;
     (bound == "it").then_some(())?;
