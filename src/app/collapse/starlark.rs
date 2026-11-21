@@ -4,6 +4,8 @@ const KEYWORDS: &[&str] = &[
     "and", "or", "not", "in", "if", "else", "for", "return", "lambda", "yield", "assert", "del",
 ];
 
+const COMPOUND: &[&str] = &["def", "if", "for", "while", "with"];
+
 struct Stmt {
     first: usize,
     last: usize,
@@ -94,12 +96,21 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
             word = "";
         }
     }
-    nodes.retain(|&(h, _)| {
-        !(stmts.binary_search_by_key(&h, |s| s.first)).is_ok_and(|k| stmts[k].word == "def")
-    });
+    with_statements(nodes, &stmts, lines.len())
+}
+
+fn with_statements(mut nodes: Vec<(usize, usize)>, stmts: &[Stmt], len: usize) -> Blocks {
+    let opens = |h: usize, words: &[&str]| {
+        (stmts.binary_search_by_key(&h, |s| s.first))
+            .is_ok_and(|k| words.contains(&stmts[k].word.as_str()))
+    };
+    let elifs: Vec<usize> = (nodes.iter().filter(|n| n.1 > n.0).map(|n| n.0))
+        .filter(|&h| opens(h, &["elif"]))
+        .collect();
+    nodes.retain(|&(h, _)| !opens(h, COMPOUND) && !elifs.contains(&h));
     let mut funcs = Vec::new();
     for (k, s) in stmts.iter().enumerate() {
-        if !["def", "if", "for", "while", "with"].contains(&s.word.as_str()) {
+        if !COMPOUND.contains(&s.word.as_str()) && !elifs.contains(&s.first) {
             continue;
         }
         let end = block_end(s, &stmts[k + 1..]);
@@ -108,7 +119,7 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
             funcs.push((s.first, end));
         }
     }
-    Blocks::from_nodes(nodes, funcs, lines.len())
+    Blocks::from_nodes(nodes, funcs, len)
 }
 
 fn block_end(s: &Stmt, rest: &[Stmt]) -> usize {

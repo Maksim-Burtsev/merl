@@ -32,3 +32,20 @@ key Enter f
 wait 4 lines ⋯
 key q
 wait merl exited: 0
+# An if whose condition wraps in a bracket: f on its first line folds the whole if, its elif and
+# else included, and f on such an elif folds the elif and its block (#1468).
+run printf 'def pick(a, b):\n    if (a and\n            b):\n        print(a)\n    elif (b or\n            a):\n        print(b)\n    else:\n        pass\n' > bzl/pick.bzl
+merl bzl/pick.bzl
+wait A pick.bzl
+key :
+type 2
+key Enter f
+wait 7 lines ⋯
+key f
+wait print(b)
+key :
+type 5
+key Enter f
+wait 2 lines ⋯
+key q
+wait merl exited: 0
