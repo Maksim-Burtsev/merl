@@ -1,7 +1,30 @@
 use super::{JvmType, TypedField};
-use crate::app::{App, Kind, Path, Regex, search};
+use crate::app::{App, Candidate, Kind, Path, Reason, Regex, search};
 
 impl App {
+    pub(in crate::app) fn groovy_delegate_member(
+        &self,
+        here: &Path,
+        text: &str,
+        delegate: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let w = self.jvm_value(here, text, self.line + 1, delegate, false, 1)?;
+        let JvmType::Project(decl) = w.resolved else {
+            return None;
+        };
+        let reason = Reason::Receiver(format!("delegate: {}", w.written));
+        let found: Vec<Candidate> =
+            (self.jvm_hierarchy_member(&decl, word, 0, &mut Vec::new(), false))
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect();
+        (!found.is_empty()).then_some(found)
+    }
+
     pub(super) fn kotlin_receiver_property(
         &self,
         here: &Path,

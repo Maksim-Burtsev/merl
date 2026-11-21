@@ -428,9 +428,8 @@ a construction with `new` inside a method and in a function still leads to the c
 `Steeper() : Steeper(500)` and `Ladle(ml, 1)` delegate to the one constructor taking that many
 arguments; `Ladle(250)` has two, `Ladle(ml[0])` and `Tray(t)` pass one argument that may be the
 implicit copy, so those keep master's answer. `Key::Key` defined out of class lands on the
-declaration of its own overload (#1248). `Taper(Gills n)` is declared in another spelling than
-`Taper::Taper(int n)` defines it, so that keeps master's answer, not a picker of every
-declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
+declaration of its own overload (#1248). `Taper(Gills n)` is declared through `typedef int Gills;`, so
+`Taper::Taper(int n)` lands on it, not on the definition of the other overload (#1552). `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
 lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
 arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
 Out of the class, `Spout::Spout() : Spout(500)` and `Cruet(1)` delegate the same way, and
@@ -445,7 +444,7 @@ to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(
 `c/src/tea/gaiwan.cc` calls `ext::Gaiwan(a, 0)`, a base class outside the project, from
 `Gaiwan::Gaiwan(int a)` and `ext::Kyusu(a, 0)` from a constructor inside `Kyusu`: a qualified call
 names another class, so neither is a delegation and neither lands on the derived class's own
-two-argument constructor; they keep the lookup by name (#1248). `Tureen(1)` in a template class
+two-argument constructor; the project declares no `ext`, so both say "no definition" (#1552). `Tureen(1)` in a template class
 lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::Chawan::Chawan`
 as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
 `sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside

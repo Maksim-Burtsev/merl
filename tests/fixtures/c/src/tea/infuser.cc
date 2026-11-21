@@ -80,7 +80,7 @@ struct Taper {
 };
 
 Taper::Taper(int n) {}
-//     ^ d: src/tea/infuser.cc:84; want src/tea/infuser.cc:78 (#1552)
+//     ^ d: src/tea/infuser.cc:78
 Taper::Taper(const char* name) {}
 
 struct Nozzle {

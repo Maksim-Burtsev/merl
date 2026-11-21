@@ -328,6 +328,17 @@ pub fn cpp_delegated_constructor<T>(
     fitting_constructor(&code, &text, class, word, args.len(), None).map(|line| (Some(file), line))
 }
 
+pub fn cpp_base_initializer(text: &str, line1: usize, byte_col: usize, word: &str) -> bool {
+    let code = c_code(text);
+    line1
+        .checked_sub(1)
+        .and_then(|i| line_starts(&code).get(i).map(|s| s + byte_col))
+        .is_some_and(|at| {
+            code.get(..at).is_some_and(|b| b.trim_end().ends_with("::"))
+                && init_list_call(&code, at, word).is_some()
+        })
+}
+
 fn fitting_constructor(
     code: &str,
     text: &str,
@@ -481,6 +492,44 @@ pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Ve
             let end = open + code.get(open..)?.find(['{', ';'])?;
             signature(code.get(open..end)?)
         })
+}
+
+pub fn cpp_signatures_alike(a: &[String], b: &[String], texts: [&str; 2]) -> bool {
+    static ALIAS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\btypedef\s+([^;{}()]+?)\s+(\w+)\s*;|\busing\s+(\w+)\s*=\s*([^;{}()]+?)\s*;")
+            .expect("the regex is a literal")
+    });
+    if a == b {
+        return true;
+    }
+    let mut aliases: std::collections::HashMap<String, Option<String>> =
+        std::collections::HashMap::new();
+    for text in texts {
+        for c in ALIAS.captures_iter(&c_code(text)) {
+            if let (Some(name), Some(ty)) =
+                (c.get(2).or_else(|| c.get(3)), c.get(1).or_else(|| c.get(4)))
+            {
+                let ty = Some(head_tokens(ty.as_str()).join(" "));
+                let seen = aliases
+                    .entry(name.as_str().to_owned())
+                    .or_insert_with(|| ty.clone());
+                if *seen != ty {
+                    *seen = None;
+                }
+            }
+        }
+    }
+    let plain = |sig: &[String]| -> Vec<String> {
+        (sig.iter())
+            .map(|ty| {
+                (ty.split(' '))
+                    .map(|t| aliases.get(t).and_then(Option::as_deref).unwrap_or(t))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect()
+    };
+    plain(a) == plain(b)
 }
 
 fn signature(head: &str) -> Option<Vec<String>> {
