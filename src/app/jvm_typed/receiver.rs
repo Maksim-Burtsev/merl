@@ -1,5 +1,5 @@
 use super::{JvmType, TypedField};
-use crate::app::{App, Kind, Path, Regex, search};
+use crate::app::{App, Hit, Kind, Path, Regex, search};
 
 impl App {
     pub(super) fn kotlin_receiver_property(
@@ -17,14 +17,31 @@ impl App {
             && search::jvm_enclosing_members(here, text, line, name).is_none()
             && search::kotlin_constructor_parameter(text, line, name).is_none();
         unbound.then_some(())?;
+        let block = || {
+            let (recv, callee) = search::kotlin_block_call(text, line, before)?;
+            self.kotlin_block_receiver(here, text, recv.as_deref(), &callee)
+        };
         let (owner, written) =
             if let Some(value) = search::kotlin_receiver_scope(text, line, before) {
                 let w = self.jvm_value(here, text, line, &value, true, 1)?;
                 (w.resolved, w.written)
-            } else {
-                let ext = search::kotlin_extension_at(text, line, before)?;
+            } else if let Some(found) = block() {
+                found
+            } else if let Some(ext) = search::kotlin_extension_at(text, line, before) {
                 let written = bound_of(text, &ext.receiver, &ext.name).unwrap_or(ext.receiver);
                 (self.jvm_type_at(here, text, &written), written)
+            } else {
+                let ty = search::kotlin_member_scope(text, line, before)?;
+                let at = text.lines().nth(ty - 1)?;
+                let written = search::jvm_type_name(at)?;
+                let decl = Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: ty,
+                    byte_col: None,
+                    text: at.to_owned(),
+                };
+                (JvmType::Project(decl), written)
             };
         let JvmType::Project(decl) = owner else {
             return None;
@@ -39,6 +56,38 @@ impl App {
             resolved,
             vec![format!("this: {written}"), format!("{name}: {ty}")],
         ))
+    }
+
+    fn kotlin_block_receiver(
+        &self,
+        here: &Path,
+        text: &str,
+        recv: Option<&str>,
+        callee: &str,
+    ) -> Option<(JvmType, String)> {
+        let line = self.line + 1;
+        (search::path_bindings(Kind::Jvm, here, text, line, callee).is_empty()
+            && search::jvm_enclosing_members(here, text, line, callee).is_none())
+        .then_some(())?;
+        let hit = self.kotlin_seen_fun(here, text, line, callee, true)?;
+        let f = search::kotlin_block_fun(&hit.text, callee)?;
+        let generic = f.type_parameter.as_deref() == Some(f.block.as_str());
+        match (recv, f.extension) {
+            (Some(r), Some(ext)) if generic && ext == f.block => {
+                let w = self.jvm_value(here, text, line, r, true, 1)?;
+                if let JvmType::Project(d) = &w.resolved {
+                    let member = self.jvm_hierarchy_member(d, callee, 0, &mut Vec::new(), true);
+                    member.is_empty().then_some(())?;
+                }
+                Some((w.resolved, w.written))
+            }
+            (None, None) if !generic => {
+                let t = self.text_of(&hit.path)?;
+                let resolved = self.jvm_type_on(&hit.path, &t, &f.block, Some(hit.line1));
+                Some((resolved, f.block))
+            }
+            _ => None,
+        }
     }
 }
 
