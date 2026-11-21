@@ -1746,6 +1746,16 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
 }
 
 #[test]
+fn a_combined_piece_the_first_of_two_edits_cut_into_is_parsed_again() {
+    replay_tree_sitter(
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php"),
+        PHP,
+        18966..=18966,
+    );
+}
+
+#[test]
 fn a_tree_tree_sitter_builds_from_the_same_edits_is_painted_as_built() {
     replay_tree_sitter(
         "F.swift",
