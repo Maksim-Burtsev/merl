@@ -80,6 +80,57 @@ fn a_python_package_the_project_maps_or_an_env_holds_is_never_not_installed() {
 }
 
 #[test]
+fn a_python_module_an_interpreter_holds_unpacks_no_typeshed_and_one_it_lacks_reads_it() {
+    const CHILD: &str = "MERL_TEST_TYPESHED_HOME";
+    if let Some(home) = std::env::var_os(CHILD) {
+        let typeshed = Path::new(&home).join(".cache/merl/typeshed");
+        let lib = external_root(
+            "typeshed-lib",
+            &[("json/__init__.py", "def dumps(obj):\n    pass\n")],
+        );
+        let (dir, mut a) = project_app(
+            "typeshed",
+            &[
+                ("app/api.py", "import json\n\njson.dumps(1)\n"),
+                ("app/exit.py", "import sys\n\nsys.exit(1)\n"),
+            ],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&lib));
+        d_on(&mut a, "app/api.py", "json.dumps");
+        println!("json={} typeshed={}", a.message, typeshed.exists());
+        d_on(&mut a, "app/exit.py", "sys.exit");
+        println!("sys={} typeshed={}", a.message, typeshed.exists());
+        for d in [dir, lib] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+        return;
+    }
+    let home = std::env::temp_dir().join(format!("merl-typeshed-home-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&home));
+    std::fs::create_dir_all(&home).unwrap();
+    let out = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "app::tests::outside::a_python_module_an_interpreter_holds_unpacks_no_typeshed_and_one_it_lacks_reads_it",
+            "--nocapture",
+        ])
+        .env(CHILD, &home)
+        .env("HOME", &home)
+        .output()
+        .unwrap();
+    let out = String::from_utf8(out.stdout).unwrap();
+    std::fs::remove_dir_all(&home).unwrap();
+    let said = |key: &str| {
+        out.lines()
+            .find_map(|l| l.split_once(&format!("{key}=")).map(|(_, m)| m.to_owned()))
+            .unwrap_or_else(|| panic!("no {key}= in {out}"))
+    };
+    assert_eq!(said("json"), "dumps: via import json typeshed=false");
+    assert!(said("sys").ends_with("typeshed=true"), "{out}");
+    assert!(!said("sys").contains("(not installed)"), "{out}");
+}
+
+#[test]
 fn a_python_module_relaxed_past_the_import_is_found_by_name() {
     let site = external_root(
         "outside-relax-site",
