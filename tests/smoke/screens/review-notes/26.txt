@@ -1,0 +1,57 @@
+wait 8 files · +62 −40
+┌agent/refund ← origin/main──┐ 7▎from app.refunds import refund_amount
+│  ▾ app                     │ 8 from app.repos import OrderRepo
+│    A refunds.py      +18 −0│ 9 from app.uow import UnitOfWork
+│✓   M repos.py        +0 −28│10
+│    M service.py      +16 −2│11
+│  ▾ deploy                  │12 class OrderNotFound(Exception):
+│    ▾ helm                  │13     pass
+│      ▾ orders              │14
+│        M values.yaml  +1 −0│15
+│  ▾ docs                    │16 class OrderService:
+│    M architecture.png   bin│17     def __init__(self, repo: OrderRepo, uow: UnitOfWork, settings: Settings):
+│  ▾ scripts                 │18         self.repo = repo
+│    D refund_by_hand.… +0 −9│19         self.uow = uow
+│  ▾ tests                   │20         self.settings = settings
+│    A test_refunds.py +23 −0│21
+│  ▾ worker                  │22     def get(self, order_id: int) -> Order:
+│    M main.go          +4 −1│23         order = self.repo.get(order_id)
+│                            │24         if order is None:
+│                            │25             raise OrderNotFound(order_id)
+│                            │26         return order
+│                            │27
+│                            │28     def mark_paid(self, order_id: int) -> Order:
+│                            │29         order = self.get(order_id)
+│                            │30         order.status = OrderStatus.PAID
+│                            │  ▎        self.repo.save(order)
+│                            │31▎        with self.uow:
+│                            │32▎            self.uow.orders.save(order)
+│                            │33         return order
+│                            │34
+│                            │35     def cancel(self, order_id: int) -> Order:
+│                            │36         order = self.get(order_id)
+│                            │37         if not order.can_cancel():
+│                            │38             raise ValueError(f"order {order_id} is {order.status.value}")
+│                            │39         order.status = OrderStatus.CANCELLED
+│                            │40         with self.uow:
+│                            │41             self.uow.orders.save(order)
+│                            │  ▎        return order
+│                            │42▎        return self.get(order_id)
+│                            │43▎
+│                            │44▎    def refund(self, order_id: int) -> Decimal:
+│                            │45▎        order = self.get(order_id)
+│                            │46▎        amount = refund_amount(order, self.settings.refund_window_days)
+│                            │47▎        order.status = OrderStatus.REFUNDED
+│                            │48▎        with self.uow:
+│                            │49▎            self.uow.orders.save(order)
+│                            │50▎        return amount
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 8 files · +62 −40 ─────────┘
+app/service.py  33:1  [code]  hunk 3/4  viewed 1/7                                                                                                                                 14:32
+cursor (x,y,shown) 33,27,0

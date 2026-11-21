@@ -81,3 +81,35 @@ wait keep this one
 run d=.git/merl/branches/agent/refund/orders; [ -d $d ] || d=.; f=$d/app/service.py; { printf 'import logging\nimport os\n'; sed '40s/return order/return self.get(order_id)/' $f; } > $f.new && mv $f.new $f
 # the tree's counts after the edit come from a thread, after the note's (changed) (#1036)
 wait 8 files · +62 −40 · 1 note
+# A note finds its own line after a reopen by the version of the file it was written on (#1594).
+# A note on mark_paid's `return order`, line 33, seven lines below get's alike one, on the agent's
+# uncommitted edits; with merl closed, the agent adds seven lines above get and commits, so get's
+# line comes to 33: the reopened note is live under mark_paid's, now line 40, not under get's
+key q
+wait merl exited: 0
+run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+merl --review=agent/refund app/service.py:33
+wait 8 files · +62 −40
+key a
+type callers read its status
+key Escape
+wait app/service.py  33:1  [code]
+check grep -qx 'app/service.py:33' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+key q
+wait merl exited: 0
+run d=.git/merl/branches/agent/refund/orders; [ -d $d ] || d=.; f=$d/app/service.py; { sed -n '1,15p' $f; printf 'class RefundFailed(Exception):\n    """The provider refused the refund."""\n\n    def __init__(self, order_id: int, reason: str):\n        super().__init__(f"order {order_id}: {reason}")\n\n\n'; sed '1,15d' $f; } > $f.new && mv $f.new $f && git -C $d commit -qam 'service: a RefundFailed error'
+merl --review=agent/refund app/service.py:44
+wait callers read its status
+# A changed two-line note names the lines it was written on (#1604). A note on cancel's `if` and
+# its `raise`, lines 44 to 45; with merl closed, the agent changes the `raise` and commits: the
+# reopened note sits dim under the deleted `raise`, labelled lines 44 to 45, not 44 to -45
+key S-Down S-End a
+type a 409, not a ValueError
+key Escape
+wait app/service.py  45:74  [code]
+check grep -qx 'app/service.py:44-45' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+key q
+wait merl exited: 0
+run d=.git/merl/branches/agent/refund/orders; [ -d $d ] || d=.; f=$d/app/service.py; sed '45s/is {order.status.value}/cannot be cancelled/' $f > $f.new && mv $f.new $f && git -C $d commit -qam 'service: say why an order cannot be cancelled'
+merl --review=agent/refund app/service.py:44
+wait a 409, not a ValueError
