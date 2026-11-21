@@ -14,7 +14,7 @@ const NOT_SMOKED: &[(&str, &str)] = &[
     ),
     (
         "--for-agents",
-        "prints a guide for an agent and exits, no screen to play; hidden while #599 is an experiment",
+        "prints a guide for an agent and exits, no screen to play; start's --help screen shows its line",
     ),
 ];
 
