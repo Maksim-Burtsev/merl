@@ -462,12 +462,19 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         }
         (Lang::Php, b'"' | b'`') => Some((1, text(&rest[..1], Escape::Backslash, Hole::Php, true))),
         (Lang::Php, b'\'') => Some((1, text(b"'", Escape::Backslash, Hole::No, true))),
-        (Lang::Julia, b'"') if prefix.is_empty() => quoted(Hole::Paren, Escape::Backslash),
-        (Lang::Julia, b'"') => quoted(Hole::No, Escape::Backslash),
+        (Lang::Julia, b'"') => quoted(julia_hole(prefix), Escape::Backslash),
         (Lang::Julia, _) => None,
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
+    }
+}
+
+fn julia_hole(prefix: &[u8]) -> Hole {
+    if prefix.is_empty() {
+        Hole::Paren
+    } else {
+        Hole::No
     }
 }
 
