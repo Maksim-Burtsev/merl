@@ -1,0 +1,57 @@
+wait print(b)
+┌orders──────────────────────┐1 def pick(a, b):
+│▸ .github                   │2     if (a and
+│▸ .venv                     │3             b):
+│▸ app                       │4         print(a)
+│▾ bzl                       │5     elif (b or
+│  A defs.bzl                │6             a):
+│  A lib.bzl                 │7         print(b)
+│  A pick.bzl                │8     else:
+│▸ data                      │9         pass
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+bzl/pick.bzl  2:1  [code]                                                                                                                                                          14:32
+cursor (x,y,shown) 32,1,0
