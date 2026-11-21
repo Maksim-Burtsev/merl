@@ -67,14 +67,14 @@ exports.parents = {
       "Property:exit"(node) {
         [context].forEach(function (node) {
           return node.parent;
-          //          ^ d: chains.ts:13; want none (#1337)
+          //          ^ d: chains.ts:13; want none (#1552)
         });
         return node.parent;
         //          ^ d: node_modules/eslint/lib/types/index.d.ts:5
       },
       Program(node) {
         return node.parent;
-        //          ^ d: chains.ts:13; want none (#1337)
+        //          ^ d: chains.ts:13; want none (#1552)
       },
     };
   },

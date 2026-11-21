@@ -44,6 +44,9 @@ impl App {
         d: &search::KotlinDestructured,
     ) -> Option<WrittenType> {
         if let Some(made) = &d.made {
+            if self.kotlin_called_not_made(file, text, made) {
+                return None;
+            }
             let resolved = self.jvm_type_on(file, text, made, Some(line1));
             return matches!(resolved, JvmType::Project(_)).then(|| WrittenType {
                 resolved,

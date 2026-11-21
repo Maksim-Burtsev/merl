@@ -140,7 +140,7 @@ impl App {
         else {
             let at = text.lines().nth(line1.checked_sub(1)?)?;
             let written = search::java_declared_lambda(at, name)?;
-            let resolved = self.jvm_type_at(file, text, &written);
+            let resolved = self.jvm_type_written(file, text, &written, None);
             return matches!(resolved, JvmType::Project(_))
                 .then_some(WrittenType { resolved, written });
         };

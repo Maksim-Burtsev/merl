@@ -153,9 +153,23 @@ pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<
         )
         .expect("the regex is a literal")
     });
+    receiver_of(&CALL, text, line1, before)
+}
+
+pub fn kotlin_receiver_scope(text: &str, line1: usize, before: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?:(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:run|apply|runCatching)|(?:^|[^\w.])with\s*\(\s*([a-z]\w*)\s*\))\s*\{$",
+        )
+        .expect("the regex is a literal")
+    });
+    receiver_of(&CALL, text, line1, before)
+}
+
+fn receiver_of(call: &Regex, text: &str, line1: usize, before: &str) -> Option<String> {
     let (head, bound) = kotlin_lambda_head(text, line1, before)?;
     (bound == "it").then_some(())?;
-    let c = CALL.captures(&head)?;
+    let c = call.captures(&head)?;
     Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
 }
 

@@ -282,17 +282,21 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         kotlin_initializer(text, 1, "built").as_deref(),
         Some("Recipe.Builder().grounds(2).water(3)")
     );
-    let d = kotlin_destructured("    for ((stroke, mesh) in plungers) total += 1", "mesh")
-        .map(|d| (d.index, d.source, d.in_loop));
+    let d = kotlin_destructured(
+        "    for ((stroke, mesh) in plungers) total += 1",
+        "mesh",
+        None,
+    )
+    .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((1, "plungers".into(), true)));
-    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke")
+    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke", None)
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((0, "plunger".into(), false)));
-    assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
-    let d = kotlin_destructured("    val (a, b) = pair()", "b").map(|d| (d.index, d.source));
+    assert!(kotlin_destructured("    val (a, b) = a", "b", None).is_none());
+    let d = kotlin_destructured("    val (a, b) = pair()", "b", None).map(|d| (d.index, d.source));
     assert_eq!(d, Some((1, "pair()".into())));
-    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b").is_none());
-    let made = |l: &str, n: &str| kotlin_destructured(l, n).and_then(|d| d.made);
+    assert!(kotlin_destructured("    val (a, b) = pair(x)", "b", None).is_none());
+    let made = |l: &str, n: &str| kotlin_destructured(l, n, None).and_then(|d| d.made);
     assert_eq!(
         made("    val (e, f) = Cup() to Mug()", "f").as_deref(),
         Some("Mug")
@@ -301,9 +305,16 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
         made("    val (e, f) = Cup() to Mug()", "e").as_deref(),
         Some("Cup")
     );
-    let d = kotlin_destructured("    kits.forEach { (g, h) -> h.fill() }", "h")
+    let d = kotlin_destructured("    kits.forEach { (g, h) -> h.fill() }", "h", Some(29))
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((1, "kits".into(), true)));
+    let d = kotlin_destructured("    kits.forEach { (g, h) ->", "h", None)
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((1, "kits".into(), true)), "a body below the line");
+    assert!(
+        kotlin_destructured("    kits.forEach { (g, h) -> h.fill() }", "h", None).is_none(),
+        "closed on its own line"
+    );
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");

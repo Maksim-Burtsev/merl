@@ -59,3 +59,18 @@ fun unpackMap(trays: Map<Wok, Kit>) {
     trays.forEach { (wok, kit) -> wok.stew() }
 //                                    ^ d: picker src/main/kotlin/servings/Servings.kt:4, src/main/kotlin/servings/Servings.kt:9, …
 }
+
+data class Skillet(val wok: Wok, val crock: Crock)
+
+// Two destructuring lambdas on one line: a name is typed by the innermost one around it that
+// declares it, never by the first on the line (#1610).
+fun unpackNested(kits: List<Kit>, skillets: List<Skillet>) {
+    kits.forEach { (a, b) -> skillets.forEach { (a, b) -> a.stew() } }
+//                                                          ^ d: src/main/kotlin/servings/Servings.kt:9
+    kits.forEach { (a, b) -> skillets.forEach { (c, d) -> a.stew() } }
+//                                                          ^ d: src/main/kotlin/servings/Servings.kt:4
+    kits.forEach { (a, b) -> skillets.forEach { (a, b) -> b.stew() }; a.stew() }
+//                                                                      ^ d: src/main/kotlin/servings/Servings.kt:4
+    kits.forEach { (a, b) -> skillets.forEach { a -> a.stew() } }
+//                                                     ^ d: !jump
+}

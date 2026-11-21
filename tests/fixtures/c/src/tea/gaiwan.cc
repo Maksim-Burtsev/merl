@@ -4,11 +4,11 @@ struct Gaiwan : public ext::Gaiwan {
 };
 
 Gaiwan::Gaiwan(int a) : ext::Gaiwan(a, 0) {}
-//                           ^ d: src/tea/gaiwan.cc:1; want none (#1248)
+//                           ^ d: src/tea/gaiwan.cc:1; want none (#1552)
 
 struct Kyusu : public ext::Kyusu {
   Kyusu(int a) : ext::Kyusu(a, 0) {}
-  //                  ^ d: src/tea/gaiwan.cc:9; want none (#1248)
+  //                  ^ d: src/tea/gaiwan.cc:9; want none (#1552)
   Kyusu(int a, int b);
 };
 

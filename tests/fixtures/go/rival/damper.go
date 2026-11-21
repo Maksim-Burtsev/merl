@@ -214,7 +214,7 @@ type (
 	//            ^ d: rival/damper.go:202
 	}
 	Stove struct{ Flue Flue }
-	//            ^ d: none; want picker rival/damper.go:139, rival/damper.go:178 (#1470)
+	//            ^ d: none; want picker rival/damper.go:139, rival/damper.go:178 (#1552)
 )
 
 func Stoke(b Bellows) int { return b.Vent + b.Puff + b.Draft }
