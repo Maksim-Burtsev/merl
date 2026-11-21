@@ -56,22 +56,64 @@ impl App {
             .collect()
     }
 
-    fn swift_closed(&self, here: &Path, ty: &SwiftType, header: &str) -> bool {
-        let pattern = search::def_patterns(Kind::Swift, &ty.name).join("|");
+    fn swift_closed(
+        &self,
+        ty: &SwiftType,
+        text: &str,
+        (around, line1): (usize, usize),
+        method: &str,
+    ) -> bool {
+        let name = &ty.name;
+        let names = |l: &str, word: &str| {
+            l.match_indices(word).any(|(i, _)| {
+                let at = |s: Option<&str>, last: bool| {
+                    s.and_then(|s| {
+                        if last {
+                            s.chars().next_back()
+                        } else {
+                            s.chars().next()
+                        }
+                    })
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
+                };
+                !at(l.get(..i), true) && !at(l.get(i + word.len()..), false)
+            })
+        };
+        let spelled = |l: &str| {
+            names(l, "extension")
+                || names(l, "typealias")
+                || search::swift_type_header(l).is_some_and(|t| t.name == *name)
+        };
+        let plain = |l: &str| {
+            ["class", "struct", "extension"]
+                .iter()
+                .any(|k| l.trim_end().ends_with(&format!("{k} {name} {{")))
+        };
+        let parameter = |l: &str| {
+            l.match_indices(method).any(|(i, _)| {
+                l.get(i + method.len()..)
+                    .is_some_and(|r| r.trim_start().starts_with(':'))
+            })
+        };
+        let Ok(hits) = self.grep(name, true, false, |p| {
+            p.extension().is_some_and(|e| e == "swift")
+        }) else {
+            return false;
+        };
         matches!(ty.keyword.as_deref(), Some("class" | "struct"))
-            && ty.owner == ty.name
-            && !ty.name.contains('.')
-            && !header.starts_with(char::is_whitespace)
-            && self
-                .project_definitions(Kind::Swift, here, &ty.name, &pattern)
+            && ty.owner == *name
+            && !name.contains('.')
+            && search::swift_at_top(text, around)
+            && !text
+                .lines()
+                .skip(around - 1)
+                .take(line1 + 1 - around)
+                .any(parameter)
+            && hits.len() < search::MAX_HITS
+            && hits
                 .iter()
                 .filter(|h| self.in_code(Kind::Swift, h))
-                .filter_map(|h| Some((search::swift_type_header(&h.text)?, &h.text)))
-                .filter(|(t, _)| t.name == ty.name)
-                .all(|(t, text)| {
-                    text.split_once(&format!("{} {}", t.keyword, t.name))
-                        .is_some_and(|(_, rest)| rest.trim_start().starts_with('{'))
-                })
+                .all(|h| !spelled(&h.text) || plain(&h.text))
     }
 
     pub(super) fn swift_bare_closure_value(
@@ -96,7 +138,7 @@ impl App {
                 ty.keyword.as_ref()?;
                 match self.swift_member_rows(here, &ty, &method) {
                     Some(rows) => (rows, Some(ty)),
-                    None if self.swift_closed(here, &ty, lines[around - 1]) => {
+                    None if self.swift_closed(&ty, text, (around, line1), &method) => {
                         (self.swift_top_funcs(here, &method), None)
                     }
                     None => return None,

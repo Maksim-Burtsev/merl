@@ -122,6 +122,15 @@ fn open_braces(line: &str, at: usize) -> Vec<usize> {
     open
 }
 
+pub fn swift_at_top(text: &str, line1: usize) -> bool {
+    let at = text
+        .split_inclusive('\n')
+        .take(line1.saturating_sub(1))
+        .map(str::len)
+        .sum();
+    open_braces(text, at).is_empty()
+}
+
 pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
     open_braces(line, at).iter().any(|&o| {
         line.get(o + 1..at)

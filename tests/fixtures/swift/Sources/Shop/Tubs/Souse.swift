@@ -50,3 +50,45 @@ class SouseOuter {
         //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
     }
 }
+
+class SouseFlatOuter {
+    static func souse(_ f: (Tun) -> Void) {}
+struct SouseFlat {
+    func j() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+}
+
+class SousedParam {
+    func k(souse: ((Tun) -> Void) -> Void) { souse { x in _ = x.dunk() } }
+    //                                                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+struct SousedPlain {
+    func m() {
+        souse { x in
+            _ = x.dunk()
+            //    ^ d: Sources/Shop/Tubs/Tub.swift:2
+        }
+    }
+}
+
+class SousedSnug {
+    func n() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedNicked {
+    func o() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedQualified {
+    func q() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedMarked {
+    func r() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
