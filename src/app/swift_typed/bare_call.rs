@@ -1,4 +1,4 @@
-use super::{App, Hit, Kind, Path, WrittenVia, search};
+use super::{App, Hit, Kind, Path, SwiftType, WrittenVia, search};
 
 impl App {
     pub(super) fn swift_bare_call(
@@ -56,6 +56,24 @@ impl App {
             .collect()
     }
 
+    fn swift_closed(&self, here: &Path, ty: &SwiftType, header: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Swift, &ty.name).join("|");
+        matches!(ty.keyword.as_deref(), Some("class" | "struct"))
+            && ty.owner == ty.name
+            && !ty.name.contains('.')
+            && !header.starts_with(char::is_whitespace)
+            && self
+                .project_definitions(Kind::Swift, here, &ty.name, &pattern)
+                .iter()
+                .filter(|h| self.in_code(Kind::Swift, h))
+                .filter_map(|h| Some((search::swift_type_header(&h.text)?, &h.text)))
+                .filter(|(t, _)| t.name == ty.name)
+                .all(|(t, text)| {
+                    text.split_once(&format!("{} {}", t.keyword, t.name))
+                        .is_some_and(|(_, rest)| rest.trim_start().starts_with('{'))
+                })
+    }
+
     pub(super) fn swift_bare_closure_value(
         &self,
         here: &Path,
@@ -76,7 +94,13 @@ impl App {
                 let ty =
                     self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
                 ty.keyword.as_ref()?;
-                (self.swift_member_rows(here, &ty, &method)?, Some(ty))
+                match self.swift_member_rows(here, &ty, &method) {
+                    Some(rows) => (rows, Some(ty)),
+                    None if self.swift_closed(here, &ty, lines[around - 1]) => {
+                        (self.swift_top_funcs(here, &method), None)
+                    }
+                    None => return None,
+                }
             }
             None => (self.swift_top_funcs(here, &method), None),
         };

@@ -14,11 +14,39 @@ func sousing() {
 
 class Sousing {
     func a() { souse { x in _ = x.dunk() } }
-    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                            ^ d: Sources/Shop/Tubs/Tub.swift:2
 }
 
 class OwnSouse {
     func souse(_ f: (Tun) -> Void) {}
     func b() { souse { x in _ = x.dunk() } }
     //                            ^ d: Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedObject: NSObject {
+    func c() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+struct SousedCodable: Codable {
+    func e() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedLater {
+    func g() { souse { x in _ = x.dunk() } }
+    //                            ^ d: Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SousedConforming {
+    func h() { souse { x in _ = x.dunk() } }
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+}
+
+class SouseOuter {
+    static func souse(_ f: (Tun) -> Void) {}
+    struct SouseInner {
+        func i() { souse { x in _ = x.dunk() } }
+        //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2
+    }
 }
