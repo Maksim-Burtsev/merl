@@ -223,36 +223,39 @@ fn param_names(list: &str) -> Vec<String> {
     out
 }
 
-fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
+fn def_list(lines: &[&str], def_line0: usize) -> Option<(usize, String)> {
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"^\s*(?:[a-z_]+\s+)?def\s+(?:(?:self|[A-Z]\w*)\.)?(?:[A-Za-z_]\w*[?!=]?|[^\w\s(]+)",
         )
         .expect("the regex is a literal")
     });
-    let Some(head) = HEAD.find(lines[def_line0]) else {
-        return false;
-    };
-    let Some(rest) = lines[def_line0].get(head.end()..) else {
-        return false;
-    };
-    let list = match rest.strip_prefix('(') {
-        Some(_) => match group(Kind::Ruby, lines, def_line0, head.end()) {
-            Some(g) => g.inner_uncommented,
-            None => return false,
-        },
+    let head = HEAD.find(lines[def_line0])?;
+    let rest = lines[def_line0].get(head.end()..)?;
+    match rest.strip_prefix('(') {
+        Some(_) => group(Kind::Ruby, lines, def_line0, head.end())
+            .map(|g| (head.end() + 1, g.inner_uncommented)),
         None if rest.starts_with([' ', '\t'])
             && !rest.trim_start().starts_with(['=', ';', '#']) =>
         {
-            uncommented(Kind::Ruby, rest.split(';').next().unwrap_or(""))
+            Some((
+                head.end(),
+                uncommented(Kind::Ruby, rest.split(';').next().unwrap_or("")),
+            ))
         }
-        None => return false,
-    };
-    param_names(&list).iter().any(|p| p == name)
+        None => None,
+    }
 }
 
-pub fn ruby_def_param(line: &str, name: &str) -> bool {
-    def_binds(&[line], 0, name)
+fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
+    def_list(lines, def_line0).is_some_and(|(_, list)| param_names(&list).iter().any(|p| p == name))
+}
+
+pub fn ruby_def_param(line: &str, name: &str, upto: usize) -> bool {
+    def_list(&[line], 0).is_some_and(|(start, list)| {
+        list.get(..upto.saturating_sub(start).min(list.len()))
+            .is_some_and(|l| param_names(l).iter().any(|p| p == name))
+    })
 }
 
 fn block_binds(line: &str, name: &str) -> bool {

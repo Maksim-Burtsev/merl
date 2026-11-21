@@ -234,7 +234,7 @@ impl App {
             && !found.is_empty()
             && !a.dotted
             && near.locals == [self.line + 1]
-            && search::ruby_def_param(self.line_str(), &a.word)
+            && search::ruby_def_param(self.line_str(), &a.word, a.range.end)
         {
             *found = self.lines_here(a, [self.line + 1], &Reason::Local);
         }
