@@ -96,14 +96,13 @@ pub fn diff(root: &Path, path: &Path, base: Option<&str>, old: Option<&Path>) ->
     }
 }
 
-pub fn hash_object(root: &Path, path: &Path, bytes: &[u8]) -> Option<String> {
+pub fn hash_object(root: &Path, bytes: &[u8]) -> Option<String> {
     use std::io::Write;
     use std::process::Stdio;
     let mut child = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["hash-object", "-w", "--stdin", "--path"])
-        .arg(path)
+        .args(["hash-object", "-w", "--stdin"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -123,6 +122,7 @@ pub fn diff_objects(root: &Path, from: &str, to: &str) -> Option<Diff> {
         "--no-color",
         "--no-ext-diff",
         "--inter-hunk-context=0",
+        "--ignore-cr-at-eol",
         from,
         to,
     ];
