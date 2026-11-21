@@ -107,7 +107,8 @@ pub fn scala_arm_subject(text: &str, line1: usize) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let code = uncommented(Kind::Jvm, lines[at]);
-    if let Some(c) = SAME.captures(&code) {
+    if code.contains("match") {
+        let c = SAME.captures(&code)?;
         return (code.split("match").count() == 2).then(|| c[1].to_owned());
     }
     code.trim_start().starts_with("case").then_some(())?;
@@ -128,13 +129,22 @@ pub fn scala_option_of(line: &str, name: &str) -> Option<String> {
 
 pub fn scala_extracted(line: &str, name: &str) -> Option<(String, usize, usize)> {
     static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:val|var)\s+([A-Z]\w*)\s*\(([\w\s,]+)\)\s*=|(?:\S.*\bmatch\s*\{\s*)?case\s+([A-Z]\w*)\s*\(([\w\s,]+)\)\s*(?:=>|if\b))")
+        Regex::new(r"^\s*(?:(?:val|var)\s+([A-Z]\w*)\s*\(([\w\s,]+)\)\s*=|case\s+([A-Z]\w*)\s*\(([\w\s,]+)\)\s*(?:=>|if\b))")
+            .expect("the regex is a literal")
+    });
+    static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bmatch\s*\{\s*case\s+([A-Z]\w*)\s*\(([\w\s,]+)\)\s*(?:=>|if\b)")
             .expect("the regex is a literal")
     });
     let code = uncommented(Kind::Jvm, line);
-    let c = PATTERN.captures(&code)?;
-    alone_in_arm(&code, c.get(0)?.end(), name).then_some(())?;
-    let (class, names) = c.get(1).zip(c.get(2)).or_else(|| c.get(3).zip(c.get(4)))?;
+    let (class, names) = if let Some(c) = PATTERN.captures(&code) {
+        c.get(1).zip(c.get(2)).or_else(|| c.get(3).zip(c.get(4)))?
+    } else {
+        let c = INLINE.captures(&code)?;
+        (code.split("match").count() == 2 && alone_in_arm(&code, c.get(0)?.end(), name))
+            .then_some(())?;
+        c.get(1).zip(c.get(2))?
+    };
     let names: Vec<&str> = names.as_str().split(',').map(str::trim).collect();
     let at = names.iter().position(|n| *n == name)?;
     Some((class.as_str().to_owned(), at, names.len()))

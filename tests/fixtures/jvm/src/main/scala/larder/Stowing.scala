@@ -67,6 +67,11 @@ object Stowing {
         }
       case None => ()
     }
+    n match {
+      case Some(x) => o match { case Some(e) => e.stow() }
+//                                                ^ d: !jump
+      case None => ()
+    }
   }
 
   def inline(n: Option[Creel], k: Bale): Unit = {
@@ -78,6 +83,10 @@ object Stowing {
 //                                  ^ d: src/main/scala/larder/Coffer.scala:4
     k match { case Bale(g, h) => g.stow(); case Bale(h, g) => g.stow() }
 //                                                              ^ d: !jump
+    k match {
+      case Bale(g, h) => n match { case Some(e) => h.stow() }
+//                                                   ^ d: src/main/scala/larder/Coffer.scala:4
+    }
   }
 
   def short(n: Option[Coffer]): Unit = n match { case Some(e) => e.stow() }

@@ -1331,13 +1331,26 @@ declaration, a declaration on a later line, in a comment or a string, the right 
 
 `jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
 cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
-`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
+`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`,
 `given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
 of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
 on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
-generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` after a `;` in
+generator on a later line keep `Cup.sip`. `val Tray(x) =` reads `case class Tray(m: Mug)` from
+its own file and lands on `Mug.sip` (#1484). `Rebound.caseBody` presses `d` on `x` after a `;` in
 the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
 ends it and `x` is the field again (#1398).
+
+`jvm/src/main/scala/larder/` (#1484, #1494, #1502) has a `Hod` with `stow`, a `Creel` and a
+`Coffer` extending it, each in its own file, and a `case class Bale(creel: Creel, coffer: Coffer)`
+alone in `Bale.scala`. `Stowing` takes names out of a `val Bale(c, d) =` and a `case Bale(g, h) =>`,
+a tuple of `new` values, a `pair() match { case (c, w) => }` over a written tuple return and a
+`case Some(e) =>` over a subject written `Option[Creel]` or `Option[Hod]`, over lines and on one
+line; each lands on its position's type. A tuple item that is no `new`, a tuple arm of the wrong
+arity, a `Some(e)` over a subject that is no `Option`, an inner `v match` inside an arm of
+`n match`, an inner one-line match after an outer arm and a name bound again in a later arm of the
+same line keep a picker. `Bothy` reads a self type: `me.thaw()` in `trait Annex { me: Bothy =>`
+lands on `Bothy.thaw`, while `me.warm()` and a `Lean` that declares `thaw` itself keep the
+trait's own.
 
 `jvm/src/main/scala/tureens/` (#1415) declares a `Tureen` with a `ladle` in two packages, `north`
 and `south`, and imports one of them inside a block or an object body: `d` follows the import of
