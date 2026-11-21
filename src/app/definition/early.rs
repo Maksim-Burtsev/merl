@@ -164,7 +164,9 @@ impl App {
             || (kind == Kind::Shell
                 && search::shell_no_name(&self.buf.lines, self.line, &lead, &tail))
         {
-            self.message = resolution(&word, None, &[], None, false);
+            if kind != Kind::Clojure || !self.answered_by_clojure_kwarg(&here, &word, range.start) {
+                self.message = resolution(&word, None, &[], None, false);
+            }
             return None;
         }
         let text = self.buf.lines.join("\n");

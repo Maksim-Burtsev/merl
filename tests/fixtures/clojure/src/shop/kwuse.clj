@@ -14,3 +14,5 @@
 ;                     ^ d: none
 (rf/dispatch [:shop.kwspec/fill])
 ;                          ^ d: none
+(kwdup :mugful 1)
+;       ^ d: none
