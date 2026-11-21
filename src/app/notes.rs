@@ -640,9 +640,14 @@ impl App {
         self.notes.here.iter().find(|h| h.idx == idx)
     }
 
-    pub fn note_label(&self, first: TextLine, at: TextLine) -> String {
+    fn note_label(&self, first: TextLine, at: TextLine, note: Option<&Note>) -> String {
         if first == at {
             return String::new();
+        }
+        let mixed = matches!(first, TextLine::File(_)) != matches!(at, TextLine::File(_));
+        let written_on_code = |n: &&Note| n.quote.iter().all(|q| q.starts_with("> "));
+        if let Some(n) = note.filter(written_on_code).filter(|_| mixed) {
+            return format!("lines {} to {}", n.first, n.last);
         }
         let num = |t: TextLine| match t {
             TextLine::File(l) => (l + 1).to_string(),
@@ -733,9 +738,10 @@ impl App {
         let (n, label, top, stale, input) = match s {
             Slot::Note(i) => {
                 let h = &self.notes.here[*i];
+                let n = &self.notes.list[h.idx];
                 (
-                    Some(&self.notes.list[h.idx]),
-                    self.note_label(h.first, h.at),
+                    Some(n),
+                    self.note_label(h.first, h.at, Some(n)),
                     h.top.clone(),
                     h.stale && h.top.is_none(),
                     false,
@@ -751,7 +757,7 @@ impl App {
                     .editing_idx()
                     .and_then(|i| self.here_of(i))
                     .and_then(|h| h.top.clone());
-                (old, self.note_label(first, last), top, false, true)
+                (old, self.note_label(first, last, old), top, false, true)
             }
         };
         let Some(n) = n else {

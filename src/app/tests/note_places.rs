@@ -75,7 +75,7 @@ pub(super) fn feature_with(
 fn agent(case: &str, mut l: Vec<String>) -> Vec<String> {
     let fix = |s: &str| format!("\t\treturn fmt.Errorf(\"{s}: %w\", err)");
     match case {
-        "changed" | "block" => l[13] = fix("step1"),
+        "changed" | "block" | "two-lines" => l[13] = fix("step1"),
         "deleted" => {
             l.splice(12..16, ["\treturn run(1)".to_owned()]);
         }
@@ -226,6 +226,72 @@ fn row_7_a_block_note_whose_block_changed_waits_above_the_file() {
     assert_eq!(got, [(TextLine::File(0), DIM, true)], "{s}");
 }
 
+const TWO_LINES: &str =
+    "steps.go:13-14\n> \tif err := run(1); err != nil {\n> \t\treturn err\nwrap these\n";
+
+#[test]
+fn a_two_line_note_whose_second_line_changed_names_the_lines_it_was_written_on() {
+    let (got, s) = both_ways("two-lines", TWO_LINES);
+    assert_eq!(got, [(TextLine::Deleted(17, 0), DIM, false)], "{s}");
+    assert!(s.contains("lines 13 to 14  wrap these (changed)"), "{s}");
+    let (dir, lines) = feature("two-lines-answered", TWO_LINES);
+    agent_wrote(&dir, &agent("two-lines", lines));
+    let mut a = open(&dir);
+    a.notes.focus = Some(0);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "ok");
+    let answering = screen(&mut a);
+    agent_notes(&dir, &format!("{TWO_LINES}agent: wrapped\n"));
+    let replied = screen(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(a.mode, Mode::Note);
+    assert!(
+        answering.contains("lines 13 to 14  wrap theseok"),
+        "{answering}"
+    );
+    assert!(
+        replied.contains("lines 13 to 14  wrap theseok"),
+        "{replied}"
+    );
+    assert!(!replied.contains(" to -"), "{replied}");
+}
+
+#[test]
+fn a_two_line_note_typed_into_after_it_moved_keeps_the_numbers_it_is_drawn_on() {
+    let (dir, lines) = feature("two-lines-typed", TWO_LINES);
+    agent_wrote(&dir, &imported(lines));
+    let mut a = open(&dir);
+    assert_eq!(placed(&mut a), [(TextLine::File(17), LIVE, false)]);
+    a.jump_to(&dir.join("steps.go"), 18);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "x");
+    let got = placed(&mut a);
+    let s = screen(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(got, [(TextLine::File(17), DIM, false)], "{s}");
+    assert!(s.contains("lines 17 to 18  wrap these (changed)"), "{s}");
+}
+
+#[test]
+fn a_note_written_on_a_deleted_line_and_the_next_is_not_named_by_its_one_stored_number() {
+    let (dir, _) = feature_with("ghost-and-next", "", |mut l| {
+        l.remove(13);
+        l
+    });
+    let mut a = open(&dir);
+    a.jump_to(&dir.join("steps.go"), 14);
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    note(&mut a, "both");
+    let stored = std::fs::read_to_string(dir.join(".git/merl/notes/feature")).unwrap();
+    let s = screen(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert!(stored.contains("steps.go:14\n- "), "{stored}");
+    assert!(s.contains("both"), "{s}");
+    assert!(!s.contains("lines 14 to 14"), "{s}");
+}
+
 #[test]
 fn row_8_a_note_on_a_line_the_branch_added_and_changed_again_waits_above_the_file() {
     let added = "steps.go:41\n> \tif err := run(50); err != nil {\nwhy 50\n";
@@ -245,6 +311,7 @@ fn a_block_note_whose_first_line_was_deleted_stays_dim_in_the_code_with_a_finger
     let block = "steps.go:14-15\n> \t\treturn err\n> \t}\nwrap two\n";
     let (got, s) = both_ways("delfirst", block);
     assert!(matches!(got[..], [(_, DIM, false)]), "{got:?} {s}");
+    assert!(s.contains("lines 14 to 15  wrap two (changed)"), "{s}");
 }
 
 #[test]
