@@ -108,7 +108,7 @@ fn a_python_module_an_interpreter_holds_unpacks_no_typeshed_and_one_it_lacks_rea
     let home = std::env::temp_dir().join(format!("merl-typeshed-home-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&home));
     std::fs::create_dir_all(&home).unwrap();
-    let out = std::process::Command::new(std::env::current_exe().unwrap())
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
             "app::tests::outside::a_python_module_an_interpreter_holds_unpacks_no_typeshed_and_one_it_lacks_reads_it",
@@ -118,8 +118,10 @@ fn a_python_module_an_interpreter_holds_unpacks_no_typeshed_and_one_it_lacks_rea
         .env("HOME", &home)
         .output()
         .unwrap();
-    let out = String::from_utf8(out.stdout).unwrap();
     std::fs::remove_dir_all(&home).unwrap();
+    let out = String::from_utf8_lossy(&child.stdout);
+    let failed = String::from_utf8_lossy(&child.stderr);
+    assert!(child.status.success(), "{out}{failed}");
     let said = |key: &str| {
         out.lines()
             .find_map(|l| l.split_once(&format!("{key}=")).map(|(_, m)| m.to_owned()))
