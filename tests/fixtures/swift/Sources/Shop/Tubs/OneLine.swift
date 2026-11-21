@@ -9,25 +9,25 @@ class TubOneLine {
     func l2() { _ = c.dunk() }
     //                ^ d: Sources/Shop/Tubs/Tun.swift:2
     func p(c: Hogshead) { _ = c.dunk() }
-    //                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                          ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     func q() { let c = Hogshead(); _ = c.dunk() }
-    //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     func r() { if let c = Optional(Hogshead()) { _ = c.dunk() } }
-    //                                                 ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                                                 ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     var s: Bool { c.dunk() }
-    //              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1488)
+    //              ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tun.swift:2 (#1552)
     func t() { tubs.forEach { c in _ = c.dunk() } }
     //                                   ^ d: Sources/Shop/Tubs/Tub.swift:2
     func u() { for c in tubs { _ = c.dunk() } }
-    //                               ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1488)
+    //                               ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Tub.swift:2 (#1552)
     func v() { guard let c = Optional(Hogshead()) else { return }; _ = c.dunk() }
-    //                                                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                                                                   ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     func v2() { guard let c = Optional(Hogshead()) else { return }; _ = c.dunk() }
     //                                                                  ^ d: Sources/Shop/Tubs/OneLine.swift:25
     func w(_ c: Hogshead) { _ = c.dunk() }
-    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                            ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     func x<T: Hogshead>(c: T) { _ = c.dunk() }
-    //                                ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1488)
+    //                                ^ d: picker Sources/Shop/Tubs/Hogshead.swift:2, Sources/Shop/Tubs/Tub.swift:2, Sources/Shop/Tubs/Tun.swift:2; want Sources/Shop/Tubs/Hogshead.swift:2 (#1552)
     func y() { if let c = Optional(Hogshead()) { _ = c }; _ = c.dunk() }
     //                                                        ^ d: Sources/Shop/Tubs/OneLine.swift:3
     func y2(c: Hogshead) { _ = c }
