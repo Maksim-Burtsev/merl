@@ -151,6 +151,63 @@ impl App {
         });
         Some(found.collect())
     }
+
+    pub(super) fn answered_by_clojure_kwarg(
+        &mut self,
+        here: &Path,
+        word: &str,
+        start: usize,
+    ) -> bool {
+        let text = self.buf.lines.join("\n");
+        let at = (self.buf.lines[..self.line].iter())
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + start;
+        let Some((callee, index)) = search::clojure_kwarg_call(&text, at) else {
+            return false;
+        };
+        let head = text.get(..callee).unwrap_or_default();
+        let (line, col, message) = (self.line, self.col, std::mem::take(&mut self.message));
+        self.line = head.matches('\n').count();
+        self.col = callee - head.rfind('\n').map_or(0, |n| n + 1);
+        let name = self.definition_word(Some(Kind::Clojure)).map(|(_, w)| w);
+        self.probe = Some(Vec::new());
+        self.goto_definition();
+        let owners = self.probe.take().unwrap_or_default();
+        let unsure = std::mem::take(&mut self.offer_only);
+        self.truncated.set(false);
+        (self.line, self.col, self.message) = (line, col, message);
+        let (Some(name), [owner], false) = (name, owners.as_slice(), unsure) else {
+            return false;
+        };
+        let name = name.rsplit('/').next().unwrap_or(&name);
+        let decl = (!owner.hit.path.is_absolute())
+            .then(|| self.text_of(&owner.hit.path))
+            .flatten();
+        let Some((line1, text)) = decl.and_then(|t| {
+            let line1 = search::clojure_keys_line(&t, owner.hit.line1, name, word, index)?;
+            Some((line1, t.lines().nth(line1 - 1)?.to_owned()))
+        }) else {
+            return false;
+        };
+        let by_name = if owner.reason.proven() {
+            ""
+        } else {
+            ", found by name"
+        };
+        let found = Candidate {
+            hit: Hit {
+                deleted: None,
+                path: owner.hit.path.clone(),
+                line1,
+                byte_col: None,
+                text,
+            },
+            reason: Reason::Label(format!("parameter of {name}{by_name}")),
+        };
+        self.show_definitions(Kind::Clojure, word, here, vec![found], None);
+        true
+    }
 }
 
 fn unambiguous(requires: &[(String, String)]) -> Vec<(String, String)> {

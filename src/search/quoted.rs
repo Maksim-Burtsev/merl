@@ -15,6 +15,7 @@ enum Lang {
     C,
     Rust,
     Php,
+    Julia,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -30,6 +31,7 @@ enum Hole {
     Dollar,
     Path,
     Php,
+    Paren,
     No,
 }
 
@@ -119,9 +121,13 @@ fn php_qualified_name(text: &str, at: usize) -> bool {
     head.chain(tail).any(|&c| c == b'\\')
 }
 
-pub(super) fn cs_holes(line: &[u8]) -> Vec<(usize, usize)> {
+pub(super) fn holes(kind: Kind, line: &[u8]) -> Vec<(usize, usize)> {
+    let lang = match kind {
+        Kind::Julia => Lang::Julia,
+        _ => Lang::CSharp,
+    };
     let mut holes = Vec::new();
-    lex(Lang::CSharp, line, line.len(), &mut holes);
+    lex(lang, line, line.len(), &mut holes);
     holes
 }
 
@@ -153,6 +159,14 @@ fn lex(lang: Lang, b: &[u8], at: usize, holes: &mut Vec<(usize, usize)>) -> Opti
                     break;
                 }
                 (n, Change::Keep)
+            }
+            Some((Frame::Code(0), _))
+                if lang == Lang::Julia
+                    && b[i] == b')'
+                    && stack.len() > 1
+                    && matches!(stack[stack.len() - 2], (Frame::Text(_), _)) =>
+            {
+                (1, Change::Pop)
             }
             Some((Frame::Code(_), _)) | None => in_code(lang, b, i),
         };
@@ -223,12 +237,13 @@ fn in_text(t: &Text, rest: &[u8]) -> (usize, Change) {
         }
         Hole::Php if rest.starts_with(b"{$") => Some(1),
         Hole::Dollar | Hole::Path | Hole::Php if rest.starts_with(b"${") => Some(2),
-        Hole::Path | Hole::Php
+        Hole::Paren if rest.starts_with(b"$(") => Some(2),
+        Hole::Path | Hole::Php | Hole::Paren
             if rest[0] == b'$' && rest.get(1).is_some_and(|&c| name_start(c)) =>
         {
             return (1, Change::Push(Frame::Path));
         }
-        Hole::Dollar | Hole::Path | Hole::Php | Hole::No => None,
+        Hole::Dollar | Hole::Path | Hole::Php | Hole::Paren | Hole::No => None,
     };
     if let Some(n) = hole {
         return (n, Change::Push(Frame::Code(0)));
@@ -247,7 +262,10 @@ fn in_path(lang: Lang, rest: &[u8]) -> (usize, Change) {
     };
     if ident(rest[0]) {
         (1, Change::Keep)
-    } else if rest.starts_with(dot) && rest.get(dot.len()).is_some_and(|&c| name_start(c)) {
+    } else if lang != Lang::Julia
+        && rest.starts_with(dot)
+        && rest.get(dot.len()).is_some_and(|&c| name_start(c))
+    {
         (dot.len(), Change::Keep)
     } else {
         (0, Change::Pop)
@@ -292,15 +310,19 @@ fn in_code(lang: Lang, b: &[u8], i: usize) -> (usize, Change) {
     let rest = &b[i..];
     let line_comment = match lang {
         Lang::Python => rest[0] == b'#',
+        Lang::Julia => rest[0] == b'#' && rest.get(1) != Some(&b'='),
         Lang::Php => rest.starts_with(b"//") || (rest[0] == b'#' && rest.get(1) != Some(&b'[')),
         _ => rest.starts_with(b"//"),
     };
     if line_comment {
         return (line_end(lang, rest), Change::Keep);
     }
-    if lang != Lang::Python && rest.starts_with(b"/*") {
+    if lang == Lang::Julia && rest.starts_with(b"#=") {
+        return (block_comment(rest, (b"#=", b"=#"), true), Change::Keep);
+    }
+    if !matches!(lang, Lang::Python | Lang::Julia) && rest.starts_with(b"/*") {
         let nests = matches!(lang, Lang::Kotlin | Lang::Scala | Lang::Dart | Lang::Rust);
-        return (block_comment(rest, nests), Change::Keep);
+        return (block_comment(rest, (b"/*", b"*/"), nests), Change::Keep);
     }
     if lang == Lang::Php && rest.starts_with(b"?>") {
         return (2, Change::Push(Frame::Html));
@@ -309,7 +331,12 @@ fn in_code(lang: Lang, b: &[u8], i: usize) -> (usize, Change) {
         return (n, Change::Push(Frame::Text(t)));
     }
     if lang == Lang::Rust && rest[0] == b'\'' {
-        return (rust_char(rest), Change::Keep);
+        return (char_literal(rest), Change::Keep);
+    }
+    if lang == Lang::Julia && rest[0] == b'\'' {
+        let adjoint =
+            i > 0 && (ident(b[i - 1]) || b"!)]}'.".contains(&b[i - 1]) || b[i - 1] >= 0x80);
+        return (if adjoint { 1 } else { char_literal(rest) }, Change::Keep);
     }
     let slashy = matches!(lang, Lang::Ts { .. } | Lang::Groovy);
     if let Some(n) = slashy.then(|| regex_literal(b, i)).flatten() {
@@ -358,7 +385,10 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
     };
     let quoted = |hole, escape| {
         let n = if triple { 3 } else { 1 };
-        Some((n, text(&rest[..n], escape, hole, triple)))
+        Some((
+            n,
+            text(&rest[..n], escape, hole, triple || lang == Lang::Julia),
+        ))
     };
     match (lang, q) {
         (Lang::Python, b'"' | b'\'') => {
@@ -432,9 +462,19 @@ fn opens(lang: Lang, b: &[u8], i: usize) -> Option<(usize, Text)> {
         }
         (Lang::Php, b'"' | b'`') => Some((1, text(&rest[..1], Escape::Backslash, Hole::Php, true))),
         (Lang::Php, b'\'') => Some((1, text(b"'", Escape::Backslash, Hole::No, true))),
+        (Lang::Julia, b'"') => quoted(julia_hole(prefix), Escape::Backslash),
+        (Lang::Julia, _) => None,
         (Lang::Java | Lang::Kotlin, _) if triple => quoted(Hole::No, Escape::Backslash),
         (_, b'"' | b'\'') => Some((1, text(&rest[..1], Escape::Backslash, Hole::No, false))),
         _ => None,
+    }
+}
+
+fn julia_hole(prefix: &[u8]) -> Hole {
+    if prefix.is_empty() {
+        Hole::Paren
+    } else {
+        Hole::No
     }
 }
 
@@ -471,7 +511,7 @@ fn heredoc(rest: &[u8]) -> Option<(usize, Text)> {
     Some((from + len + usize::from(quote.is_some()), text))
 }
 
-fn rust_char(rest: &[u8]) -> usize {
+fn char_literal(rest: &[u8]) -> usize {
     let end = match rest.get(1) {
         Some(b'\\') => (rest.get(3..).unwrap_or_default().iter().take(9))
             .position(|&c| c == b'\'')
@@ -483,14 +523,14 @@ fn rust_char(rest: &[u8]) -> usize {
         .map_or(1, |e| e + 1)
 }
 
-fn block_comment(b: &[u8], nests: bool) -> usize {
+fn block_comment(b: &[u8], (open, close): (&[u8], &[u8]), nests: bool) -> usize {
     let mut depth = 0;
     let mut i = 0;
     while i < b.len() {
-        if b[i..].starts_with(b"/*") && (nests || depth == 0) {
+        if b[i..].starts_with(open) && (nests || depth == 0) {
             depth += 1;
             i += 2;
-        } else if b[i..].starts_with(b"*/") {
+        } else if b[i..].starts_with(close) {
             depth -= 1;
             i += 2;
             if depth == 0 {
