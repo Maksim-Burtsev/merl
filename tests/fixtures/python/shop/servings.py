@@ -70,3 +70,16 @@ def unsure(other: Cauldron):
     h, k = k, h
     h.dollop()
     # ^ d: !jump
+
+
+def listed():
+    [near, far] = serve_two()
+    far.dollop()
+    #   ^ d: shop/servings.py:9
+    near.dollop()
+    #    ^ d: shop/servings.py:5
+    [lone] = serve_two()
+    lone.dollop()
+    #    ^ d: !jump
+    far.dollop()
+    # ^ d: shop/servings.py:76

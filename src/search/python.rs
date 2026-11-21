@@ -532,7 +532,7 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
         let c = TUPLE_TARGET
             .captures(s)
             .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())?;
-        let t = top_level_targets(&c[1]);
+        let t = top_level_targets(unlisted(&c[1]));
         let target = c.get(1)?;
         let value = s
             .get(target.end()..)
@@ -568,6 +568,15 @@ fn python_position(target: &str, value: &str, name: &str) -> Option<Value> {
         }),
         n if n == items.len() => Some(value_of(Kind::Python, values[at])),
         _ => None,
+    }
+}
+fn unlisted(target: &str) -> &str {
+    let t = target.trim();
+    match t.strip_prefix('[') {
+        Some(inner) if close_of(Kind::Python, t, 0) == Some(t.len()) => {
+            inner.get(..inner.len() - 1).unwrap_or(target)
+        }
+        _ => target,
     }
 }
 fn top_level_targets(target: &str) -> String {
